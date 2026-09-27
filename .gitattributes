@@ -1,0 +1,28 @@
+# Line endings are decided HERE, not by each clone's core.autocrlf.
+#
+# Everything the Pi runs (Python, shell, systemd units, sudoers, the web
+# page, the YAML template) must reach it with LF: bash stops on a stray \r
+# ("$'\r': command not found"), and sudoers rejects the whole file over
+# one. A USB push (bootstrap/push_update.*) ships the WORKING TREE as it
+# is, so a Windows clone with autocrlf=true used to hand the Pi CRLF
+# copies - hence eol=lf here, which also applies in the working tree.
+* text=auto eol=lf
+
+# Windows-only launchers keep Windows line endings (cmd.exe is unreliable
+# with LF-only batch files, e.g. around labels).
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary: never touched.
+*.wav binary
+*.mp3 binary
+*.opus binary
+*.mp4 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.af binary
+*.db binary

@@ -1,0 +1,16 @@
+[Unit]
+Description=Rukebox admin web interface
+After=network.target rukebox-daemon.service rukebox-config.service
+Wants=rukebox-daemon.service
+Requires=rukebox-config.service
+
+[Service]
+EnvironmentFile=/etc/rukebox/rukebox.env
+ExecStart=/usr/bin/python3 /opt/rukebox/src/web_server.py
+Restart=always
+RestartSec=5
+User=pi
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

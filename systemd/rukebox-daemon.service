@@ -1,0 +1,15 @@
+[Unit]
+Description=Main radio daemon (music playback, scheduling, announcements)
+After=sound.target bluetooth.target rukebox-config.service
+Wants=bt-connect.service
+Requires=rukebox-config.service
+
+[Service]
+EnvironmentFile=/etc/rukebox/rukebox.env
+ExecStart=/usr/bin/python3 /opt/rukebox/src/rukebox_daemon.py
+Restart=always
+RestartSec=5
+User=pi
+
+[Install]
+WantedBy=multi-user.target

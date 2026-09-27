@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+*~
+
+# Editors
+*.swp
+*.swo
+.idea/
+
+TODO.md
+.venv/
+__pycache__/
+graphify-out/
+
+# Built by bootstrap/build_setup_page.py
+dist/

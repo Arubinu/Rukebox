@@ -1,0 +1,15 @@
+[Unit]
+Description=Flic button daemon (fliclib-linux-hci)
+After=bluetooth.target rukebox-config.service
+Requires=rukebox-config.service
+
+[Service]
+EnvironmentFile=/etc/rukebox/rukebox.env
+Environment=FLICD_DB=/var/lib/rukebox/flic.sqlite3
+ExecStart=/opt/rukebox/scripts/start_flicd.sh
+Restart=on-failure
+RestartSec=3
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target

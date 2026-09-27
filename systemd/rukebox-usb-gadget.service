@@ -1,0 +1,14 @@
+[Unit]
+Description=Rukebox USB network gadget (CDC-NCM)
+DefaultDependencies=no
+After=sysinit.target
+Before=network-pre.target NetworkManager.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/rukebox-usb-gadget
+
+[Install]
+WantedBy=sysinit.target

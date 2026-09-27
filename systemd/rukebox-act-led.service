@@ -1,0 +1,11 @@
+[Unit]
+Description=Applies the activity LED setting (ACT_LED: default or off)
+After=rukebox-config.service
+Wants=rukebox-config.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/rukebox/scripts/act_led.sh
+
+[Install]
+WantedBy=multi-user.target

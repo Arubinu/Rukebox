@@ -1,0 +1,13 @@
+[Unit]
+Description=Clears the web interface password if a GPIO pin is grounded at boot
+After=rukebox-config.service
+Before=rukebox-web.service
+Requires=rukebox-config.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /opt/rukebox/src/gpio_reset.py
+
+[Install]
+WantedBy=multi-user.target

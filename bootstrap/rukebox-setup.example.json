@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "internet": "flash",
+  "hostname": "rukebox",
+  "timezone": "Europe/Paris",
+  "home_wifi": {"ssid": "", "password": ""},
+  "wifi_country": "FR",
+  "access_point": {"ssid": "Rukebox", "password": ""},
+  "web_password": "",
+  "boot_tweaks": true,
+  "system_upgrade": false
+}

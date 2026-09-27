@@ -1,0 +1,14 @@
+[Unit]
+Description=Bridge between flicd and the radio daemon (sends button gestures)
+After=flicd.service rukebox-daemon.service rukebox-config.service
+Requires=flicd.service rukebox-config.service
+
+[Service]
+EnvironmentFile=/etc/rukebox/rukebox.env
+ExecStart=/usr/bin/python3 /opt/rukebox/src/flic_click.py
+Restart=always
+RestartSec=5
+User=pi
+
+[Install]
+WantedBy=multi-user.target

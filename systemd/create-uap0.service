@@ -1,0 +1,13 @@
+[Unit]
+Description=Creates the virtual AP interface uap0 (concurrent AP+STA mode)
+After=sys-subsystem-net-devices-wlan0.device systemd-rfkill.service
+Before=NetworkManager.service network-pre.target
+Wants=sys-subsystem-net-devices-wlan0.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/rukebox/scripts/create_uap0.sh
+
+[Install]
+WantedBy=multi-user.target

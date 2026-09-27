@@ -1,0 +1,16 @@
+[Unit]
+Description=Rukebox first-boot installation
+After=NetworkManager.service cloud-init.service
+Wants=NetworkManager.service
+ConditionPathExists=|/boot/firmware/rukebox-setup.json
+ConditionPathExists=|/var/lib/rukebox/firstboot/setup.json
+
+[Service]
+Type=simple
+ExecStart=/home/pi/rukebox/scripts/firstboot.sh
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Rukebox - setup</title>
+    <script>
+      (function () {
+        try {
+          document.documentElement.setAttribute("data-theme", localStorage.getItem("rukebox_theme_choice") || "system");
+        } catch (e) {  }
+      })();
+    </script>
+    <style>/*STYLE*/</style>
+  </head>
+  <body class="wz-body">
+    <header class="wz-head">
+      <img src="{{LOGO}}" alt="" width="44" height="44">
+      <div class="wz-head-text">
+        <div class="wz-brand">Rukebox</div>
+        <div class="wz-sub" data-i18n="setup.subtitle">Card setup</div>
+      </div>
+      <button type="button" id="langToggleBtn" class="icon-toggle-btn lang-btn" data-icon="globe"
+              data-i18n-title="lang.toggle" data-i18n-aria-label="lang.toggle" title="Change language" aria-label="Change language">EN</button>
+    </header>
+
+    <ol class="wz-dots" id="wzDots" aria-hidden="true"></ol>
+
+    <main class="wz-main">
+      <section class="card wz-step" data-step="welcome">
+        <h2 data-icon="sparkles"><span data-i18n="setup.welcome_title">Set up your Rukebox</span></h2>
+        <p data-i18n="setup.welcome_1">This page prepares the SD card so the Pi installs itself on its first start - nothing to type on the Pi.</p>
+        <ol class="wz-list">
+          <li data-i18n="setup.welcome_flash">Flash "Raspberry Pi OS Lite" on the card with Raspberry Pi Imager.</li>
+          <li data-i18n="setup.welcome_user">If you fill in Imager's settings (Wi-Fi, account), the user name must be "pi".</li>
+          <li data-i18n="setup.welcome_insert">Put the card back into this computer, then follow the steps here.</li>
+        </ol>
+        <p class="hint warning" id="wzUnsupported" data-i18n="setup.unsupported" hidden>This browser cannot write to the card: open this page in Chrome or Edge on a computer.</p>
+      </section>
+
+      <section class="card wz-step" data-step="card" hidden>
+        <h2 data-icon="file"><span data-i18n="setup.card_title">The SD card</span></h2>
+        <p data-i18n="setup.card_hint">Choose the card's "bootfs" drive (the small partition the computer can open).</p>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="wzPickCard" data-icon="folder" data-i18n="setup.card_pick">Choose the card…</button>
+        </div>
+        <p class="hint" id="wzCardStatus" role="status"></p>
+      </section>
+
+      <section class="card wz-step" data-step="account" hidden>
+        <h2 data-icon="user"><span data-i18n="setup.account_title">Account and name</span></h2>
+        <div class="wz-choices" role="radiogroup">
+          <label class="wz-choice"><input type="radio" name="account" value="imager">
+            <span><strong data-i18n="setup.account_imager">Already set in Raspberry Pi Imager</strong>
+            <small data-i18n="setup.account_imager_desc">With the user name "pi".</small></span></label>
+          <label class="wz-choice"><input type="radio" name="account" value="here" checked>
+            <span><strong data-i18n="setup.account_here">Set it here</strong>
+            <small data-i18n="setup.account_here_desc">A password, an SSH key, or both.</small></span></label>
+        </div>
+        <p class="hint" id="wzAccountNote" data-i18n="setup.account_extra" hidden></p>
+        <p class="hint warning" id="wzUserWarn" hidden></p>
+        <p class="hint warning" id="wzKeyWarn" hidden></p>
+        <div id="wzAccountHere" class="settings-form">
+          <div class="field-row"><label for="wzPw" data-i18n="setup.pi_password">Password of "pi"</label>
+            <input type="password" id="wzPw" class="text-input" autocomplete="new-password"></div>
+          <div class="field-row"><label for="wzPw2" data-i18n="setup.pi_password2">Confirm it</label>
+            <input type="password" id="wzPw2" class="text-input" autocomplete="new-password"></div>
+          <div class="field-row wz-col"><label for="wzKey" data-i18n="setup.ssh_key">SSH public key (optional)</label>
+            <textarea id="wzKey" class="text-input" rows="3" spellcheck="false" placeholder="ssh-ed25519 AAAA…"></textarea></div>
+        </div>
+        <div class="field-row"><label for="wzHost" data-i18n="setup.hostname">Name on the network</label>
+          <input type="text" id="wzHost" class="text-input" value="rukebox" autocapitalize="off" spellcheck="false"></div>
+      </section>
+
+      <section class="card wz-step" data-step="internet" hidden>
+        <h2 data-icon="wifi"><span data-i18n="setup.internet_title">Internet, for the installation</span></h2>
+        <p class="hint" data-i18n="setup.internet_hint">Needed once, for about 20 minutes, to download the software.</p>
+        <div class="wz-choices" role="radiogroup">
+          <label class="wz-choice"><input type="radio" name="internet" value="flash" checked>
+            <span><strong data-i18n="setup.net_flash">Keep the Wi-Fi given in Imager</strong>
+            <small data-i18n="setup.net_flash_desc">It becomes the Rukebox's personal Wi-Fi.</small></span></label>
+          <label class="wz-choice"><input type="radio" name="internet" value="wifi">
+            <span><strong data-i18n="setup.net_wifi">Another Wi-Fi</strong>
+            <small data-i18n="setup.net_wifi_desc">Replaces the one from Imager, if any.</small></span></label>
+          <label class="wz-choice"><input type="radio" name="internet" value="ethernet">
+            <span><strong data-i18n="setup.net_ethernet">An Ethernet cable</strong>
+            <small data-i18n="setup.net_ethernet_desc">Plugged into your router: nothing to set.</small></span></label>
+          <label class="wz-choice"><input type="radio" name="internet" value="usb">
+            <span><strong data-i18n="setup.net_usb">This computer, over the USB cable</strong>
+            <small data-i18n="setup.net_usb_desc">Run bootstrap/usb_internet on the computer when asked.</small></span></label>
+        </div>
+        <div id="wzWifiFields" class="settings-form" hidden>
+          <div class="field-row"><label for="wzWifiSsid" data-i18n="setup.wifi_ssid">Wi-Fi name</label>
+            <input type="text" id="wzWifiSsid" class="text-input" autocapitalize="off" spellcheck="false"></div>
+          <div class="field-row"><label for="wzWifiPw" data-i18n="setup.wifi_password">Wi-Fi password</label>
+            <input type="password" id="wzWifiPw" class="text-input" autocomplete="off"></div>
+        </div>
+        <div class="field-row"><label for="wzCountry" data-i18n="setup.country">Country (Wi-Fi rules)</label>
+          <input type="text" id="wzCountry" class="text-input wz-short" maxlength="2" autocapitalize="characters" spellcheck="false"></div>
+      </section>
+
+      <section class="card wz-step" data-step="ap" hidden>
+        <h2 data-icon="antenna"><span data-i18n="setup.ap_title">The Rukebox's own Wi-Fi</span></h2>
+        <p class="hint" data-i18n="setup.ap_hint">Where you reach its interface from a phone.</p>
+        <div class="settings-form">
+          <div class="field-row"><label for="wzApSsid" data-i18n="setup.ap_ssid">Network name</label>
+            <input type="text" id="wzApSsid" class="text-input" value="Rukebox" maxlength="32"></div>
+          <div class="field-row"><label for="wzApPw" data-i18n="setup.ap_password">Password (8 characters or more, empty = open)</label>
+            <input type="password" id="wzApPw" class="text-input" autocomplete="new-password"></div>
+          <div class="field-row"><label for="wzSameWeb" data-i18n="setup.same_web">Same password for the interface</label>
+            <input type="checkbox" id="wzSameWeb" class="switch-input" role="switch" checked></div>
+          <div class="field-row" id="wzWebRow" hidden><label for="wzWebPw" data-i18n="setup.web_password">Interface password (empty = none)</label>
+            <input type="password" id="wzWebPw" class="text-input" autocomplete="new-password"></div>
+        </div>
+      </section>
+
+      <section class="card wz-step" data-step="radio" hidden>
+        <h2 data-icon="sliders"><span data-i18n="setup.radio_title">The radio</span></h2>
+        <p class="hint" data-i18n="setup.radio_hint">All of this can be changed later from the interface.</p>
+        <div class="settings-form">
+          <div class="field-row"><label for="wzTz" data-i18n="setup.timezone">Timezone</label>
+            <select id="wzTz"></select></div>
+          <div class="field-row"><label for="wzStart" data-i18n="settings.start_mode">Music start</label>
+            <select id="wzStart">
+              <option value="boot" data-i18n="start.boot">When the Pi starts</option>
+              <option value="action" data-i18n="start.action">On a button press</option>
+              <option value="scheduled" data-i18n="start.scheduled">At a set time</option>
+              <option value="bluetooth" data-i18n="start.bluetooth">When the speaker connects</option>
+            </select></div>
+          <div class="field-row" id="wzStartTimeRow" hidden><label for="wzStartTime" data-i18n="setup.start_time">Start time</label>
+            <input type="time" id="wzStartTime" class="text-input wz-short" value="07:00"></div>
+          <div class="field-row"><label for="wzCutoff" data-i18n="setup.cutoff_time">Cutoff time</label>
+            <input type="time" id="wzCutoff" class="text-input wz-short" value="07:00"></div>
+          <div class="field-row"><label for="wzOutput" data-i18n="audioout.label">Sound goes to</label>
+            <select id="wzOutput">
+              <option value="bluetooth" data-i18n="audioout.bluetooth">Bluetooth speaker</option>
+              <option value="jack" data-i18n="audioout.jack">Headphone jack</option>
+              <option value="usb" data-i18n="audioout.usb">USB sound card</option>
+              <option value="hdmi" data-i18n="audioout.hdmi">HDMI</option>
+            </select></div>
+          <p class="hint" data-i18n="setup.bt_later">The Bluetooth speaker is paired after the installation, from the interface.</p>
+          <div class="field-row wz-col"><span class="field-label" data-i18n="setup.bundle">Or reuse a saved configuration (Configuration card, "Download")</span>
+            <div class="wz-drop" id="wzBundleDrop" role="button" tabindex="0">
+              <span id="wzBundleText" data-i18n="setup.bundle_drop">Drop the configuration file here, or click to choose it</span>
+            </div>
+            <input type="file" id="wzBundle" accept=".json,application/json" hidden></div>
+          <p class="hint" id="wzBundleStatus" role="status"></p>
+        </div>
+      </section>
+
+      <section class="card wz-step" data-step="files" hidden>
+        <h2 data-icon="upload"><span data-i18n="setup.files_title">Your files (optional)</span></h2>
+        <p class="hint" data-i18n="setup.files_hint">They travel on the card. The card only has about 380 MB: a bigger library is sent from the interface after the installation.</p>
+        <div class="wz-files">
+          <label class="btn" data-icon="folder"><span data-i18n="setup.files_music">Music folder…</span>
+            <input type="file" id="wzMusic" webkitdirectory multiple hidden></label>
+          <label class="btn" data-icon="file"><span data-i18n="setup.files_memes">Button sounds…</span>
+            <input type="file" id="wzMemes" multiple accept="audio/*" hidden></label>
+          <label class="btn" data-icon="file"><span data-i18n="setup.files_morning">Morning announcements…</span>
+            <input type="file" id="wzMorning" multiple accept="audio/*" hidden></label>
+        </div>
+        <p class="hint" id="wzFilesStatus" role="status"></p>
+      </section>
+
+      <section class="card wz-step" data-step="write" hidden>
+        <h2 data-icon="download"><span data-i18n="setup.write_title">Write the card</span></h2>
+        <ul class="wz-summary" id="wzSummary"></ul>
+        <div class="install-progress wz-progress" aria-hidden="true"><i id="wzBar"></i></div>
+        <p class="hint" id="wzWriteStatus" role="status"></p>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="wzWrite" data-icon="check" data-i18n="setup.write_btn">Write to the card</button>
+        </div>
+      </section>
+
+      <section class="card wz-step" data-step="done" hidden>
+        <h2 data-icon="check"><span data-i18n="setup.done_title">The card is ready</span></h2>
+        <ol class="wz-list">
+          <li data-i18n="setup.done_eject">Eject the card safely, put it into the Pi and switch it on.</li>
+          <li data-i18n="setup.done_wait">Leave this page open: it finds the Pi and takes you to it. The installation takes 15 to 30 minutes.</li>
+        </ol>
+        <p class="hint" id="wzFindStatus" role="status"></p>
+        <div class="form-actions" id="wzOpenRow" hidden>
+          <a class="btn btn-primary" id="wzOpen" data-icon="link" data-i18n="setup.open_pi">Open the Rukebox</a>
+        </div>
+      </section>
+
+      <p class="hint warning wz-error" id="wzError" role="alert" hidden></p>
+      <div class="form-actions btn-split wz-nav">
+        <div class="btn-group"><button type="button" class="btn" id="wzBack" data-i18n="setup.back">Back</button></div>
+        <div class="btn-group"><button type="button" class="btn btn-primary" id="wzNext" data-i18n="setup.next">Next</button></div>
+      </div>
+    </main>
+
+    <script>/*I18N*/
+</script>
+    <script>window.RUKEBOX_PAYLOAD = /*PAYLOAD*/;
+</script>
+    <script>/*SETUP_JS*/
+</script>
+  </body>
+</html>

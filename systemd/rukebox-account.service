@@ -1,0 +1,16 @@
+[Unit]
+Description=Rukebox: gives the "pi" account its shell, password and SSH key
+After=cloud-init.service cloud-config.service
+Before=rukebox-firstboot.service
+# Either file: firstrun.sh normally moves the card's copy to the rootfs.
+ConditionPathExists=|/etc/rukebox/account-setup.env
+ConditionPathExists=|/boot/firmware/rukebox-account.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/rukebox/account-setup.env
+ExecStart=/usr/local/sbin/rukebox-account-setup
+
+[Install]
+WantedBy=multi-user.target

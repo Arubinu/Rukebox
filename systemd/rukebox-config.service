@@ -1,0 +1,14 @@
+[Unit]
+Description=Prepares the radio configuration (YAML -> flat env file for the other units)
+Before=rukebox-daemon.service rukebox-web.service flicd.service flic-bridge.service bt-connect.service
+DefaultDependencies=no
+After=local-fs.target
+Requires=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /opt/rukebox/src/config_file.py ensure
+
+[Install]
+WantedBy=multi-user.target

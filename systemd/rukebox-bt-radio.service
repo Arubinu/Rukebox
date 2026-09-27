@@ -1,0 +1,12 @@
+[Unit]
+Description=Clears the Bluetooth radio's soft block (BlueZ cannot)
+After=systemd-rfkill.service
+Before=bluetooth.service
+ConditionPathExists=/opt/rukebox/scripts/bt_radio.sh
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/rukebox/scripts/bt_radio.sh
+
+[Install]
+WantedBy=multi-user.target

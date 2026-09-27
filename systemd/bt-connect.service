@@ -1,0 +1,14 @@
+[Unit]
+Description=Keeps the Bluetooth speaker connected
+After=bluetooth.target rukebox-config.service
+Wants=bluetooth.target
+Requires=rukebox-config.service
+
+[Service]
+Type=simple
+ExecStart=/opt/rukebox/scripts/bt-connect.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Bridge between a GPIO button and the radio daemon (sends button gestures)
+After=rukebox-daemon.service rukebox-config.service
+Requires=rukebox-config.service
+
+[Service]
+EnvironmentFile=/etc/rukebox/rukebox.env
+ExecStart=/usr/bin/python3 /opt/rukebox/src/gpio_click.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

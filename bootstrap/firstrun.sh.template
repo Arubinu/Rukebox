@@ -1,0 +1,120 @@
+#!/bin/bash
+set -e
+
+BOOT_DIR="/boot/firmware"
+[ -d "$BOOT_DIR" ] || BOOT_DIR="/boot"
+
+LOGFILE="$BOOT_DIR/firstrun.log"
+exec > "$LOGFILE" 2>&1
+echo "$(date) - starting initial provisioning"
+
+USERNAME="pi"
+
+# The account exists only later in the boot: the credentials go to the rootfs
+# first, and the card's copy is dropped only once they are safely there.
+mkdir -p /etc/rukebox
+if [ -f "$BOOT_DIR/rukebox-account.env" ]; then
+    if install -m 600 -o root -g root "$BOOT_DIR/rukebox-account.env" /etc/rukebox/account-setup.env; then
+        rm -f "$BOOT_DIR/rukebox-account.env"
+    else
+        echo "WARNING: the credentials stay on the card, rukebox-account.service reads them there." >&2
+    fi
+fi
+
+if [ -f "$BOOT_DIR/rukebox-imager-firstrun.sh" ]; then
+    echo "$(date) - running Raspberry Pi Imager's first-boot settings first"
+    bash "$BOOT_DIR/rukebox-imager-firstrun.sh" || echo "WARNING: Imager's first-boot script failed" >&2
+    rm -f "$BOOT_DIR/rukebox-imager-firstrun.sh"
+fi
+
+if [ -f "$BOOT_DIR/rukebox/scripts/account_setup.sh" ]; then
+    install -m 755 -o root -g root "$BOOT_DIR/rukebox/scripts/account_setup.sh" \
+        /usr/local/sbin/rukebox-account-setup \
+        || echo "WARNING: the account helper could not be installed." >&2
+fi
+if [ -f "$BOOT_DIR/rukebox/systemd/rukebox-account.service" ]; then
+    cp "$BOOT_DIR/rukebox/systemd/rukebox-account.service" /etc/systemd/system/ 2>/dev/null || true
+    systemctl enable rukebox-account.service 2>/dev/null || true
+fi
+if [ -x /usr/local/sbin/rukebox-account-setup ]; then
+    ACCOUNT_WAIT_SEC=0 ACCOUNT_FIRST_BOOT=1 /usr/local/sbin/rukebox-account-setup \
+        || echo "WARNING: the account is not ready yet - rukebox-account.service finishes it at the next boot." >&2
+fi
+
+SUDOERS_TMP=$(mktemp)
+echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "$SUDOERS_TMP"
+if visudo -cqf "$SUDOERS_TMP"; then
+    install -m 440 -o root -g root "$SUDOERS_TMP" "/etc/sudoers.d/010-$USERNAME-nopasswd"
+else
+    echo "WARNING: generated sudoers snippet failed visudo validation, not installed - sudo will require a password." >&2
+fi
+rm -f "$SUDOERS_TMP"
+
+HOSTNAME_WANTED="__HOSTNAME__"
+echo "$HOSTNAME_WANTED" > /etc/hostname
+sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$HOSTNAME_WANTED/" /etc/hosts 2>/dev/null || true
+hostnamectl set-hostname "$HOSTNAME_WANTED" 2>/dev/null || true
+
+# Imager applies its own hostname on the second boot, and the router keeps the
+# name the Pi announced first: this is the one that counts.
+if [ -d /etc/cloud ]; then
+    mkdir -p /etc/cloud/cloud.cfg.d
+    echo "preserve_hostname: true" > /etc/cloud/cloud.cfg.d/99-rukebox-hostname.cfg
+fi
+
+systemctl enable ssh 2>/dev/null || true
+touch "$BOOT_DIR/ssh" 2>/dev/null || true
+
+mkdir -p /etc/NetworkManager/system-connections 2>/dev/null || true
+cat > /etc/NetworkManager/system-connections/usb0-static.nmconnection 2>/dev/null <<'NMEOF' || true
+[connection]
+id=usb0-static
+type=ethernet
+interface-name=usb0
+autoconnect=true
+
+[ipv4]
+method=manual
+address1=169.254.7.7/16
+
+[ipv6]
+method=ignore
+NMEOF
+chmod 600 /etc/NetworkManager/system-connections/usb0-static.nmconnection 2>/dev/null || true
+
+if [ -f /etc/dhcpcd.conf ] && ! grep -q "^interface usb0" /etc/dhcpcd.conf; then
+    cat >> /etc/dhcpcd.conf <<'DHCPEOF'
+
+interface usb0
+    static ip_address=169.254.7.7/16
+    noipv6rs
+DHCPEOF
+fi
+
+if [ -f "$BOOT_DIR/rukebox/scripts/usb_gadget.sh" ]; then
+    install -m 755 -o root -g root \
+        "$BOOT_DIR/rukebox/scripts/usb_gadget.sh" /usr/local/sbin/rukebox-usb-gadget 2>/dev/null || true
+    if [ -f "$BOOT_DIR/rukebox/systemd/rukebox-usb-gadget.service" ]; then
+        cp "$BOOT_DIR/rukebox/systemd/rukebox-usb-gadget.service" \
+            /etc/systemd/system/rukebox-usb-gadget.service 2>/dev/null || true
+        systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
+    fi
+fi
+
+if [ -f "$BOOT_DIR/rukebox-setup.json" ] && [ -f "$BOOT_DIR/rukebox/systemd/rukebox-firstboot.service" ]; then
+    echo "$(date) - rukebox-setup.json found: enabling the automatic installation"
+    chmod +x "$BOOT_DIR/rukebox/scripts/firstboot.sh" 2>/dev/null || true
+    cp "$BOOT_DIR/rukebox/systemd/rukebox-firstboot.service" /etc/systemd/system/ \
+        || echo "WARNING: the automatic installation could not be enabled." >&2
+    systemctl enable rukebox-firstboot.service 2>/dev/null || true
+fi
+
+echo "$(date) - provisioning done, cleaning up and rebooting"
+
+CMDLINE_FILE="$BOOT_DIR/cmdline.txt"
+if [ -f "$CMDLINE_FILE" ]; then
+    sed -i -E 's/ ?systemd\.run=[^ ]*//; s/ ?systemd\.run_success_action=[^ ]*//; s/ ?systemd\.unit=[^ ]*//' "$CMDLINE_FILE"
+fi
+rm -f "$BOOT_DIR/firstrun.sh"
+
+reboot

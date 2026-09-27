@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" id="themeColorMeta" content="#f3f4f7">
+    <meta name="color-scheme" content="light dark">
+    <meta name="darkreader-lock">
+    <meta name="description" content="Rukebox - the radio's control panel">
+    <title>Rukebox</title>
+    <script>
+      (function () {
+        try {
+          var choice = localStorage.getItem("rukebox_theme_choice") || "system";
+          document.documentElement.setAttribute("data-theme", choice);
+          var view = localStorage.getItem("rukebox_view") === "detailed" ? "detailed" : "simple";
+          document.documentElement.setAttribute("data-view", view);
+          var tab = localStorage.getItem("rukebox_active_tab") || "home";
+          if (view === "simple" && tab === "stats") tab = "home";
+          document.documentElement.setAttribute("data-tab", tab);
+          var dark = choice === "dark" || (choice === "system" &&
+            window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.getElementById("themeColorMeta").setAttribute("content", dark ? "#0e1015" : "#f3f4f7");
+        } catch (e) {
+          document.documentElement.setAttribute("data-view", "simple");
+          document.documentElement.setAttribute("data-tab", "home");
+        }
+      })();
+    </script>
+    <noscript><style>#bootOverlay { display: none; }</style></noscript>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+
+    <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
+
+    <div id="bootOverlay" class="boot-overlay" data-state="loading" role="status" aria-live="polite">
+      <div class="boot-box">
+        <div class="boot-mark">
+          <img class="boot-logo" src="/logo.webp" alt="" width="104" height="104">
+        </div>
+        <div class="boot-name">Rukebox</div>
+        <div class="boot-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="boot-alert" data-icon="alert" aria-hidden="true"></div>
+        <div class="boot-off" data-icon="power" aria-hidden="true"></div>
+        <p class="boot-message" id="bootMessage" data-i18n="boot.connecting">Connecting to the Rukebox…</p>
+        <button type="button" class="btn btn-primary" id="bootRetry" data-icon="refresh" data-i18n="boot.retry" hidden>Try again</button>
+      </div>
+    </div>
+
+    <div id="loginOverlay" class="login-overlay" hidden>
+      <form id="loginForm" class="login-box" aria-labelledby="loginTitle">
+        <h1 id="loginTitle" data-i18n="login.title">Rukebox</h1>
+        <p class="hint" data-i18n="login.subtitle">This interface is password-protected.</p>
+        <label class="sr-only" for="loginPassword" data-i18n="login.password_placeholder">Password</label>
+        <input type="password" id="loginPassword" class="text-input" autocomplete="current-password"
+               data-i18n-placeholder="login.password_placeholder" placeholder="Password" required>
+        <p class="hint login-error" id="loginError" role="alert" hidden></p>
+        <button type="submit" class="btn btn-primary" id="loginSubmit" data-icon="login" data-i18n="login.submit">Log in</button>
+        <button type="button" class="btn" id="loginPortalRelease" data-icon="check" data-i18n="guest.join" hidden>Finish connecting</button>
+      </form>
+    </div>
+
+    <div class="app">
+
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-logo" src="/logo.webp" alt="" width="36" height="36">
+          <span class="brand-text">
+            <span class="brand-name">Rukebox</span>
+            <span class="brand-clock" data-show="time">
+              <span class="bc-time"></span>
+              <span class="bc-date"></span>
+            </span>
+          </span>
+        </div>
+        <h1 class="sr-only" id="pageTitle" data-i18n="tab.home">Home</h1>
+        <div class="status-pill" id="connPill" role="status" aria-live="polite">
+          <span class="dot" id="connDot" aria-hidden="true"></span>
+          <span id="connLabel" data-i18n="conn.connecting">Connecting…</span>
+        </div>
+        <div class="topbar-controls">
+          <button type="button" id="themeToggleBtn" class="icon-toggle-btn" data-icon="sun"
+                  data-i18n-title="theme.toggle" data-i18n-aria-label="theme.toggle"
+                  title="Toggle light/dark theme" aria-label="Toggle light/dark theme"></button>
+          <button type="button" id="langToggleBtn" class="icon-toggle-btn lang-btn" data-icon="globe"
+                  data-i18n-title="lang.toggle" data-i18n-aria-label="lang.toggle"
+                  title="Change language" aria-label="Change language">EN</button>
+          <button type="button" id="logoutBtn" class="icon-toggle-btn" data-icon="logout" hidden
+                  data-i18n-title="auth.logout" data-i18n-aria-label="auth.logout"
+                  title="Log out" aria-label="Log out"></button>
+        </div>
+      </header>
+
+      <main class="grid" id="main" tabindex="-1">
+
+        <section class="card setup-card" id="setupCard" data-tab="home" aria-labelledby="setupTitle" hidden>
+          <h2 data-icon="check" id="setupTitle"><span data-i18n="setup.title">To finish</span></h2>
+          <p class="hint" data-i18n="setup.intro">What this Rukebox still lacks. Set it aside if you do not need it.</p>
+          <ul class="setup-list" id="setupList"></ul>
+        </section>
+
+        <section class="card card-player" data-tab="home" aria-labelledby="homeTitle">
+          <h2 data-icon="music" id="homeTitle"><span data-i18n="home.title">Now Playing</span></h2>
+          <div class="player-grid">
+            <div class="now-playing">
+              <div class="np-head">
+                <div class="np-cover is-empty" id="npCover" data-icon="music" aria-hidden="true">
+                  <img id="npCoverImg" alt="" width="112" height="112" decoding="async" hidden>
+                </div>
+                <div class="np-info">
+                  <button type="button" class="btn btn-small np-lyrics-btn" id="btnLyrics" data-icon="mic"
+                          aria-pressed="false" aria-controls="lyricsPanel" hidden
+                          data-i18n-aria-label="lyrics.button" aria-label="Lyrics"
+                          data-i18n-title="lyrics.button" title="Lyrics"><span class="btn-label" data-i18n="lyrics.button">Lyrics</span></button>
+                  <div class="np-mode" id="npMode">—</div>
+                  <div class="np-text" id="npText">
+                    <div class="np-track" id="npTrack">—</div>
+                    <div class="np-artist" id="npArtist"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="track-progress is-idle" id="trackProgress">
+                <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="trackProgressBar"></div></div>
+                <div class="track-times">
+                  <span id="trackPosition">0:00</span>
+                  <span id="trackDuration">0:00</span>
+                </div>
+              </div>
+              <p class="hint np-sound is-empty" id="npSound" role="status"></p>
+              <div class="np-meta">
+                <span class="np-next" id="npNext"></span>
+                <span class="np-count" id="npCount"></span>
+              </div>
+            </div>
+
+            <div class="player-controls">
+              <div class="tile-grid" role="group" data-i18n-aria-label="home.controls" aria-label="Controls">
+                <button type="button" class="btn tile transport" id="btnPrev" data-icon="prev" data-cost-action="previous" data-i18n="home.previous">Previous</button>
+                <button type="button" class="btn btn-primary tile transport" id="btnPause" data-icon="pause" data-i18n="home.pause">Pause</button>
+                <button type="button" class="btn btn-primary tile transport" id="btnStart" data-icon="play" data-cost-action="start" hidden data-i18n="home.start_music">Start music</button>
+                <button type="button" class="btn tile transport" id="btnNext" data-icon="next" data-cost-action="next" data-i18n="home.next">Next</button>
+                <button type="button" class="btn tile" id="btnSingle" data-icon="sparkles" data-cost-action="sound" data-i18n="home.sound_next">Sound + next</button>
+                <button type="button" class="btn tile" id="btnDouble" data-icon="megaphone" data-cost-action="announce" data-i18n="home.announcement">Announcement…</button>
+              </div>
+
+              <div class="player-extras">
+                <button type="button" class="btn btn-small" id="btnLoop" data-icon="repeat" data-loop="off"
+                        aria-pressed="false" data-i18n-title="home.loop_hint" title="Playback loop (this session)"><span data-i18n="home.loop_off">No loop</span></button>
+                <button type="button" class="btn btn-small" id="btnTimer" data-icon="timer"><span data-i18n="home.timer">Timer…</span></button>
+              </div>
+              <p class="hint np-timers" id="npTimers" role="status" hidden></p>
+              <p class="hint guest-credits" id="guestCredits" hidden></p>
+
+              <div class="volume-row" data-cost-action="volume">
+                <button type="button" class="vol-icon vol-mute" id="btnMute" data-icon="volume-low"
+                        aria-pressed="false" data-i18n-aria-label="home.mute" aria-label="Mute"
+                        data-i18n-title="home.mute" title="Mute"></button>
+                <input type="range" id="volumeSlider" min="0" max="100" value="70"
+                       data-i18n-aria-label="home.volume" aria-label="Volume">
+                <span class="vol-icon" data-icon="speaker" aria-hidden="true"></span>
+                <output class="vol-value" id="volumeValue" for="volumeSlider">70</output>
+              </div>
+            </div>
+          </div>
+
+          <ul class="np-notices" id="npNotices" hidden></ul>
+          <div class="np-fallback" id="npFallback" hidden></div>
+
+          <section class="lyrics-panel" id="lyricsPanel" aria-labelledby="lyricsTitle" hidden>
+            <div class="lyrics-head">
+              <h3 id="lyricsTitle" data-icon="mic"><span data-i18n="lyrics.title">Lyrics</span></h3>
+              <span class="lyrics-track" id="lyricsTrack"></span>
+              <span class="lyrics-source" id="lyricsSource"></span>
+              <button type="button" class="btn btn-icon btn-ghost lyrics-fs-btn" id="btnLyricsFullscreen"
+                      data-icon="expand" aria-pressed="false"
+                      data-i18n-aria-label="lyrics.fullscreen" aria-label="Full screen"
+                      data-i18n-title="lyrics.fullscreen" title="Full screen"></button>
+            </div>
+            <div class="lyrics-scroll" id="lyricsScroll" tabindex="0">
+              <ol class="lyrics-lines" id="lyricsLines"></ol>
+              <div class="lyrics-plain" id="lyricsPlain" hidden></div>
+            </div>
+          </section>
+
+          <div class="player-footer">
+            <button type="button" class="btn btn-danger-outline" id="btnLongPress" data-icon="power">
+              <span data-i18n="home.stop_shutdown">Standby or switch off…</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="card" id="upnextCard" data-tab="home" aria-labelledby="upnextTitle" hidden>
+          <h2 data-icon="list" id="upnextTitle"><span data-i18n="upnext.title">Up next</span></h2>
+          <ol class="device-list recent-list upnext-list" id="upnextList"></ol>
+          <p class="hint" id="upnextEmpty" data-i18n="upnext.empty" hidden>Nothing planned after this song.</p>
+        </section>
+
+        <section class="card" id="recentCard" data-tab="home" aria-labelledby="recentTitle" hidden>
+          <h2 data-icon="list" id="recentTitle"><span data-i18n="recent.title">Recently played</span></h2>
+          <ol class="device-list recent-list" id="recentList"></ol>
+          <p class="hint" id="recentEmpty" data-i18n="recent.empty" hidden>Nothing played yet.</p>
+        </section>
+
+        <section class="card" id="todayCard" data-tab="home" aria-labelledby="todayTitle" hidden>
+          <h2 data-icon="sun" id="todayTitle"><span data-i18n="today.title">Today</span></h2>
+          <dl class="today-grid" id="todayFigures"></dl>
+          <h3 class="health-sub" id="todayTopTitle" data-i18n="today.top" hidden>Most played</h3>
+          <ol class="today-top" id="todayTop"></ol>
+        </section>
+
+        <section class="card" id="libraryCard" data-tab="home" aria-labelledby="libraryTitle" hidden>
+          <h2 data-icon="music" id="libraryTitle"><span data-i18n="library.title">Library</span></h2>
+          <p class="hint help-text" data-i18n="library.help" hidden>
+            Search by title, artist, album or genre, or pick from the lists.
+            "Next" plays the song after the current one; the play button
+            plays it now.
+          </p>
+          <div class="library-search">
+            <label for="librarySearch" class="sr-only" data-i18n="library.search_label">Search the library</label>
+            <input type="search" id="librarySearch" class="text-input" autocomplete="off" enterkeyhint="search"
+                   data-i18n-placeholder="library.search_placeholder" placeholder="Title, artist, album…">
+          </div>
+          <div class="library-filters">
+            <label for="libraryArtist" class="sr-only" data-i18n="library.artist">Artist</label>
+            <select id="libraryArtist"><option value="" data-i18n="library.all_artists">All artists</option></select>
+            <label for="libraryAlbum" class="sr-only" data-i18n="library.album">Album</label>
+            <select id="libraryAlbum"><option value="" data-i18n="library.all_albums">All albums</option></select>
+            <label for="libraryGenre" class="sr-only" data-i18n="library.genre">Genre</label>
+            <select id="libraryGenre"><option value="" data-i18n="library.all_genres">All genres</option></select>
+          </div>
+          <p class="hint library-count" id="libraryCount" role="status"></p>
+          <ol class="device-list recent-list library-list" id="libraryList"></ol>
+          <div class="form-actions">
+            <button type="button" class="btn" id="libraryMore" data-icon="plus" hidden data-i18n="library.more">Show more</button>
+          </div>
+        </section>
+
+        <div class="guest-release" id="guestRelease">
+          <button type="button" class="btn btn-primary" id="portalReleaseBtn" data-icon="check" hidden
+                  data-i18n="guest.join">Finish connecting</button>
+          <p class="hint" id="portalHint"></p>
+        </div>
+        <section class="card" id="suggestCard" data-tab="home" aria-labelledby="suggestTitle">
+          <h2 data-icon="bulb" id="suggestTitle"><span data-i18n="suggest.title">Suggestions</span></h2>
+          <p class="hint help-text" data-i18n="suggest.help" hidden>
+            Ideas of music or announcements to add. One vote per suggestion
+            and per device, which you can change or take back.
+          </p>
+          <p class="suggest-me-line" id="suggestMeLine" hidden>
+            <span data-i18n="suggest.you_are">You suggest as</span> <strong id="suggestMeName"></strong>
+            <button type="button" class="btn-link" id="suggestRenameBtn" data-i18n="suggest.change_name">change</button>
+          </p>
+          <form id="suggestNameForm" class="settings-form" hidden>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="suggestNameInput" data-i18n="suggest.name_label">Your name</label>
+                <p class="field-desc" id="suggestNameDesc" data-i18n="suggest.name_desc">Needed to suggest. Once taken, no other device can use it.</p>
+              </div>
+              <input type="text" id="suggestNameInput" class="text-input" maxlength="24" autocomplete="off"
+                     aria-describedby="suggestNameDesc" required>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn" id="suggestNameCancel" data-icon="x" data-i18n="common.cancel" hidden>Cancel</button>
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
+          <form id="suggestForm" class="settings-form" hidden>
+            <div class="field-row">
+              <label for="suggestKind" data-i18n="suggest.kind">Suggest</label>
+              <select id="suggestKind">
+                <option value="music" data-i18n="suggest.kind_music">Music</option>
+                <option value="announcement" data-i18n="suggest.kind_announcement">An announcement</option>
+              </select>
+            </div>
+            <div class="suggest-input">
+              <label for="suggestText" class="sr-only" data-i18n="suggest.text_label">Your idea</label>
+              <input type="text" id="suggestText" class="text-input" maxlength="200"
+                     data-i18n-placeholder="suggest.placeholder_music" placeholder="Artist - Title">
+              <label for="suggestTextLong" class="sr-only" data-i18n="suggest.text_label">Your idea</label>
+              <textarea id="suggestTextLong" class="text-input" maxlength="500" rows="4" hidden
+                        aria-describedby="suggestCount"
+                        data-i18n-placeholder="suggest.placeholder_announcement"
+                        placeholder="What it would say, and when it would play"></textarea>
+              <p class="suggest-count" id="suggestCount" hidden></p>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="plus" data-i18n="suggest.submit">Suggest</button>
+            </div>
+          </form>
+          <ul class="device-list suggest-list" id="suggestList"></ul>
+          <p class="hint" id="suggestEmpty" data-i18n="suggest.empty" hidden>No suggestion yet - be the first.</p>
+          <details class="subsection" id="suggestNamesSection" hidden>
+            <summary><span data-i18n="suggest.names_section">People and their names</span></summary>
+            <p class="hint help-text" data-i18n="suggest.names_help" hidden>
+              Everyone who took a name, with every name they went by. A name
+              stays reserved to its device after a change; one it no longer
+              uses can be released.
+            </p>
+            <ul class="suggest-people" id="suggestPeople"></ul>
+          </details>
+        </section>
+
+        <details class="guest-banner" id="guestBanner">
+          <summary data-icon="user"><span data-i18n="guest.banner_title">Restricted access</span></summary>
+          <p class="hint" data-i18n="guest.intro">
+            You can use the radio's buttons from here. Settings and shutting
+            the Pi down need the interface password.
+          </p>
+          <div class="form-actions">
+            <button type="button" class="btn install-btn" data-icon="download" data-i18n="share.install">Add to home screen</button>
+            <button type="button" class="btn" id="guestLoginBtn" data-icon="login" data-i18n="guest.login">Log in for full access</button>
+          </div>
+        </details>
+
+        <section class="card" data-tab="settings" aria-labelledby="settingsTitle">
+          <h2 data-icon="calendar" id="settingsTitle"><span data-i18n="settings.schedule_title">Start &amp; cutoff</span></h2>
+          <form id="settingsForm" class="settings-form">
+            <div class="field-row">
+              <span class="field-label" id="lblCutoff" data-i18n="settings.cutoff">Cutoff</span>
+              <div class="time-pair" role="group" aria-labelledby="lblCutoff">
+                <input type="number" id="cutoffHour" min="0" max="23" data-key="CUTOFF_HOUR" class="num-input" inputmode="numeric"
+                       data-i18n-aria-label="common.hour" aria-label="Hour">
+                <span aria-hidden="true">:</span>
+                <input type="number" id="cutoffMinute" min="0" max="59" data-key="CUTOFF_MINUTE" class="num-input" inputmode="numeric"
+                       data-i18n-aria-label="common.minute" aria-label="Minute">
+              </div>
+            </div>
+            <div data-level="detail" class="field-row">
+              <label for="cutoffMode" data-i18n="settings.cutoff_mode">Cutoff mode</label>
+              <select id="cutoffMode" data-key="CUTOFF_MODE">
+                <option value="end_of_track" data-i18n="settings.cutoff_mode_eot">End of current track</option>
+                <option value="exact" data-i18n="settings.cutoff_mode_exact">Exact (fade at the exact time)</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label for="musicStartMode" data-i18n="settings.start_mode">Music start</label>
+              <select id="musicStartMode" data-key="MUSIC_START_MODE">
+                <option value="boot" data-i18n="start.boot">At startup</option>
+                <option value="action" data-i18n="start.action">On a button press</option>
+                <option value="scheduled" data-i18n="start.scheduled">At a set time</option>
+                <option value="bluetooth" data-i18n="start.bluetooth">When the speaker connects</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="startFadeSec" data-i18n="settings.start_fade">Start with a fade-in (sec)</label>
+                <p class="field-desc" data-i18n="settings.start_fade_desc">The first song rises gently from silence. 0 = at once.</p>
+              </div>
+              <input type="number" id="startFadeSec" min="0" max="120" step="1" data-key="START_FADE_SEC" class="num-input" inputmode="decimal">
+            </div>
+            <div class="field-row" id="musicStartTimeRow" hidden>
+              <span class="field-label" id="lblStartTime" data-i18n="settings.start_time">Start time</span>
+              <div class="time-pair" role="group" aria-labelledby="lblStartTime">
+                <input type="number" id="musicStartHour" min="0" max="23" data-key="MUSIC_START_HOUR" class="num-input" inputmode="numeric"
+                       data-i18n-aria-label="common.hour" aria-label="Hour">
+                <span aria-hidden="true">:</span>
+                <input type="number" id="musicStartMinute" min="0" max="59" data-key="MUSIC_START_MINUTE" class="num-input" inputmode="numeric"
+                       data-i18n-aria-label="common.minute" aria-label="Minute">
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" data-tab="settings" aria-labelledby="playbackTitle">
+          <h2 data-icon="headphones" id="playbackTitle"><span data-i18n="settings.playback_title">Playback</span></h2>
+          <form id="playbackForm" class="settings-form">
+            <div class="field-row">
+              <label for="baseVolume" data-i18n="settings.base_volume">Base volume</label>
+              <input type="number" id="baseVolume" min="0" max="100" data-key="BASE_VOLUME" class="num-input" inputmode="numeric">
+            </div>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
+                <label for="volumeMode" data-i18n="settings.volume_mode">Volume after a track change</label>
+                <p class="field-desc" id="volumeModeDesc" data-i18n="settings.volume_mode_title">What the volume slider on the Home card does when the track changes. Needs a daemon restart.</p>
+              </div>
+              <select id="volumeMode" data-key="VOLUME_MODE" aria-describedby="volumeModeDesc">
+                <option value="session" data-i18n="settings.volume_session">Keep the volume I set (a restart goes back to base volume)</option>
+                <option value="base" data-i18n="settings.volume_base">Snap back to the base volume on every track</option>
+              </select>
+            </div>
+            <div data-level="detail" class="field-row">
+              <label for="volumeChange" data-i18n="settings.volume_change">Volume change</label>
+              <select id="volumeChange" data-key="VOLUME_CHANGE">
+                <option value="instant" data-i18n="settings.volume_instant">Immediate</option>
+                <option value="fade" data-i18n="settings.volume_fade">Fade</option>
+              </select>
+            </div>
+            <div data-level="detail" class="field-row" id="volumeFadeRow" hidden>
+              <label for="volumeFadeSec" data-i18n="settings.volume_fade_sec">Fade duration (sec)</label>
+              <input type="number" id="volumeFadeSec" min="0.2" max="10" step="0.1" data-key="VOLUME_FADE_SEC" class="num-input" inputmode="decimal">
+            </div>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
+                <label for="volumeStep" data-i18n="settings.volume_step">Volume step</label>
+                <p class="field-desc" data-i18n="settings.volume_step_desc">For a button set to Volume + or Volume −.</p>
+              </div>
+              <input type="number" id="volumeStep" min="1" max="50" step="1" data-key="VOLUME_STEP" class="num-input" inputmode="numeric">
+            </div>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
+                <label for="pauseDurations" data-i18n="settings.pause_durations">Timed pause (min)</label>
+                <p class="field-desc" data-i18n="settings.pause_durations_desc">Durations offered by Timer…, comma-separated.</p>
+              </div>
+              <input type="text" id="pauseDurations" data-key="PAUSE_DURATIONS" class="text-input" inputmode="numeric"
+                     pattern="[0-9 ,;]*" autocomplete="off">
+            </div>
+            <div data-level="detail" class="field-row">
+              <label for="sleepTimerMin" data-i18n="settings.sleep_timer_min">Sleep timer (min)</label>
+              <input type="number" id="sleepTimerMin" min="1" max="600" step="1" data-key="SLEEP_TIMER_MIN" class="num-input" inputmode="numeric">
+            </div>
+
+            <div class="field-row">
+              <label for="musicOrderMode" data-i18n="settings.order">Order</label>
+              <select id="musicOrderMode" data-key="MUSIC_ORDER_MODE">
+                <option value="random" data-i18n="order.random">Completely random</option>
+                <option value="random_albums" data-i18n="order.random_albums">Random albums (one song per artist before repeating)</option>
+                <option value="ordered" data-i18n="order.fixed_music">Fixed order (filename sort)</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label for="musicLoopToggle" data-i18n="settings.loop">Loop the list</label>
+              <input type="checkbox" id="musicLoopToggle" data-key="MUSIC_LOOP" class="switch-input" role="switch">
+            </div>
+            <div data-level="detail" class="field-row">
+              <label for="musicKeepProgressToggle" data-i18n="settings.keep_progress">Keep progress between launches</label>
+              <input type="checkbox" id="musicKeepProgressToggle" data-key="MUSIC_KEEP_PROGRESS" class="switch-input" role="switch">
+            </div>
+            <div data-level="detail" class="field-row">
+              <label for="musicResumeMode" data-i18n="settings.resume_label">On the next launch</label>
+              <select id="musicResumeMode" data-key="MUSIC_RESUME_MODE">
+                <option value="same_track" data-i18n="settings.resume_same">Replay the track that was interrupted</option>
+                <option value="next_track" data-i18n="settings.resume_next">Move on to the next track</option>
+              </select>
+            </div>
+            <p class="hint help-text" data-i18n="settings.loop_hint" hidden>
+              When the list does not loop, it stops after one full pass and
+              keeps the speaker awake until a click or a scheduled
+              announcement starts it again.
+            </p>
+            <div data-level="detail" class="field-row">
+              <label for="announceOrderMode" data-i18n="settings.announce_order">Announcement order</label>
+              <select id="announceOrderMode" data-key="ANNOUNCE_ORDER_MODE">
+                <option value="random" data-i18n="order.random">Completely random</option>
+                <option value="random_albums" data-i18n="order.random_subfolders">Random, spreading subfolders out</option>
+                <option value="ordered" data-i18n="order.fixed_announce">Fixed order (filename sort, or the order set below)</option>
+              </select>
+            </div>
+            <p class="hint help-text" data-i18n="settings.announce_order_hint" hidden>Applies to every announcement folder.</p>
+            <div data-level="detail" class="field-row">
+              <label for="upcomingCount" data-i18n="settings.upcoming_tracks">Tracks coming up shown</label>
+              <input type="number" id="upcomingCount" min="0" max="50" step="1" data-key="UPCOMING_TRACKS_COUNT" class="num-input" inputmode="numeric">
+            </div>
+            <div data-level="detail" class="field-row">
+              <label for="recentCount" data-i18n="settings.recent_tracks">Tracks in the history</label>
+              <input type="number" id="recentCount" min="0" max="200" step="1" data-key="RECENT_TRACKS_COUNT" class="num-input" inputmode="numeric">
+            </div>
+            <details data-level="detail" class="subsection">
+              <summary><span data-i18n="settings.fades_section">Fades and playback errors</span></summary>
+              <div class="field-row">
+                <label for="fadeAnnounce" data-i18n="settings.fade_announce">Announcement fade (sec)</label>
+                <input type="number" id="fadeAnnounce" min="0" max="60" step="0.5" data-key="FADE_DURATION_SEC" class="num-input" inputmode="decimal">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="fadeInteractive" data-i18n="settings.fade_interactive">Interactive fade (sec)</label>
+                  <p class="field-desc" id="fadeInteractiveDesc" data-i18n="settings.fade_interactive_title">Fade before single/double-click actions. 0 for an instant cut.</p>
+                </div>
+                <input type="number" id="fadeInteractive" min="0" max="10" step="0.5" data-key="INTERACTIVE_FADE_DURATION_SEC" class="num-input" inputmode="decimal" aria-describedby="fadeInteractiveDesc">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="fadeLongpress" data-i18n="settings.fade_longpress">Fade before switching off (sec)</label>
+                  <p class="field-desc" id="fadeLongpressDesc" data-i18n="settings.fade_longpress_desc">Before stopping the music and switching the Pi off. 0 = an instant cut.</p>
+                </div>
+                <input type="number" id="fadeLongpress" min="0" max="20" step="0.5" data-key="LONGPRESS_FADE_DURATION_SEC" class="num-input" inputmode="decimal" aria-describedby="fadeLongpressDesc">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="fadePause" data-i18n="settings.fade_pause">Pause fade (sec)</label>
+                  <p class="field-desc" id="fadePauseDesc" data-i18n="settings.fade_pause_desc">Out when pausing, back in on resume. 0 = at once.</p>
+                </div>
+                <input type="number" id="fadePause" min="0" max="5" step="0.5" data-key="PAUSE_FADE_SEC" class="num-input" inputmode="decimal" aria-describedby="fadePauseDesc">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="retryMax" data-i18n-html="settings.retry_max_html">Pause after <em>N</em> failed tracks</label>
+                  <p class="field-desc" id="retryMaxDesc" data-i18n="settings.retry_max_title">Consecutive unreadable files before playback pauses. 0 disables it.</p>
+                </div>
+                <input type="number" id="retryMax" min="0" max="100" step="1" data-key="PLAYBACK_ERROR_MAX_RETRIES" class="num-input" inputmode="numeric" aria-describedby="retryMaxDesc">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="retryDelay" data-i18n="settings.retry_delay">Retry delay (sec)</label>
+                  <p class="field-desc" id="retryDelayDesc" data-i18n="settings.retry_delay_title">How long to wait before retrying. 0 = no wait.</p>
+                </div>
+                <input type="number" id="retryDelay" min="0" max="600" step="1" data-key="PLAYBACK_ERROR_BACKOFF_SEC" class="num-input" inputmode="numeric" aria-describedby="retryDelayDesc">
+              </div>
+              <p class="hint help-text" data-i18n-html="settings.errors_hint_html" hidden>
+                Unreadable files never stop the radio: playback skips to the
+                next track.
+              </p>
+            </details>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" data-tab="settings" aria-labelledby="buttonsTitle">
+          <h2 data-icon="pointer" id="buttonsTitle"><span data-i18n="settings.buttons_title">Button actions</span></h2>
+          <form id="buttonsForm" class="settings-form">
+            <div class="field-row">
+              <label for="singleClickAction" data-i18n="settings.single_click">Single click</label>
+              <div class="input-with-action">
+                <select id="singleClickAction" data-key="SINGLE_CLICK_ACTION" class="click-action-select" data-click="single">
+                  <option value="next" data-i18n="click.next">Next track</option>
+                  <option value="previous" data-i18n="click.previous">Previous track</option>
+                  <option value="sound" data-i18n="click.sound">Play the sound</option>
+                  <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
+                  <option value="pause" data-i18n="click.pause">Pause</option>
+                  <option value="play" data-i18n="click.play">Play</option>
+                  <option value="loop_track" data-i18n="click.loop_track">Loop this track</option>
+                  <option value="loop_album" data-i18n="click.loop_album">Loop this album</option>
+                  <option value="loop_off" data-i18n="click.loop_off">Normal playback</option>
+                  <option value="volume_up" data-i18n="click.volume_up">Volume +</option>
+                  <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
+                  <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
+                  <option value="mute" data-i18n="click.mute">Mute / unmute</option>
+                  <option value="standby" data-i18n="click.standby">Standby</option>
+                  <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                  <option value="off" data-i18n="click.off">Do nothing</option>
+                </select>
+                <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="single"
+                        data-i18n-aria-label="click.test" aria-label="Try it" data-i18n-title="click.test" title="Try it"></button>
+              </div>
+            </div>
+            <div class="field-row click-sound-row" data-click="single">
+              <label for="singleClickSource" data-i18n="click.sound_before">Sound played first</label>
+              <select id="singleClickSource" data-key="SINGLE_CLICK_SOURCE" class="click-source-select">
+                <option value="none" data-i18n="click.no_sound">No sound</option>
+                <option value="meme" data-i18n="source.meme">Button sounds</option>
+                <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label for="doubleClickAction" data-i18n="settings.double_click">Double click</label>
+              <div class="input-with-action">
+                <select id="doubleClickAction" data-key="DOUBLE_CLICK_ACTION" class="click-action-select" data-click="double">
+                  <option value="next" data-i18n="click.next">Next track</option>
+                  <option value="previous" data-i18n="click.previous">Previous track</option>
+                  <option value="sound" data-i18n="click.sound">Play the sound</option>
+                  <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
+                  <option value="pause" data-i18n="click.pause">Pause</option>
+                  <option value="play" data-i18n="click.play">Play</option>
+                  <option value="loop_track" data-i18n="click.loop_track">Loop this track</option>
+                  <option value="loop_album" data-i18n="click.loop_album">Loop this album</option>
+                  <option value="loop_off" data-i18n="click.loop_off">Normal playback</option>
+                  <option value="volume_up" data-i18n="click.volume_up">Volume +</option>
+                  <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
+                  <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
+                  <option value="mute" data-i18n="click.mute">Mute / unmute</option>
+                  <option value="standby" data-i18n="click.standby">Standby</option>
+                  <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                  <option value="off" data-i18n="click.off">Do nothing</option>
+                </select>
+                <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="double"
+                        data-i18n-aria-label="click.test" aria-label="Try it" data-i18n-title="click.test" title="Try it"></button>
+              </div>
+            </div>
+            <div class="field-row click-sound-row" data-click="double">
+              <label for="doubleClickSource" data-i18n="click.sound_before">Sound played first</label>
+              <select id="doubleClickSource" data-key="DOUBLE_CLICK_SOURCE" class="click-source-select">
+                <option value="none" data-i18n="click.no_sound">No sound</option>
+                <option value="meme" data-i18n="source.meme">Button sounds</option>
+                <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label for="longPressAction" data-i18n="settings.long_press">Long press</label>
+              <select id="longPressAction" data-key="LONG_PRESS_ACTION">
+                <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                <option value="standby" data-i18n="click.standby">Standby</option>
+              </select>
+            </div>
+            <p class="hint help-text" data-i18n-html="settings.click_actions_hint" hidden>
+              A click goes to the <strong>next track</strong>, after one sound
+              of the chosen list, taken in the announcement order.
+            </p>
+            <p class="hint help-text" data-i18n="settings.flic_hint" hidden>
+              From idle, a single click always starts the music first. Long
+              press always stops the music and shuts the Pi down.
+            </p>
+            <details data-level="detail" class="subsection">
+              <summary><span data-i18n="speakerbtn.section">Speaker buttons</span></summary>
+              <div class="field-row">
+                <label for="spkPlaypauseClickAction" data-i18n="speakerbtn.playpause">Play / pause</label>
+                <div class="input-with-action">
+                  <select id="spkPlaypauseClickAction" data-key="SPEAKER_PLAYPAUSE_ACTION" class="click-action-select" data-click="spkPlaypause">
+                    <option value="next" data-i18n="click.next">Next track</option>
+                    <option value="previous" data-i18n="click.previous">Previous track</option>
+                    <option value="sound" data-i18n="click.sound">Play the sound</option>
+                    <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
+                    <option value="pause" data-i18n="click.pause">Pause</option>
+                    <option value="play" data-i18n="click.play">Play</option>
+                    <option value="loop_track" data-i18n="click.loop_track">Loop this track</option>
+                    <option value="loop_album" data-i18n="click.loop_album">Loop this album</option>
+                    <option value="loop_off" data-i18n="click.loop_off">Normal playback</option>
+                    <option value="volume_up" data-i18n="click.volume_up">Volume +</option>
+                    <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
+                    <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
+                    <option value="mute" data-i18n="click.mute">Mute / unmute</option>
+                    <option value="standby" data-i18n="click.standby">Standby</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="off" data-i18n="click.off">Do nothing</option>
+                  </select>
+                  <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkPlaypause" data-kind="speaker_playpause"
+                          data-i18n-aria-label="click.test" aria-label="Try it" data-i18n-title="click.test" title="Try it"></button>
+                </div>
+              </div>
+              <div class="field-row click-sound-row" data-click="spkPlaypause">
+                <label for="spkPlaypauseClickSource" data-i18n="click.sound_before">Sound played first</label>
+                <select id="spkPlaypauseClickSource" data-key="SPEAKER_PLAYPAUSE_SOURCE" class="click-source-select">
+                  <option value="none" data-i18n="click.no_sound">No sound</option>
+                  <option value="meme" data-i18n="source.meme">Button sounds</option>
+                  <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="spkNextClickAction" data-i18n="speakerbtn.next">Next</label>
+                <div class="input-with-action">
+                  <select id="spkNextClickAction" data-key="SPEAKER_NEXT_ACTION" class="click-action-select" data-click="spkNext">
+                    <option value="next" data-i18n="click.next">Next track</option>
+                    <option value="previous" data-i18n="click.previous">Previous track</option>
+                    <option value="sound" data-i18n="click.sound">Play the sound</option>
+                    <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
+                    <option value="pause" data-i18n="click.pause">Pause</option>
+                    <option value="play" data-i18n="click.play">Play</option>
+                    <option value="loop_track" data-i18n="click.loop_track">Loop this track</option>
+                    <option value="loop_album" data-i18n="click.loop_album">Loop this album</option>
+                    <option value="loop_off" data-i18n="click.loop_off">Normal playback</option>
+                    <option value="volume_up" data-i18n="click.volume_up">Volume +</option>
+                    <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
+                    <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
+                    <option value="mute" data-i18n="click.mute">Mute / unmute</option>
+                    <option value="standby" data-i18n="click.standby">Standby</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="off" data-i18n="click.off">Do nothing</option>
+                  </select>
+                  <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkNext" data-kind="speaker_next"
+                          data-i18n-aria-label="click.test" aria-label="Try it" data-i18n-title="click.test" title="Try it"></button>
+                </div>
+              </div>
+              <div class="field-row click-sound-row" data-click="spkNext">
+                <label for="spkNextClickSource" data-i18n="click.sound_before">Sound played first</label>
+                <select id="spkNextClickSource" data-key="SPEAKER_NEXT_SOURCE" class="click-source-select">
+                  <option value="none" data-i18n="click.no_sound">No sound</option>
+                  <option value="meme" data-i18n="source.meme">Button sounds</option>
+                  <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="spkPreviousClickAction" data-i18n="speakerbtn.previous">Previous</label>
+                <div class="input-with-action">
+                  <select id="spkPreviousClickAction" data-key="SPEAKER_PREVIOUS_ACTION" class="click-action-select" data-click="spkPrevious">
+                    <option value="next" data-i18n="click.next">Next track</option>
+                    <option value="previous" data-i18n="click.previous">Previous track</option>
+                    <option value="sound" data-i18n="click.sound">Play the sound</option>
+                    <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
+                    <option value="pause" data-i18n="click.pause">Pause</option>
+                    <option value="play" data-i18n="click.play">Play</option>
+                    <option value="loop_track" data-i18n="click.loop_track">Loop this track</option>
+                    <option value="loop_album" data-i18n="click.loop_album">Loop this album</option>
+                    <option value="loop_off" data-i18n="click.loop_off">Normal playback</option>
+                    <option value="volume_up" data-i18n="click.volume_up">Volume +</option>
+                    <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
+                    <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
+                    <option value="mute" data-i18n="click.mute">Mute / unmute</option>
+                    <option value="standby" data-i18n="click.standby">Standby</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="off" data-i18n="click.off">Do nothing</option>
+                  </select>
+                  <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkPrevious" data-kind="speaker_previous"
+                          data-i18n-aria-label="click.test" aria-label="Try it" data-i18n-title="click.test" title="Try it"></button>
+                </div>
+              </div>
+              <div class="field-row click-sound-row" data-click="spkPrevious">
+                <label for="spkPreviousClickSource" data-i18n="click.sound_before">Sound played first</label>
+                <select id="spkPreviousClickSource" data-key="SPEAKER_PREVIOUS_SOURCE" class="click-source-select">
+                  <option value="none" data-i18n="click.no_sound">No sound</option>
+                  <option value="meme" data-i18n="source.meme">Button sounds</option>
+                  <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
+                </select>
+              </div>
+              <p class="hint help-text" data-i18n="speakerbtn.help" hidden>
+                What the speaker's own buttons do, when the speaker sends them.
+              </p>
+            </details>
+            <details data-level="detail" class="subsection">
+              <summary><span data-i18n="settings.gpio_section">Physical GPIO button</span></summary>
+              <div class="field-row">
+                <label for="gpioButtonPin" data-i18n="settings.gpio_button_pin">GPIO button pin</label>
+                <div class="pin-field">
+                  <input type="number" id="gpioButtonPin" min="0" max="27" step="1" data-key="GPIO_BUTTON_PIN" class="num-input" inputmode="numeric">
+                  <button type="button" class="btn btn-icon pin-pick-btn" data-icon="chip" data-pin-target="gpioButtonPin"
+                          data-i18n-aria-label="gpio.choose" aria-label="Choose" data-i18n-title="gpio.choose" title="Choose"></button>
+                </div>
+              </div>
+              <div class="field-row">
+                <label for="gpioButtonDebounce" data-i18n="settings.gpio_button_debounce">GPIO debounce (sec)</label>
+                <input type="number" id="gpioButtonDebounce" min="0" max="1" step="0.01" data-key="GPIO_BUTTON_DEBOUNCE_SEC" class="num-input" inputmode="decimal">
+              </div>
+              <div class="field-row">
+                <label for="gpioButtonDoubleClickWindow" data-i18n="settings.gpio_button_double_click_window">GPIO double-click window (sec)</label>
+                <input type="number" id="gpioButtonDoubleClickWindow" min="0.1" max="2" step="0.05" data-key="GPIO_BUTTON_DOUBLE_CLICK_WINDOW_SEC" class="num-input" inputmode="decimal">
+              </div>
+              <div class="field-row">
+                <label for="gpioButtonLongPress" data-i18n="settings.gpio_button_long_press">GPIO long press (sec)</label>
+                <input type="number" id="gpioButtonLongPress" min="0.3" max="10" step="0.1" data-key="GPIO_BUTTON_LONG_PRESS_SEC" class="num-input" inputmode="decimal">
+              </div>
+              <p class="hint help-text" data-i18n="settings.gpio_button_hint" hidden>
+                These fields only matter if a physical button is wired up.
+              </p>
+            </details>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" id="announcementsCard" data-tab="settings" aria-labelledby="annTitle">
+          <h2 data-icon="bell" id="annTitle"><span data-i18n="announcements.title">Custom Announcements</span></h2>
+          <p class="hint help-text" data-i18n="announcements.hint" hidden>
+            Add your own announcement types - each plays once a day at its own
+            time, then resumes music. Changes here apply immediately.
+          </p>
+          <ul class="device-list" id="announcementList"></ul>
+
+          <details class="subsection" id="announcementFormSection">
+            <summary><span id="announcementFormTitle" data-i18n="announcements.add_section">Add a new announcement type</span></summary>
+            <form id="announcementForm" class="settings-form">
+              <div class="field-row">
+                <label for="annName" data-i18n="announcements.name">Name</label>
+                <input type="text" id="annName" class="text-input" data-i18n-placeholder="announcements.name_placeholder" placeholder="Lunch reminder" required>
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="annFolder" data-i18n="common.folder">Folder</label>
+                  <p class="field-desc" id="annFolderDesc" data-i18n="announcements.folder_auto_desc">Leave empty and one is created for it.</p>
+                </div>
+                <div class="input-with-action">
+                  <input type="text" id="annFolder" class="text-input" aria-describedby="annFolderDesc"
+                         data-i18n-placeholder="announcements.folder_placeholder" placeholder="Automatic"
+                         autocapitalize="off" autocomplete="off" spellcheck="false">
+                  <button type="button" class="btn btn-icon" id="btnAnnFolderBrowse" data-icon="folder" data-i18n-aria-label="browse.browse" data-i18n-title="browse.browse" aria-label="Browse…" title="Browse…"></button>
+                </div>
+              </div>
+              <div class="field-row">
+                <label for="annTrigger" data-i18n="announcements.trigger">Starts</label>
+                <select id="annTrigger" class="select-wide">
+                  <option value="time" data-i18n="trigger.time">Every day at a fixed time</option>
+                  <option value="after_music" data-i18n="trigger.after_music">After the music starts</option>
+                  <option value="after_boot" data-i18n="trigger.after_boot">After the Pi starts</option>
+                  <option value="manual" data-i18n="trigger.manual">Only by hand</option>
+                </select>
+              </div>
+              <div class="field-row" id="annDelayRow">
+                <div class="field-text">
+                  <label for="annDelay" data-i18n="announcements.delay">Delay (min)</label>
+                  <p class="field-desc" id="annDelayDesc" data-i18n="announcements.delay_desc">Counted from that start, then again between two plays.</p>
+                </div>
+                <input type="number" id="annDelay" min="1" max="1440" step="1" value="30" class="num-input" inputmode="numeric" aria-describedby="annDelayDesc">
+              </div>
+              <div class="field-row" id="annRepeatRow">
+                <label for="annRepeat" data-i18n="announcements.repeat">Repeat</label>
+                <select id="annRepeat" class="select-wide">
+                  <option value="once" data-i18n="repeat.once">Once</option>
+                  <option value="forever" data-i18n="repeat.forever">Indefinitely</option>
+                  <option value="count" data-i18n="repeat.count">A set number of times</option>
+                </select>
+              </div>
+              <div class="field-row" id="annRepeatCountRow">
+                <label for="annRepeatCount" data-i18n="announcements.repeat_count">Number of times</label>
+                <input type="number" id="annRepeatCount" min="2" max="999" step="1" value="3" class="num-input" inputmode="numeric">
+              </div>
+              <div data-level="detail" class="field-row" id="annAutoChanceRow">
+                <label for="annAutoChance" data-i18n="announcements.auto_chance">When it starts on its own</label>
+                <select id="annAutoChance" class="chance-select"></select>
+              </div>
+              <div class="field-row" id="annTimeRow">
+                <span class="field-label" id="lblAnnTime" data-i18n="common.time">Time</span>
+                <div class="time-pair" role="group" aria-labelledby="lblAnnTime">
+                  <input type="number" min="0" max="23" id="annHour" class="num-input" value="12" inputmode="numeric"
+                         data-i18n-aria-label="common.hour" aria-label="Hour">
+                  <span aria-hidden="true">:</span>
+                  <input type="number" min="0" max="59" id="annMinute" class="num-input" value="0" inputmode="numeric"
+                         data-i18n-aria-label="common.minute" aria-label="Minute">
+                </div>
+              </div>
+              <div data-level="detail" class="field-row">
+                <div class="field-text">
+                  <label for="annManualChance" data-i18n="announcements.manual_chance">When started by hand</label>
+                  <p class="field-desc" id="annManualChanceDesc" data-i18n="announcements.manual_chance_desc">The Announcement button, or a click. "Play" here always plays.</p>
+                </div>
+                <select id="annManualChance" class="chance-select" aria-describedby="annManualChanceDesc"></select>
+              </div>
+              <p class="hint help-text" data-i18n="announcements.chance_help" hidden>
+                "1 time out of 2" is exact, not a coin toss.
+              </p>
+              <div class="form-actions">
+                <button type="button" class="btn" id="annEditCancel" data-icon="x" data-i18n="common.cancel" hidden>Cancel</button>
+                <button type="submit" class="btn btn-primary" id="annSubmit" data-icon="plus" data-i18n="common.add">Add</button>
+              </div>
+            </form>
+          </details>
+        </section>
+
+        <section class="card" id="trackOrderCard" data-tab="settings" aria-labelledby="trackOrderTitle">
+          <h2 data-icon="folder" id="trackOrderTitle"><span data-i18n="annfiles.title">Announcement files</span></h2>
+          <p class="hint help-text" data-i18n="annfiles.help" hidden>
+            Choose an announcement, then add its sounds.
+          </p>
+          <p class="hint help-text" data-i18n-html="trackorder.hint_html" hidden>
+            Only used when "Announcement order" is set to <strong>Fixed order</strong>.
+          </p>
+          <div class="field-row">
+            <label for="trackOrderSource" data-i18n="annfiles.which">Announcement</label>
+            <select id="trackOrderSource" class="click-source-select">
+              <option value="meme" data-i18n="source.meme">Button sounds</option>
+              <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
+            </select>
+          </div>
+          <p class="hint mac" id="annFilesFolder"></p>
+          <div class="actions-row">
+            <button type="button" class="btn btn-primary" id="btnAnnFilesAdd" data-icon="upload" data-i18n="annfiles.add">Add files…</button>
+          </div>
+          <p class="hint picker-note" hidden></p>
+          <input type="file" id="annFilesInput" multiple hidden
+                 accept="audio/*,.mp3,.opus,.ogg,.wav,.m4a,.flac">
+          <p class="hint" id="annFilesProgress" role="status" hidden></p>
+          <div class="files-batch" id="annFilesBatch" hidden>
+            <label class="files-batch-all">
+              <input type="checkbox" id="annFilesSelectAll" class="row-select">
+              <span id="annFilesBatchCount" data-i18n="annfiles.select_all">Select all</span>
+            </label>
+            <span class="btn-group">
+              <button type="button" class="btn btn-icon" id="annFilesBatchUp" data-icon="arrow-up"
+                      data-i18n-aria-label="annfiles.batch_up" aria-label="Move the selection up"
+                      data-i18n-title="annfiles.batch_up" title="Move the selection up" disabled></button>
+              <button type="button" class="btn btn-icon" id="annFilesBatchDown" data-icon="arrow-down"
+                      data-i18n-aria-label="annfiles.batch_down" aria-label="Move the selection down"
+                      data-i18n-title="annfiles.batch_down" title="Move the selection down" disabled></button>
+              <button type="button" class="btn btn-icon btn-danger-outline" id="annFilesBatchDelete" data-icon="trash"
+                      data-i18n-aria-label="annfiles.batch_delete" aria-label="Delete the selection"
+                      data-i18n-title="annfiles.batch_delete" title="Delete the selection" disabled></button>
+            </span>
+          </div>
+          <ul class="device-list" id="trackOrderList"></ul>
+          <p class="hint" id="trackOrderHint"></p>
+          <div class="form-actions">
+            <button type="button" class="btn" id="btnTrackOrderSave" data-icon="check" data-i18n="trackorder.save">Save order</button>
+            <button type="button" class="btn btn-warning-outline" id="btnTrackOrderReset" data-icon="restart" data-i18n="trackorder.reset">Reset to alphabetical</button>
+          </div>
+        </section>
+
+        <section data-level="detail" class="card" id="systemSoundsCard" data-tab="settings" aria-labelledby="sysSoundsTitle">
+          <h2 data-icon="bell" id="sysSoundsTitle"><span data-i18n="syssounds.title">System sounds</span></h2>
+          <p class="hint help-text" data-i18n="syssounds.help" hidden>
+            The short sounds the radio plays by itself. Replace one with your own
+            file, or go back to the original.
+          </p>
+          <ul class="device-list" id="systemSoundsList"></ul>
+          <p class="hint picker-note" hidden></p>
+          <input type="file" id="systemSoundInput" hidden
+                 accept="audio/*,.mp3,.opus,.ogg,.wav,.m4a,.flac">
+        </section>
+
+        <section class="card" id="audioOutputCard" data-tab="audio" aria-labelledby="audioOutTitle">
+          <h2 data-icon="speaker" id="audioOutTitle"><span data-i18n="audioout.title">Audio output</span></h2>
+          <form id="audioOutputForm" class="settings-form">
+            <div class="field-row">
+              <label for="audioOutputSelect" data-i18n="audioout.label">Sound goes to</label>
+              <select id="audioOutputSelect" data-key="AUDIO_OUTPUT">
+                <option value="bluetooth" data-i18n="audioout.bluetooth">Bluetooth speaker</option>
+                <option value="jack" data-i18n="audioout.jack">Headphone jack</option>
+                <option value="usb" data-i18n="audioout.usb">USB sound card</option>
+                <option value="hdmi" data-i18n="audioout.hdmi">HDMI</option>
+              </select>
+            </div>
+            <p class="hint audio-detected" id="audioOutputDetected"></p>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
+                <label for="transferLimitMode" data-i18n="audioout.transfer_limit">Limit transfers</label>
+                <p class="field-desc" id="transferLimitDesc" data-i18n="audioout.transfer_limit_desc">Slows uploads (music sync, sounds) so the Bluetooth sound does not stutter.</p>
+              </div>
+              <select id="transferLimitMode" data-key="TRANSFER_LIMIT_MODE" aria-describedby="transferLimitDesc">
+                <option value="auto" data-i18n="audioout.transfer_auto">While music plays over built-in Bluetooth</option>
+                <option value="always" data-i18n="audioout.transfer_always">Always</option>
+                <option value="off" data-i18n="audioout.transfer_off">Never</option>
+              </select>
+            </div>
+            <div data-level="detail" class="field-row">
+              <label for="transferLimitKbps" data-i18n="audioout.transfer_kbps">Limited speed (KB/s)</label>
+              <input type="number" id="transferLimitKbps" min="16" max="5000" step="16" data-key="TRANSFER_LIMIT_KBPS" class="num-input" inputmode="numeric">
+            </div>
+            <p class="hint help-text" data-i18n="audioout.help" hidden>
+              The headphone jack exists on a Raspberry Pi 3 or 4, not on a Zero. A wired output is found again whenever it is plugged in; while it is missing, the sound goes to the default output. With a wired output, a Bluetooth speaker that drops no longer pauses the music nor powers the Pi off.
+            </p>
+            <div class="form-actions btn-split">
+              <div class="btn-group">
+                <button type="button" class="btn" id="btnAudioTest" data-icon="play" data-i18n="audioout.test">Test</button>
+              </div>
+              <div class="btn-group">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" data-tab="audio" aria-labelledby="btTitle">
+          <h2 data-icon="bluetooth" id="btTitle"><span data-i18n="speaker.title">Bluetooth</span></h2>
+          <div class="speaker-status">
+            <span id="speakerBadge" class="badge">—</span>
+            <span id="speakerMacDisplay" class="mac">—</span>
+            <span class="audio-output" id="audioOutputLine">—</span>
+          </div>
+          <div class="actions-row" id="audioRepairRow" hidden>
+            <button type="button" class="btn btn-warning-outline" id="btnAudioRestart" data-icon="restart" data-i18n="audio.restart">Restart the audio</button>
+          </div>
+          <div class="actions-row btn-split">
+            <div class="btn-group">
+              <button type="button" class="btn" id="btnSpeakerConnect" data-icon="link" data-i18n="speaker.connect">Connect</button>
+              <button type="button" class="btn" id="btnSpeakerDisconnect" data-icon="unlink" data-i18n="speaker.disconnect">Disconnect</button>
+            </div>
+            <div class="btn-group">
+              <button type="button" class="btn btn-primary" id="btnBtScan" data-icon="search" data-i18n="speaker.scan">Scan for devices</button>
+            </div>
+          </div>
+          <ul class="device-list" id="deviceList" aria-live="polite"></ul>
+
+          <details data-level="detail" class="subsection" id="btControllersSection">
+            <summary><span data-i18n="btctl.title">Controllers and Flic button</span></summary>
+            <p class="hint help-text" data-i18n="btctl.help" hidden>
+              With a USB Bluetooth dongle, give the speaker one controller and
+              the Flic button the other: the Flic software takes its controller
+              for itself.
+            </p>
+            <ul class="device-list" id="btControllerList"></ul>
+            <form id="btControllersForm" class="settings-form">
+              <div class="field-row">
+                <label for="btSpeakerController" data-i18n="btctl.speaker">Speaker and scans</label>
+                <select id="btSpeakerController"></select>
+              </div>
+              <div class="field-row">
+                <label for="btFlicController" data-i18n="btctl.flic">Flic button</label>
+                <select id="btFlicController"></select>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+
+            <h3 class="health-sub" data-i18n="btctl.flic_title">Flic button</h3>
+            <p class="hint" id="flicStatusLine" role="status"></p>
+            <div class="field-row" id="flicEnabledRow">
+              <label for="flicEnabled" data-i18n="btctl.flic_enabled">Use the Flic button</label>
+              <input type="checkbox" id="flicEnabled" class="switch-input" role="switch">
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn" id="btnFlicInstall" data-icon="download" data-i18n="btctl.flic_install" hidden>Install the Flic software</button>
+              <button type="button" class="btn btn-primary" id="btnFlicPair" data-icon="plus" data-i18n="btctl.flic_pair">Pair a button</button>
+            </div>
+            <ul class="device-list" id="flicButtonList"></ul>
+          </details>
+
+          <details data-level="detail" class="subsection" id="speakerLossSection">
+            <summary><span data-i18n="speakerloss.title">If the speaker disconnects</span></summary>
+            <form id="speakerForm" class="settings-form">
+              <div class="field-row">
+                <label for="speakerLossPause" data-i18n="speakerloss.pause">Pause, resume when it comes back</label>
+                <input type="checkbox" id="speakerLossPause" data-key="SPEAKER_LOSS_PAUSE" class="switch-input" role="switch">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="speakerWatchInterval" data-i18n="speakerloss.interval">Check the speaker every (sec)</label>
+                  <p class="field-desc" id="speakerWatchIntervalDesc" data-i18n="speakerloss.interval_desc">How quickly the radio notices.</p>
+                </div>
+                <input type="number" id="speakerWatchInterval" min="0" max="300" step="1" data-key="SPEAKER_WATCH_INTERVAL_SEC"
+                       class="num-input" inputmode="numeric" aria-describedby="speakerWatchIntervalDesc">
+              </div>
+              <div class="field-row" id="speakerResumeFadeRow">
+                <div class="field-text">
+                  <label for="speakerResumeFade" data-i18n="speakerloss.fade">Fade-in on resume (sec)</label>
+                  <p class="field-desc" id="speakerResumeFadeDesc" data-i18n="speakerloss.fade_desc">0 = straight back at full volume.</p>
+                </div>
+                <input type="number" id="speakerResumeFade" min="0" max="30" step="0.5" data-key="SPEAKER_RESUME_FADE_SEC"
+                       class="num-input" inputmode="decimal" aria-describedby="speakerResumeFadeDesc">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="speakerLossShutdown" data-i18n="speakerloss.off_lost">Power off after it is lost (min)</label>
+                  <p class="field-desc" id="speakerLossShutdownDesc" data-i18n="speakerloss.zero_never">0 = never.</p>
+                </div>
+                <input type="number" id="speakerLossShutdown" min="0" max="1440" step="1" data-key="SPEAKER_LOSS_SHUTDOWN_MIN"
+                       class="num-input" inputmode="numeric" aria-describedby="speakerLossShutdownDesc">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="speakerAbsentShutdown" data-i18n="speakerloss.off_absent">Power off if no speaker since startup (min)</label>
+                  <p class="field-desc" id="speakerAbsentShutdownDesc" data-i18n="speakerloss.zero_never">0 = never.</p>
+                </div>
+                <input type="number" id="speakerAbsentShutdown" min="0" max="1440" step="1" data-key="SPEAKER_ABSENT_SHUTDOWN_MIN"
+                       class="num-input" inputmode="numeric" aria-describedby="speakerAbsentShutdownDesc">
+              </div>
+              <p class="hint help-text" data-i18n="speakerloss.help" hidden>
+                The radio checks the speaker every 30 seconds or so.
+              </p>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
+
+          <p class="hint help-text" data-i18n="speaker.device_hint" hidden>
+            A scan lists everything in range, phones included.
+          </p>
+          <p class="hint help-text" data-i18n="audio.help" hidden>
+            Restarting the audio services is safe at any time.
+          </p>
+        </section>
+
+        <section class="card" data-tab="audio" aria-labelledby="clockTitle">
+          <h2 data-icon="clock" id="clockTitle"><span data-i18n="clock.title">Clock</span></h2>
+          <div class="clock-status" id="clockStatus" role="status">—</div>
+          <div class="clock-sync" id="clockSync" hidden>
+            <span class="clock-sync-text" id="clockSyncText"></span>
+            <button type="button" class="btn" id="btnUseDeviceTime" data-icon="clock" data-i18n="clock.sync_btn">Set to this device's time</button>
+          </div>
+
+          <p class="hint help-text" data-i18n="clock.device_time_hint" hidden>
+            One tap, nothing to pair: this page sends the clock of the device
+            you are reading it on.
+          </p>
+
+          <details data-level="detail" class="subsection" id="manualTimeSection">
+            <summary><span data-i18n="clock.set_manually">Set time manually</span></summary>
+            <form id="timeForm" class="inline-form">
+              <label class="sr-only" for="timeInput" data-i18n="clock.set_manually">Set time manually</label>
+              <input type="datetime-local" id="timeInput" step="1" required>
+              <button type="submit" class="btn" data-i18n="clock.set_btn">Set</button>
+            </form>
+          </details>
+
+          <details class="subsection" id="tzSection">
+            <summary><span data-i18n="clock.timezone">Timezone</span></summary>
+            <div class="field-row">
+              <label for="tzSelect" class="label-wide-only" data-i18n="clock.timezone">Timezone</label>
+              <select id="tzSelect"></select>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-primary" id="btnSaveTz" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+            <p class="hint help-text" data-i18n="clock.timezone_hint" hidden>
+              Applies to every time the Pi reports.
+            </p>
+          </details>
+
+          <details data-level="detail" class="subsection" id="btClockSection">
+            <summary><span data-i18n="clock.bt_fallback">Bluetooth fallback</span></summary>
+            <div class="field-row">
+              <label for="btClockEnabled" data-i18n="common.enabled">Enabled</label>
+              <input type="checkbox" id="btClockEnabled" data-key="BT_CLOCK_ENABLED" class="switch-input" role="switch">
+            </div>
+            <div class="field-row">
+              <label for="btClockMac" data-i18n="clock.device_mac">Device (MAC)</label>
+              <input type="text" id="btClockMac" data-key="BT_CLOCK_MAC" class="text-input" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="form-actions btn-split">
+              <div class="btn-group">
+                <button type="button" class="btn" id="btnTestBtClock" data-icon="bluetooth" data-i18n="clock.test_device">Test this device</button>
+              </div>
+              <div class="btn-group">
+                <button type="button" class="btn btn-primary" id="btnSaveBtClock" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <section class="card" id="musicCard" data-tab="audio" aria-labelledby="musicTitle">
+          <h2 data-icon="folder" id="musicTitle"><span data-i18n="music.title">Music library</span></h2>
+          <p class="hint" id="musicLibraryLine">—</p>
+
+          <input type="file" id="musicFolderInput" webkitdirectory multiple hidden>
+          <input type="file" id="musicFilesInput" multiple hidden
+                 accept="audio/*,.flac,.m4a,.opus,.mp3,.ogg,.wav,.lrc,.srt,.vtt,.txt,image/jpeg,image/png,image/webp">
+          <div class="actions-row">
+            <button type="button" class="btn" id="btnMusicFolder" data-icon="folder" data-i18n="music.pick_folder">Choose a folder…</button>
+            <button type="button" class="btn" id="btnMusicFiles" data-icon="file" data-i18n="music.pick_files">Choose files…</button>
+          </div>
+          <p class="hint picker-note" hidden></p>
+
+          <div id="musicPlanBox" hidden>
+            <p class="hint" id="musicPlanLine"></p>
+            <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="musicProgressBar"></div></div>
+            <p class="hint" id="musicProgressLine" role="status"></p>
+            <div class="actions-row">
+              <button type="button" class="btn btn-primary" id="btnMusicSync" data-icon="upload" data-i18n="music.sync">Synchronise</button>
+              <button type="button" class="btn" id="btnMusicCancel" data-icon="x" data-i18n="common.cancel">Cancel</button>
+            </div>
+          </div>
+
+          <p class="hint help-text" data-i18n="music.help" hidden>
+            A file already on the Pi with the same size and date is left alone.
+          </p>
+          <p class="hint help-text" data-i18n="music.companions" hidden>
+            Lyrics and covers travel with the tracks.
+          </p>
+        </section>
+
+        <section class="card" data-tab="system" aria-labelledby="systemTitle">
+          <h2 data-icon="server" id="systemTitle"><span data-i18n="system.title">System</span></h2>
+          <div data-level="detail" class="field-row">
+            <span class="field-label" data-i18n="system.flic_button">Flic button</span>
+            <span id="flicBadge" class="badge">—</span>
+          </div>
+          <div data-level="detail" class="field-row">
+            <label for="sshToggle" data-i18n="system.ssh">SSH server</label>
+            <input type="checkbox" id="sshToggle" class="switch-input" role="switch">
+          </div>
+          <div data-level="detail" class="field-row">
+            <div class="field-text">
+              <label for="actLedToggle" data-i18n="system.act_led">Activity LED</label>
+              <p class="field-desc" id="actLedDesc" data-i18n="system.act_led_desc">Off: the green light stays dark, restarts included.</p>
+            </div>
+            <input type="checkbox" id="actLedToggle" class="switch-input" role="switch" aria-describedby="actLedDesc">
+          </div>
+          <div data-level="detail" class="field-row">
+            <div class="field-text">
+              <label for="usbPortMode" data-i18n="system.usb_port">USB port</label>
+              <p class="field-desc" id="usbPortDesc" data-i18n="system.usb_port_desc">Network to a computer, or USB devices (Bluetooth dongle, sound card...) through an OTG adapter.</p>
+            </div>
+            <select id="usbPortMode" aria-describedby="usbPortDesc">
+              <option value="gadget" data-i18n="system.usb_gadget">Network to a computer</option>
+              <option value="host" data-i18n="system.usb_host">USB devices</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div class="field-text">
+              <label for="hapticsToggle" data-i18n="haptics.label">Vibrate on touch</label>
+              <p class="field-desc" id="hapticsDesc" data-i18n="haptics.desc">A short vibration on each button, on this device only.</p>
+            </div>
+            <input type="checkbox" id="hapticsToggle" class="switch-input" role="switch" aria-describedby="hapticsDesc">
+          </div>
+          <p class="hint help-text" data-level="detail" data-i18n="system.ssh_hint" hidden>Turn it off when you don't need it.</p>
+          <div class="actions-row">
+            <button type="button" class="btn" id="btnRescan" data-icon="refresh" data-i18n="system.rescan">Rescan music</button>
+            <button type="button" class="btn btn-warning-outline" id="btnRestartDaemon" data-icon="restart" data-i18n="settings.restart_service">Restart service</button>
+            <button type="button" class="btn btn-warning-outline" id="btnRestartAfterSong" data-level="detail" data-icon="clock" data-i18n="system.restart_after_song">Restart after this song</button>
+          </div>
+        </section>
+
+        <section class="card" id="healthCard" data-tab="system" aria-labelledby="healthTitle">
+          <h2 data-icon="chip" id="healthTitle"><span data-i18n="health.title">System health</span></h2>
+          <dl class="health-grid" id="healthInfo"></dl>
+          <h3 class="health-sub" data-i18n="health.services">Services</h3>
+          <ul class="service-list" id="serviceList"></ul>
+          <p class="hint setup-hidden-line" id="setupHiddenLine" hidden>
+            <span id="setupHiddenText"></span>
+            <button type="button" class="btn-link" id="setupShowHidden" data-i18n="setup.show_hidden">Show them again</button>
+          </p>
+        </section>
+
+        <section class="card" data-tab="system" aria-labelledby="securityTitle">
+          <h2 data-icon="shield" id="securityTitle"><span data-i18n="security.title">Security</span></h2>
+          <p class="hint" id="securityStatus"></p>
+          <form id="securityForm" class="settings-form">
+            <div class="field-row" id="currentPasswordRow" hidden>
+              <label for="currentPassword" data-i18n="security.current_password">Current password</label>
+              <input type="password" id="currentPassword" class="text-input" autocomplete="current-password">
+            </div>
+            <div class="field-row">
+              <label for="newPassword" data-i18n="security.new_password">New password</label>
+              <input type="password" id="newPassword" class="text-input" autocomplete="new-password">
+            </div>
+            <p class="hint help-text" data-i18n="security.hint" hidden>
+              Optional - leave both fields empty and save to remove password
+              protection entirely.
+            </p>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
+          <details data-level="detail" class="subsection" id="guestAccessSection">
+            <summary><span data-i18n="guest.title">Guest access</span></summary>
+            <p class="hint help-text" data-i18n="guest.section_hint" hidden>
+              Only has an effect while a password is set.
+            </p>
+            <form id="guestAccessForm" class="settings-form">
+              <div class="field-row">
+                <label for="guestModeToggle" data-i18n="security.guest_mode">Guest actions without password</label>
+                <input type="checkbox" id="guestModeToggle" data-key="GUEST_MODE_ENABLED" class="switch-input" role="switch">
+              </div>
+              <div class="field-row">
+                <label for="suggestionsToggle" data-i18n="suggest.enabled">Suggestion box</label>
+                <input type="checkbox" id="suggestionsToggle" data-key="SUGGESTIONS_ENABLED" class="switch-input" role="switch">
+              </div>
+              <div class="field-row">
+                <label for="renameInterval" data-i18n="suggest.rename_interval">Delay between two name changes (min)</label>
+                <input type="number" id="renameInterval" min="0" max="10080" step="1" data-key="SUGGESTIONS_RENAME_INTERVAL_MIN" class="num-input" inputmode="numeric">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="captivePortalMode" data-i18n="settings.captive_mode">Wi-Fi welcome page</label>
+                  <p class="field-desc" id="captivePortalDesc" data-i18n="portal.desc">When a phone joins the Rukebox's Wi-Fi, it opens this interface by itself.</p>
+                </div>
+                <select id="captivePortalMode" data-key="CAPTIVE_PORTAL_MODE" aria-describedby="captivePortalDesc">
+                  <option value="release" data-i18n="portal.release">Once: the phone then stays connected</option>
+                  <option value="new_only" data-i18n="portal.new_only">New devices only: never again for a known one</option>
+                  <option value="hold" data-i18n="portal.hold">Every time: the page comes back at each check</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="guestQuotaToggle" data-i18n="quota.enabled">Guest credits</label>
+                  <p class="field-desc" data-i18n="quota.desc">Each guest action costs credits, which come back over time; the same action repeated costs more and more.</p>
+                </div>
+                <input type="checkbox" id="guestQuotaToggle" data-key="GUEST_QUOTA_ENABLED" class="switch-input" role="switch">
+              </div>
+              <div class="field-row">
+                <label for="guestQuotaMax" data-i18n="quota.max">Credits at most</label>
+                <input type="number" id="guestQuotaMax" min="1" max="100" step="1" data-key="GUEST_QUOTA_MAX" class="num-input" inputmode="numeric">
+              </div>
+              <div class="field-row">
+                <label for="guestQuotaRefill" data-i18n="quota.refill">One credit back every (sec)</label>
+                <input type="number" id="guestQuotaRefill" min="1" max="3600" step="1" data-key="GUEST_QUOTA_REFILL_SEC" class="num-input" inputmode="numeric">
+              </div>
+              <div class="field-row">
+                <label for="guestQuotaRepeat" data-i18n="quota.repeat">Price doubles if repeated within (min)</label>
+                <input type="number" id="guestQuotaRepeat" min="0" max="1440" step="1" data-key="GUEST_QUOTA_REPEAT_MIN" class="num-input" inputmode="numeric">
+              </div>
+              <details class="subsection" id="guestCostsSection">
+                <summary><span data-i18n="quota.costs">Prices</span></summary>
+                <p class="hint help-text" data-i18n="quota.costs_desc" hidden>Credits each action costs a guest, doubled every time it is repeated. 0 = free.</p>
+                <div class="field-row">
+                  <label for="guestCostNext" data-i18n="quota.cost_next">Next track</label>
+                  <input type="number" id="guestCostNext" min="0" max="100" step="1" data-key="GUEST_COST_NEXT" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostPrevious" data-i18n="quota.cost_previous">Previous track</label>
+                  <input type="number" id="guestCostPrevious" min="0" max="100" step="1" data-key="GUEST_COST_PREVIOUS" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostStart" data-i18n="quota.cost_start">Start the music</label>
+                  <input type="number" id="guestCostStart" min="0" max="100" step="1" data-key="GUEST_COST_START" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostSound" data-i18n="quota.cost_sound">Sound + next</label>
+                  <input type="number" id="guestCostSound" min="0" max="100" step="1" data-key="GUEST_COST_SOUND" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostAnnounce" data-i18n="quota.cost_announce">Announcement</label>
+                  <input type="number" id="guestCostAnnounce" min="0" max="100" step="1" data-key="GUEST_COST_ANNOUNCE" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostVolume" data-i18n="quota.cost_volume">Volume (one charge per 10 sec of slider)</label>
+                  <input type="number" id="guestCostVolume" min="0" max="100" step="1" data-key="GUEST_COST_VOLUME" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostQueue" data-i18n="quota.cost_queue">Put a song up next</label>
+                  <input type="number" id="guestCostQueue" min="0" max="100" step="1" data-key="GUEST_COST_QUEUE" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostPlayNow" data-i18n="quota.cost_play_now">Play a song of Up next now</label>
+                  <input type="number" id="guestCostPlayNow" min="0" max="100" step="1" data-key="GUEST_COST_PLAY_NOW" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostOutput" data-i18n="quota.cost_output">Another audio output (planned one missing)</label>
+                  <input type="number" id="guestCostOutput" min="0" max="100" step="1" data-key="GUEST_COST_OUTPUT" class="num-input" inputmode="numeric">
+                </div>
+              </details>
+              <p class="hint help-text" data-i18n="portal.help" hidden>
+                "Once": after "Finish connecting", the phone treats the Wi-Fi as a normal network and stays on it. "Every time": the page is shown again at every check, but the phone may drop the Wi-Fi after a few minutes.
+              </p>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
+          <details data-level="detail" class="subsection">
+            <summary><span data-i18n="security.gpio_section">Forgot the password? (GPIO reset)</span></summary>
+            <p class="hint help-text" data-i18n="security.gpio_hint" hidden>
+              Grounding the pin below while the Pi boots clears the password.
+            </p>
+            <form id="gpioResetForm" class="settings-form">
+              <div class="field-row">
+                <label for="gpioResetEnabled" data-i18n="security.gpio_enabled">GPIO password reset</label>
+                <input type="checkbox" id="gpioResetEnabled" data-key="GPIO_RESET_ENABLED" class="switch-input" role="switch">
+              </div>
+              <div class="field-row">
+                <label for="gpioResetPin" data-i18n="security.gpio_pin">Reset pin</label>
+                <div class="pin-field">
+                  <input type="number" id="gpioResetPin" min="0" max="27" step="1" data-key="GPIO_RESET_PIN" class="num-input" inputmode="numeric">
+                  <button type="button" class="btn btn-icon pin-pick-btn" data-icon="chip" data-pin-target="gpioResetPin"
+                          data-i18n-aria-label="gpio.choose" aria-label="Choose" data-i18n-title="gpio.choose" title="Choose"></button>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
+        </section>
+
+        <section class="card" data-tab="system" aria-labelledby="apTitle">
+          <h2 data-icon="antenna" id="apTitle"><span data-i18n="ap.title">Access Point</span></h2>
+          <p class="hint" id="apStatus"></p>
+          <form id="apForm" class="settings-form">
+            <div class="field-row">
+              <label for="apSsid" data-i18n="ap.ssid">Network name (SSID)</label>
+              <input type="text" id="apSsid" class="text-input" maxlength="32" required autocapitalize="off" spellcheck="false">
+            </div>
+            <div class="field-row">
+              <label for="apOpen" data-i18n="ap.open">Open network (no password)</label>
+              <input type="checkbox" id="apOpen" class="switch-input" role="switch">
+            </div>
+            <div class="field-row" id="apPasswordRow">
+              <label for="apPassword" data-i18n="ap.password">New password</label>
+              <input type="password" id="apPassword" class="text-input" autocomplete="new-password" minlength="8">
+            </div>
+            <p class="hint help-text" data-i18n="ap.hint" hidden>
+              Leave the password empty to keep the current one.
+            </p>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="apSaveBtn" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" id="shareCard" data-tab="system" aria-labelledby="shareTitle">
+          <h2 data-icon="link" id="shareTitle"><span data-i18n="share.title">Share access</span></h2>
+          <p class="hint help-text" data-i18n="share.help" hidden>
+            A phone camera pointed at the first code joins the Wi-Fi; the second opens this interface. Handy on a PC where the welcome page does not appear, or printed next to the radio.
+          </p>
+          <div class="share-grid">
+            <figure class="share-item" id="shareItemWifi">
+              <div class="share-qr" id="shareWifiQr"></div>
+              <figcaption>
+                <strong data-i18n="share.wifi">Join the Wi-Fi</strong>
+                <span class="share-text" id="shareWifiText"></span>
+              </figcaption>
+            </figure>
+            <figure class="share-item" id="shareItemUrl">
+              <div class="share-qr" id="shareUrlQr"></div>
+              <figcaption>
+                <strong data-i18n="share.open">Open the interface</strong>
+                <span class="share-text" id="shareUrlText"></span>
+              </figcaption>
+            </figure>
+          </div>
+          <div class="form-actions share-actions">
+            <button type="button" class="btn install-btn" data-icon="download" data-i18n="share.install">Add to home screen</button>
+            <button type="button" class="btn btn-primary" id="sharePrint" data-icon="file" data-i18n="share.print">Print</button>
+          </div>
+          <p class="hint picker-note" data-note="share.print_note" hidden></p>
+        </section>
+
+        <section class="card" id="wifiClientsCard" data-tab="system" aria-labelledby="clientsTitle">
+          <h2 data-icon="wifi" id="clientsTitle"><span data-i18n="clients.title">Connected devices</span></h2>
+          <p class="hint" id="clientsSummary"></p>
+          <ul class="device-list client-list" id="clientList"></ul>
+          <h3 class="health-sub" id="bannedTitle" data-i18n="clients.banned" hidden>Banned</h3>
+          <ul class="device-list client-list" id="bannedList" hidden></ul>
+        </section>
+
+        <section class="card" data-level="detail" id="homeWifiCard" data-tab="system" aria-labelledby="wifiTitle" hidden>
+          <h2 data-icon="wifi" id="wifiTitle"><span data-i18n="wifi.title">Personal Wi-Fi</span></h2>
+          <p class="hint help-text" data-i18n="wifi.hint" hidden>
+            Connects to your personal network in addition to the access point.
+          </p>
+          <div class="field-row">
+            <label for="homeWifiToggle" data-i18n="wifi.active">Connection active</label>
+            <input type="checkbox" id="homeWifiToggle" class="switch-input" role="switch">
+          </div>
+          <div class="field-row">
+            <div class="field-text">
+              <label for="homeWifiAuto" data-i18n="wifi.autoconnect">Connect at startup</label>
+              <p class="field-desc" id="homeWifiAutoDesc" data-i18n="wifi.autoconnect_desc">Off: the connection stays off after a restart until it is switched on here.</p>
+            </div>
+            <input type="checkbox" id="homeWifiAuto" class="switch-input" role="switch" aria-describedby="homeWifiAutoDesc">
+          </div>
+          <div class="status-line" id="homeWifiStatus" role="status">—</div>
+        </section>
+
+        <section class="card" data-level="detail" id="updateCard" data-tab="system" aria-labelledby="updateTitle">
+          <h2 data-icon="package" id="updateTitle"><span data-i18n="update.title">Update</span></h2>
+          <div class="status-line" id="updateVersion">-</div>
+          <p class="hint" id="updateSource"></p>
+          <p class="hint" id="updateOs"></p>
+
+          <details class="subsection">
+            <summary><span data-i18n="update.how_section">How to update</span></summary>
+            <p class="hint help-text" data-i18n="update.how_hint1" hidden>
+              From the computer holding the project, with the Pi connected by USB:
+            </p>
+            <div class="cmd-list">
+              <div class="cmd-row">
+                <span class="cmd-os" data-i18n="update.cmd_unix">macOS / Linux</span>
+                <code class="cmd-text">./bootstrap/push_update.sh</code>
+                <button type="button" class="btn btn-icon btn-small cmd-copy" data-icon="copy"
+                        data-i18n-aria-label="update.copy" aria-label="Copy the command" data-i18n-title="update.copy" title="Copy the command"></button>
+              </div>
+              <div class="cmd-row">
+                <span class="cmd-os" data-i18n="update.cmd_windows">Windows</span>
+                <code class="cmd-text">bootstrap\push_update.cmd</code>
+                <button type="button" class="btn btn-icon btn-small cmd-copy" data-icon="copy"
+                        data-i18n-aria-label="update.copy" aria-label="Copy the command" data-i18n-title="update.copy" title="Copy the command"></button>
+              </div>
+            </div>
+            <p class="hint help-text" data-i18n="update.how_hint2" hidden>
+              Settings, music and statistics are preserved.
+            </p>
+            <p class="hint help-text" data-i18n-html="update.os_hint" hidden>
+              System packages are deliberately not updated from here.
+            </p>
+          </details>
+
+          <div id="releaseBox">
+            <form id="releaseRepoForm" class="settings-form">
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="releaseRepo" data-i18n="update.release_repo">GitHub repository</label>
+                  <p class="field-desc" id="releaseRepoDesc" data-i18n="update.release_repo_desc">owner/name - change it for a fork.</p>
+                </div>
+                <div class="input-with-action">
+                  <input type="text" id="releaseRepo" class="text-input" data-key="UPDATE_GITHUB_REPO"
+                         aria-describedby="releaseRepoDesc" placeholder="Arubinu/Rukebox"
+                         autocapitalize="off" autocomplete="off" spellcheck="false">
+                  <button type="submit" class="btn btn-icon" data-icon="check" data-i18n-aria-label="common.save" aria-label="Save" data-i18n-title="common.save" title="Save"></button>
+                </div>
+              </div>
+            </form>
+            <p class="hint" id="releaseStatus" role="status"></p>
+            <div class="actions-row">
+              <button type="button" class="btn" id="btnReleaseCheck" data-icon="refresh" data-i18n="update.release_check">Check for a new version</button>
+              <button type="button" class="btn btn-primary" id="btnReleaseInstall" data-icon="download" hidden>Install</button>
+            </div>
+          </div>
+
+          <div id="gitUpdateBox" hidden>
+            <div class="field-row">
+              <span class="field-label" data-i18n="update.git_repo">Git repository</span>
+              <span class="mac" id="gitRepoDisplay">-</span>
+            </div>
+            <div class="actions-row">
+              <button type="button" class="btn btn-primary" id="btnUpdateGit" data-icon="download" data-i18n="update.git_btn">Update from Git</button>
+            </div>
+          </div>
+          <p class="hint" id="gitUpdateHint" role="status"></p>
+          <pre class="code-block" id="updateLog" hidden></pre>
+        </section>
+
+        <section class="card" data-level="detail" id="configCard" data-tab="system" aria-labelledby="configTitle">
+          <h2 data-icon="file" id="configTitle"><span data-i18n="config.title">Configuration</span></h2>
+          <p class="hint" id="configHint" data-i18n="config.hint">
+            Every setting, the custom announcements and the saved track orders
+            in one file.
+          </p>
+          <div class="form-actions">
+            <button type="button" class="btn" id="btnConfigExport" data-icon="download" data-i18n="config.export">Download (JSON)</button>
+            <button type="button" class="btn" id="btnConfigImport" data-icon="upload" data-i18n="config.import">Import a file…</button>
+          </div>
+          <input type="file" id="configFileInput" accept="application/json,.json" hidden>
+          <p class="hint" id="configStatus" role="status"></p>
+          <p class="hint help-text" data-i18n-html="config.help" hidden>
+            The web interface password is deliberately <strong>not</strong> in the file.
+          </p>
+
+          <details class="subsection" id="backupSection">
+            <summary><span data-i18n="backup.title">Full backup</span></summary>
+            <p class="hint help-text" data-i18n="backup.help" hidden>
+              The configuration is always in it; tick what else to keep. The
+              password stays out, as in the configuration file.
+            </p>
+            <div class="field-row">
+              <label for="backupStats" data-i18n="backup.stats">Statistics</label>
+              <span class="backup-size" id="backupStatsSize"></span>
+              <input type="checkbox" id="backupStats" class="switch-input" role="switch">
+            </div>
+            <div class="field-row">
+              <label for="backupSuggestions" data-i18n="backup.suggestions">Suggestions, names and devices</label>
+              <span class="backup-size" id="backupSuggestionsSize"></span>
+              <input type="checkbox" id="backupSuggestions" class="switch-input" role="switch">
+            </div>
+            <div class="field-row">
+              <label for="backupSounds" data-i18n="backup.sounds">Announcement sound files</label>
+              <span class="backup-size" id="backupSoundsSize"></span>
+              <input type="checkbox" id="backupSounds" class="switch-input" role="switch">
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn" id="btnBackupDownload" data-icon="download" data-i18n="backup.download">Download the backup (.zip)</button>
+              <button type="button" class="btn btn-warning-outline" id="btnBackupRestore" data-icon="upload" data-i18n="backup.restore">Restore a backup…</button>
+            </div>
+            <input type="file" id="backupFileInput" accept=".zip,application/zip" hidden>
+            <p class="hint" id="backupStatus" role="status"></p>
+          </details>
+        </section>
+
+        <section class="card card-wide" data-level="detail" id="statsCard" data-tab="stats" aria-labelledby="statsTitle">
+          <h2 data-icon="chart" id="statsTitle"><span data-i18n="stats.title">Statistics</span></h2>
+          <div class="stats-period" id="statsPeriod">-</div>
+
+          <div class="stats-recent" id="statsRecent">
+            <section class="stats-recent-col" aria-labelledby="statsTodayTitle">
+              <h3 id="statsTodayTitle" data-i18n="stats.today">Today</h3>
+              <dl id="statsToday"></dl>
+            </section>
+            <section class="stats-recent-col" aria-labelledby="statsWeekTitle">
+              <h3 id="statsWeekTitle" data-i18n="stats.last7">Last 7 days</h3>
+              <dl id="statsWeek"></dl>
+            </section>
+          </div>
+
+          <div class="kpi-grid" id="kpiGrid"></div>
+
+          <div class="chart-head">
+            <span class="chart-title" id="chartTitle" data-i18n="stats.listening_per_day">Listening per day</span>
+            <select id="statsDays" class="chart-range" aria-labelledby="chartTitle">
+              <option value="7" data-i18n="stats.days_7">7 days</option>
+              <option value="14" selected data-i18n="stats.days_14">14 days</option>
+              <option value="30" data-i18n="stats.days_30">30 days</option>
+            </select>
+          </div>
+          <div class="chart" id="dailyChart"></div>
+          <div class="chart-day" id="chartDay" hidden></div>
+
+          <details class="subsection">
+            <summary><span data-i18n="stats.most_played_section">Most played &amp; announcements</span></summary>
+            <div class="tops" id="topsBox"></div>
+            <p class="select-remote" id="selectRemote-topsBox" hidden>
+              <span class="select-remote-text"></span>
+              <button type="button" class="btn-link" data-remote-scope="topsBox"></button>
+            </p>
+            <div class="form-actions form-actions-split">
+              <button type="button" class="btn" data-select-scope="topsBox" data-i18n="stats.select_all">Select all</button>
+              <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="topsBox" data-i18n="stats.delete_selected" disabled>Delete selected</button>
+            </div>
+          </details>
+
+          <details class="subsection">
+            <summary><span data-i18n="stats.errors_section">Playback errors</span></summary>
+            <div class="tops" id="errorsBox"></div>
+            <p class="select-remote" id="selectRemote-errorsBox" hidden>
+              <span class="select-remote-text"></span>
+              <button type="button" class="btn-link" data-remote-scope="errorsBox"></button>
+            </p>
+            <div class="form-actions form-actions-split">
+              <button type="button" class="btn" data-select-scope="errorsBox" data-i18n="stats.select_all">Select all</button>
+              <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="errorsBox" data-i18n="stats.delete_selected" disabled>Delete selected</button>
+            </div>
+          </details>
+
+          <details class="subsection">
+            <summary><span data-i18n="stats.sessions_section">Startups &amp; shutdowns</span></summary>
+            <div class="session-list" id="sessionList"></div>
+            <div class="form-actions" id="moreSessionsRow" hidden>
+              <button type="button" class="btn" id="btnMoreSessions" data-i18n="stats.load_more">Load more</button>
+            </div>
+            <p class="select-remote" id="selectRemote-sessionList" hidden>
+              <span class="select-remote-text"></span>
+              <button type="button" class="btn-link" data-remote-scope="sessionList"></button>
+            </p>
+            <div class="form-actions form-actions-split">
+              <button type="button" class="btn" data-select-scope="sessionList" data-i18n="stats.select_all">Select all</button>
+              <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="sessionList" data-i18n="stats.delete_selected" disabled>Delete selected</button>
+            </div>
+          </details>
+
+          <details class="subsection" id="eventLogSection">
+            <summary><span data-i18n="stats.eventlog_section">Event log</span></summary>
+            <div class="log-controls">
+              <label class="sr-only" for="eventTypeFilter" data-i18n="stats.all_events">All events</label>
+              <select id="eventTypeFilter" class="chart-range">
+                <option value="" data-i18n="stats.all_events">All events</option>
+              </select>
+              <button type="button" class="btn" id="btnRefreshEvents" data-icon="refresh" data-i18n="common.refresh">Refresh</button>
+            </div>
+            <ul class="event-list" id="eventList"></ul>
+            <p class="select-remote" id="selectRemote-eventList" hidden>
+              <span class="select-remote-text"></span>
+              <button type="button" class="btn-link" data-remote-scope="eventList"></button>
+            </p>
+            <div class="form-actions">
+              <button type="button" class="btn" id="btnMoreEvents" data-i18n="stats.load_more">Load more</button>
+            </div>
+            <div class="form-actions form-actions-split">
+              <button type="button" class="btn" data-select-scope="eventList" data-i18n="stats.select_all">Select all</button>
+              <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="eventList" data-i18n="stats.delete_selected" disabled>Delete selected</button>
+            </div>
+          </details>
+
+          <div class="form-actions btn-split">
+            <div class="btn-group">
+              <button type="button" class="btn" id="btnStatsRefresh" data-icon="refresh" data-i18n="common.refresh">Refresh</button>
+              <button type="button" class="btn" id="btnStatsExport" data-icon="download" data-i18n="stats.download">Download (JSON)</button>
+            </div>
+            <div class="btn-group">
+              <button type="button" class="btn btn-danger-outline" id="btnStatsReset" data-icon="trash" data-i18n="common.reset">Reset</button>
+            </div>
+          </div>
+          <p class="hint" id="statsHint"></p>
+        </section>
+
+        <div class="view-bar" id="viewBar">
+          <p class="view-bar-text" id="viewBarText" data-i18n="view.simple_note">Simple view: only the essential options are shown.</p>
+          <button type="button" class="btn" id="viewBarBtn" data-icon="sliders" data-i18n="view.show_all">Show all options</button>
+        </div>
+
+      </main>
+
+      <nav class="tabbar" data-i18n-aria-label="nav.label" aria-label="Sections">
+        <div class="nav-brand" aria-hidden="true">
+          <img src="/logo.webp" alt="" width="40" height="40">
+          <span class="brand-text">
+          <span class="brand-name">Rukebox</span>
+          <span class="brand-clock" data-show="time">
+            <span class="bc-time"></span>
+            <span class="bc-date"></span>
+          </span>
+          </span>
+        </div>
+        <button type="button" class="tab-btn active" data-tab="home" aria-current="page">
+          <span class="tab-icon" data-icon="home" aria-hidden="true"></span><span data-i18n="tab.home">Home</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="settings">
+          <span class="tab-icon" data-icon="sliders" aria-hidden="true"></span><span data-i18n="tab.settings">Settings</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="audio">
+          <span class="tab-icon" data-icon="speaker" aria-hidden="true"></span><span data-i18n="tab.audio">Audio</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="system">
+          <span class="tab-icon" data-icon="server" aria-hidden="true"></span><span data-i18n="tab.system">System</span>
+        </button>
+        <button type="button" class="tab-btn" data-level="detail" data-tab="stats">
+          <span class="tab-icon" data-icon="chart" aria-hidden="true"></span><span data-i18n="tab.stats">Stats</span>
+        </button>
+        <button type="button" class="nav-transfer" id="navTransfer" hidden>
+          <span class="nt-title" id="navTransferTitle" data-icon="upload"></span>
+          <span class="nt-bar" aria-hidden="true"><span id="navTransferBar"></span></span>
+          <span class="nt-line" id="navTransferLine" role="status"></span>
+        </button>
+      </nav>
+
+      <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+      <div class="modal-overlay" id="gpioOverlay" hidden>
+        <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="gpioTitle">
+          <h3 class="modal-title" id="gpioTitle" data-i18n="gpio.title">Choose a pin</h3>
+          <p class="modal-body" id="gpioSubtitle" data-i18n="gpio.subtitle">
+            The connector as seen with the Pi's USB ports towards you. Greyed
+            pins cannot be used.
+          </p>
+          <div class="pin-header" id="pinHeader"></div>
+          <div class="pin-legend">
+            <span><i class="pin-dot kind-gpio"></i><span data-i18n="gpio.legend_free">Usable</span></span>
+            <span><i class="pin-dot kind-power"></i><span data-i18n="gpio.legend_power">Power</span></span>
+            <span><i class="pin-dot kind-ground"></i><span data-i18n="gpio.legend_ground">Ground</span></span>
+            <span><i class="pin-dot kind-reserved"></i><span data-i18n="gpio.legend_reserved">Reserved</span></span>
+          </div>
+          <p class="hint" id="gpioStatus" role="status"></p>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="gpioDetectBtn" data-icon="pointer" data-i18n="gpio.detect">Detect by pressing</button>
+            <button type="button" class="btn" id="gpioCancel" data-i18n="common.cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="folderOverlay" hidden>
+        <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="folderTitle">
+          <h3 class="modal-title" id="folderTitle" data-i18n="browse.title">Choose a folder</h3>
+          <div class="breadcrumb" id="folderRoots"></div>
+          <div class="folder-bar">
+            <button type="button" class="btn btn-icon" id="folderUp" data-icon="arrow-up"
+                    data-i18n-aria-label="browse.up" aria-label="Up"
+                    data-i18n-title="browse.up" title="Up"></button>
+            <span class="folder-path mac" id="folderPath">—</span>
+          </div>
+          <ul class="folder-list" id="folderList"></ul>
+          <p class="hint" id="folderStatus" role="status"></p>
+          <div class="modal-actions folder-actions">
+            <button type="button" class="btn" id="folderCancel" data-i18n="common.cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="folderChoose" data-icon="check" data-i18n="browse.choose">Use this folder</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="modalOverlay" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalBody">
+          <h3 class="modal-title" id="modalTitle"></h3>
+          <p class="modal-body" id="modalBody"></p>
+          <div class="modal-choices" id="modalChoices" hidden></div>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="modalCancel" data-i18n="common.cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="modalOk" data-i18n="common.ok">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="i18n.js"></script>
+    <script src="qr.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

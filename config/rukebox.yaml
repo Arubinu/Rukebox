@@ -1,0 +1,667 @@
+# ============================================================
+#  Rukebox Zero - configuration
+#
+#  THIS is the file to edit. /etc/rukebox/rukebox.env is generated
+#  from it for systemd and the shell scripts - editing that one
+#  has no lasting effect, it is overwritten on every sync.
+#
+#  After changing anything here:
+#      sudo systemctl restart rukebox-config.service
+#      sudo systemctl restart rukebox-daemon.service rukebox-web.service
+#  (the web interface does both for you when it saves)
+# ============================================================
+
+# ---------------------------------------------------------------
+# Audio output: Bluetooth speaker, headphone jack, USB or HDMI
+# ---------------------------------------------------------------
+audio:
+  # Where the sound goes:
+  #   bluetooth -> the Bluetooth speaker below (the default)
+  #   jack      -> the 3.5 mm headphone jack (Raspberry Pi 3/4, not
+  #                the Zero)
+  #   usb       -> a USB sound card, whichever is plugged in
+  #   hdmi      -> the HDMI screen or receiver
+  # A wired output is found again whenever it comes and goes; while it
+  # is missing, the sound goes to the default output instead. With a
+  # wired output, losing the Bluetooth speaker no longer pauses the
+  # music nor powers the Pi off.
+  output: "bluetooth"
+
+# ---------------------------------------------------------------
+# Bluetooth: speaker, and which controller does what
+# ---------------------------------------------------------------
+bluetooth:
+  # MAC address of the "master" speaker (the other speaker of a stereo
+  # pair is handled by the speakers themselves, not our concern here).
+  # Fill this in, or pair a speaker from the web interface, which writes
+  # it here for you. Example: AA:BB:CC:DD:EE:FF
+  speaker_mac: ""
+
+  # If the Pi has MULTIPLE Bluetooth interfaces (e.g. internal + USB
+  # dongle), MAC address of the CONTROLLER (not the speaker) to use for
+  # the speaker, the Bluetooth clock fallback and scanning - get it with
+  # `bluetoothctl list`. Empty = default controller.
+  adapter: ""
+
+  # Bluetooth controller dedicated to flicd (Flic button): its address
+  # (stable across reboots) or an hciN name. It must not be the speaker's
+  # controller - flicd takes it for itself. Set from Bluetooth > Controllers.
+  flic_hci_device: "hci0"
+
+  # Pause the music when the speaker disconnects, and resume it when it
+  # comes back - rather than playing on into the void. Seen by the speaker
+  # check (speaker_watch_sec), so within that many seconds.
+  pause_on_speaker_loss: true
+
+  # Fade-in when the music resumes after the speaker came back.
+  # 0 = resume at full volume straight away.
+  resume_fade_sec: 3
+
+  # Power the Pi off when the speaker has been disconnected for this many
+  # minutes. 0 = never.
+  shutdown_after_speaker_loss_min: 0
+
+  # Power the Pi off when no speaker has connected this many minutes
+  # after the radio started. 0 = never.
+  shutdown_if_no_speaker_min: 0
+
+# ---------------------------------------------------------------
+# Audio folders (subfolders are scanned recursively)
+# ---------------------------------------------------------------
+folders:
+  music: "/home/pi/audio/music"
+
+  # Sounds played by a single click on the Flic button.
+  memes: "/home/pi/audio/memes"
+
+  cutoff_announcements: "/home/pi/audio/cutoff_announcements"
+
+  # Looped very quietly when autostart is off, while waiting for the first
+  # click - stops the Bluetooth speaker powering itself off on silence.
+  keepalive_sound: "/home/pi/audio/system/keepalive.wav"
+
+  # Played once the clock status is known (only when there is no RTC).
+  clock_ok_sound: "/home/pi/audio/system/clock_ok.wav"
+
+  clock_fallback_sound: "/home/pi/audio/system/clock_fallback.wav"
+
+  # Played before a restart planned for the end of the song (System
+  # card). Leave empty to restart without a sound.
+  restart_sound: "/home/pi/audio/system/restart.wav"
+
+  # Played once when a new device joins the admin Wi-Fi access point.
+  # Leave empty to disable. Uses the same disposable-mpv mechanism as the
+  # clock sounds above, so it never interrupts music (see _play_cue_sound()).
+  ap_connect_sound: "/home/pi/audio/system/ap_connect.wav"
+
+# ---------------------------------------------------------------
+# Playback
+# ---------------------------------------------------------------
+playback:
+  # How the music list is played:
+  #   random         -> fully shuffled (the original SHUFFLE=true)
+  #   random_albums  -> shuffled too, but never two tracks from the
+  #                     same artist back to back (grouped by each
+  #                     track's immediate subfolder under music: -
+  #                     organise as music/Artist/Album/track.mp3 for
+  #                     this to group sensibly)
+  #   ordered        -> natural filename order ("2" before "10"),
+  #                     i.e. the original SHUFFLE=false - name files
+  #                     "01 - ...", "02 - ..." to control it
+  order_mode: "random"
+
+  # true  = the list loops forever, like before
+  # false = stop after playing every track once. The Pi and the
+  #         speaker stay fully on while stopped (so a scheduled
+  #         announcement can still play) - only the music itself
+  #         stops. A single click (or "Start music" in the web
+  #         interface) restarts the list.
+  loop: true
+
+  # How many of the next tracks the Home section lists (the "Up next"
+  # card, guests included). 0 hides it.
+  upcoming_tracks: 10
+
+  # How many of the last tracks played the Home section lists (the
+  # "Recently played" card, guests included). 0 hides it.
+  recent_tracks: 20
+
+  # true  = remember where the list was and continue there after a
+  #         restart (this Pi shuts down and restarts daily - this
+  #         is what makes tomorrow continue instead of restarting
+  #         the whole list)
+  # false = start over at every restart. For random/random_albums
+  #         this means a fresh shuffle every time.
+  keep_progress: true
+
+  # Only relevant when keep_progress is true: which track plays
+  # first after a restart, if the Pi was shut down mid-track.
+  #   next_track -> move on, as if that track had already finished
+  #   same_track -> play that same track again from the start
+  resume_mode: "next_track"
+
+  # Applied to every announcement folder (morning, cutoff,
+  # double-click, and any custom announcement type) that holds
+  # more than one file. Independent from the music setting.
+  #   random         -> fully shuffled
+  #   random_albums  -> shuffled, but never two files from the
+  #                     same SUBFOLDER back to back. The grouping
+  #                     is by subfolder, exactly as for music -
+  #                     announcements have no albums, so read it
+  #                     as "never two of the same kind in a row"
+  #                     when a folder is split into subfolders.
+  #                     With no subfolders at all there is nothing
+  #                     to group, so it behaves as plain random -
+  #                     which is why it is the default here.
+  #   ordered        -> natural filename order ("2" before
+  #                     "10"). In this mode you can also pick a
+  #                     specific sequence yourself, per folder,
+  #                     from the Custom Announcements card in the
+  #                     web interface - natural filename order is
+  #                     only the starting point.
+  announce_order_mode: "random_albums"
+
+  # Volume (0-100) reset at every daemon start, whatever the previous state.
+  base_volume: 70
+
+  # How a volume change from the web interface (or a button) is heard:
+  #   instant -> at once
+  #   fade    -> gliding to the new level over volume_fade_sec
+  volume_change: "instant"
+
+  # With volume_change: fade, how long the glide lasts (seconds).
+  volume_fade_sec: 1.5
+
+  # What happens to the volume set from the web interface's slider
+  # when the track changes (or when an announcement's fade ends).
+  #   session -> the volume you set is kept for as long as the
+  #              daemon runs; only a restart goes back to
+  #              base_volume above. This is what the slider implies:
+  #              you set it once and it stays where you put it.
+  #   base    -> the volume snaps back to base_volume on every track
+  #              change. Useful when base_volume is the level that
+  #              is right for the room and a change is only meant to
+  #              last for the track being listened to.
+  # An unknown value behaves as 'base'.
+  volume_mode: "session"
+
+  # How much a button set to "Volume +" or "Volume -" changes the
+  # volume (1-50).
+  volume_step: 10
+
+  # The durations (minutes, comma-separated) the web interface's
+  # "Pause for..." offers: the music pauses, then starts again by
+  # itself.
+  pause_durations: "5,15,30,60"
+
+  # A button set to "Sleep timer": the music pauses (with a fade) this
+  # many minutes later. Pressing it again cancels it.
+  sleep_timer_min: 30
+
+  # When the music starts.
+  #   boot      -> as soon as the daemon is up, the way a radio
+  #                switched on at the wall behaves
+  #   action    -> the Pi initialises fully but stays silent until
+  #                the first click (button, or the web interface's
+  #                own Start button)
+  #   scheduled -> silent until start_hour:start_minute below, then
+  #                starts on its own. A click before that time still
+  #                starts it early, exactly as in 'action' mode -
+  #                the schedule is a floor, not a lock.
+  #   bluetooth -> silent until the Bluetooth speaker is connected
+  #                (the speaker is then the on switch), exactly as
+  #                silent at startup as 'action'. Checked every
+  #                speaker_watch_sec below, so it also fires when the
+  #                Pi boots with the speaker already connected. Once
+  #                a day, like 'scheduled': a later reconnection while
+  #                the music is already playing changes nothing, and
+  #                one after the list finished (loop=false) does NOT
+  #                restart it - a flaky speaker must not be able to
+  #                start music on its own in the middle of the night.
+  #                A click always starts the music early.
+  start_mode: "boot"
+
+  # Only used when start_mode is 'scheduled'. Ignored otherwise.
+  # Needs a trustworthy clock, like every other scheduled event
+  # here - see the RTC note in docs/guide.md.
+  start_hour: 7
+
+  # Only used when start_mode is 'scheduled'.
+  start_minute: 0
+
+  # ReplayGain mode read by mpv from the tags already in the files:
+  # track | album | no
+  replaygain_mode: "track"
+
+  # Target used if you re-tag one day with scripts/tag_replaygain.sh.
+  replaygain_target_lufs: "-14"
+
+# ---------------------------------------------------------------
+# Flic and/or GPIO button: what single and double click do
+# ---------------------------------------------------------------
+buttons:
+  # What a single click on the button does once music is playing (also
+  # the equivalent button in the web interface):
+  #   next        -> the next track, after the sound below if any
+  #   previous    -> the previous track (the same one from the top
+  #                  after its first seconds), after the sound
+  #   sound       -> plays the sound below, then the same song goes on
+  #                  where it was
+  #   playpause | pause | play
+  #   loop_track  -> loops the song (again: back to normal)
+  #   loop_album  -> loops its album, i.e. its folder (again: normal)
+  #   loop_off    -> normal playback
+  #   volume_up | volume_down -> by volume_step
+  #   sleep       -> pauses the music in sleep_timer_min (again: cancel)
+  #   off         -> nothing
+  # The sound below only goes with next, previous and sound. From idle
+  # (music not started yet), a single click always starts the music.
+  single_click_action: "next"
+
+  # Sound played first (actions next, previous and sound): "none", or
+  # one sound of a list -
+  # meme (button sounds), cutoff, or "custom:<id>" for an announcement
+  # of the Custom Announcements card. One sound per click, taken in the
+  # announcement order (announce_order_mode, or the saved order): a
+  # fixed order plays 1, 2, 3... click after click, a shuffled one plays
+  # every sound once before any comes back.
+  single_click_source: "meme"
+
+  # What a double click does: same choices as the single click. Ignored
+  # while music has not started, except play and playpause, which start
+  # it.
+  double_click_action: "next"
+
+  # Sound played before the next track on a double click: same choices
+  # as single_click_source.
+  double_click_source: "custom:doubleclick"
+
+  # The Bluetooth speaker's own buttons (src/speaker_buttons.py), as
+  # they reach the Pi over AVRCP - which ones a speaker sends depends on
+  # the speaker. Same choices as the clicks (next, previous, sound,
+  # playpause... see single_click_action), with a sound
+  # first (the _source below). Its play/pause button starts the music
+  # from idle, like a single click.
+  speaker_playpause_action: "next"
+
+  speaker_playpause_source: "meme"
+
+  speaker_next_action: "next"
+
+  speaker_next_source: "none"
+
+  speaker_previous_action: "off"
+
+  speaker_previous_source: "none"
+
+  # BCM pin number for an optional physical button wired directly to a
+  # GPIO pin, in ADDITION to (or instead of) the Flic button - see
+  # systemd/rukebox-gpio-button.service, not enabled by default. Same
+  # single/double/long-press vocabulary as Flic, sent to the same
+  # control socket - use either input, or both at once. An arbitrary
+  # default distinct from GPIO_RESET_PIN (21), not a special pin.
+  gpio_button_pin: 20
+
+  # Mechanical bounce shorter than this after a transition is ignored.
+  gpio_button_debounce_sec: 0.03
+
+  # How long to wait, after the button is released once, to see whether
+  # a second press is a double click rather than a single one.
+  gpio_button_double_click_window_sec: 0.4
+
+  # How long the button must be held down to count as a long press
+  # rather than a click.
+  gpio_button_long_press_sec: 1.5
+
+  # What a long press does: poweroff (fade out, then the Pi switches
+  # off) or standby (fade out, the Pi stays on, waiting like at
+  # startup - a click or the start mode brings the music back).
+  long_press_action: "poweroff"
+
+# ---------------------------------------------------------------
+# Evening cutoff (the morning announcement is a custom one)
+# ---------------------------------------------------------------
+schedule:
+  cutoff_hour: 7
+
+  cutoff_minute: 0
+
+  # exact        -> progressive fade right at the chosen time
+  # end_of_track -> wait for the natural end of the current track
+  #                 (may run a few minutes past the chosen time)
+  cutoff_mode: "end_of_track"
+
+  # Whether the Pi actually powers itself off after the cutoff.
+  shutdown_after_cutoff: true
+
+# ---------------------------------------------------------------
+# Fade durations - every stop is progressive, never abrupt
+# ---------------------------------------------------------------
+fades:
+  # Fade before a scheduled announcement.
+  announcement_sec: 15
+
+  # Actions: next / previous track, a sound, an announcement - from a
+  # button or the web interface. Kept short so they feel responsive.
+  # Set to 0 for an instant cut instead of a fade (still goes through the
+  # same volume-ramp code, just with a zero-length ramp - no separate
+  # 'hard cut' mode needed).
+  interactive_sec: 1.5
+
+  # Before stopping the music and switching the Pi off (long press, the
+  # interface's Stop & shutdown, the speaker gone for too long).
+  long_press_sec: 4
+
+  # When the music starts (at boot, at the set time, when the speaker
+  # connects, or on a press), the first song rises from silence to the
+  # volume over this many seconds - gentle for a wake-up. 0 = at once.
+  # At most 120 seconds.
+  start_sec: 0
+
+  # Pausing a song from the web interface: the music fades out, then
+  # pauses - and fades back in on resume, over the same time. 0 = cut
+  # and resume at once. At most 5 seconds.
+  pause_sec: 1
+
+# ---------------------------------------------------------------
+# What to do when a file cannot be read
+# ---------------------------------------------------------------
+playback_errors:
+  # An unreadable file never stops the radio: it is logged and playback
+  # moves to the next track. After this many CONSECUTIVE failures, the
+  # next attempt is postponed instead of racing through a broken folder.
+  # A single file that plays resets the count.
+  # 0 = disable entirely (failures still recorded, never grouped).
+  pause_after_failures: 5
+
+  # How long to wait before retrying once the threshold above is reached.
+  # 0 = no waiting: the run of failures is still RECORDED, but playback
+  # continues immediately.
+  retry_delay_sec: 10
+
+# ---------------------------------------------------------------
+# Clock: this Pi has no NTP, see docs/guide.md
+# ---------------------------------------------------------------
+clock:
+  # Fallback #1 = hardware RTC (/dev/rtc0), detected automatically,
+  # nothing to set here.
+  # Fallback #2 = time read over Bluetooth (Current Time Service) from a
+  # device paired beforehand. Only used if the RTC is absent, and not
+  # reliable on every device (see docs/guide.md).
+  bluetooth_fallback: false
+
+  bluetooth_mac: "XX:XX:XX:XX:XX:XX"
+
+  # Time given to the fallbacks above before the scheduler starts
+  # evaluating time-based triggers anyway, with whatever time is known.
+  sync_grace_sec: 30
+
+  # How long to wait for the speaker before playing the clock
+  # confirmation sound (beyond that, the sound is skipped).
+  speaker_ready_timeout_sec: 20
+
+# ---------------------------------------------------------------
+# Web interface and Wi-Fi
+# ---------------------------------------------------------------
+network:
+  # 80 on purpose, so the interface is just http://<the Pi's address>
+  # with nothing to remember or type after it - which is also what makes
+  # the captive portal below able to hand a phone the real page rather
+  # than a redirect. Binding it as the "pi" user works thanks to the
+  # capability granted in systemd/rukebox-web.service. An existing
+  # installation keeps whatever it already had (8080 was the old
+  # default): updates never rewrite a value already in this file.
+  web_port: 80
+
+  # Items of the web interface's "To finish" card that were set aside
+  # (comma-separated: speaker, clock, timezone, music, password, ap_open).
+  setup_hidden: ""
+
+  # NetworkManager profile created by scripts/setup_home_wifi.sh.
+  # Empty = feature not configured (its web interface card stays hidden).
+  home_wifi_connection: ""
+
+  # What happens once someone has opened the portal page.
+  #   release -> stop intercepting THAT device's connectivity
+  #              checks, so its phone marks the network as a normal
+  #              one and stays connected. This is what a hotel or a
+  #              train portal does, and without it the phone never
+  #              gets the answer it is waiting for: it keeps the
+  #              network in its "captive" state and drops it after
+  #              a few minutes, closing the portal window with it.
+  #   new_only -> like release, and a device that has already opened
+  #              the page once is never intercepted again
+  #   hold    -> keep intercepting forever, so the portal page
+  #              reappears on every connectivity check. The
+  #              original behaviour; useful if you WANT the page
+  #              pushed at every reconnection, at the cost of the
+  #              phone never settling on the network.
+  # Releases are remembered per device (by IP) and forgotten when
+  # the web server restarts.
+  captive_portal_mode: "release"
+
+  # Pop the web interface up automatically on a phone that joins the
+  # admin access point, the way hotel Wi-Fi does, so nobody has to know
+  # or type an address. On by default: on a screenless appliance,
+  # "connect to the Wi-Fi and the page appears" is the difference
+  # between usable and not. It works by answering the handful of "am I
+  # behind a portal?" URLs every OS checks (see src/captive_portal.py)
+  # - only those hostnames, so devices keep normal internet access.
+  # Needs the dnsmasq drop-in that scripts/setup_ap.sh installs.
+  captive_portal: true
+
+  # Admin access point interface, created by scripts/create_uap0.sh.
+  # NOTE: if you change this, update the matching 'iw' entry in
+  # /etc/sudoers.d/rukebox-poweroff, otherwise access point usage cannot
+  # be recorded in the statistics.
+  ap_interface: "uap0"
+
+# ---------------------------------------------------------------
+# Web interface password (optional) and its GPIO reset
+# ---------------------------------------------------------------
+security:
+  # Guests (guest_mode, below) spend credits on their actions, so the same
+  # song again and again, or skip-skip-skip, runs dry fast while an
+  # occasional press never does. Nothing for whoever is past the password.
+  guest_quota: true
+
+  # Credits a guest holds at most (and starts with).
+  guest_quota_max: 10
+
+  # One credit comes back every this many seconds.
+  guest_quota_refill_sec: 120
+
+  # An action's price doubles for every time the same guest did it within
+  # this many minutes.
+  guest_quota_repeat_min: 10
+
+  # Credits each guest action costs, before doubling when repeated
+  # (guest_quota_repeat_min). 0 = free.
+  guest_cost_next: 1
+
+  guest_cost_previous: 1
+
+  guest_cost_start: 1
+
+  guest_cost_sound: 2
+
+  guest_cost_announce: 3
+
+  guest_cost_volume: 1
+
+  guest_cost_queue: 1
+
+  guest_cost_play_now: 1
+
+  guest_cost_output: 1
+
+  # Lets anyone on the access point use the BUTTON actions - sound,
+  # announcement, start the music, volume - without knowing the web
+  # interface password. Shutting the Pi down, and every setting, stay
+  # behind the password.
+  # Only does anything when web_password_hash is set: with no
+  # password the whole interface is already open to anyone on the
+  # access point (see docs/guide.md, Web interface section).
+  # Off by default because turning it on is a deliberate widening of
+  # what an unauthenticated visitor can do - decide it yourself
+  # rather than have an update decide it for you.
+  guest_mode: false
+
+  # Password required to open the web interface, stored as a salted
+  # hash (never plain text) - set, changed or cleared from the web
+  # interface's own Security card, not meant to be hand-edited. Empty
+  # (default) = no password required, this project's original design.
+  password_hash: ""
+
+  # Random key signing the browser's login session cookie, generated
+  # automatically the first time a password is set. Never set this by
+  # hand; changing it logs every browser out at once.
+  session_secret: ""
+
+  # Whether grounding GPIO_RESET_PIN at boot clears the web password
+  # (see docs/guide.md, 'Web interface password'). Harmlessly inactive on
+  # anything that isn't a Raspberry Pi, or without 'pinctrl' installed.
+  gpio_reset_enabled: true
+
+  # BCM GPIO number checked once at boot, configured with its internal
+  # pull-up - so grounding it (a jumper wire to any GND pin) needs no
+  # external resistor. Default 21 = physical header pin 40. Change this
+  # if that pin is already used for something else on your Pi.
+  gpio_reset_pin: 21
+
+# ---------------------------------------------------------------
+# Suggestion box: music and announcement ideas, votes, names
+# ---------------------------------------------------------------
+suggestions:
+  # The suggestion box on the Home section: anyone who can open the
+  # interface - guests included, when guest access is on - proposes
+  # music or announcements to add, under a name of their choice that
+  # no other device can take, and votes the others up or down (one
+  # vote per suggestion per device). The owner sees every name change.
+  enabled: true
+
+  # Minimum time between two changes of name for one device, in
+  # minutes (0 = no limit). Taking a first name is never delayed.
+  rename_interval_min: 60
+
+  # Where the suggestions, votes and names are kept (SQLite).
+  database: "/var/lib/rukebox/suggestions.db"
+
+# ---------------------------------------------------------------
+# The Pi itself
+# ---------------------------------------------------------------
+hardware:
+  # The Pi's green activity LED:
+  #   default -> its original behaviour (SD card activity)
+  #   off     -> always off (a bedroom at night)
+  # Applied at every boot by rukebox-act-led.service, and at once when
+  # changed from the web interface.
+  act_led: "default"
+
+  # Slows file uploads down (music sync, sounds, backups) so they do not
+  # crowd out the Bluetooth sound on the radio it shares with Wi-Fi:
+  #   auto   -> only while music plays on a speaker of the built-in chip
+  #   always -> always
+  #   off    -> never
+  transfer_limit: "auto"
+
+  # Upload speed while limited, in kilobytes per second.
+  transfer_limit_kbps: 200
+
+  # The Pi Zero's USB data port:
+  #   gadget -> network over the USB cable to a computer (SSH, the web
+  #             interface at 169.254.7.7, Internet through the computer)
+  #   host   -> plug devices in instead (Bluetooth dongle, sound card,
+  #             USB key) through an OTG adapter; the cable access is lost
+  # Applied by rukebox-usb-gadget.service; takes full effect after a reboot.
+  usb_port_mode: "gadget"
+
+# ---------------------------------------------------------------
+# Usage statistics
+# ---------------------------------------------------------------
+statistics:
+  # Records what the radio actually does: button presses and what they
+  # triggered, startups/shutdowns, announcements, hours listened,
+  # playback errors, speaker drops, access point usage. Consultable and
+  # resettable from the web interface. Nothing ever leaves the Pi.
+  enabled: true
+
+  database: "/var/lib/rukebox/stats.db"
+
+  # How long the detailed event log is kept. Cumulative totals (hours
+  # listened, number of startups...) are NEVER pruned.
+  retention_days: 90
+
+  # Hard ceiling on stored events, whatever the retention above.
+  max_events: 20000
+
+  # How often to check the speaker is still connected. 0 = disabled,
+  # except when something depends on that check (start_mode
+  # 'bluetooth', pausing on speaker loss, the power-off delays): it
+  # then falls back to 10s instead of silently disabling them. One
+  # check costs ~40ms (bluetoothctl info), so 10s is cheap, and it is
+  # how long a pause on speaker loss can lag behind.
+  speaker_watch_sec: 10
+
+  # How often to look at who is connected to the access point.
+  # 0 = disabled.
+  ap_watch_sec: 60
+
+# ---------------------------------------------------------------
+# Updates
+# ---------------------------------------------------------------
+updates:
+  # Updating over the USB cable (bootstrap/push_update.sh or .cmd) needs
+  # nothing here. This is only for updating from a Git repository, which
+  # requires the Pi to have temporary network access. Empty = disabled.
+  git_url: ""
+
+  git_branch: "main"
+
+  # The GitHub repository (owner/name) whose releases the Update card
+  # offers. Checking needs the Pi to have Internet for a moment (home
+  # Wi-Fi, or the USB cable's second card); installing from the web
+  # interface also needs allow_from_web below. Empty = disabled.
+  github_repo: "Arubinu/Rukebox"
+
+  # Allow the "Update from Git" and "Install" (GitHub release) buttons
+  # in the web interface.
+  # READ THIS BEFORE ENABLING: the web interface has NO authentication,
+  # so anyone on the Pi's access point could trigger a fetch-and-run as
+  # root. Off by default; USB and SSH updates need nothing of the sort.
+  allow_from_web: false
+
+  version_file: "/var/lib/rukebox/version.json"
+
+  # How many pre-update backups of /opt/rukebox to keep for rollback.
+  backup_keep: 3
+
+# ---------------------------------------------------------------
+# Internal paths - only change if you know what you are doing
+# ---------------------------------------------------------------
+paths:
+  # The music library's catalogue (titles, artists, albums, genres), read
+  # once per file by the web server - searching the library and telling
+  # whether a suggested song is already there (SQLite).
+  library_db: "/var/lib/rukebox/library.db"
+
+  state_dir: "/var/lib/rukebox"
+
+  mpv_socket: "/tmp/mpvsocket"
+
+  control_socket: "/tmp/rukebox_control.sock"
+
+  music_cache: "/var/lib/rukebox/music_cache.json"
+
+  # Custom announcement types added from the web interface (name,
+  # folder, time of day) - see src/announcements.py. Plain JSON, not
+  # YAML: it is a growable list managed entirely through the web UI's
+  # own form, not meant for hand-editing like the settings above.
+  announcements_file: "/etc/rukebox/announcements.json"
+
+  # Custom play order saved per announcement folder when
+  # announce_order_mode is "ordered" and you have picked a specific
+  # sequence from the web interface - see src/track_order.py. Same
+  # reasoning as announcements_file above: a plain JSON file, not part
+  # of the YAML settings.
+  track_order_file: "/etc/rukebox/track_order.json"
