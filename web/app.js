@@ -5879,6 +5879,11 @@ async function runMusicSync() {
       sent += 1;
       sentBytes += item.file.size;
       streak = 0;
+    } else if (musicStopRequested) {
+      // Stopped on purpose while this file was in flight: it goes back to the
+      // list, and it is not an error - the run simply ends here.
+      remaining.push(item);
+      break;
     } else {
       failed += 1;
       streak += 1;
