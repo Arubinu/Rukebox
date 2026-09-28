@@ -31,9 +31,25 @@
 .wz-col .text-input, .wz-col input[type="file"] { flex: none; width: 100%; }
 textarea.text-input { resize: vertical; font: 13px ui-monospace, monospace; }
 .wz-short { width: 7rem !important; flex: none !important; }
-.wz-files { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-.wz-files .btn { cursor: pointer; }
-@media (max-width: 520px) { .wz-files { grid-template-columns: 1fr; } }
+.wz-files { display: grid; gap: 10px; margin-top: 12px; }
+.wz-file-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 12px 14px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2);
+}
+.wz-file-row:hover { border-color: var(--border-strong); }
+.wz-file-row.has-files { border-color: var(--accent); background: var(--accent-soft); }
+.wz-file-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wz-file-text strong { font-size: 15px; }
+.wz-file-text small { color: var(--text-muted); font-size: 13px; }
+.wz-file-pick { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.wz-file-pick .btn { cursor: pointer; }
+.wz-file-count { color: var(--text-muted); font-size: 12px; }
+.wz-file-count:empty { display: none; }
+@media (max-width: 520px) {
+  .wz-file-row { grid-template-columns: 1fr; }
+  .wz-file-pick { align-items: flex-start; }
+}
 .wz-drop {
   display: flex; align-items: center; justify-content: center; min-height: 76px; padding: 14px;
   cursor: pointer; text-align: center; font-weight: 400; font-size: 14px;

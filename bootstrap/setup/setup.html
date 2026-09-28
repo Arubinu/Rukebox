@@ -153,12 +153,50 @@
         <h2 data-icon="upload"><span data-i18n="setup.files_title">Your files (optional)</span></h2>
         <p class="hint" data-i18n="setup.files_hint">They travel on the card. The card only has about 380 MB: a bigger library is sent from the interface after the installation.</p>
         <div class="wz-files">
-          <label class="btn" data-icon="folder"><span data-i18n="setup.files_music">Music folder…</span>
-            <input type="file" id="wzMusic" webkitdirectory multiple hidden></label>
-          <label class="btn" data-icon="file"><span data-i18n="setup.files_memes">Button sounds…</span>
-            <input type="file" id="wzMemes" multiple accept="audio/*" hidden></label>
-          <label class="btn" data-icon="file"><span data-i18n="setup.files_morning">Morning announcements…</span>
-            <input type="file" id="wzMorning" multiple accept="audio/*" hidden></label>
+          <label class="wz-file-row" id="wzRowMusic">
+            <span class="wz-file-text">
+              <strong data-i18n="setup.files_music">Music</strong>
+              <small data-i18n="setup.files_music_note">Plays from the start time until the cutoff.</small>
+            </span>
+            <span class="wz-file-pick">
+              <span class="btn" data-icon="folder" data-i18n="setup.files_choose">Choose…</span>
+              <span class="wz-file-count" id="wzMusicCount" role="status"></span>
+            </span>
+            <input type="file" id="wzMusic" webkitdirectory multiple hidden>
+          </label>
+          <label class="wz-file-row" id="wzRowMemes">
+            <span class="wz-file-text">
+              <strong data-i18n="setup.files_memes">Button sounds</strong>
+              <small data-i18n="setup.files_memes_note">Played before the next song when a button asks for one.</small>
+            </span>
+            <span class="wz-file-pick">
+              <span class="btn" data-icon="file" data-i18n="setup.files_choose">Choose…</span>
+              <span class="wz-file-count" id="wzMemesCount" role="status"></span>
+            </span>
+            <input type="file" id="wzMemes" multiple accept="audio/*" hidden>
+          </label>
+          <label class="wz-file-row" id="wzRowMorning">
+            <span class="wz-file-text">
+              <strong data-i18n="setup.files_morning">Morning announcement</strong>
+              <small data-i18n="setup.files_morning_note">Played every day at its own time (05:58 by default).</small>
+            </span>
+            <span class="wz-file-pick">
+              <span class="btn" data-icon="file" data-i18n="setup.files_choose">Choose…</span>
+              <span class="wz-file-count" id="wzMorningCount" role="status"></span>
+            </span>
+            <input type="file" id="wzMorning" multiple accept="audio/*" hidden>
+          </label>
+          <label class="wz-file-row" id="wzRowCutoff">
+            <span class="wz-file-text">
+              <strong data-i18n="setup.files_cutoff">Cutoff announcement</strong>
+              <small data-i18n="setup.files_cutoff_note">Played when the Rukebox switches off, and only then.</small>
+            </span>
+            <span class="wz-file-pick">
+              <span class="btn" data-icon="file" data-i18n="setup.files_choose">Choose…</span>
+              <span class="wz-file-count" id="wzCutoffCount" role="status"></span>
+            </span>
+            <input type="file" id="wzCutoff" multiple accept="audio/*" hidden>
+          </label>
         </div>
         <p class="hint" id="wzFilesStatus" role="status"></p>
       </section>

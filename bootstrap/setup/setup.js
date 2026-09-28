@@ -292,6 +292,15 @@
   });
   $("wzBundle").addEventListener("change", () => readBundle($("wzBundle").files[0]));
 
+  // The four folders a card can carry, and the folder name each one becomes on
+  // the Pi (see install.sh): they must match.
+  const FILE_SOURCES = [
+    ["wzMusic", "music", true],
+    ["wzMemes", "memes", false],
+    ["wzMorning", "morning_announcements", false],
+    ["wzCutoff", "cutoff_announcements", false],
+  ];
+
   function mediaBytes() {
     return Object.values(state.media).flat().reduce((n, f) => n + f.file.size, 0);
   }
@@ -301,6 +310,11 @@
     const status = $("wzFilesStatus");
     status.textContent = n ? t("setup.files_total", { n, size: mb(bytes), max: mb(MEDIA_BUDGET) }) : "";
     status.classList.toggle("warning", bytes > MEDIA_BUDGET);
+    for (const [input, target] of FILE_SOURCES) {
+      const chosen = (state.media[target] || []).length;
+      $(input + "Count").textContent = chosen ? t("setup.files_count", { n: chosen }) : "";
+      $(input).closest(".wz-file-row").classList.toggle("has-files", chosen > 0);
+    }
   }
   function pick(input, target, keepTree) {
     input.addEventListener("change", () => {
@@ -314,9 +328,7 @@
       paintFiles();
     });
   }
-  pick($("wzMusic"), "music", true);
-  pick($("wzMemes"), "memes", false);
-  pick($("wzMorning"), "morning_announcements", false);
+  FILE_SOURCES.forEach(([input, target, keepTree]) => pick($(input), target, keepTree));
 
   function setupAnswers() {
     const net = choice("internet");
