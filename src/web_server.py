@@ -965,6 +965,7 @@ def api_portal_status():
     return jsonify({"ok": True, "data": {
         "enabled": bool(c.get("CAPTIVE_PORTAL_ENABLED")),
         "mode": c.get("CAPTIVE_PORTAL_MODE", "release"),
+        "on_ap": captive_portal.is_ap_client(_client_ip(), c.get("AP_INTERFACE", "uap0")),
         "released": _portal_is_released(_client_ip()),
         "guest_mode": bool(c.get("GUEST_MODE_ENABLED")),
         "auth_required": bool(c.get("WEB_PASSWORD_HASH")),

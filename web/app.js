@@ -18,7 +18,7 @@ async function offerPortalReleaseOnLogin() {
   try {
     const res = await fetch("/api/portal/status");
     const data = (await res.json()).data || {};
-    btn.hidden = !(data.enabled && ["release", "new_only"].includes(data.mode) && !data.released);
+    btn.hidden = !(data.on_ap && data.enabled && ["release", "new_only"].includes(data.mode) && !data.released);
   } catch (e) {
     btn.hidden = true;
   }
@@ -6399,8 +6399,12 @@ async function refreshPortalBanner() {
   const d = result.data;
   const btn = document.getElementById("portalReleaseBtn");
 
-  btn.hidden = !(d.enabled && ["release", "new_only"].includes(d.mode) && !d.released);
-  if (d.released) {
+  // "released" is also what the server answers to a device that was never held
+  // (a computer on the home network): only a device on the hotspot has anything
+  // to finish, and only it should be told that it is done.
+  const onAp = !!d.on_ap;
+  btn.hidden = !(onAp && d.enabled && ["release", "new_only"].includes(d.mode) && !d.released);
+  if (onAp && d.released) {
     document.getElementById("portalHint").textContent = t("guest.joined");
   }
 }
