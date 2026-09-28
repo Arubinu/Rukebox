@@ -411,6 +411,10 @@ def ensure_file(yaml_path=None, env_path=None):
     added = merge_missing(yaml_path, env_path)
     write_env_file(yaml_path, env_path)
     secure_file(yaml_path, os.path.dirname(yaml_path) or ".")
+    # The announcement list is a file of its own, and the setup page's answers
+    # create the YAML before this runs: without the seeding here, the sounds it
+    # uploaded would belong to no announcement and stay invisible.
+    seed_announcements(yaml_path, env_path)
     return ("updated", len(added)) if added else ("unchanged", 0)
 
 
