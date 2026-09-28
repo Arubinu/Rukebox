@@ -1892,6 +1892,14 @@ journalctl -u bt-connect.service -f
 > `cat /sys/class/rfkill/rfkill*/name /sys/class/rfkill/rfkill*/soft` (`1` =
 > blocked) then `sudo /opt/rukebox/scripts/bt_radio.sh`.
 
+> **If a Bluetooth speaker refuses to connect** (`br-connection-profile-unavailable`):
+> a headless install never has an *active* seat, and WirePlumber's Bluetooth
+> monitor waits for one before registering the A2DP profiles, so BlueZ has
+> nothing to offer. `wireplumber.conf.d/10-rukebox-bluez.conf` is installed for
+> exactly that; `bluetoothctl show` must list **Audio Source**. A speaker that
+> answers `br-connection-refused` instead is simply already connected elsewhere
+> (a phone): disconnect it there, or turn that device's Bluetooth off.
+
 ## Clock: hardware RTC module required (no Wi-Fi)
 
 **Without Wi-Fi, the Raspberry Pi has no source to know the time.** It

@@ -383,6 +383,11 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
     systemctl enable rukebox-act-led.service 2>/dev/null || true
     systemctl enable --now rukebox-bt-radio.service 2>/dev/null || true
+    # WirePlumber's Bluetooth monitor waits for an "active" seat (see install.sh).
+    if [ -f "$SOURCE_DIR/config/wireplumber-bluez.conf" ]; then
+        install -D -m 644 -o root -g root "$SOURCE_DIR/config/wireplumber-bluez.conf" \
+            /etc/wireplumber/wireplumber.conf.d/10-rukebox-bluez.conf 2>/dev/null || true
+    fi
     systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
     loginctl enable-linger pi 2>/dev/null || true
 fi

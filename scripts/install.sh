@@ -112,6 +112,10 @@ apt-get update
 # sound stutter.
 apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit \
     pipewire pipewire-bin wireplumber pipewire-audio
+# WirePlumber's Bluetooth monitor waits for an "active" seat, which a headless Pi
+# never has: the drop-in lets it run, so speakers register for A2DP.
+install -D -m 644 -o root -g root "$PROJECT_ROOT/config/wireplumber-bluez.conf" \
+    /etc/wireplumber/wireplumber.conf.d/10-rukebox-bluez.conf
 pip3 install bleak flask --break-system-packages
 
 if [ -n "${RUKEBOX_SYSTEM_UPGRADE:-}" ]; then
