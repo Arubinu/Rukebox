@@ -2016,9 +2016,12 @@ class RadioDaemon:
             if cmd == "rescan_music":
                 from config_and_scan import force_rescan
                 force_rescan(self.cfg["MUSIC_CACHE_FILE"])
-                log.info("Music cache invalidated, will rescan on next access")
+                # Read the list back now: waiting for the next track would leave
+                # the interface showing the old count (and "no track found").
+                self._get_music_list()
+                log.info("Music rescanned: %d tracks", self._track_count)
                 self.stats.record("music_rescan", detail={"source": source})
-                return {"ok": True}
+                return {"ok": True, "tracks": self._track_count}
             if cmd == "get_status":
                 return {"ok": True, "data": self._build_status()}
             if cmd == "wait_change":
