@@ -833,13 +833,17 @@ sudo /opt/rukebox/scripts/setup_ap.sh "My Network" "a-strong-password"
 
 On a Pi Zero, Wi-Fi (the access point and your personal network) and
 Bluetooth share one radio. Rukebox therefore installs the audio server
-(PipeWire and WirePlumber) with realtime priority through `rtkit`, turns
-Wi-Fi power saving off on its connections, and slows uploads down while
-music plays to a **connected** speaker of the built-in chip (**Audio >
-Audio output > Limit transfers**, 200 KB/s by default, `auto`). Nothing is
-slowed down while no sound is going out, so a sync done with the speaker
-off runs at full speed.
-A USB Bluetooth dongle for the speaker removes the sharing altogether.
+(PipeWire and WirePlumber) with realtime priority - `rtkit` alone is not
+enough, the session also needs its own limits, which the installer sets -
+turns Wi-Fi power saving off on its connections, and slows uploads down
+while music plays to a **connected** speaker of the built-in chip
+(**Audio > Audio output > Limit transfers**, 200 KB/s by default, `auto`).
+Nothing is slowed down while no sound is going out, so a sync done with the
+speaker off runs at full speed.
+A USB Bluetooth dongle for the speaker removes the sharing altogether, and
+is the surest cure for a sound that still stutters now and then: on one
+radio the Pi can send on time while the link itself drops, which no setting
+here can prevent.
 
 ### Using the USB port for devices instead
 

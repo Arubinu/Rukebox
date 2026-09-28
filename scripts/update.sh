@@ -388,6 +388,10 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         install -D -m 644 -o root -g root "$SOURCE_DIR/config/wireplumber-bluez.conf" \
             /etc/wireplumber/wireplumber.conf.d/10-rukebox-bluez.conf 2>/dev/null || true
     fi
+    if [ -f "$SOURCE_DIR/config/rt-limits.conf" ]; then
+        install -D -m 644 -o root -g root "$SOURCE_DIR/config/rt-limits.conf" \
+            /etc/systemd/system/user@.service.d/10-rukebox-rt.conf 2>/dev/null || true
+    fi
     systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
     loginctl enable-linger pi 2>/dev/null || true
 fi

@@ -116,6 +116,11 @@ apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit \
 # never has: the drop-in lets it run, so speakers register for A2DP.
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/wireplumber-bluez.conf" \
     /etc/wireplumber/wireplumber.conf.d/10-rukebox-bluez.conf
+# PipeWire asks rtkit for realtime priority, which a lingering "manager" session
+# never gets: these limits let it take the priority itself.
+install -D -m 644 -o root -g root "$PROJECT_ROOT/config/rt-limits.conf" \
+    /etc/systemd/system/user@.service.d/10-rukebox-rt.conf
+systemctl daemon-reload
 pip3 install bleak flask --break-system-packages
 
 if [ -n "${RUKEBOX_SYSTEM_UPGRADE:-}" ]; then
