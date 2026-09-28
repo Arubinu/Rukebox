@@ -5509,7 +5509,9 @@ async function checkRelease(force) {
     const r = result.data;
     const when = r.published_at ? new Date(r.published_at).toLocaleDateString() : "";
     if (!r.newer) {
-      status.textContent = t("update.release_current", { tag: r.tag });
+      const upToDate = t("update.release_current", { tag: r.tag });
+      status.textContent = upToDate;
+      if (force) showToast(upToDate);
     } else if (!r.allowed) {
       status.textContent = t("update.release_available", { tag: r.tag, date: when }) + " " + t("update.release_not_allowed");
     } else {
