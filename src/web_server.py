@@ -916,7 +916,11 @@ def _client_ip():
 
 
 def _portal_is_released(ip):
-    """Released by a tap on "Finish connecting" (below)."""
+    """Released by a tap on "Finish connecting" (below), or simply not on the
+    access point: the portal only ever holds devices that joined the hotspot,
+    so a computer on the home network is not asked to finish anything."""
+    if not captive_portal.is_ap_client(ip, cfg().get("AP_INTERFACE", "uap0")):
+        return True
     mac = suggestions.mac_for_ip(ip)
     if mac:
         try:

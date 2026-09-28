@@ -112,6 +112,43 @@ def interface_ipv4(iface):
     return None
 
 
+def interface_network(iface, cache_seconds=30):
+    """The IPv4 network on `iface`, or None."""
+    now = time.monotonic()
+    cached = _interface_networks.get(iface)
+    if cached and now - cached[0] < cache_seconds:
+        return cached[1]
+    network = None
+    try:
+        result = subprocess.run(
+            ["ip", "-o", "-4", "addr", "show", "dev", iface],
+            capture_output=True, text=True, timeout=5,
+        )
+        match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/(\d+)", result.stdout)
+        if match:
+            parsed = ipaddress.ip_interface("%s/%s" % (match.group(1), match.group(2)))
+            network = parsed.network
+    except (OSError, subprocess.SubprocessError, ValueError):
+        network = None
+    _interface_networks[iface] = (now, network)
+    return network
+
+
+_interface_networks = {}
+
+
+def is_ap_client(remote_ip, ap_interface="uap0"):
+    """True for a device on the access point itself - the only place the
+    portal holds anyone. A computer on the home network must never be told it
+    has a Wi-Fi connection to finish."""
+    try:
+        target = ipaddress.ip_address(remote_ip)
+    except ValueError:
+        return False
+    network = interface_network(ap_interface)
+    return bool(network and target in network)
+
+
 def _handler_class(target_url):
     class PortalHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
