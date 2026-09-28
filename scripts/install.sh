@@ -106,9 +106,12 @@ fi
 
 echo "== Installing system packages =="
 apt-get update
-# rtkit: realtime priority for PipeWire, so a busy moment does not make the
-# Bluetooth sound stutter.
-apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit
+# PipeWire and WirePlumber are the audio server everything plays through: mpv's
+# pipewire device, pw-dump for the outputs, wireplumber for Bluetooth audio.
+# rtkit gives the server realtime priority, so a busy moment does not make the
+# sound stutter.
+apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit \
+    pipewire pipewire-bin wireplumber pipewire-audio
 pip3 install bleak flask --break-system-packages
 
 if [ -n "${RUKEBOX_SYSTEM_UPGRADE:-}" ]; then
