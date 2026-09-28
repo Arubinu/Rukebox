@@ -3161,6 +3161,18 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   .nav-transfer.failed .nt-bar > span { background: var(--danger); }
   .nt-line { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* The sidebar is fixed, so this is where the button leaves the column to sit
+     at its foot. Guests have no sidebar: theirs stays in the column. */
+  body:not([data-access="guest"]) .guest-release:has(#portalReleaseBtn:not([hidden])),
+  body:not([data-access="guest"]) .guest-release:has(#portalHint:not(:empty)) {
+    position: fixed;
+    left: 16px;
+    bottom: 22px;
+    z-index: 41;
+    width: calc(var(--sidebar-w) - 32px);
+    justify-items: stretch;
+  }
+
   .grid { margin-top: 8px; gap: 20px; }
 
   .player-grid {
