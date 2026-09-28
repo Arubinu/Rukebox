@@ -298,7 +298,7 @@
     ["wzMusic", "music", true],
     ["wzMemes", "memes", false],
     ["wzMorning", "morning_announcements", false],
-    ["wzCutoff", "cutoff_announcements", false],
+    ["wzCutoffFiles", "cutoff_announcements", false],
   ];
 
   function mediaBytes() {
