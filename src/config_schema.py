@@ -546,6 +546,9 @@ SETTINGS = [
             "", "Price: Previous track"),
     Setting("GUEST_COST_START", "security", "guest_cost_start", "int", "1",
             "", "Price: Start the music"),
+    Setting("GUEST_COST_PAUSE", "security", "guest_cost_pause", "int", "1",
+            "The middle button does both: pause or resume a song, and skip a\n"
+            "sound that is playing.", "Price: Pause, resume, skip a sound"),
     Setting("GUEST_COST_SOUND", "security", "guest_cost_sound", "int", "2",
             "", "Price: Sound + next"),
     Setting("GUEST_COST_ANNOUNCE", "security", "guest_cost_announce", "int", "3",

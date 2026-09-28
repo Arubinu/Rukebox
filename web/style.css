@@ -3033,7 +3033,6 @@ body[data-access="guest"] .card:not([data-tab="home"]):not(.guest-banner),
 body[data-access="guest"] .tabbar { display: none !important; }
 
 body[data-access="guest"] #btnLongPress,
-body[data-access="guest"] #btnPause,
 body[data-access="guest"] .player-extras,
 body[data-access="guest"] .np-timers,
 body[data-access="guest"] .player-footer { display: none !important; }

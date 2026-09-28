@@ -942,12 +942,13 @@ With a password set, anyone joining the access point normally sees only
 a login box. Turning on **Guest actions without password** (Security →
 Guest access, `GUEST_MODE_ENABLED`) gives them a small page instead:
 **Now Playing, the volume, and the button actions** — sound + next
-track, announcement, start the music.
+track, pause and resume, skipping a sound that is playing, announcement,
+start the music.
 
 Not included, and not reachable by any route: **shutting the Pi down**,
-and every setting, statistic and network control. Those stay behind the
-password, and a **Log in for full access** button on the same page
-swaps the guest view for the whole interface.
+the loop, the timers, and every setting, statistic and network control.
+Those stay behind the password, and a **Log in for full access** button on
+the same page swaps the guest view for the whole interface.
 
 It is **off by default**. It only changes anything while a password is
 set — with none, the whole interface is already open to anyone on the

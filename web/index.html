@@ -142,7 +142,7 @@
             <div class="player-controls">
               <div class="tile-grid" role="group" data-i18n-aria-label="home.controls" aria-label="Controls">
                 <button type="button" class="btn tile transport" id="btnPrev" data-icon="prev" data-cost-action="previous" data-i18n="home.previous">Previous</button>
-                <button type="button" class="btn btn-primary tile transport" id="btnPause" data-icon="pause" data-i18n="home.pause">Pause</button>
+                <button type="button" class="btn btn-primary tile transport" id="btnPause" data-icon="pause" data-cost-action="pause" data-i18n="home.pause">Pause</button>
                 <button type="button" class="btn btn-primary tile transport" id="btnStart" data-icon="play" data-cost-action="start" hidden data-i18n="home.start_music">Start music</button>
                 <button type="button" class="btn tile transport" id="btnNext" data-icon="next" data-cost-action="next" data-i18n="home.next">Next</button>
                 <button type="button" class="btn tile" id="btnSingle" data-icon="sparkles" data-cost-action="sound" data-i18n="home.sound_next">Sound + next</button>
@@ -1261,6 +1261,10 @@
                 <div class="field-row">
                   <label for="guestCostStart" data-i18n="quota.cost_start">Start the music</label>
                   <input type="number" id="guestCostStart" min="0" max="100" step="1" data-key="GUEST_COST_START" class="num-input" inputmode="numeric">
+                </div>
+                <div class="field-row">
+                  <label for="guestCostPause" data-i18n="quota.cost_pause">Pause, resume, skip a sound</label>
+                  <input type="number" id="guestCostPause" min="0" max="100" step="1" data-key="GUEST_COST_PAUSE" class="num-input" inputmode="numeric">
                 </div>
                 <div class="field-row">
                   <label for="guestCostSound" data-i18n="quota.cost_sound">Sound + next</label>

@@ -936,7 +936,11 @@ async function refreshStatus() {
     document.getElementById("volumeValue").textContent = Math.round(d.volume);
   }
 
+  // A guest has "Start music" while nothing plays and the pause button the rest
+  // of the time: one button in that slot either way.
+  const guest = document.body.dataset.access === "guest";
   document.getElementById("btnStart").hidden = d.mode !== "idle" && d.mode !== "stopped";
+  document.getElementById("btnPause").hidden = guest && (d.mode === "idle" || d.mode === "stopped");
   document.getElementById("btnSingle").disabled = !["music", "idle", "stopped"].includes(d.mode);
   document.getElementById("btnDouble").disabled = d.mode !== "music";
 
