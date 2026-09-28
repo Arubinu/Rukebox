@@ -5509,9 +5509,10 @@ async function checkRelease(force) {
     const r = result.data;
     const when = r.published_at ? new Date(r.published_at).toLocaleDateString() : "";
     if (!r.newer) {
-      const upToDate = t("update.release_current", { tag: r.tag });
-      status.textContent = upToDate;
-      if (force) showToast(upToDate);
+      // Nothing to report: the toast is the whole answer to a manual check, and
+      // the line stays empty (.hint:empty hides it) as it was on page load.
+      status.textContent = "";
+      if (force) showToast(t("update.release_current", { tag: r.tag }));
     } else if (!r.allowed) {
       status.textContent = t("update.release_available", { tag: r.tag, date: when }) + " " + t("update.release_not_allowed");
     } else {
