@@ -836,10 +836,12 @@ Bluetooth share one radio. Rukebox therefore installs the audio server
 (PipeWire and WirePlumber) with realtime priority - `rtkit` alone is not
 enough, the session also needs its own limits, which the installer sets -
 turns Wi-Fi power saving off on its connections, and slows uploads down
-while music plays to a **connected** speaker of the built-in chip
-(**Audio > Audio output > Limit transfers**, 200 KB/s by default, `auto`).
-Nothing is slowed down while no sound is going out, so a sync done with the
-speaker off runs at full speed.
+while a sound plays to a **connected** speaker of the built-in chip: music
+or an announcement, but never the keep-alive chime (which plays in the
+silence, where slowing a transfer down would serve nobody) and never in
+pause (**Audio > Audio output > Limit transfers**, 200 KB/s by default,
+`auto`). A sync done with the speaker off, or while paused, runs at full
+speed.
 A USB Bluetooth dongle for the speaker removes the sharing altogether, and
 is the surest cure for a sound that still stutters now and then: on one
 radio the Pi can send on time while the link itself drops, which no setting

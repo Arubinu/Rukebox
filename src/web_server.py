@@ -736,7 +736,7 @@ class _ThrottledInput:
 
 def _transfer_limit():
     """The upload rate limit in bytes per second, or None. "auto" limits only
-    while music plays to a connected speaker of the built-in chip."""
+    while something plays to a connected speaker of the built-in chip."""
     c = cfg()
     mode = c.get("TRANSFER_LIMIT_MODE") or "auto"
     try:
@@ -757,11 +757,12 @@ def _transfer_limit():
         return None
     status = control("get_status")
     data = (status.get("data") or {}) if status.get("ok") else {}
-    # Nothing is going out unless the speaker is connected and playing, and the
-    # cap would then slow the transfer down for nobody.
+    # Only silence is left out: music and announcements are capped, and so is
+    # nothing else - the keep-alive chime plays in idle/stopped, where a slowed
+    # down transfer would be slowed down for nobody.
     if not data.get("speaker_connected") or data.get("paused"):
         return None
-    if data.get("mode") != "music":
+    if data.get("mode") in (None, "idle", "stopped"):
         return None
     return rate
 
