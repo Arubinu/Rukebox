@@ -2766,7 +2766,7 @@ select {
 
 #modalBody { white-space: pre-line; }
 
-#audioOutputDetected, #securityStatus, #apStatus, #clientsSummary,
+#audioOutputDetected, #securityStatus, #apStatus, #clientsSummary, #releaseStatus,
 #updateVersion, #updateSource, #updateOs, #setupHiddenLine, #configHint { text-align: center; }
 #configHint { white-space: pre-line; }
 
