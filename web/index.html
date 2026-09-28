@@ -322,14 +322,9 @@
           <h2 data-icon="calendar" id="settingsTitle"><span data-i18n="settings.schedule_title">Start &amp; cutoff</span></h2>
           <form id="settingsForm" class="settings-form">
             <div class="field-row">
-              <span class="field-label" id="lblCutoff" data-i18n="settings.cutoff">Cutoff</span>
-              <div class="time-pair" role="group" aria-labelledby="lblCutoff">
-                <input type="number" id="cutoffHour" min="0" max="23" data-key="CUTOFF_HOUR" class="num-input" inputmode="numeric"
-                       data-i18n-aria-label="common.hour" aria-label="Hour">
-                <span aria-hidden="true">:</span>
-                <input type="number" id="cutoffMinute" min="0" max="59" data-key="CUTOFF_MINUTE" class="num-input" inputmode="numeric"
-                       data-i18n-aria-label="common.minute" aria-label="Minute">
-              </div>
+              <label for="cutoffTime" data-i18n="settings.cutoff">Cutoff</label>
+              <input type="time" id="cutoffTime" class="time-input" data-key="CUTOFF_HOUR"
+                     data-key-minute="CUTOFF_MINUTE" value="07:00">
             </div>
             <div data-level="detail" class="field-row">
               <label for="cutoffMode" data-i18n="settings.cutoff_mode">Cutoff mode</label>
@@ -355,14 +350,9 @@
               <input type="number" id="startFadeSec" min="0" max="120" step="1" data-key="START_FADE_SEC" class="num-input" inputmode="decimal">
             </div>
             <div class="field-row" id="musicStartTimeRow" hidden>
-              <span class="field-label" id="lblStartTime" data-i18n="settings.start_time">Start time</span>
-              <div class="time-pair" role="group" aria-labelledby="lblStartTime">
-                <input type="number" id="musicStartHour" min="0" max="23" data-key="MUSIC_START_HOUR" class="num-input" inputmode="numeric"
-                       data-i18n-aria-label="common.hour" aria-label="Hour">
-                <span aria-hidden="true">:</span>
-                <input type="number" id="musicStartMinute" min="0" max="59" data-key="MUSIC_START_MINUTE" class="num-input" inputmode="numeric"
-                       data-i18n-aria-label="common.minute" aria-label="Minute">
-              </div>
+              <label for="musicStartTime" data-i18n="settings.start_time">Start time</label>
+              <input type="time" id="musicStartTime" class="time-input" data-key="MUSIC_START_HOUR"
+                     data-key-minute="MUSIC_START_MINUTE" value="07:00">
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
@@ -797,14 +787,8 @@
                 <select id="annAutoChance" class="chance-select"></select>
               </div>
               <div class="field-row" id="annTimeRow">
-                <span class="field-label" id="lblAnnTime" data-i18n="common.time">Time</span>
-                <div class="time-pair" role="group" aria-labelledby="lblAnnTime">
-                  <input type="number" min="0" max="23" id="annHour" class="num-input" value="12" inputmode="numeric"
-                         data-i18n-aria-label="common.hour" aria-label="Hour">
-                  <span aria-hidden="true">:</span>
-                  <input type="number" min="0" max="59" id="annMinute" class="num-input" value="0" inputmode="numeric"
-                         data-i18n-aria-label="common.minute" aria-label="Minute">
-                </div>
+                <label for="annTime" data-i18n="common.time">Time</label>
+                <input type="time" id="annTime" class="time-input" value="12:00">
               </div>
               <div data-level="detail" class="field-row">
                 <div class="field-text">

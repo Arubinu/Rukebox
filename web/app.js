@@ -1732,6 +1732,30 @@ function collectFieldValue(el) {
   return el.value;
 }
 
+// A time field holds two settings ("HH:MM"): the hour in data-key, the minutes
+// in data-key-minute.
+function timeFieldParts(el) {
+  const parts = String(el.value || "").split(":");
+  const hour = Number(parts[0]);
+  const minute = Number(parts[1]);
+  return [
+    String(hour >= 0 && hour <= 23 ? hour : 0),
+    String(minute >= 0 && minute <= 59 ? minute : 0),
+  ];
+}
+
+function setTimeField(el, values) {
+  const hour = String(Number(values[el.dataset.key]) || 0).padStart(2, "0");
+  const minute = String(Number(values[el.dataset.keyMinute]) || 0).padStart(2, "0");
+  el.value = hour + ":" + minute;
+}
+
+function timeFieldChanged(el) {
+  const [hour, minute] = timeFieldParts(el);
+  return hour !== settingsBaseline[el.dataset.key]
+    || minute !== settingsBaseline[el.dataset.keyMinute];
+}
+
 function setFieldValue(el, rawValue) {
   if (el.type === "checkbox") {
     el.checked = String(rawValue).toLowerCase() === "true";
@@ -1744,6 +1768,12 @@ function collectChangedSettings(container) {
   const updates = {};
   container.querySelectorAll("[data-key]").forEach((el) => {
     const key = el.dataset.key;
+    if (el.dataset.keyMinute) {
+      const [hour, minute] = timeFieldParts(el);
+      if (hour !== settingsBaseline[key]) updates[key] = hour;
+      if (minute !== settingsBaseline[el.dataset.keyMinute]) updates[el.dataset.keyMinute] = minute;
+      return;
+    }
     const value = collectFieldValue(el);
     if (value !== settingsBaseline[key]) updates[key] = value;
   });
@@ -1755,6 +1785,10 @@ async function loadSettingsIntoForm() {
   if (!result.ok) return;
   document.querySelectorAll("[data-key]").forEach((el) => {
     const key = el.dataset.key;
+    if (el.dataset.keyMinute) {
+      if (key in result.data) setTimeField(el, result.data);
+      return;
+    }
     if (key in result.data) setFieldValue(el, result.data[key]);
   });
   settingsBaseline = { ...result.data };
@@ -1826,6 +1860,13 @@ async function refreshSettingsIfIdle() {
   if (!result.ok) return;
   document.querySelectorAll("[data-key]").forEach((el) => {
     const key = el.dataset.key;
+    if (el.dataset.keyMinute) {
+      if (!(key in result.data)) return;
+      if (!timeFieldChanged(el)) setTimeField(el, result.data);
+      settingsBaseline[key] = result.data[key];
+      settingsBaseline[el.dataset.keyMinute] = result.data[el.dataset.keyMinute];
+      return;
+    }
     if (!(key in result.data)) return;
     if (collectFieldValue(el) === settingsBaseline[key]) {
       setFieldValue(el, result.data[key]);
@@ -3116,8 +3157,7 @@ function setAnnouncementFormMode(item) {
 
 function resetAnnouncementForm() {
   document.getElementById("announcementForm").reset();
-  document.getElementById("annHour").value = "12";
-  document.getElementById("annMinute").value = "0";
+  document.getElementById("annTime").value = "12:00";
   annTrigger.value = "time";
   document.getElementById("annDelay").value = "30";
   setAnnRepeat(1);
@@ -3130,8 +3170,8 @@ function resetAnnouncementForm() {
 function startEditAnnouncement(item) {
   document.getElementById("annName").value = item.name;
   document.getElementById("annFolder").value = item.folder || "";
-  document.getElementById("annHour").value = String(item.hour);
-  document.getElementById("annMinute").value = String(item.minute);
+  document.getElementById("annTime").value =
+    String(item.hour).padStart(2, "0") + ":" + String(item.minute).padStart(2, "0");
   annTrigger.value = item.trigger || "time";
   document.getElementById("annDelay").value = String(item.delay_min || 30);
   setAnnRepeat(item.repeat_times === undefined ? 1 : item.repeat_times);
@@ -3187,11 +3227,12 @@ window.LANG_CHANGE_LISTENERS.push(fillChanceSelects);
 
 document.getElementById("announcementForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const [hour, minute] = timeFieldParts(document.getElementById("annTime"));
   const body = {
     name: document.getElementById("annName").value,
     folder: document.getElementById("annFolder").value,
-    hour: Number(document.getElementById("annHour").value),
-    minute: Number(document.getElementById("annMinute").value),
+    hour: Number(hour),
+    minute: Number(minute),
     trigger: annTrigger.value,
     delay_min: Number(document.getElementById("annDelay").value),
     repeat_times: annRepeatTimes(),
