@@ -1478,8 +1478,9 @@ update (validation first, backup, automatic rollback on failure,
 settings, music and statistics kept). The installed release's tag then
 shows beside the version.
 
-Installing from the page needs `UPDATE_ALLOW_WEB=true`, like the Git
-button below - same reasons. From SSH it needs nothing:
+Installing from the page needs **Allow updates from the web**
+(`UPDATE_ALLOW_WEB`, the switch at the bottom of the Update card), like
+the Git button below - same reasons. From SSH it needs nothing:
 
 ```bash
 sudo rukebox-update --from-release          # the latest release
@@ -1541,11 +1542,9 @@ sudo rukebox-update --from-git
 ```
 
 A button in the web interface does the same thing, but it only appears
-if you explicitly opt in:
-
-```ini
-UPDATE_ALLOW_WEB=true
-```
+if you explicitly opt in, with the **Allow updates from the web** switch
+in the Update card (or `UPDATE_ALLOW_WEB=true` in `rukebox.yaml`). It is
+saved as soon as you flip it, and takes effect at once.
 
 **It is off by default for a reason.** The web interface has no
 authentication (see *Security* above), so with it on, anyone connected

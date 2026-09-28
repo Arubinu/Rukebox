@@ -1853,6 +1853,20 @@ document.getElementById("actLedToggle").addEventListener("change", async (e) => 
   showToast(t(value === "off" ? "system.act_led_off" : "system.act_led_on"));
 });
 
+document.getElementById("updateAllowWeb").addEventListener("change", async (e) => {
+  const value = e.target.checked ? "true" : "false";
+  const r = await apiPost("/api/settings", { UPDATE_ALLOW_WEB: value });
+  if (!r.ok) {
+    e.target.checked = !e.target.checked;
+    showError(r.error);
+    return;
+  }
+  settingsBaseline.UPDATE_ALLOW_WEB = value;
+  showToast(t(value === "true" ? "update.allow_web_on" : "update.allow_web_off"));
+  // The Install button follows the setting: offered at once, gone at once.
+  checkRelease(false);
+});
+
 loadSettingsIntoForm();
 
 async function refreshSettingsIfIdle() {
