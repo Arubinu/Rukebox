@@ -736,7 +736,7 @@ class _ThrottledInput:
 
 def _transfer_limit():
     """The upload rate limit in bytes per second, or None. "auto" limits only
-    while music plays on a Bluetooth speaker driven by the built-in chip."""
+    while music plays to a connected speaker of the built-in chip."""
     c = cfg()
     mode = c.get("TRANSFER_LIMIT_MODE") or "auto"
     try:
@@ -756,7 +756,12 @@ def _transfer_limit():
     if speaker is None or speaker["bus"] == "usb":
         return None
     status = control("get_status")
-    if not (status.get("ok") and (status.get("data") or {}).get("mode") == "music"):
+    data = (status.get("data") or {}) if status.get("ok") else {}
+    # Nothing is going out unless the speaker is connected and playing, and the
+    # cap would then slow the transfer down for nobody.
+    if not data.get("speaker_connected") or data.get("paused"):
+        return None
+    if data.get("mode") != "music":
         return None
     return rate
 

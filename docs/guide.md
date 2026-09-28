@@ -834,8 +834,10 @@ sudo /opt/rukebox/scripts/setup_ap.sh "My Network" "a-strong-password"
 On a Pi Zero, Wi-Fi (the access point and your personal network) and
 Bluetooth share one radio. Rukebox therefore turns Wi-Fi power saving off
 on its connections, installs `rtkit` (so the audio server gets realtime
-priority), and slows uploads down while music plays on the built-in
-Bluetooth (**Audio > Audio output > Limit transfers**, 200 KB/s by default).
+priority), and slows uploads down while music plays to a **connected**
+speaker of the built-in chip (**Audio > Audio output > Limit transfers**,
+200 KB/s by default, `auto`). Nothing is slowed down while no sound is
+going out, so a sync done with the speaker off runs at full speed.
 A USB Bluetooth dongle for the speaker removes the sharing altogether.
 
 ### Using the USB port for devices instead

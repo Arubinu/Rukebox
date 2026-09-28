@@ -691,7 +691,8 @@ SETTINGS = [
         "TRANSFER_LIMIT_MODE", "hardware", "transfer_limit", "str", "auto",
         "Slows file uploads down (music sync, sounds, backups) so they do not\n"
         "crowd out the Bluetooth sound on the radio it shares with Wi-Fi:\n"
-        "  auto   -> only while music plays on a speaker of the built-in chip\n"
+        "  auto   -> only while music plays on a connected speaker of the\n"
+        "            built-in chip\n"
         "  always -> always\n"
         "  off    -> never",
         "Limit transfers",
