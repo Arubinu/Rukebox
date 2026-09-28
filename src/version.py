@@ -6,7 +6,11 @@ import os
 import subprocess
 import time
 
-VERSIONED_DIRS = ("src", "scripts", "web", "systemd", "config", "bootstrap", "assets")
+# Exactly what a release page ships, and therefore what an installation
+# records. bootstrap/, the docs and the icon assets are never installed, so
+# hashing them made the same code look like two different versions depending
+# on how it was installed (page against release archive).
+VERSIONED_DIRS = ("src", "scripts", "web", "config", "systemd", os.path.join("assets", "sounds"))
 
 IGNORED_DIR_NAMES = {"__pycache__", ".git", ".idea", ".vscode", "node_modules", "graphify-out"}
 IGNORED_SUFFIXES = (".pyc", ".pyo", ".swp", ".tmp", ".log", ".orig")
