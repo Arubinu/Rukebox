@@ -1549,6 +1549,13 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
   color: var(--text-muted);
 }
 
+/* A card IS the container (`.card`, at the top of this file: `container: card /
+   inline-size`), so these three blocks measure the card, not the screen - which
+   is the point: a card is narrow both on a phone and in a narrow grid track.
+   They do apply; measured in Edge, a 420px card gets the 100%-width field rows
+   and the 44px library button, a 600px one does not. Note the query measures
+   the CONTENT box and .card carries 20px of padding, so the 520 below switches
+   at a 560px card and the 380 at a 420px one. */
 @container card (max-width: 520px) {
   .field-row > .text-input,
   .field-row > .input-with-action {
