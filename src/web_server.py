@@ -4559,6 +4559,20 @@ def _os_update_state():
     return count, internet
 
 
+def _updater_alive():
+    """True while a rukebox-update process is running."""
+    for name in os.listdir("/proc"):
+        if not name.isdigit():
+            continue
+        try:
+            with open("/proc/%s/cmdline" % name, "rb") as f:
+                if b"rukebox-update" in f.read():
+                    return True
+        except OSError:
+            continue
+    return False
+
+
 @app.route("/api/update/status")
 def api_update_status():
     c = cfg()
@@ -4566,11 +4580,18 @@ def api_update_status():
 
     log_tail = ""
     running = False
+    interrupted = False
     try:
         if os.path.exists(UPDATE_LOG):
             with open(UPDATE_LOG, "r", encoding="utf-8", errors="replace") as f:
                 log_tail = "".join(f.readlines()[-40:])
-            running = "__RUKEBOX_UPDATE_DONE__" not in log_tail
+            # The end marker is written by the shell that launched the updater,
+            # after it returns - so a run that was killed halfway leaves none,
+            # and the log alone would say "in progress" for ever. The process is
+            # the other half of the answer.
+            done = "__RUKEBOX_UPDATE_DONE__" in log_tail
+            running = not done and _updater_alive()
+            interrupted = not done and not running and bool(log_tail.strip())
     except OSError:
         pass
 
@@ -4578,6 +4599,7 @@ def api_update_status():
 
     return jsonify({"ok": True, "data": {
         "version": version,
+        "interrupted": interrupted,
         "git_configured": bool(c["UPDATE_GIT_URL"]),
         "git_url": c["UPDATE_GIT_URL"],
         "github_repo": c.get("UPDATE_GITHUB_REPO") or "",

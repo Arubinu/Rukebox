@@ -208,10 +208,21 @@ function waitForCards() {
   ]);
 }
 
-function bootMessage(key, showRetry) {
+function bootMessage(key, showRetry, subKey) {
   const message = document.getElementById("bootMessage");
   message.dataset.i18n = key;
   message.textContent = t(key);
+  /* The second line is a statement of its own, not a tail on the first: what
+     happened, then what the page is doing about it. */
+  const sub = document.getElementById("bootSubMessage");
+  sub.hidden = !subKey;
+  if (subKey) {
+    sub.dataset.i18n = subKey;
+    sub.textContent = t(subKey);
+  } else {
+    delete sub.dataset.i18n;
+    sub.textContent = "";
+  }
   document.getElementById("bootRetry").hidden = !showRetry;
 
   document.getElementById("bootOverlay").dataset.state =
@@ -847,8 +858,8 @@ const CONNECTION_LOST_AFTER = 2;
 let connectionFailures = 0;
 let overlayForConnection = false;
 
-function showBootOverlay(key) {
-  bootMessage(key, false);
+function showBootOverlay(key, subKey) {
+  bootMessage(key, false, subKey);
   const overlay = document.getElementById("bootOverlay");
   overlay.classList.remove("boot-gone");
   overlay.hidden = false;
@@ -885,7 +896,7 @@ function noteServerAnswer(reachable) {
   connectionFailures += 1;
   if (connectionFailures < CONNECTION_LOST_AFTER || overlayForConnection) return;
   overlayForConnection = true;
-  showBootOverlay("boot.lost");
+  showBootOverlay("boot.lost", "boot.lost_retrying");
 }
 
 function setConnectionState(reachable) {
@@ -6609,6 +6620,12 @@ async function refreshUpdate() {
         hint.textContent = t("update.finished");
       }
       refreshStats();
+    }
+    // The end marker is written by the command that launched the updater, so a
+    // run that died halfway leaves none: say so instead of letting the page
+    // believe an update is still going on for ever.
+    if (d.interrupted && !updateNotStartedShown) {
+      hint.textContent = t("update.interrupted");
     }
   }
 }

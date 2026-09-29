@@ -137,6 +137,42 @@ class WebTest(unittest.TestCase):
         self.assertEqual(guest.get("/api/today").status_code, 200)
         self.assertEqual(guest.get("/api/queue").status_code, 200)
 
+    def test_an_update_that_died_halfway_is_not_still_running(self):
+        # The end marker is appended by the shell that launched the updater,
+        # after it returns, so a run killed halfway leaves none - and the log
+        # alone then says "in progress" for ever, with the Install button
+        # disabled. Measured on the owner's Pi: the interface showed "Mise à
+        # jour en cours…" long after the updater had been killed.
+        log = os.path.join(self.dir, "update.log")
+        original = ws.UPDATE_LOG
+        ws.UPDATE_LOG = log
+        client = self.owner()
+        try:
+            with open(log, "w", encoding="utf-8") as f:
+                f.write("== updating ==\nstopping rukebox-web.service\n")
+            with unittest.mock.patch.object(ws, "_updater_alive", return_value=False):
+                data = client.get("/api/update/status").get_json()["data"]
+            self.assertFalse(data["running"], "no updater process, so it is not running")
+            self.assertTrue(data["interrupted"], "and the page can say the run was cut short")
+
+            with unittest.mock.patch.object(ws, "_updater_alive", return_value=True):
+                data = client.get("/api/update/status").get_json()["data"]
+            self.assertTrue(data["running"])
+            self.assertFalse(data["interrupted"])
+
+            with open(log, "a", encoding="utf-8") as f:
+                f.write("__RUKEBOX_UPDATE_DONE__\n")
+            data = client.get("/api/update/status").get_json()["data"]
+            self.assertFalse(data["running"])
+            self.assertFalse(data["interrupted"])
+
+            os.remove(log)
+            data = client.get("/api/update/status").get_json()["data"]
+            self.assertFalse(data["running"], "no log at all is not a running update")
+            self.assertFalse(data["interrupted"])
+        finally:
+            ws.UPDATE_LOG = original
+
     def test_credits_and_free_devices(self):
         guest = ws.app.test_client()
         codes = [guest.post("/api/action/next_track").status_code for _ in range(4)]

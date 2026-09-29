@@ -2950,6 +2950,17 @@ select {
   font-size: 15px;
   line-height: 1.5;
 }
+/* What the page is doing about it, on its own line: the two are separate
+   statements, and a reader looking for "is it still trying?" should not have
+   to find it at the end of a sentence. */
+.boot-submessage {
+  margin: 2px 0 0;
+  max-width: 320px;
+  color: var(--boot-color, var(--text-muted));
+  font-size: 14px;
+  font-weight: 600;
+}
+.boot-submessage[hidden] { display: none; }
 .boot-box > .btn { margin-top: 8px; min-width: 180px; }
 
 .login-overlay,
