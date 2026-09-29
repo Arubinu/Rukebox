@@ -989,6 +989,16 @@ update make it for you.
 
 ### Features
 
+- **Finding your way**: the bar at the bottom (a column on a wide screen)
+  holds five areas — Home, Settings, Audio, System, Stats. Each area holds
+  **pages**, one card each. On a phone, tapping an area shows its pages as a
+  **grid of tiles** (an icon and a title), and the arrow at the top left
+  brings that grid back; on a wide screen the same pages are listed **under
+  their area in the rail**, one click away. **Now playing** is a page of its
+  own, and the one you arrive on. A page has its own address, so it can be
+  linked to and the browser's Back button works: `#home/library`,
+  `#settings/announcements`, `#audio/bluetooth`. A guest has no bar at all,
+  so for them the arrow and the grid *are* the menu.
 - **Now playing**: current mode, current track, volume (real-time
   slider).
 - **Actions**: the same as the Flic button — sound + next track,

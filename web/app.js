@@ -405,35 +405,308 @@ if (window.matchMedia) {
 
 applyTheme(localStorage.getItem(THEME_KEY) || "system");
 
-const TAB_KEY = "rukebox_active_tab";
+/* An area of the tab bar holds pages, and a page IS a card. Two menus for the
+   same pages: the tiles of a grid, where the tab bar has no room for a rail
+   (a phone, and the guest access, which has no tab bar at all), and the pages
+   listed under their area in the rail on a wide screen. The URL says where we
+   are (#area/page), so the back button of the browser works and a page can be
+   linked to; arriving with no # at all shows the player. */
+const DEFAULT_VIEW = { tab: "home", page: "player" };
+const RAIL_QUERY = "(min-width: 640px)";
+const railQuery = window.matchMedia ? window.matchMedia(RAIL_QUERY) : null;
 
-function setActiveTab(tab) {
-  if (currentView() === "simple" && tab === "stats") tab = "home";
+function railMode() {
+  return !guestMode && !!railQuery && railQuery.matches;
+}
+
+function areaCards(tab) {
+  return Array.from(document.querySelectorAll('.card[data-tab="' + tab + '"][data-page]'));
+}
+
+function cardOfPage(tab, page) {
+  return areaCards(tab).find((card) => card.dataset.page === page) || null;
+}
+
+/* A card is a page only when it has something to show: the data decides (an
+   empty card hides itself) and the simple view leaves the detail pages out. */
+function pageIsAvailable(card) {
+  if (!card || card.hasAttribute("hidden")) return false;
+  return !(card.dataset.level === "detail" && currentView() === "simple");
+}
+
+function availablePages(tab) {
+  return areaCards(tab).filter(pageIsAvailable);
+}
+
+function titleKeyOf(card) {
+  const span = card.querySelector("h2 [data-i18n]");
+  return span ? span.dataset.i18n : null;
+}
+
+/* The area whose menu you go back to: its own, or Home's when it has a single
+   page (Stats), where a one-tile grid would say nothing. */
+function gridTabOf(tab) {
+  return availablePages(tab).length > 1 ? tab : DEFAULT_VIEW.tab;
+}
+
+let pageGrids = {};
+let railPages = {};
+/* A page the URL asked for whose card has nothing to show YET (its data is
+   still on its way). Kept until it can be opened, or the reload of a deep link
+   to the Library would land on an empty screen. */
+let pendingPage = null;
+
+function buildPageMenus() {
+  const main = document.getElementById("main");
+  const tabbar = document.querySelector(".tabbar");
+  areaCards(document.body.dataset.tab || DEFAULT_VIEW.tab);   // no-op, keeps order clear
+  document.querySelectorAll(".card[data-tab][data-page]").forEach((card) => {
+    const tab = card.dataset.tab;
+    if (!pageGrids[tab]) {
+      const grid = document.createElement("nav");
+      grid.className = "page-grid";
+      grid.dataset.tab = tab;
+      grid.hidden = true;
+      main.insertBefore(grid, areaCards(tab)[0]);
+      pageGrids[tab] = grid;
+
+      const list = document.createElement("div");
+      list.className = "rail-pages";
+      list.dataset.tab = tab;
+      const button = tabbar && tabbar.querySelector('.tab-btn[data-tab="' + tab + '"]');
+      if (button) button.after(list);
+      railPages[tab] = list;
+    }
+    const icon = card.querySelector("h2[data-icon]");
+    const page = card.dataset.page;
+
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "page-tile";
+    tile.dataset.page = page;
+    const tileIcon = document.createElement("span");
+    tileIcon.className = "page-tile-icon";
+    tileIcon.dataset.icon = (icon && icon.dataset.icon) || "home";
+    tileIcon.setAttribute("aria-hidden", "true");
+    const tileTitle = document.createElement("span");
+    tileTitle.className = "page-tile-title";
+    tile.append(tileIcon, tileTitle);
+    tile.addEventListener("click", () => setActiveView(tab, page));
+    pageGrids[tab].appendChild(tile);
+
+    if (railPages[tab]) {
+      const entry = document.createElement("button");
+      entry.type = "button";
+      entry.className = "rail-page";
+      entry.dataset.tab = tab;
+      entry.dataset.page = page;
+      entry.addEventListener("click", () => setActiveView(tab, page));
+      railPages[tab].appendChild(entry);
+    }
+  });
+}
+
+/* The labels and the availability are read from the cards on every repaint:
+   a card that gets something to show becomes a tile, one that empties loses
+   its tile, and a language change relabels both menus. */
+function refreshPageMenus() {
+  Object.keys(pageGrids).forEach((tab) => {
+    pageGrids[tab].setAttribute("aria-label", t("tab." + tab));
+    pageGrids[tab].querySelectorAll(".page-tile").forEach((tile) => {
+      const card = cardOfPage(tab, tile.dataset.page);
+      const key = card ? titleKeyOf(card) : null;
+      tile.querySelector(".page-tile-title").textContent = key ? t(key) : "";
+      tile.hidden = !pageIsAvailable(card);
+    });
+    fillPageGrid(pageGrids[tab]);
+    if (railPages[tab]) {
+      railPages[tab].querySelectorAll(".rail-page").forEach((entry) => {
+        const card = cardOfPage(tab, entry.dataset.page);
+        const key = card ? titleKeyOf(card) : null;
+        entry.textContent = key ? t(key) : "";
+        entry.hidden = !pageIsAvailable(card);
+        const on = entry.dataset.page === (document.body.dataset.page || null);
+        entry.classList.toggle("active", on);
+        if (on) entry.setAttribute("aria-current", "page");
+        else entry.removeAttribute("aria-current");
+      });
+    }
+  });
+}
+
+/* The grid draws its separators with its own background showing through 1px
+   gaps, so a last row that is not full would end in a grey block. Empty cells
+   fill it up, and the lines simply carry on to the edge. Only a grid that is
+   on screen is measured: it costs a style recalculation, and a hidden one -
+   or one in a test without a layout engine - needs no fillers. */
+function fillPageGrid(grid) {
+  if (grid.hidden || !grid.offsetParent) return;
+  let columns = 0;
+  try {
+    columns = String(getComputedStyle(grid).gridTemplateColumns || "").split(" ").filter(Boolean).length;
+  } catch (error) {
+    columns = 0;
+  }
+  if (columns < 2) return;
+  const shown = Array.from(grid.querySelectorAll(".page-tile")).filter((t) => !t.hidden).length;
+  const have = grid.querySelectorAll(".page-filler").length;
+  const want = shown ? (columns - (shown % columns)) % columns : 0;
+  for (let i = have; i < want; i++) {
+    const filler = document.createElement("span");
+    filler.className = "page-filler";
+    filler.setAttribute("aria-hidden", "true");
+    grid.appendChild(filler);
+  }
+  grid.querySelectorAll(".page-filler").forEach((filler, index) => {
+    filler.hidden = index >= want;
+  });
+}
+
+function setActiveView(tab, page, options) {
+  const opts = options || {};
+  if (!areaCards(tab).length) tab = DEFAULT_VIEW.tab;
+  const available = availablePages(tab);
+  if (page != null && !available.some((card) => card.dataset.page === page)) {
+    // Ask for a page the data has not filled in yet: remember it, and open it
+    // the moment it appears (see the observer below).
+    pendingPage = cardOfPage(tab, page) ? page : null;
+    page = null;
+  } else if (page != null) {
+    pendingPage = null;
+  }
+  // Where the rail is, its pages are the menu: open a page rather than a grid
+  // nobody would see. A one-page area always opens its page.
+  if (page == null && available.length && (available.length === 1 || railMode())) {
+    page = available[0].dataset.page;
+  }
+  page = page || null;
+
   document.body.dataset.tab = tab;
   document.documentElement.dataset.tab = tab;
+  document.body.dataset.page = page || "";
+  // Every card, not just this area's: a card of another area must not stay
+  // visible behind this page.
   document.querySelectorAll(".card[data-tab]").forEach((card) => {
-    card.classList.toggle("tab-hidden", card.dataset.tab !== tab);
+    const on = card.dataset.tab === tab && page !== null && card.dataset.page === page;
+    card.classList.toggle("tab-hidden", !on);
   });
+  Object.keys(pageGrids).forEach((key) => {
+    pageGrids[key].hidden = !(key === tab && page === null);
+  });
+
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     const on = btn.dataset.tab === tab;
     btn.classList.toggle("active", on);
     if (on) btn.setAttribute("aria-current", "page");
     else btn.removeAttribute("aria-current");
   });
+  document.querySelectorAll(".rail-pages").forEach((list) => {
+    list.hidden = list.dataset.tab !== tab;
+  });
+
+  const backTab = gridTabOf(tab);
+  const back = document.getElementById("pageBack");
+  if (back) {
+    // The logo becomes the way back, arrow on top of a darkened logo, and only
+    // while a page is open.
+    back.disabled = page === null;
+    back.classList.toggle("is-back", page !== null);
+    back.setAttribute("aria-label", t("nav.back_to", { name: t("tab." + backTab) }));
+    back.title = t("nav.back_to", { name: t("tab." + backTab) });
+  }
 
   const title = document.getElementById("pageTitle");
   if (title) {
-    title.dataset.i18n = "tab." + tab;
-    title.textContent = t("tab." + tab);
+    const open = page ? cardOfPage(tab, page) : null;
+    const key = (open && titleKeyOf(open)) || "tab." + tab;
+    title.dataset.i18n = key;
+    title.textContent = t(key);
   }
 
-  window.scrollTo({ top: 0, behavior: "auto" });
-  localStorage.setItem(TAB_KEY, tab);
+  refreshPageMenus();
+
+  if (opts.hash !== false && !pendingPage) {
+    const hash = "#" + tab + (page ? "/" + page : "");
+    if (window.location.hash !== hash) {
+      if (opts.replace) window.history.replaceState(null, "", hash);
+      else window.location.hash = hash;
+    }
+  }
+  if (opts.scroll !== false) window.scrollTo({ top: 0, behavior: "auto" });
 }
 
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
+/* The old name, kept for the callers that only ever meant "go to this area". */
+function setActiveTab(tab) {
+  if (currentView() === "simple" && tab === "stats") tab = DEFAULT_VIEW.tab;
+  setActiveView(tab, null);
+}
+
+function viewFromHash() {
+  const raw = (window.location.hash || "").replace(/^#/, "");
+  if (!raw) return null;
+  const parts = raw.split("/");
+  return { tab: parts[0], page: parts[1] || null };
+}
+
+window.addEventListener("hashchange", () => {
+  const view = viewFromHash();
+  if (!view) return;
+  if (document.body.dataset.tab === view.tab &&
+      (document.body.dataset.page || "") === (view.page || "")) return;
+  setActiveView(view.tab, view.page, { hash: false });
 });
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => setActiveView(btn.dataset.tab, null));
+});
+
+document.getElementById("pageBack").addEventListener("click", () => {
+  setActiveView(gridTabOf(document.body.dataset.tab), null);
+});
+
+/* Turning the phone on its side, or the window getting wide, moves the menu
+   from the grid to the rail: a grid that is no longer shown must hand over to
+   a page, or the screen would be empty. */
+if (railQuery && railQuery.addEventListener) {
+  railQuery.addEventListener("change", () => {
+    const tab = document.body.dataset.tab || DEFAULT_VIEW.tab;
+    const page = document.body.dataset.page || null;
+    if (page === null && railMode() && availablePages(tab).length) {
+      setActiveView(tab, null);
+    } else if (page !== null && !railMode() && !pageIsAvailable(cardOfPage(tab, page))) {
+      setActiveView(tab, null);
+    }
+  });
+}
+
+window.LANG_CHANGE_LISTENERS.push(() => {
+  setActiveView(document.body.dataset.tab, document.body.dataset.page || null,
+                { hash: false, scroll: false });
+});
+
+/* A card appears or disappears as its data arrives (the Library hides itself
+   until it has tracks, and so on). The menus - and a page waiting for its card
+   - follow at that moment instead of at the next click. */
+const cardsObserver = new MutationObserver(() => {
+  const tab = document.body.dataset.tab || DEFAULT_VIEW.tab;
+  if (pendingPage) {
+    const wanted = cardOfPage(tab, pendingPage);
+    if (!wanted) pendingPage = null;
+    else if (pageIsAvailable(wanted)) {
+      pendingPage = null;
+      setActiveView(tab, wanted.dataset.page, { hash: false, scroll: false });
+      return;
+    }
+  }
+  refreshPageMenus();
+});
+
+buildPageMenus();
+document.querySelectorAll("#main > .card[data-tab]").forEach((card) => {
+  cardsObserver.observe(card, { attributes: true, attributeFilter: ["hidden"] });
+});
+const startView = viewFromHash() || DEFAULT_VIEW;
+setActiveView(startView.tab, startView.page, { replace: !window.location.hash, scroll: false });
 
 const VIEW_KEY = "rukebox_view";
 
@@ -455,7 +728,11 @@ function setViewMode(view) {
   document.documentElement.dataset.view = view;
   try { localStorage.setItem(VIEW_KEY, view); } catch (e) {  }
   paintViewBar();
-  if (view === "simple" && document.body.dataset.tab === "stats") setActiveTab("home");
+  const tab = document.body.dataset.tab || DEFAULT_VIEW.tab;
+  const open = document.body.dataset.page ? cardOfPage(tab, document.body.dataset.page) : null;
+  // The simple view takes the detail pages away: an open one has to close.
+  if (document.body.dataset.page && !pageIsAvailable(open)) setActiveView(tab, null, { hash: false });
+  else refreshPageMenus();
 }
 
 function showDetailed() {
@@ -471,7 +748,6 @@ document.getElementById("viewBarBtn").addEventListener("click", () => {
 });
 paintViewBar();
 
-setActiveTab(localStorage.getItem(TAB_KEY) || "home");
 renderKpis(null);
 renderRecentStats(null);
 
@@ -3155,9 +3431,8 @@ async function playGenre() {
 libraryGenrePlay.addEventListener("click", playGenre);
 
 function openListsCard() {
-  setActiveTab("home");
+  goToCard("home", "listsTitle");
   listsNewBox.open = true;
-  listsCard.scrollIntoView({ block: "start", behavior: "smooth" });
   listsNameInput.focus();
 }
 
@@ -4172,8 +4447,8 @@ function openAnnounceFiles(source) {
     trackOrderSourceSelect.value = source;
     loadTrackOrder();
   }
-  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  document.getElementById("trackOrderCard").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  // The files card is its own page now, wherever the call comes from.
+  goToCard("settings", "trackOrderTitle");
 }
 
 async function uploadAnnounceFiles(files) {
@@ -5791,9 +6066,9 @@ const SETUP_TARGETS = {
 let setupHidden = [];
 
 function goToCard(tab, titleId) {
-  setActiveTab(tab);
-  const title = document.getElementById(titleId);
-  const card = title && title.closest(".card");
+  const title = titleId ? document.getElementById(titleId) : null;
+  const card = title && title.closest(".card[data-page]");
+  setActiveView(tab, card ? card.dataset.page : null);
   if (card) setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
 }
 
@@ -6686,9 +6961,10 @@ const navTransfer = {
 document.getElementById("navTransfer").addEventListener("click", () => {
   const target = NAV_TRANSFER_TARGETS[navTransfer.kind];
   if (!target) return;
-  setActiveTab(target.tab);
   const card = document.getElementById(target.card);
-  if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+  const page = card && card.dataset.page;
+  setActiveView(target.tab, page || null);
+  if (card) setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
 });
 
 async function runMusicSync() {

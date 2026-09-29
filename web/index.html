@@ -70,7 +70,10 @@
 
       <header class="topbar">
         <div class="brand">
-          <img class="brand-logo" src="/logo.webp" alt="" width="36" height="36">
+          <button type="button" class="brand-back" id="pageBack" disabled>
+            <img class="brand-logo" src="/logo.webp" alt="" width="36" height="36">
+            <span class="brand-back-icon" data-icon="back" aria-hidden="true"></span>
+          </button>
           <span class="brand-text">
             <span class="brand-name">Rukebox</span>
             <span class="brand-clock" data-show="time">
@@ -99,13 +102,13 @@
 
       <main class="grid" id="main" tabindex="-1">
 
-        <section class="card setup-card" id="setupCard" data-tab="home" aria-labelledby="setupTitle" hidden>
+        <section class="card setup-card" id="setupCard" data-page="setup" data-tab="home" aria-labelledby="setupTitle" hidden>
           <h2 data-icon="check" id="setupTitle"><span data-i18n="setup.title">To finish</span></h2>
           <p class="hint" data-i18n="setup.intro">What this Rukebox still lacks. Set it aside if you do not need it.</p>
           <ul class="setup-list" id="setupList"></ul>
         </section>
 
-        <section class="card card-player" data-tab="home" aria-labelledby="homeTitle">
+        <section class="card card-player" data-page="player" data-tab="home" aria-labelledby="homeTitle">
           <h2 data-icon="music" id="homeTitle"><span data-i18n="home.title">Now Playing</span></h2>
           <div class="player-grid">
             <div class="now-playing">
@@ -194,26 +197,26 @@
           </div>
         </section>
 
-        <section class="card" id="upnextCard" data-tab="home" aria-labelledby="upnextTitle" hidden>
+        <section class="card" id="upnextCard" data-page="upnext" data-tab="home" aria-labelledby="upnextTitle" hidden>
           <h2 data-icon="list" id="upnextTitle"><span data-i18n="upnext.title">Up next</span></h2>
           <ol class="device-list recent-list upnext-list" id="upnextList"></ol>
           <p class="hint" id="upnextEmpty" data-i18n="upnext.empty" hidden>Nothing planned after this song.</p>
         </section>
 
-        <section class="card" id="recentCard" data-tab="home" aria-labelledby="recentTitle" hidden>
+        <section class="card" id="recentCard" data-page="recent" data-tab="home" aria-labelledby="recentTitle" hidden>
           <h2 data-icon="list" id="recentTitle"><span data-i18n="recent.title">Recently played</span></h2>
           <ol class="device-list recent-list" id="recentList"></ol>
           <p class="hint" id="recentEmpty" data-i18n="recent.empty" hidden>Nothing played yet.</p>
         </section>
 
-        <section class="card" id="todayCard" data-tab="home" aria-labelledby="todayTitle" hidden>
+        <section class="card" id="todayCard" data-page="today" data-tab="home" aria-labelledby="todayTitle" hidden>
           <h2 data-icon="sun" id="todayTitle"><span data-i18n="today.title">Today</span></h2>
           <dl class="today-grid" id="todayFigures"></dl>
           <h3 class="health-sub" id="todayTopTitle" data-i18n="today.top" hidden>Most played</h3>
           <ol class="today-top" id="todayTop"></ol>
         </section>
 
-        <section class="card" id="libraryCard" data-tab="home" aria-labelledby="libraryTitle" hidden>
+        <section class="card" id="libraryCard" data-page="library" data-tab="home" aria-labelledby="libraryTitle" hidden>
           <h2 data-icon="music" id="libraryTitle"><span data-i18n="library.title">Library</span></h2>
           <p class="hint help-text" data-i18n="library.help" hidden>
             Search by title, artist, album or genre, or pick from the lists.
@@ -244,7 +247,7 @@
           </div>
         </section>
 
-        <section class="card" id="listsCard" data-tab="home" aria-labelledby="listsTitle" hidden>
+        <section class="card" id="listsCard" data-page="lists" data-tab="home" aria-labelledby="listsTitle" hidden>
           <h2 data-icon="list" id="listsTitle"><span data-i18n="lists.title">Lists</span></h2>
 
           <div id="listsOverview">
@@ -308,7 +311,7 @@
                   data-i18n="guest.join">Finish connecting</button>
           <p class="hint" id="portalHint"></p>
         </div>
-        <section class="card" id="suggestCard" data-tab="home" aria-labelledby="suggestTitle">
+        <section class="card" id="suggestCard" data-page="suggest" data-tab="home" aria-labelledby="suggestTitle">
           <h2 data-icon="bulb" id="suggestTitle"><span data-i18n="suggest.title">Suggestions</span></h2>
           <p class="hint help-text" data-i18n="suggest.help" hidden>
             Ideas of music or announcements to add. One vote per suggestion
@@ -380,7 +383,7 @@
           </div>
         </details>
 
-        <section class="card" data-tab="settings" aria-labelledby="settingsTitle">
+        <section class="card" data-page="settings" data-tab="settings" aria-labelledby="settingsTitle">
           <h2 data-icon="calendar" id="settingsTitle"><span data-i18n="settings.schedule_title">Start &amp; cutoff</span></h2>
           <form id="settingsForm" class="settings-form">
             <div class="field-row">
@@ -422,7 +425,7 @@
           </form>
         </section>
 
-        <section class="card" data-tab="settings" aria-labelledby="playbackTitle">
+        <section class="card" data-page="playback" data-tab="settings" aria-labelledby="playbackTitle">
           <h2 data-icon="headphones" id="playbackTitle"><span data-i18n="settings.playback_title">Playback</span></h2>
           <form id="playbackForm" class="settings-form">
             <div class="field-row">
@@ -578,7 +581,7 @@
           </form>
         </section>
 
-        <section class="card" data-tab="settings" aria-labelledby="buttonsTitle">
+        <section class="card" data-page="buttons" data-tab="settings" aria-labelledby="buttonsTitle">
           <h2 data-icon="pointer" id="buttonsTitle"><span data-i18n="settings.buttons_title">Button actions</span></h2>
           <form id="buttonsForm" class="settings-form">
             <div class="field-row">
@@ -799,7 +802,7 @@
           </form>
         </section>
 
-        <section class="card" id="announcementsCard" data-tab="settings" aria-labelledby="annTitle">
+        <section class="card" id="announcementsCard" data-page="announcements" data-tab="settings" aria-labelledby="annTitle">
           <h2 data-icon="bell" id="annTitle"><span data-i18n="announcements.title">Custom Announcements</span></h2>
           <p class="hint help-text" data-i18n="announcements.hint" hidden>
             Add your own announcement types - each plays once a day at its own
@@ -881,7 +884,7 @@
           </details>
         </section>
 
-        <section class="card" id="trackOrderCard" data-tab="settings" aria-labelledby="trackOrderTitle">
+        <section class="card" id="trackOrderCard" data-page="files" data-tab="settings" aria-labelledby="trackOrderTitle">
           <h2 data-icon="folder" id="trackOrderTitle"><span data-i18n="annfiles.title">Announcement files</span></h2>
           <p class="hint help-text" data-i18n="annfiles.help" hidden>
             Choose an announcement, then add its sounds.
@@ -930,7 +933,7 @@
           </div>
         </section>
 
-        <section data-level="detail" class="card" id="systemSoundsCard" data-tab="settings" aria-labelledby="sysSoundsTitle">
+        <section data-level="detail" class="card" id="systemSoundsCard" data-page="sounds" data-tab="settings" aria-labelledby="sysSoundsTitle">
           <h2 data-icon="bell" id="sysSoundsTitle"><span data-i18n="syssounds.title">System sounds</span></h2>
           <p class="hint help-text" data-i18n="syssounds.help" hidden>
             The short sounds the radio plays by itself. Replace one with your own
@@ -942,7 +945,7 @@
                  accept="audio/*,.mp3,.opus,.ogg,.wav,.m4a,.flac">
         </section>
 
-        <section class="card" id="audioOutputCard" data-tab="audio" aria-labelledby="audioOutTitle">
+        <section class="card" id="audioOutputCard" data-page="output" data-tab="audio" aria-labelledby="audioOutTitle">
           <h2 data-icon="speaker" id="audioOutTitle"><span data-i18n="audioout.title">Audio output</span></h2>
           <form id="audioOutputForm" class="settings-form">
             <div class="field-row">
@@ -984,7 +987,7 @@
           </form>
         </section>
 
-        <section class="card" data-tab="audio" aria-labelledby="btTitle">
+        <section class="card" data-page="bluetooth" data-tab="audio" aria-labelledby="btTitle">
           <h2 data-icon="bluetooth" id="btTitle"><span data-i18n="speaker.title">Bluetooth</span></h2>
           <div class="speaker-status">
             <span id="speakerBadge" class="badge">—</span>
@@ -1096,7 +1099,7 @@
           </p>
         </section>
 
-        <section class="card" data-tab="audio" aria-labelledby="clockTitle">
+        <section class="card" data-page="clock" data-tab="audio" aria-labelledby="clockTitle">
           <h2 data-icon="clock" id="clockTitle"><span data-i18n="clock.title">Clock</span></h2>
           <div class="clock-status" id="clockStatus" role="status">—</div>
           <div class="clock-sync" id="clockSync" hidden>
@@ -1153,7 +1156,7 @@
           </details>
         </section>
 
-        <section class="card" id="musicCard" data-tab="audio" aria-labelledby="musicTitle">
+        <section class="card" id="musicCard" data-page="music" data-tab="audio" aria-labelledby="musicTitle">
           <h2 data-icon="folder" id="musicTitle"><span data-i18n="music.title">Music library</span></h2>
           <p class="hint" id="musicLibraryLine">—</p>
 
@@ -1184,7 +1187,7 @@
           </p>
         </section>
 
-        <section class="card" data-tab="system" aria-labelledby="systemTitle">
+        <section class="card" data-page="system" data-tab="system" aria-labelledby="systemTitle">
           <h2 data-icon="server" id="systemTitle"><span data-i18n="system.title">System</span></h2>
           <div data-level="detail" class="field-row">
             <span class="field-label" data-i18n="system.flic_button">Flic button</span>
@@ -1226,7 +1229,7 @@
           </div>
         </section>
 
-        <section class="card" id="healthCard" data-tab="system" aria-labelledby="healthTitle">
+        <section class="card" id="healthCard" data-page="health" data-tab="system" aria-labelledby="healthTitle">
           <h2 data-icon="chip" id="healthTitle"><span data-i18n="health.title">System health</span></h2>
           <dl class="health-grid" id="healthInfo"></dl>
           <h3 class="health-sub" data-i18n="health.services">Services</h3>
@@ -1237,7 +1240,7 @@
           </p>
         </section>
 
-        <section class="card" data-tab="system" aria-labelledby="securityTitle">
+        <section class="card" data-page="security" data-tab="system" aria-labelledby="securityTitle">
           <h2 data-icon="shield" id="securityTitle"><span data-i18n="security.title">Security</span></h2>
           <p class="hint" id="securityStatus"></p>
           <form id="securityForm" class="settings-form">
@@ -1382,7 +1385,7 @@
           </details>
         </section>
 
-        <section class="card" data-tab="system" aria-labelledby="apTitle">
+        <section class="card" data-page="accesspoint" data-tab="system" aria-labelledby="apTitle">
           <h2 data-icon="antenna" id="apTitle"><span data-i18n="ap.title">Access Point</span></h2>
           <p class="hint" id="apStatus"></p>
           <form id="apForm" class="settings-form">
@@ -1407,7 +1410,7 @@
           </form>
         </section>
 
-        <section class="card" id="shareCard" data-tab="system" aria-labelledby="shareTitle">
+        <section class="card" id="shareCard" data-page="share" data-tab="system" aria-labelledby="shareTitle">
           <h2 data-icon="link" id="shareTitle"><span data-i18n="share.title">Share access</span></h2>
           <p class="hint help-text" data-i18n="share.help" hidden>
             A phone camera pointed at the first code joins the Wi-Fi; the second opens this interface. Handy on a PC where the welcome page does not appear, or printed next to the radio.
@@ -1435,7 +1438,7 @@
           <p class="hint picker-note" data-note="share.print_note" hidden></p>
         </section>
 
-        <section class="card" id="wifiClientsCard" data-tab="system" aria-labelledby="clientsTitle">
+        <section class="card" id="wifiClientsCard" data-page="clients" data-tab="system" aria-labelledby="clientsTitle">
           <h2 data-icon="wifi" id="clientsTitle"><span data-i18n="clients.title">Connected devices</span></h2>
           <p class="hint" id="clientsSummary"></p>
           <ul class="device-list client-list" id="clientList"></ul>
@@ -1443,7 +1446,7 @@
           <ul class="device-list client-list" id="bannedList" hidden></ul>
         </section>
 
-        <section class="card" data-level="detail" id="homeWifiCard" data-tab="system" aria-labelledby="wifiTitle" hidden>
+        <section class="card" data-level="detail" id="homeWifiCard" data-page="homewifi" data-tab="system" aria-labelledby="wifiTitle" hidden>
           <h2 data-icon="wifi" id="wifiTitle"><span data-i18n="wifi.title">Personal Wi-Fi</span></h2>
           <p class="hint help-text" data-i18n="wifi.hint" hidden>
             Connects to your personal network in addition to the access point.
@@ -1465,7 +1468,7 @@
           <div class="status-line" id="homeWifiStatus" role="status">—</div>
         </section>
 
-        <section class="card" data-level="detail" id="updateCard" data-tab="system" aria-labelledby="updateTitle">
+        <section class="card" data-level="detail" id="updateCard" data-page="update" data-tab="system" aria-labelledby="updateTitle">
           <h2 data-icon="package" id="updateTitle"><span data-i18n="update.title">Update</span></h2>
           <div class="status-line" id="updateVersion">-</div>
           <p class="hint" id="updateSource"></p>
@@ -1541,7 +1544,7 @@
           <pre class="code-block" id="updateLog" hidden></pre>
         </section>
 
-        <section class="card" data-level="detail" id="configCard" data-tab="system" aria-labelledby="configTitle">
+        <section class="card" data-level="detail" id="configCard" data-page="config" data-tab="system" aria-labelledby="configTitle">
           <h2 data-icon="file" id="configTitle"><span data-i18n="config.title">Configuration</span></h2>
           <p class="hint" id="configHint" data-i18n="config.hint">
             Every setting, the custom announcements and the saved track orders
@@ -1587,7 +1590,7 @@
           </details>
         </section>
 
-        <section class="card card-wide" data-level="detail" id="statsCard" data-tab="stats" aria-labelledby="statsTitle">
+        <section class="card card-wide" data-level="detail" id="statsCard" data-page="stats" data-tab="stats" aria-labelledby="statsTitle">
           <h2 data-icon="chart" id="statsTitle"><span data-i18n="stats.title">Statistics</span></h2>
           <div class="stats-period" id="statsPeriod">-</div>
 

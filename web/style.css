@@ -578,6 +578,144 @@ code {
 :root[data-tab="system"] .card[data-tab]:not([data-tab="system"]),
 :root[data-tab="stats"] .card[data-tab]:not([data-tab="stats"]) { display: none; }
 
+/* One area, several pages. Where the tab bar has no room for a rail - a phone,
+   and the guest access, which has no tab bar at all - an area opens on a grid
+   of pages, and the logo above carries the arrow back. Where the rail exists
+   it lists the same pages instead, and the grid steps aside (see the 640px
+   block). No outer frame: the cells are separated by the 1px gaps showing the
+   grid's own background through, and the empty cells of a last row are filled
+   so the lines reach the edge instead of ending in a grey block. */
+.page-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.page-grid[hidden] { display: none; }
+
+.page-tile,
+.page-filler {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 116px;
+  padding: 16px 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+}
+.page-tile {
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.page-tile[hidden], .page-filler[hidden] { display: none; }
+.page-tile:hover { background: var(--surface-2); }
+.page-tile:active { background: var(--surface-3); }
+.page-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.page-tile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.page-tile-icon::before { width: 23px; height: 23px; }
+
+/* The way back sits on the logo, which darkens so the arrow reads - and only
+   while a page is open. */
+.brand-back {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+.brand-back .brand-logo { transition: filter 0.15s ease; }
+.brand-back.is-back { cursor: pointer; }
+.brand-back.is-back .brand-logo { filter: brightness(0.32) saturate(0.75); }
+.brand-back-icon { position: absolute; inset: 0; display: none; place-items: center; color: #fff; }
+.brand-back.is-back .brand-back-icon { display: grid; }
+.brand-back-icon::before { width: 20px; height: 20px; }
+.brand-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 50%; }
+
+/* The pages under their area in the rail: the same list as the grid, one click
+   away instead of two. Hidden on a phone, where the rail is a bottom bar. */
+.rail-pages { display: none; }
+
+@media (min-width: 640px) {
+  .rail-pages {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: -2px 0 6px 6px;
+  }
+  .rail-pages[hidden] { display: none; }
+  .rail-page {
+    display: block;
+    width: 100%;
+    padding: 6px 8px 6px 18px;
+    border: 0;
+    border-left: 2px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 550;
+    text-align: left;
+    cursor: pointer;
+  }
+  .rail-page[hidden] { display: none; }
+  .rail-page:hover { color: var(--text); background: var(--surface-2); }
+  .rail-page.active { color: var(--accent); border-left-color: var(--accent); font-weight: 650; }
+  .rail-page:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* The rail is the menu here, so the small-screen map steps aside - except
+     for a guest, whose only menu IS that map. */
+  body:not([data-access="guest"]) .page-grid { display: none; }
+}
+
+/* A card is a page now: the page is the box, so the card's own frame and
+   padding step aside and the content uses the room. The player keeps its
+   gradient face - it is the radio's, not a card's. */
+body[data-page]:not([data-page=""]) .card[data-tab]:not(.tab-hidden):not(.card-player) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 2px 0 0;
+}
+
+/* "Restricted access" belongs to the menu, not to the pages: a guest reads it
+   on the grid, and once a page is open the page has the room. */
+body[data-page]:not([data-page=""]) .guest-banner { display: none !important; }
+
+/* The grid is a menu: on a phone it sits in the middle of the screen, where a
+   thumb reaches it, rather than under the title. */
+body[data-page=""] .app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+body[data-page=""] .grid { flex: 1 1 auto; align-content: center; }
+
 .audio-detected { margin: 4px 0 8px; }
 .hint.audio-detected.warning { color: var(--warning-text); font-weight: 600; }
 
