@@ -4216,6 +4216,19 @@ async function uploadAnnounceFiles(files) {
 const systemSoundInput = document.getElementById("systemSoundInput");
 let systemSoundTarget = null;
 
+let openSystemSoundKey = null;
+
+function setSystemSoundOpen(key) {
+  /* One row at a time, like the announcements: the card stays short. */
+  openSystemSoundKey = key;
+  document.querySelectorAll("#systemSoundsList .sys-item").forEach((li) => {
+    const open = li.dataset.key === key;
+    li.classList.toggle("is-open", open);
+    li.querySelector(".ann-head").setAttribute("aria-expanded", open ? "true" : "false");
+    li.querySelector(".ann-body").hidden = !open;
+  });
+}
+
 async function refreshSystemSounds() {
   const result = await apiGet("/api/system_sounds");
   const list = document.getElementById("systemSoundsList");
@@ -4223,17 +4236,46 @@ async function refreshSystemSounds() {
   await refreshAnnouncementVolumes();
   list.innerHTML = "";
   result.data.forEach((item) => {
+    // Folded like an announcement row: the title and its state stay visible,
+    // the volume and the buttons are one click away.
     const li = document.createElement("li");
+    li.className = "ann-item sys-item";
+    li.dataset.key = item.key;
+    const open = item.key === openSystemSoundKey;
+    if (open) li.classList.add("is-open");
+
+    const bodyId = "sys-sound-" + item.key;
+    const head = document.createElement("button");
+    head.type = "button";
+    head.className = "ann-head";
+    head.setAttribute("aria-expanded", open ? "true" : "false");
+    head.setAttribute("aria-controls", bodyId);
+
     const text = document.createElement("span");
-    const title = document.createElement("strong");
+    text.className = "ann-text";
+    const title = document.createElement("span");
+    title.className = "ann-name";
     title.textContent = t("syssounds." + item.key);
     const state = document.createElement("span");
-    state.className = "hint sound-state";
+    state.className = "ann-meta sound-state";
     state.textContent = item.off ? t("syssounds.off")
       : item.custom ? t("syssounds.custom", { name: item.name })
       : t("syssounds.default");
-    text.append(title, document.createElement("br"), state);
-    if (!item.off) text.appendChild(volumeControl(item.key, { inline: true }));
+    text.append(title, state);
+    const chevron = document.createElement("span");
+    chevron.className = "ann-chevron";
+    chevron.dataset.icon = "chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    head.append(text, chevron);
+    head.addEventListener("click", () => {
+      setSystemSoundOpen(li.classList.contains("is-open") ? null : item.key);
+    });
+
+    const body = document.createElement("div");
+    body.className = "ann-body";
+    body.id = bodyId;
+    body.hidden = !open;
+    if (!item.off) body.appendChild(volumeControl(item.key, { inline: true }));
 
     const actions = document.createElement("span");
     actions.className = "device-actions";
@@ -4293,7 +4335,8 @@ async function refreshSystemSounds() {
     if (item.custom || item.off) right.push(restore);
     if (!item.off) right.push(off);
     splitActions(actions, [listen, replace], right);
-    li.append(text, actions);
+    body.appendChild(actions);
+    li.append(head, body);
     list.appendChild(li);
   });
 }

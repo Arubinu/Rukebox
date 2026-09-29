@@ -2008,6 +2008,10 @@ select {
 .ann-volume:not(.is-on) .ann-volume-value { opacity: 0.5; }
 .device-list .ann-volume .field-row { min-height: 40px; padding: 2px 0; }
 
+/* A System sound is folded like an announcement row and reuses its shape: the
+   title and its state stay visible, the volume and the buttons wait inside. */
+.sys-item .ann-body > .device-actions { margin-top: 6px; }
+
 .device-list li.ann-item.is-off {
   background-image: repeating-linear-gradient(
     135deg,
