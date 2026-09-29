@@ -1201,6 +1201,12 @@ function piMinutes(d) {
 const pad2 = (n) => String(n).padStart(2, "0");
 
 let noticesSignature = "";
+function controllerKindLabel(kind, address) {
+  if (kind === "usb") return t("btctl.kind_usb");
+  if (kind === "builtin") return t("btctl.kind_builtin");
+  return address || "";
+}
+
 function applyNotices(d) {
   const items = [];
   const add = (level, icon, key, vars) => items.push({ level, icon, text: t(key, vars) });
@@ -1234,6 +1240,15 @@ function applyNotices(d) {
   } else if (!d.output_override && (!ao.output || ao.output === "bluetooth")) {
     if (!d.speaker_mac) add("warn", "bluetooth", "notice.no_speaker");
     else if (d.speaker_connected === false) add("warn", "bluetooth", "notice.speaker_off");
+  }
+  // Connected, but on the other radio: the sound follows the controller the
+  // speaker is on, whatever the settings say.
+  if (d.speaker_connected && d.speaker_controller && d.speaker_expected &&
+      d.speaker_controller !== d.speaker_expected) {
+    add("warn", "bluetooth", "notice.speaker_other_controller", {
+      found: controllerKindLabel(d.speaker_controller_kind, d.speaker_controller),
+      expected: controllerKindLabel(d.speaker_expected_kind, d.speaker_expected),
+    });
   }
   if (d.output_override) add("info", "speaker", "notice.override", { output: t("audioout." + d.output_override) });
   if (d.clock_ready === false) add("warn", "clock", "notice.clock");

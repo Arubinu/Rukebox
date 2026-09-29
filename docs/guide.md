@@ -424,6 +424,21 @@ the `flicd` binary for the processor (`aarch64` on a 64-bit system,
 `armv6l` on 32-bit) and runs `flicd -f <db> -h <hciN> -w`. To check a
 run: `journalctl -u flicd.service -n 30`.
 
+**Which controller carries the speaker is checked on every controller, not
+just the one chosen.** BlueZ keeps a device per controller: a speaker paired
+on the built-in and one on the dongle are two different devices, and asking
+the wrong one answers "not available" - which looks exactly like a speaker
+that is switched off. The page therefore says **which** controller the
+speaker is on, and warns when it is not the one the settings name (the sound
+follows the controller the speaker is on). When it can, the daemon also asks
+the chosen controller to take the speaker back - a controller that has never
+seen it cannot, and then the speaker has to be paired there once.
+
+One thing to know when both are in use: **`flicd` takes its controller out
+of BlueZ** (HCI user channel), exactly as the paragraph above says. A speaker
+paired on that controller can then no longer connect at all, so once the Flic
+button is in use the speaker *must* live on the other controller.
+
 ### Working without a Flic button
 
 The Flic button is entirely optional. If you don't have a second
