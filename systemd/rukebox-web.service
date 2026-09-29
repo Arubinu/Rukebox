@@ -11,6 +11,12 @@ Restart=always
 RestartSec=5
 User=pi
 AmbientCapabilities=CAP_NET_BIND_SERVICE
+# An update started from the page runs as a child of this service, and it stops
+# this very service to swap the files: with the default KillMode=control-group
+# that stop killed the updater itself, leaving the radio with no interface and
+# no daemon until someone started them by hand (measured on the Pi, 2026-09-29).
+# Only the main process is signalled now, so the updater survives to restart it.
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
