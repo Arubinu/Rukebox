@@ -96,6 +96,7 @@ class RadioDaemon:
 
         self._custom_announcements = announcements.load(cfg["ANNOUNCEMENTS_FILE"])
         self._announce_volumes = announcements.volumes(cfg["ANNOUNCEMENTS_FILE"])
+        self._announcements_stamp = None
         self._sound_volume = None
         self._music_lists = music_lists.load(cfg["MUSIC_LISTS_FILE"])
         self._lists_stamp = None
@@ -409,6 +410,33 @@ class RadioDaemon:
         if not tracks:
             log.warning("No tracks found in %s", self.cfg["MUSIC_DIR"])
         return tracks
+
+    def _announcements(self):
+        """The custom announcements and their volumes, re-read whenever the
+        file changed. `reload_announcements` is the web interface's own shout,
+        but this is what makes a hand edit over SSH - or a message that never
+        arrived - harmless: a stale list answered "that announcement no longer
+        exists" for a "Jouer" that had every right to work."""
+        path = self.cfg["ANNOUNCEMENTS_FILE"]
+        try:
+            stamp = os.path.getmtime(path)
+        except OSError:
+            stamp = None
+        if stamp != self._announcements_stamp:
+            items = announcements.read_items(path)
+            if items is None:
+                log.error("Could not read %s: keeping the %d announcement(s) already "
+                          "loaded", path, len(self._custom_announcements))
+            else:
+                self._custom_announcements = items
+                self._announce_volumes = announcements.volumes(path)
+            self._announcements_stamp = stamp
+        return self._custom_announcements
+
+    def _reload_announcements(self):
+        """Re-reads them whatever the file's date says."""
+        self._announcements_stamp = None
+        return self._announcements()
 
     def _lists(self):
         """The music lists, re-read whenever the file changed: the web
@@ -1869,6 +1897,7 @@ class RadioDaemon:
                 time.sleep(2)
                 continue
 
+            self._announcements()
             now = datetime.now()
 
             if (
@@ -2047,6 +2076,7 @@ class RadioDaemon:
             source = msg.get("source", "unknown")
             if source not in ("flic", "gpio", "web", "speaker", "unknown"):
                 source = "unknown"
+            self._announcements()
 
             if cmd == "single_click":
                 self._handle_single_click(source)
@@ -2277,9 +2307,7 @@ class RadioDaemon:
             if cmd == "reload_config":
                 return self._reload_config()
             if cmd == "reload_announcements":
-                self._custom_announcements = announcements.load(self.cfg["ANNOUNCEMENTS_FILE"])
-                self._announce_volumes = announcements.volumes(self.cfg["ANNOUNCEMENTS_FILE"])
-                return {"ok": True, "count": len(self._custom_announcements)}
+                return {"ok": True, "count": len(self._reload_announcements())}
             if cmd == "play_announcement":
                 if self.mode != "music":
                     return {"ok": False, "error": "not_playing_music"}

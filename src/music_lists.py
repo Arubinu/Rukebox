@@ -6,11 +6,12 @@ read in the library's tags). Plain JSON, like announcements.json: a growable
 list with its own form, not a scalar setting. The daemon reads it to build
 its queue, the web server writes it."""
 
-import json
 import logging
 import os
 import re
 import time
+
+import json_file
 
 log = logging.getLogger("music_lists")
 
@@ -26,29 +27,17 @@ def _slugify(name):
 
 def load(path):
     """Every list, oldest first."""
-    if not path or not os.path.exists(path):
+    data = json_file.read(path)
+    if not data:
         return []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, json.JSONDecodeError):
-        log.exception("Could not read %s, treating as empty", path)
-        return []
-    items = data.get("lists") if isinstance(data, dict) else None
+    items = data.get("lists")
     if not isinstance(items, list):
         return []
     return [item for item in items if isinstance(item, dict) and item.get("id")]
 
 
-def _save(path, items):
-    directory = os.path.dirname(path)
-    if directory:
-        os.makedirs(directory, exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump({"lists": items}, f, ensure_ascii=False, indent=2)
-        f.write("\n")
-    os.replace(tmp, path)
+def _write(path, items):
+    json_file.write(path, {"lists": items})
 
 
 def _genres(raw):
@@ -97,43 +86,46 @@ def validate(data):
 def add(path, data):
     """Creates a list; its id is a slug of the name, so it stays readable in
     state.json."""
-    items = load(path)
     clean = validate(data)
-    taken = {item["id"] for item in items}
-    new_id = base_id = _slugify(clean["name"])
-    suffix = 2
-    while new_id in taken:
-        new_id = "%s-%d" % (base_id, suffix)
-        suffix += 1
-    clean["id"] = new_id
-    clean["created_at"] = time.time()
-    items.append(clean)
-    _save(path, items)
+    with json_file.lock(path):
+        items = load(path)
+        taken = {item["id"] for item in items}
+        new_id = base_id = _slugify(clean["name"])
+        suffix = 2
+        while new_id in taken:
+            new_id = "%s-%d" % (base_id, suffix)
+            suffix += 1
+        clean["id"] = new_id
+        clean["created_at"] = time.time()
+        items.append(clean)
+        _write(path, items)
     return clean
 
 
 def update(path, list_id, data):
     """Partial update: fields left out of `data` keep their current value."""
-    items = load(path)
-    for i, item in enumerate(items):
-        if item["id"] == list_id:
-            merged = dict(item)
-            merged.update(data)
-            clean = validate(merged)
-            clean["id"] = list_id
-            clean["created_at"] = item.get("created_at", time.time())
-            items[i] = clean
-            _save(path, items)
-            return clean
+    with json_file.lock(path):
+        items = load(path)
+        for i, item in enumerate(items):
+            if item["id"] == list_id:
+                merged = dict(item)
+                merged.update(data)
+                clean = validate(merged)
+                clean["id"] = list_id
+                clean["created_at"] = item.get("created_at", time.time())
+                items[i] = clean
+                _write(path, items)
+                return clean
     raise KeyError(list_id)
 
 
 def delete(path, list_id):
-    items = load(path)
-    remaining = [item for item in items if item["id"] != list_id]
-    if len(remaining) == len(items):
-        raise KeyError(list_id)
-    _save(path, remaining)
+    with json_file.lock(path):
+        items = load(path)
+        remaining = [item for item in items if item["id"] != list_id]
+        if len(remaining) == len(items):
+            raise KeyError(list_id)
+        _write(path, remaining)
 
 
 def get(path, list_id):
@@ -145,12 +137,13 @@ def get(path, list_id):
 
 def _mutate(path, list_id, change):
     """Reads, changes one entry, writes the whole file back."""
-    items = load(path)
-    for i, item in enumerate(items):
-        if item["id"] == list_id:
-            items[i] = change(dict(item))
-            _save(path, items)
-            return items[i]
+    with json_file.lock(path):
+        items = load(path)
+        for i, item in enumerate(items):
+            if item["id"] == list_id:
+                items[i] = change(dict(item))
+                _write(path, items)
+                return items[i]
     raise KeyError(list_id)
 
 

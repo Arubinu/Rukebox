@@ -7,6 +7,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 import unittest
 
 import _path  # noqa: F401
@@ -122,6 +123,56 @@ class StoreTest(unittest.TestCase):
         announcements.delete(self.path, item["id"])
         self.assertEqual(announcements.volumes(self.path), {})
 
+    def test_writers_at_once_do_not_lose_the_announcements(self):
+        # The reported bug: "Jouer" answered "Cette annonce n'existe plus". Two
+        # saves sharing one temporary file can publish a document that is two
+        # JSON documents glued together, and the reader then sees nothing -
+        # measured on the Pi with the volume switch, which saves on every flip.
+        announcements.save_all(self.path, [
+            {"id": "morning", "name": "Matin", "folder": self.folder, "hour": 7,
+             "minute": 0, "trigger": "time", "delay_min": 30, "repeat_times": 1,
+             "enabled": True},
+            {"id": "doubleclick", "name": "Double", "folder": self.folder, "hour": 12,
+             "minute": 0, "trigger": "manual", "delay_min": 30, "repeat_times": 1,
+             "enabled": True},
+        ])
+        seen = []
+        errors = []
+
+        def hammer(key):
+            for value in range(40):
+                try:
+                    announcements.set_volume(self.path, key, {"on": True, "volume": value})
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(repr(exc))
+                with open(self.path, encoding="utf-8") as f:
+                    doc = json.load(f)
+                seen.append(len(doc.get("items") or []))
+
+        threads = [threading.Thread(target=hammer, args=("key%d" % i,)) for i in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(errors, [])
+        self.assertEqual(set(seen), {2}, "every write left both announcements in place")
+        self.assertEqual([i["id"] for i in announcements.load(self.path)],
+                         ["morning", "doubleclick"])
+
+    def test_a_file_we_cannot_read_is_never_replaced(self):
+        # An unreadable file must not be answered with "empty" and then
+        # overwritten with an empty list: that is how announcements are lost.
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write('{"items": [{"id": "morning"}]\n{"half": "a second document"}')
+        with self.assertRaises(ValueError) as caught:
+            announcements.set_volume(self.path, "meme", {"on": True, "volume": 20})
+        self.assertEqual(str(caught.exception), "file_unreadable")
+        with self.assertRaises(ValueError):
+            announcements.add(self.path, {"name": "Matin", "folder": self.folder,
+                                          "trigger": "manual"})
+        with open(self.path, encoding="utf-8") as f:
+            self.assertIn("a second document", f.read(), "the file was left alone")
+
 
 class DaemonVolumeTest(unittest.TestCase):
     def setUp(self):
@@ -214,3 +265,25 @@ class DaemonVolumeTest(unittest.TestCase):
         self.daemon._announce_volumes = announcements.volumes(self.path)
         self.assertEqual(self.daemon._source_volume("cutoff"), 8)
         self.assertIsNone(self.daemon._source_volume("meme"))
+
+    def test_the_daemon_rereads_the_file_when_it_changed(self):
+        item = self.announcement(volume=20)
+        self.daemon._announcements()  # as the first command would
+        self.assertEqual([i["id"] for i in self.daemon._custom_announcements], [item["id"]])
+        # A save the daemon was never told about (a hand edit, a lost message).
+        time.sleep(0.02)
+        announcements.set_volume(self.path, "meme", {"on": True, "volume": 33})
+        self.daemon._announcements()
+        self.assertEqual(self.daemon._source_volume("meme"), 33)
+        time.sleep(0.02)
+        announcements.delete(self.path, item["id"])
+        self.assertEqual(self.daemon._announcements(), [])
+
+    def test_a_broken_file_keeps_the_announcements_already_loaded(self):
+        item = self.announcement(volume=20)
+        self.daemon._announcements()
+        time.sleep(0.02)
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write('{"items": [{"id": "morning"}]}\n{"and": "a second document"}')
+        self.assertEqual([i["id"] for i in self.daemon._announcements()], [item["id"]],
+                         "a file we cannot read does not empty the list")

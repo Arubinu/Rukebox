@@ -1,10 +1,11 @@
 """User-defined announcement types (JSON, edited from the web interface)."""
 
-import json
 import logging
 import os
 import re
 import time
+
+import json_file
 
 log = logging.getLogger("announcements")
 
@@ -22,21 +23,17 @@ def _is_absolute_path(folder):
     return folder.startswith("/") or bool(re.match(r"^[A-Za-z]:[\\/]", folder))
 
 
-EMPTY_DOC = {"items": [], "volumes": {}}
+def _read_doc(path, strict=False):
+    """The whole file: {"items": [...], "volumes": {...}}.
 
-
-def _read_doc(path):
-    """The whole file: {"items": [...], "volumes": {...}}."""
-    if not path or not os.path.exists(path):
-        return dict(EMPTY_DOC, items=[], volumes={})
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, json.JSONDecodeError):
-        log.exception("Could not read %s, treating as empty", path)
-        return dict(EMPTY_DOC, items=[], volumes={})
-    if not isinstance(data, dict):
-        return dict(EMPTY_DOC, items=[], volumes={})
+    `strict` raises instead of answering "empty" for a file that exists but
+    cannot be read: a writer must never replace a document it did not
+    understand with an empty one."""
+    data = json_file.read(path)
+    if data is None:
+        if strict:
+            raise ValueError("file_unreadable")
+        return {"items": [], "volumes": {}}
     items = data.get("items")
     data["items"] = (
         [item for item in items if isinstance(item, dict) and item.get("id")]
@@ -52,22 +49,38 @@ def load(path):
     return _read_doc(path)["items"]
 
 
-def _save(path, doc):
-    directory = os.path.dirname(path)
-    if directory:
-        os.makedirs(directory, exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(doc, f, ensure_ascii=False, indent=2)
-        f.write("\n")
-    os.replace(tmp, path)
+def read_items(path):
+    """The announcements, or None when the file cannot be read at all."""
+    try:
+        return _read_doc(path, strict=True)["items"]
+    except ValueError:
+        return None
+
+
+def _mutate(path, change):
+    """Read-modify-write, one writer at a time (src/json_file.py)."""
+    with json_file.lock(path):
+        doc = _read_doc(path, strict=True)
+        out = change(doc)
+        if out is not None:
+            json_file.write(path, out)
+        return out
 
 
 def save_all(path, items):
-    """Replaces the whole list, validating nothing."""
-    doc = _read_doc(path)
-    doc["items"] = items
-    _save(path, doc)
+    """Replaces the whole list, validating nothing.
+
+    Unlike the others this one may write over a file it cannot read: replacing
+    everything is exactly what it is asked to do (a config restore brings its
+    own announcements, and must be able to repair a broken file)."""
+    with json_file.lock(path):
+        doc = json_file.read(path)
+        if not isinstance(doc, dict):
+            doc = {}
+        doc["items"] = items
+        if not isinstance(doc.get("volumes"), dict):
+            doc["volumes"] = {}
+        json_file.write(path, doc)
 
 
 VOLUME_MIN = 0
@@ -107,9 +120,12 @@ def set_volume(path, key, data):
     if not key or len(key) > 80:
         raise ValueError("announcement_bad_volume")
     entry = clean_volume(data)
-    doc = _read_doc(path)
-    doc["volumes"][key] = entry
-    _save(path, doc)
+
+    def change(doc):
+        doc["volumes"][key] = entry
+        return doc
+
+    _mutate(path, change)
     return entry
 
 
@@ -179,62 +195,78 @@ def validate(data):
 
 def add(path, data, default_parent=None):
     """Creates a new announcement type."""
-    doc = _read_doc(path)
-    items = doc["items"]
     data = dict(data)
     wants_default = not str(data.get("folder", "")).strip() and default_parent
     if wants_default:
         data["folder"] = default_parent
     clean = validate(data)
-    existing_ids = {item["id"] for item in items}
-    base_id = _slugify(clean["name"])
-    new_id = base_id
-    suffix = 2
-    while new_id in existing_ids:
-        new_id = "%s-%d" % (base_id, suffix)
-        suffix += 1
-    if wants_default:
-        clean["folder"] = os.path.join(default_parent, new_id)
-        try:
-            os.makedirs(clean["folder"], exist_ok=True)
-        except OSError as exc:
-            log.warning("Could not create %s: %s", clean["folder"], exc)
 
-    clean["id"] = new_id
-    clean["created_at"] = time.time()
-    items.append(clean)
-    doc["items"] = items
-    _save(path, doc)
+    def change(doc):
+        items = doc["items"]
+        existing_ids = {item["id"] for item in items}
+        base_id = _slugify(clean["name"])
+        new_id = base_id
+        suffix = 2
+        while new_id in existing_ids:
+            new_id = "%s-%d" % (base_id, suffix)
+            suffix += 1
+        if wants_default:
+            clean["folder"] = os.path.join(default_parent, new_id)
+            try:
+                os.makedirs(clean["folder"], exist_ok=True)
+            except OSError as exc:
+                log.warning("Could not create %s: %s", clean["folder"], exc)
+
+        clean["id"] = new_id
+        clean["created_at"] = time.time()
+        doc["items"] = items + [clean]
+        return doc
+
+    _mutate(path, change)
     return clean
 
 
 def update(path, item_id, data):
     """Partial update: fields left out of `data` keep their current value."""
-    doc = _read_doc(path)
-    items = doc["items"]
-    for i, item in enumerate(items):
-        if item["id"] == item_id:
-            merged = dict(item)
-            merged.update(data)
-            clean = validate(merged)
-            clean["id"] = item_id
-            clean["created_at"] = item.get("created_at", time.time())
-            items[i] = clean
-            doc["items"] = items
-            _save(path, doc)
-            return clean
-    raise KeyError(item_id)
+    found = []
+
+    def change(doc):
+        items = doc["items"]
+        for i, item in enumerate(items):
+            if item["id"] == item_id:
+                merged = dict(item)
+                merged.update(data)
+                clean = validate(merged)
+                clean["id"] = item_id
+                clean["created_at"] = item.get("created_at", time.time())
+                items[i] = clean
+                doc["items"] = items
+                found.append(clean)
+                return doc
+        return None
+
+    _mutate(path, change)
+    if not found:
+        raise KeyError(item_id)
+    return found[0]
 
 
 def delete(path, item_id):
-    doc = _read_doc(path)
-    items = doc["items"]
-    remaining = [item for item in items if item["id"] != item_id]
-    if len(remaining) == len(items):
+    found = []
+
+    def change(doc):
+        items = doc["items"]
+        remaining = [item for item in items if item["id"] != item_id]
+        if len(remaining) == len(items):
+            return None
+        doc["items"] = remaining
+        doc["volumes"].pop("custom:%s" % item_id, None)
+        found.append(True)
+        return doc
+
+    _mutate(path, change)
+    if not found:
         raise KeyError(item_id)
-    doc["items"] = remaining
-    doc["volumes"].pop("custom:%s" % item_id, None)
-    _save(path, doc)
 
 
 def get(path, item_id):
@@ -298,7 +330,7 @@ def seed_defaults(path, audio_root=DEFAULT_AUDIO_ROOT):
     when the file does not exist at all."""
     if not path or os.path.exists(path):
         return False
-    _save(path, _default_items(
+    save_all(path, _default_items(
         os.path.join(audio_root, "morning_announcements"), 5, 58,
         os.path.join(audio_root, "doubleclick_announcements")))
     return True
