@@ -8,6 +8,8 @@ CONNECTED_TICKS=10
 SLOW_TICKS=20
 BACKOFF_TICKS=(1 2 3 5 10 20)
 CALL_TIMEOUT=10
+REPAIR_AFTER_FAILURES=3
+REPAIR_TICKS=100
 
 SPEAKER_MAC=""
 ADAPTER=""
@@ -31,6 +33,25 @@ adapter_index() {
     esac
 }
 
+# The controller to work on: the configured one, or BlueZ's default - which is
+# the one it connects the speaker through when no adapter is named (the usual
+# case, and the one where an empty SPEAKER_BT_ADAPTER left the count below at
+# zero, so the repair never ran).
+controller_index() {
+    local index address
+    index="$(adapter_index)"
+    if [ -n "$index" ]; then
+        echo "$index"
+        return 0
+    fi
+    address="$(bluetoothctl list 2>/dev/null | awk '/\[default\]/ { print $2; exit }')"
+    if [ -n "$address" ]; then
+        hciconfig 2>/dev/null | awk -v mac="$(echo "$address" | tr 'a-f' 'A-F')" '
+            /^hci[0-9]+:/ { dev = $1; sub(":", "", dev); sub("hci", "", dev) }
+            /BD Address:/ { if (toupper($3) == mac) print dev }' | head -1
+    fi
+}
+
 # btmgmt hangs with stdin on /dev/null (what systemd gives): it needs a pipe.
 # Always aimed at the speaker's controller: the default one may belong to
 # flicd.
@@ -47,11 +68,68 @@ btmgmt_cmd() {
 ensure_connectable() {
     local settings
     settings=$(btmgmt_cmd info 2>/dev/null | sed -n 's/.*current settings: //p')
+    if [ -z "$settings" ]; then
+        # No settings line at all: the controller did not answer. Saying
+        # "not connectable" here would send us turning a setting on that is
+        # not the problem - the radio needs repairing instead (see below).
+        echo "The Bluetooth controller did not answer btmgmt."
+        return 1
+    fi
     case " $settings " in
         *" connectable "*) return 0 ;;
     esac
-    echo "Adapter was not connectable (settings: ${settings:-unknown}), enabling it so the speaker can reconnect on its own."
+    echo "Adapter was not connectable (settings: ${settings}), enabling it so the speaker can reconnect on its own."
     btmgmt_cmd connectable on >/dev/null 2>&1 || true
+}
+
+# The kernel logs one "tx timeout" line for every HCI command the controller
+# never answered. A radio whose queue is jammed by a half-open connection - a
+# link that was killed, then a `command 0x041f tx timeout` every twenty
+# seconds for ever - still answers btmgmt, still says "UP RUNNING", and
+# refuses every new operation with org.bluez.Error.InProgress or
+# br-connection-busy. Nothing but a reset clears it, so that is what the
+# count below is for. Measured on the owner's Pi, twice in one day.
+#
+# Only the CONTROLLER's own failures count: "link tx timeout" (the speaker
+# stopped answering) is a speaker that is off or out of range, and resetting
+# the radio for that would be pointless - measured side by side on that Pi:
+# 67 "command ... tx timeout" against 4 "link tx timeout".
+hci_stuck_marks() {
+    local index
+    index="$(controller_index)"
+    if [ -z "$index" ]; then
+        echo 0
+        return 0
+    fi
+    dmesg 2>/dev/null | grep -cE \
+        "hci${index}: command .* tx timeout|hci${index}: Opcode .* failed: -110" || true
+}
+
+# The sequence that brought the radio back by hand, twice: bluetoothd stopped,
+# the controller taken down and up, bluetoothd restarted. A plain down/up
+# leaves it DOWN, and btmgmt then answers "Cannot allocate memory (12)".
+repair_controller() {
+    local index name
+    index="$(controller_index)"
+    if [ -z "$index" ]; then
+        echo "Cannot work out which controller to repair (adapter: '${ADAPTER:-automatic}')."
+        return 1
+    fi
+    name="hci${index}"
+    echo "Repairing ${name}: the kernel got no answer to its last commands, so no connection can be made."
+    systemctl stop bluetooth 2>/dev/null || true
+    sleep 2
+    hciconfig "$name" down 2>/dev/null || true
+    sleep 2
+    hciconfig "$name" up 2>/dev/null || true
+    sleep 3
+    systemctl start bluetooth 2>/dev/null || true
+    sleep 4
+    hciconfig "$name" up 2>/dev/null || true
+    sleep 2
+    btmgmt_cmd connectable on >/dev/null 2>&1 || true
+    echo "${name} restarted."
+    return 0
 }
 
 is_connected() {
@@ -73,6 +151,8 @@ next_attempt=0
 connected=0
 warned_unconfigured=0
 warned_calm=0
+stuck_marks=0
+last_repair_tick=-$((REPAIR_TICKS * 2))
 
 while :; do
     tick=$((tick + 1))
@@ -98,6 +178,7 @@ while :; do
         fi
         failures=0
         warned_calm=0
+        stuck_marks=$(hci_stuck_marks)
         next_attempt=$((tick + 1))
         sleep "$((CHECK_SECONDS * CONNECTED_TICKS))"
         continue
@@ -120,6 +201,23 @@ while :; do
             warned_calm=1
         fi
         next_attempt=$((tick + BACKOFF_TICKS[failures - 1]))
+
+        # Connections that keep failing while the kernel's own commands time
+        # out are not a speaker problem: the radio is jammed (see
+        # hci_stuck_marks above). Reset it, at most every REPAIR_TICKS.
+        marks=$(hci_stuck_marks)
+        if [ "$failures" -ge "$REPAIR_AFTER_FAILURES" ] \
+                && [ "$marks" -gt "$stuck_marks" ] \
+                && [ $((tick - last_repair_tick)) -ge "$REPAIR_TICKS" ]; then
+            repair_controller
+            last_repair_tick=$tick
+            stuck_marks=$(hci_stuck_marks)
+            failures=0
+            warned_calm=0
+            next_attempt=$((tick + 2))
+        else
+            stuck_marks=$marks
+        fi
     fi
 
     sleep "$CHECK_SECONDS"

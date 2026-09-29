@@ -2065,6 +2065,23 @@ journalctl -u bt-connect.service -f
 > answers `br-connection-refused` instead is simply already connected elsewhere
 > (a phone): disconnect it there, or turn that device's Bluetooth off.
 
+> **If every connection fails with `br-connection-busy`, or a search answers
+> `org.bluez.Error.InProgress` while nothing is scanning**: the Bluetooth
+> radio's command queue is jammed, usually by a connection that was half
+> established when the speaker went away. The kernel says so — `dmesg` shows
+> `Bluetooth: hciN: command 0x041f tx timeout` every twenty seconds for ever,
+> while `hciconfig` still reports `UP RUNNING` and the radio still answers
+> `btmgmt`. **`bt-connect.service` repairs it by itself**: it counts those
+> kernel timeouts, and once a few connections have failed in a row while they
+> keep coming it stops `bluetooth`, takes the controller down and up, starts
+> `bluetooth` again and reconnects — about forty seconds, once every five
+> minutes at most (`journalctl -u bt-connect.service -f` shows
+> `Repairing hciN: ...`). Only the *controller's* own timeouts count: a
+> speaker that is simply switched off or out of range produces
+> `link tx timeout` instead, and no repair is attempted for that. If it never
+> recovers, the speaker itself is holding a stale link: switch it off and on
+> once.
+
 ## Clock: hardware RTC module required (no Wi-Fi)
 
 **Without Wi-Fi, the Raspberry Pi has no source to know the time.** It
