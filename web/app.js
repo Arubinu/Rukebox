@@ -2159,56 +2159,78 @@ function defaultAnnounceVolume() {
   return Number.isFinite(value) ? value : 50;
 }
 
+let volumeControlSeq = 0;
+
+function volumeField(labelKey, control, describedBy) {
+  /* One line: what it is on the left, the field on the right - the shape
+     every settings row already has. */
+  const row = document.createElement("div");
+  row.className = "field-row";
+  const text = document.createElement("div");
+  text.className = "field-text";
+  const label = document.createElement("label");
+  label.htmlFor = control.id;
+  label.textContent = t(labelKey);
+  text.appendChild(label);
+  if (describedBy) {
+    text.appendChild(describedBy);
+    label.setAttribute("aria-describedby", describedBy.id);
+  }
+  row.append(text, control);
+  return row;
+}
+
 function volumeControl(key, options) {
-  /* One source's own volume: a switch, a slider and the value. Off means the
-     announcement plays at the volume of the music, which is what it always
-     did. */
+  /* A source's own volume, on two lines: the switch, then the volume as a
+     number field like "Base volume". Off means it plays at the volume of the
+     music, which is what every announcement always did. */
   const opts = options || {};
   const current = announceVolume(key);
-  const holder = document.createElement("span");
-  holder.className = "ann-volume" + (opts.inline ? " is-inline" : "");
+  const uid = "annvol" + (++volumeControlSeq);
 
-  const label = document.createElement("label");
-  label.className = "ann-switch";
   const toggle = document.createElement("input");
   toggle.type = "checkbox";
+  toggle.id = uid + "-on";
   toggle.className = "switch-input";
   toggle.setAttribute("role", "switch");
   toggle.checked = current.on;
-  const labelText = document.createElement("span");
-  labelText.textContent = t("annvol.own");
-  label.append(toggle, labelText);
 
-  const slider = document.createElement("input");
-  slider.type = "range";
-  slider.className = "ann-volume-range";
-  slider.min = "0";
-  slider.max = "100";
-  slider.step = "1";
-  slider.value = String(current.volume === null ? defaultAnnounceVolume() : current.volume);
-  slider.setAttribute("aria-label", t("annvol.label"));
-  setVolumeFill(slider);
+  const value = document.createElement("input");
+  value.type = "number";
+  value.id = uid + "-value";
+  value.className = "num-input ann-volume-value";
+  value.min = "0";
+  value.max = "100";
+  value.step = "1";
+  value.inputMode = "numeric";
+  value.value = String(current.volume === null ? defaultAnnounceVolume() : current.volume);
+  value.setAttribute("aria-label", t("annvol.label"));
 
-  const value = document.createElement("output");
-  value.className = "ann-volume-value";
-  value.textContent = slider.value;
+  let hint = null;
+  if (opts.hint) {
+    hint = document.createElement("p");
+    hint.className = "field-desc";
+    hint.id = uid + "-desc";
+    hint.textContent = t("annvol.desc");
+  }
+
+  const holder = document.createElement("div");
+  holder.className = "ann-volume" + (opts.inline ? " is-inline" : "");
 
   const paint = () => {
-    slider.disabled = !toggle.checked;
+    value.disabled = !toggle.checked;
     holder.classList.toggle("is-on", toggle.checked);
   };
   const store = async () => {
-    if (await saveAnnounceVolume(key, toggle.checked, Number(slider.value))) paint();
+    const volume = Math.max(0, Math.min(100, Math.round(Number(value.value) || 0)));
+    value.value = String(volume);
+    if (await saveAnnounceVolume(key, toggle.checked, volume)) paint();
   };
   toggle.addEventListener("change", store);
-  slider.addEventListener("input", () => {
-    value.textContent = slider.value;
-    setVolumeFill(slider);
-  });
-  slider.addEventListener("change", store);
+  value.addEventListener("change", store);
 
   paint();
-  holder.append(label, slider, value);
+  holder.append(volumeField("annvol.own", toggle, hint), volumeField("annvol.label", value));
   return holder;
 }
 
@@ -3825,10 +3847,9 @@ function setAnnouncementFormMode(item) {
 
 function paintAnnFormVolume(key) {
   const row = document.getElementById("annVolumeRow");
-  const holder = document.getElementById("annFormVolume");
   row.hidden = !key;
-  holder.innerHTML = "";
-  if (key) holder.appendChild(volumeControl(key, { inline: true }));
+  row.innerHTML = "";
+  if (key) row.appendChild(volumeControl(key, { hint: true }));
 }
 
 function resetAnnouncementForm() {
@@ -4346,8 +4367,9 @@ function paintAnnounceVolumeRow(source) {
   const holder = document.getElementById("announceVolumeHolder");
   if (!holder) return;
   holder.innerHTML = "";
-  holder.appendChild(volumeControl(source, { inline: true }));
+  holder.appendChild(volumeControl(source, { hint: true }));
 }
+window.LANG_CHANGE_LISTENERS.push(() => paintAnnounceVolumeRow(trackOrderSourceSelect.value));
 
 async function loadTrackOrder() {
   const source = trackOrderSourceSelect.value;

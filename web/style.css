@@ -2000,18 +2000,13 @@ select {
 .ann-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; }
 .ann-delete { flex: none; }
 
-/* One announcement source's own volume: a switch, a slider, the value. */
-.ann-volume { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-.ann-volume.is-inline { margin-top: 8px; }
-.ann-volume-range { flex: 0 1 9rem; }
-.ann-volume-value {
-  min-width: 3ch;
-  text-align: right;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.ann-volume:not(.is-on) .ann-volume-range,
-.ann-volume:not(.is-on) .ann-volume-value { opacity: 0.45; }
+/* One announcement source's own volume: the switch on one line, the volume
+   as a number field on the next. */
+.ann-volume { flex: 1 1 100%; min-width: 0; }
+.ann-volume.is-inline { margin-top: 6px; }
+.ann-volume > .field-row:first-child { border-top: 0; }
+.ann-volume:not(.is-on) .ann-volume-value { opacity: 0.5; }
+.device-list .ann-volume .field-row { min-height: 40px; padding: 2px 0; }
 
 .device-list li.ann-item.is-off {
   background-image: repeating-linear-gradient(

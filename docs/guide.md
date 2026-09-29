@@ -1973,13 +1973,16 @@ typically has, not for a collection of hundreds or thousands of tracks;
 ### A volume for each announcement
 
 Asked for as "let me set the volume of each announcement, with an on/off".
-A **Volume** row — a switch and a slider — sits under the announcement
-picker of the Announcement files card, in the form of a custom
-announcement, and in each row of the System sounds card.
+Each announcement source has **its own volume, on two lines**: a switch,
+then the volume as a number field — the same shape as *Base volume* in the
+settings. They sit under the announcement picker of the Announcement files
+card, in the form of a custom announcement, and in each row of the System
+sounds card.
 
 - **Off** (the default) is what the radio always did: the announcement
   plays at the volume of the music, and follows the Home slider like the
-  songs do.
+  songs do. The field is greyed while off, and the value is kept for the
+  day it is switched back on.
 - **On** makes that one announcement play at its own volume, whatever the
   music is at: a cutoff announcement that stays quiet at night, a button
   sound that stays discreet, a morning announcement loud enough to wake
