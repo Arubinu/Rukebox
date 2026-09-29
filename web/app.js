@@ -2609,7 +2609,7 @@ function libraryButton(item, next) {
   const name = item.title || item.name || "";
   if (next) {
     b.className = "btn btn-small library-next";
-    b.dataset.icon = "plus";
+    b.dataset.icon = "list";
     b.title = t("library.next_aria", { title: name });
     const label = document.createElement("span");
     label.textContent = t("library.next");
