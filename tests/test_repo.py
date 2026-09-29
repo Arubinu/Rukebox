@@ -1,8 +1,8 @@
 """Rules about the repository itself, each learnt the hard way (CLAUDE.md):
 translations complete in the six languages, every recorded event has a
-label, API errors are codes and not sentences, the sudoers file is LF,
-the two push scripts exclude the same things, and no endpoint is named
-like analytics (ad blockers drop those)."""
+label, API errors are codes and not sentences, every icon asked for has a
+drawing, the sudoers file is LF, the two push scripts exclude the same
+things, and no endpoint is named like analytics (ad blockers drop those)."""
 import os
 import re
 import unittest
@@ -59,6 +59,25 @@ class ServerRulesTest(unittest.TestCase):
             routes = re.findall(r'@app\.route\("([^"]+)"', f.read())
         bad = [r for r in routes if re.search(r"/(stats|analytics|tracking|track|events|collect|beacon|pixel)(/|$)", r)]
         self.assertEqual(bad, [])
+
+
+class IconsTest(unittest.TestCase):
+    """An icon is `data-icon="name"`, drawn by a `[data-icon="name"]` rule that
+    points at a `--i-name` drawing. A name with no rule draws nothing at all,
+    silently - the whole element is a mask with no image."""
+    def test_every_icon_used_is_defined(self):
+        used = set(re.findall(r'data-icon="([^"]+)"', _path.read("web", "index.html")))
+        used |= set(re.findall(r'dataset\.icon = "([^"]+)"', _path.read("web", "app.js")))
+        css = _path.read("web", "style.css")
+        defined = set(re.findall(r'\[data-icon="([^"]+)"\]\s*\{', css))
+        self.assertEqual(used - defined, set())
+
+    def test_every_drawing_exists(self):
+        css = _path.read("web", "style.css")
+        drawings = set(re.findall(r"--i-([\w-]+): url\(", css))
+        used = set(re.findall(r"var\(--i-([\w-]+)\)", css))
+        self.assertEqual(used - drawings, set())
+        self.assertEqual(drawings - used, set())
 
 
 class FilesTest(unittest.TestCase):

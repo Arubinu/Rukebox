@@ -141,10 +141,22 @@ class StoreTest(unittest.TestCase):
 
         def hammer(key):
             for value in range(40):
-                try:
-                    announcements.set_volume(self.path, key, {"on": True, "volume": value})
-                except Exception as exc:  # noqa: BLE001
-                    errors.append(repr(exc))
+                # Windows refuses the rename while another thread has the file
+                # open for reading (no FILE_SHARE_DELETE), so a shared read here
+                # can answer "access denied" - a property of the test machine,
+                # not a lost announcement. On the Pi (Linux) the rename always
+                # goes through; what is asserted below is the document.
+                for attempt in range(20):
+                    try:
+                        announcements.set_volume(self.path, key, {"on": True, "volume": value})
+                        break
+                    except PermissionError:
+                        if attempt == 19:
+                            raise
+                        time.sleep(0.01)
+                    except Exception as exc:  # noqa: BLE001
+                        errors.append(repr(exc))
+                        break
                 with open(self.path, encoding="utf-8") as f:
                     doc = json.load(f)
                 seen.append(len(doc.get("items") or []))

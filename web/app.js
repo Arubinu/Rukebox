@@ -624,6 +624,7 @@ function setActiveView(tab, page, options) {
   }
 
   refreshPageMenus();
+  document.dispatchEvent(new CustomEvent("page-shown", { detail: { tab, page } }));
 
   if (opts.hash !== false && !pendingPage) {
     const hash = "#" + tab + (page ? "/" + page : "");
@@ -6505,8 +6506,11 @@ document.getElementById("btnStatsReset").addEventListener("click", async () => {
   showToast(t("stats.reset_done"));
 });
 
-document.getElementById("eventLogSection").addEventListener("toggle", (e) => {
-  if (e.target.open && document.getElementById("eventList").children.length === 0) {
+/* A page that reads its data only when it is looked at (the event log) hears
+   about it here, instead of from a folded box being opened. */
+document.addEventListener("page-shown", (event) => {
+  const page = event.detail && event.detail.page;
+  if (page === "events" && document.getElementById("eventList").children.length === 0) {
     loadEvents(false);
   }
 });

@@ -198,13 +198,13 @@
         </section>
 
         <section class="card" id="upnextCard" data-page="upnext" data-tab="home" aria-labelledby="upnextTitle" hidden>
-          <h2 data-icon="list" id="upnextTitle"><span data-i18n="upnext.title">Up next</span></h2>
+          <h2 data-icon="list-ordered" id="upnextTitle"><span data-i18n="upnext.title">Up next</span></h2>
           <ol class="device-list recent-list upnext-list" id="upnextList"></ol>
           <p class="hint" id="upnextEmpty" data-i18n="upnext.empty" hidden>Nothing planned after this song.</p>
         </section>
 
         <section class="card" id="recentCard" data-page="recent" data-tab="home" aria-labelledby="recentTitle" hidden>
-          <h2 data-icon="list" id="recentTitle"><span data-i18n="recent.title">Recently played</span></h2>
+          <h2 data-icon="history" id="recentTitle"><span data-i18n="recent.title">Recently played</span></h2>
           <ol class="device-list recent-list" id="recentList"></ol>
           <p class="hint" id="recentEmpty" data-i18n="recent.empty" hidden>Nothing played yet.</p>
         </section>
@@ -934,7 +934,7 @@
         </section>
 
         <section data-level="detail" class="card" id="systemSoundsCard" data-page="sounds" data-tab="settings" aria-labelledby="sysSoundsTitle">
-          <h2 data-icon="bell" id="sysSoundsTitle"><span data-i18n="syssounds.title">System sounds</span></h2>
+          <h2 data-icon="audio-lines" id="sysSoundsTitle"><span data-i18n="syssounds.title">System sounds</span></h2>
           <p class="hint help-text" data-i18n="syssounds.help" hidden>
             The short sounds the radio plays by itself. Replace one with your own
             file, or go back to the original.
@@ -1590,7 +1590,7 @@
           </details>
         </section>
 
-        <section class="card card-wide" data-level="detail" id="statsCard" data-page="stats" data-tab="stats" aria-labelledby="statsTitle">
+        <section class="card card-wide" data-level="detail" id="statsCard" data-page="overview" data-tab="stats" aria-labelledby="statsTitle">
           <h2 data-icon="chart" id="statsTitle"><span data-i18n="stats.title">Statistics</span></h2>
           <div class="stats-period" id="statsPeriod">-</div>
 
@@ -1618,71 +1618,6 @@
           <div class="chart" id="dailyChart"></div>
           <div class="chart-day" id="chartDay" hidden></div>
 
-          <details class="subsection">
-            <summary><span data-i18n="stats.most_played_section">Most played &amp; announcements</span></summary>
-            <div class="tops" id="topsBox"></div>
-            <p class="select-remote" id="selectRemote-topsBox" hidden>
-              <span class="select-remote-text"></span>
-              <button type="button" class="btn-link" data-remote-scope="topsBox"></button>
-            </p>
-            <div class="form-actions form-actions-split">
-              <button type="button" class="btn" data-select-scope="topsBox" data-i18n="stats.select_all">Select all</button>
-              <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="topsBox" data-i18n="stats.delete_selected" disabled>Delete selected</button>
-            </div>
-          </details>
-
-          <details class="subsection">
-            <summary><span data-i18n="stats.errors_section">Playback errors</span></summary>
-            <div class="tops" id="errorsBox"></div>
-            <p class="select-remote" id="selectRemote-errorsBox" hidden>
-              <span class="select-remote-text"></span>
-              <button type="button" class="btn-link" data-remote-scope="errorsBox"></button>
-            </p>
-            <div class="form-actions form-actions-split">
-              <button type="button" class="btn" data-select-scope="errorsBox" data-i18n="stats.select_all">Select all</button>
-              <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="errorsBox" data-i18n="stats.delete_selected" disabled>Delete selected</button>
-            </div>
-          </details>
-
-          <details class="subsection">
-            <summary><span data-i18n="stats.sessions_section">Startups &amp; shutdowns</span></summary>
-            <div class="session-list" id="sessionList"></div>
-            <div class="form-actions" id="moreSessionsRow" hidden>
-              <button type="button" class="btn" id="btnMoreSessions" data-i18n="stats.load_more">Load more</button>
-            </div>
-            <p class="select-remote" id="selectRemote-sessionList" hidden>
-              <span class="select-remote-text"></span>
-              <button type="button" class="btn-link" data-remote-scope="sessionList"></button>
-            </p>
-            <div class="form-actions form-actions-split">
-              <button type="button" class="btn" data-select-scope="sessionList" data-i18n="stats.select_all">Select all</button>
-              <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="sessionList" data-i18n="stats.delete_selected" disabled>Delete selected</button>
-            </div>
-          </details>
-
-          <details class="subsection" id="eventLogSection">
-            <summary><span data-i18n="stats.eventlog_section">Event log</span></summary>
-            <div class="log-controls">
-              <label class="sr-only" for="eventTypeFilter" data-i18n="stats.all_events">All events</label>
-              <select id="eventTypeFilter" class="chart-range">
-                <option value="" data-i18n="stats.all_events">All events</option>
-              </select>
-              <button type="button" class="btn" id="btnRefreshEvents" data-icon="refresh" data-i18n="common.refresh">Refresh</button>
-            </div>
-            <ul class="event-list" id="eventList"></ul>
-            <p class="select-remote" id="selectRemote-eventList" hidden>
-              <span class="select-remote-text"></span>
-              <button type="button" class="btn-link" data-remote-scope="eventList"></button>
-            </p>
-            <div class="form-actions">
-              <button type="button" class="btn" id="btnMoreEvents" data-i18n="stats.load_more">Load more</button>
-            </div>
-            <div class="form-actions form-actions-split">
-              <button type="button" class="btn" data-select-scope="eventList" data-i18n="stats.select_all">Select all</button>
-              <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="eventList" data-i18n="stats.delete_selected" disabled>Delete selected</button>
-            </div>
-          </details>
-
           <div class="form-actions btn-split">
             <div class="btn-group">
               <button type="button" class="btn" id="btnStatsRefresh" data-icon="refresh" data-i18n="common.refresh">Refresh</button>
@@ -1693,6 +1628,71 @@
             </div>
           </div>
           <p class="hint" id="statsHint"></p>
+        </section>
+
+        <section class="card card-wide" data-level="detail" id="statsTopsCard" data-page="tops" data-tab="stats" aria-labelledby="statsTopsTitle">
+          <h2 data-icon="music" id="statsTopsTitle"><span data-i18n="stats.most_played_section">Most played &amp; announcements</span></h2>
+          <div class="tops" id="topsBox"></div>
+          <p class="select-remote" id="selectRemote-topsBox" hidden>
+            <span class="select-remote-text"></span>
+            <button type="button" class="btn-link" data-remote-scope="topsBox"></button>
+          </p>
+          <div class="form-actions form-actions-split">
+            <button type="button" class="btn" data-select-scope="topsBox" data-i18n="stats.select_all">Select all</button>
+            <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="topsBox" data-i18n="stats.delete_selected" disabled>Delete selected</button>
+          </div>
+        </section>
+
+        <section class="card card-wide" data-level="detail" id="statsErrorsCard" data-page="errors" data-tab="stats" aria-labelledby="statsErrorsTitle">
+          <h2 data-icon="alert" id="statsErrorsTitle"><span data-i18n="stats.errors_section">Playback errors</span></h2>
+          <div class="tops" id="errorsBox"></div>
+          <p class="select-remote" id="selectRemote-errorsBox" hidden>
+            <span class="select-remote-text"></span>
+            <button type="button" class="btn-link" data-remote-scope="errorsBox"></button>
+          </p>
+          <div class="form-actions form-actions-split">
+            <button type="button" class="btn" data-select-scope="errorsBox" data-i18n="stats.select_all">Select all</button>
+            <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="errorsBox" data-i18n="stats.delete_selected" disabled>Delete selected</button>
+          </div>
+        </section>
+
+        <section class="card card-wide" data-level="detail" id="statsSessionsCard" data-page="sessions" data-tab="stats" aria-labelledby="statsSessionsTitle">
+          <h2 data-icon="power" id="statsSessionsTitle"><span data-i18n="stats.sessions_section">Startups &amp; shutdowns</span></h2>
+          <div class="session-list" id="sessionList"></div>
+          <div class="form-actions" id="moreSessionsRow" hidden>
+            <button type="button" class="btn" id="btnMoreSessions" data-i18n="stats.load_more">Load more</button>
+          </div>
+          <p class="select-remote" id="selectRemote-sessionList" hidden>
+            <span class="select-remote-text"></span>
+            <button type="button" class="btn-link" data-remote-scope="sessionList"></button>
+          </p>
+          <div class="form-actions form-actions-split">
+            <button type="button" class="btn" data-select-scope="sessionList" data-i18n="stats.select_all">Select all</button>
+            <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="sessionList" data-i18n="stats.delete_selected" disabled>Delete selected</button>
+          </div>
+        </section>
+
+        <section class="card card-wide" data-level="detail" id="statsEventsCard" data-page="events" data-tab="stats" aria-labelledby="statsEventsTitle">
+          <h2 data-icon="list" id="statsEventsTitle"><span data-i18n="stats.eventlog_section">Event log</span></h2>
+          <div class="log-controls">
+            <label class="sr-only" for="eventTypeFilter" data-i18n="stats.all_events">All events</label>
+            <select id="eventTypeFilter" class="chart-range">
+              <option value="" data-i18n="stats.all_events">All events</option>
+            </select>
+            <button type="button" class="btn" id="btnRefreshEvents" data-icon="refresh" data-i18n="common.refresh">Refresh</button>
+          </div>
+          <ul class="event-list" id="eventList"></ul>
+          <p class="select-remote" id="selectRemote-eventList" hidden>
+            <span class="select-remote-text"></span>
+            <button type="button" class="btn-link" data-remote-scope="eventList"></button>
+          </p>
+          <div class="form-actions">
+            <button type="button" class="btn" id="btnMoreEvents" data-i18n="stats.load_more">Load more</button>
+          </div>
+          <div class="form-actions form-actions-split">
+            <button type="button" class="btn" data-select-scope="eventList" data-i18n="stats.select_all">Select all</button>
+            <button type="button" class="btn btn-danger" data-icon="trash" data-delete-scope="eventList" data-i18n="stats.delete_selected" disabled>Delete selected</button>
+          </div>
         </section>
 
         <div class="view-bar" id="viewBar">
