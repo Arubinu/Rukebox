@@ -2128,11 +2128,96 @@ document.querySelectorAll(".click-test-btn").forEach((btn) => {
   });
 });
 
+let announceVolumes = {};
+
+async function refreshAnnouncementVolumes() {
+  const result = await apiGet("/api/announcement_volumes");
+  if (result.ok && result.data && typeof result.data === "object") announceVolumes = result.data;
+  return announceVolumes;
+}
+
+function announceVolume(key) {
+  const entry = announceVolumes[key] || {};
+  const volume = Number(entry.volume);
+  return { on: !!entry.on, volume: Number.isFinite(volume) ? volume : null };
+}
+
+async function saveAnnounceVolume(key, on, volume) {
+  const result = await apiPost("/api/announcement_volumes/" + encodeURIComponent(key),
+                               { on, volume });
+  if (!result.ok) {
+    showError(result.error);
+    return false;
+  }
+  announceVolumes[key] = result.data || { on, volume };
+  return true;
+}
+
+function defaultAnnounceVolume() {
+  const slider = document.getElementById("volumeSlider");
+  const value = slider ? Number(slider.value) : NaN;
+  return Number.isFinite(value) ? value : 50;
+}
+
+function volumeControl(key, options) {
+  /* One source's own volume: a switch, a slider and the value. Off means the
+     announcement plays at the volume of the music, which is what it always
+     did. */
+  const opts = options || {};
+  const current = announceVolume(key);
+  const holder = document.createElement("span");
+  holder.className = "ann-volume" + (opts.inline ? " is-inline" : "");
+
+  const label = document.createElement("label");
+  label.className = "ann-switch";
+  const toggle = document.createElement("input");
+  toggle.type = "checkbox";
+  toggle.className = "switch-input";
+  toggle.setAttribute("role", "switch");
+  toggle.checked = current.on;
+  const labelText = document.createElement("span");
+  labelText.textContent = t("annvol.own");
+  label.append(toggle, labelText);
+
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.className = "ann-volume-range";
+  slider.min = "0";
+  slider.max = "100";
+  slider.step = "1";
+  slider.value = String(current.volume === null ? defaultAnnounceVolume() : current.volume);
+  slider.setAttribute("aria-label", t("annvol.label"));
+  setVolumeFill(slider);
+
+  const value = document.createElement("output");
+  value.className = "ann-volume-value";
+  value.textContent = slider.value;
+
+  const paint = () => {
+    slider.disabled = !toggle.checked;
+    holder.classList.toggle("is-on", toggle.checked);
+  };
+  const store = async () => {
+    if (await saveAnnounceVolume(key, toggle.checked, Number(slider.value))) paint();
+  };
+  toggle.addEventListener("change", store);
+  slider.addEventListener("input", () => {
+    value.textContent = slider.value;
+    setVolumeFill(slider);
+  });
+  slider.addEventListener("change", store);
+
+  paint();
+  holder.append(label, slider, value);
+  return holder;
+}
+
 async function refreshAnnouncements() {
   const result = await apiGet("/api/announcements");
   const list = document.getElementById("announcementList");
   list.innerHTML = "";
 
+  await refreshAnnouncementVolumes();
   const items = result.ok && Array.isArray(result.data) ? result.data : [];
 
   customAnnouncementsCache = items;
@@ -3738,6 +3823,14 @@ function setAnnouncementFormMode(item) {
   document.getElementById("annEditCancel").hidden = !item;
 }
 
+function paintAnnFormVolume(key) {
+  const row = document.getElementById("annVolumeRow");
+  const holder = document.getElementById("annFormVolume");
+  row.hidden = !key;
+  holder.innerHTML = "";
+  if (key) holder.appendChild(volumeControl(key, { inline: true }));
+}
+
 function resetAnnouncementForm() {
   document.getElementById("announcementForm").reset();
   document.getElementById("annTime").value = "12:00";
@@ -3747,6 +3840,7 @@ function resetAnnouncementForm() {
   document.getElementById("annAutoChance").value = "1/1";
   document.getElementById("annManualChance").value = "1/1";
   updateAnnTimeVisibility();
+  paintAnnFormVolume(null);
   setAnnouncementFormMode(null);
 }
 
@@ -3761,6 +3855,7 @@ function startEditAnnouncement(item) {
   document.getElementById("annAutoChance").value = item.auto_chance || "1/1";
   document.getElementById("annManualChance").value = item.manual_chance || "1/1";
   updateAnnTimeVisibility();
+  paintAnnFormVolume("custom:" + item.id);
   setAnnouncementFormMode(item);
   const section = document.getElementById("announcementFormSection");
   section.open = true;
@@ -4059,6 +4154,7 @@ async function refreshSystemSounds() {
   const result = await apiGet("/api/system_sounds");
   const list = document.getElementById("systemSoundsList");
   if (!result.ok || !Array.isArray(result.data)) return;
+  await refreshAnnouncementVolumes();
   list.innerHTML = "";
   result.data.forEach((item) => {
     const li = document.createElement("li");
@@ -4071,6 +4167,7 @@ async function refreshSystemSounds() {
       : item.custom ? t("syssounds.custom", { name: item.name })
       : t("syssounds.default");
     text.append(title, document.createElement("br"), state);
+    if (!item.off) text.appendChild(volumeControl(item.key, { inline: true }));
 
     const actions = document.createElement("span");
     actions.className = "device-actions";
@@ -4245,12 +4342,21 @@ document.getElementById("annFilesInput").addEventListener("change", (event) => {
 });
 
 let trackOrderShownSource = null;
+function paintAnnounceVolumeRow(source) {
+  const holder = document.getElementById("announceVolumeHolder");
+  if (!holder) return;
+  holder.innerHTML = "";
+  holder.appendChild(volumeControl(source, { inline: true }));
+}
+
 async function loadTrackOrder() {
   const source = trackOrderSourceSelect.value;
   if (source !== trackOrderShownSource) {
     trackOrderSelected = new Set();
     trackOrderShownSource = source;
   }
+  await refreshAnnouncementVolumes();
+  paintAnnounceVolumeRow(source);
   const hint = document.getElementById("trackOrderHint");
   hint.textContent = "";
   const result = await apiGet("/api/track_order/" + encodeURIComponent(source));
@@ -4981,7 +5087,8 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
-  "list_selected", "list_added", "list_changed", "list_removed"];
+  "list_selected", "list_added", "list_changed", "list_removed",
+  "announcement_volume_set"];
 function eventLabel(type) {
   return EVENT_TYPE_KEYS.includes(type) ? t("event." + type) : type;
 }

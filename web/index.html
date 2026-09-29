@@ -873,6 +873,13 @@
               <p class="hint help-text" data-i18n="announcements.chance_help" hidden>
                 "1 time out of 2" is exact, not a coin toss.
               </p>
+              <div class="field-row" id="annVolumeRow" hidden>
+                <div class="field-text">
+                  <span class="field-label" data-i18n="annvol.label">Volume</span>
+                  <p class="field-desc" data-i18n="annvol.desc">Off: it plays at the volume of the music.</p>
+                </div>
+                <span id="annFormVolume"></span>
+              </div>
               <div class="form-actions">
                 <button type="button" class="btn" id="annEditCancel" data-icon="x" data-i18n="common.cancel" hidden>Cancel</button>
                 <button type="submit" class="btn btn-primary" id="annSubmit" data-icon="plus" data-i18n="common.add">Add</button>
@@ -895,6 +902,13 @@
               <option value="meme" data-i18n="source.meme">Button sounds</option>
               <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
             </select>
+          </div>
+          <div class="field-row">
+            <div class="field-text">
+              <span class="field-label" data-i18n="annvol.label">Volume</span>
+              <p class="field-desc" data-i18n="annvol.desc">Off: it plays at the volume of the music.</p>
+            </div>
+            <span id="announceVolumeHolder"></span>
           </div>
           <p class="hint mac" id="annFilesFolder"></p>
           <div class="actions-row">

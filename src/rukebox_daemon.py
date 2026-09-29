@@ -95,6 +95,8 @@ class RadioDaemon:
         self._volume_glide_target = None
 
         self._custom_announcements = announcements.load(cfg["ANNOUNCEMENTS_FILE"])
+        self._announce_volumes = announcements.volumes(cfg["ANNOUNCEMENTS_FILE"])
+        self._sound_volume = None
         self._music_lists = music_lists.load(cfg["MUSIC_LISTS_FILE"])
         self._lists_stamp = None
         self._list_library = None
@@ -207,13 +209,21 @@ class RadioDaemon:
                         "it, and it cannot be moved (it has to be paired there once): the "
                         "sound goes out of the first one", state["controller"], expected)
 
-    def _play_cue_sound(self, path):
+    def _play_cue_sound(self, path, key=None):
         if not path or not os.path.exists(path):
             log.warning("Confirmation sound not found: %s", path)
             return
+        volume = self._source_volume(key) if key else None
+        command = [
+            "mpv", "--no-terminal", "--really-quiet",
+            "--audio-device=" + (self._audio_device or "auto"),
+        ]
+        if volume is not None:
+            command.append("--volume=%.1f" % volume)
+        command.append(path)
         try:
             subprocess.Popen(
-                ["mpv", "--no-terminal", "--really-quiet", "--audio-device=" + (self._audio_device or "auto"), path],
+                command,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 env=audio_env(),
             )
@@ -237,7 +247,7 @@ class RadioDaemon:
                 return
             sound = self.cfg["CLOCK_OK_SOUND"] if success else self.cfg["CLOCK_FALLBACK_SOUND"]
             log.info("Playing clock confirmation sound (%s)", "success" if success else "fallback")
-            self._play_cue_sound(sound)
+            self._play_cue_sound(sound, "CLOCK_OK_SOUND" if success else "CLOCK_FALLBACK_SOUND")
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -561,6 +571,9 @@ class RadioDaemon:
     def _play_track(self, path, start=0.0):
         """Plays one music file, from `start` seconds."""
         log.info("Playing: %s%s", path, " from %.0fs" % start if start else "")
+        if self._sound_volume is not None:
+            # Back from an announcement that played at a volume of its own.
+            self._restore_base_volume()
         self.mode = "music"
         self._pending_seek = start if start and start > 1 else None
         self._begin_play("music", path)
@@ -701,6 +714,10 @@ class RadioDaemon:
         self._play_kind = kind
         self._play_path = path
         self.mpv.loadfile(path)
+        # An announcement or a System sound with a volume of its own: the music
+        # is never touched here (its own fade-in sets the volume).
+        if self._sound_volume is not None and kind != "music":
+            self.mpv.set_volume(self._sound_volume)
         self.mpv.set_pause(False)
         self._play_since = time.monotonic()
         self._position = 0.0
@@ -830,11 +847,14 @@ class RadioDaemon:
         self._current_track = None
         self.mode = target_mode
         keepalive = self.cfg["KEEPALIVE_SOUND"]
+        self._sound_volume = self._source_volume("KEEPALIVE_SOUND")
         if not keepalive:
             log.info("Keep-alive sound disabled: silent while waiting")
             self.mpv.stop_playback()
         elif os.path.exists(keepalive):
             self.mpv.loadfile(keepalive)
+            if self._sound_volume is not None:
+                self.mpv.set_volume(self._sound_volume)
             self.mpv.set_loop("inf")
             self.mpv.set_pause(False)
         else:
@@ -888,6 +908,7 @@ class RadioDaemon:
         self.mode = "restarting"
         if sound and os.path.exists(sound):
             self._restore_base_volume()
+            self._sound_volume = self._source_volume("RESTART_SOUND")
             self._begin_play("restart_cue", sound)
             return
         self._restart_now()
@@ -929,6 +950,7 @@ class RadioDaemon:
             return
         target = self._target_volume()
         self._stop_volume_glide()
+        self._sound_volume = None
         self._current_volume = 0
         self._shown_volume = target
         self.mpv.set_volume(0)
@@ -991,8 +1013,14 @@ class RadioDaemon:
             return self._user_volume
         return self.cfg["BASE_VOLUME"]
 
+    def _source_volume(self, key):
+        """The volume an announcement source or a System sound plays at, or
+        None when it follows the music (src/announcements.py)."""
+        return announcements.source_volume(self._announce_volumes, key)
+
     def _restore_base_volume(self):
         self._stop_volume_glide()
+        self._sound_volume = None
         self._current_volume = self._target_volume()
         self._shown_volume = self._current_volume
         self.mpv.set_volume(self._current_volume)
@@ -1020,8 +1048,9 @@ class RadioDaemon:
         name = self.state.next_click_sound(source_id, lambda: [os.path.basename(f) for f in files])
         return [by_name[name]] if name in by_name else []
 
-    def _play_announce_queue(self, mode_name, files):
+    def _play_announce_queue(self, mode_name, files, volume_key=None):
         self._announce_queue = list(files)
+        self._sound_volume = self._source_volume(volume_key) if volume_key else None
         if not self._announce_queue:
             log.warning("No announcement to play for %s, continuing directly", mode_name)
             self._after_announce_finished(mode_name)
@@ -1059,7 +1088,7 @@ class RadioDaemon:
         self._fade_out_and_pause(self.cfg["FADE_DURATION_SEC"])
         self._restore_base_volume()
         files = self._list_announce_files(self.cfg["CUTOFF_ANNOUNCE_DIR"], source_id="cutoff")
-        self._play_announce_queue("cutoff_announce", files)
+        self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
         self.state.mark_triggered_today("last_cutoff_trigger")
 
     def _trigger_cutoff_from_idle(self):
@@ -1072,7 +1101,7 @@ class RadioDaemon:
         self._record_cutoff_trigger("from_idle")
         self._stop_keepalive()
         files = self._list_announce_files(self.cfg["CUTOFF_ANNOUNCE_DIR"], source_id="cutoff")
-        self._play_announce_queue("cutoff_announce", files)
+        self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
         self.state.mark_triggered_today("last_cutoff_trigger")
 
     def _arm_cutoff_end_of_track(self):
@@ -1099,7 +1128,8 @@ class RadioDaemon:
                                  else self.cfg["FADE_DURATION_SEC"])
         self._restore_base_volume()
         source_id = "custom:%s" % item["id"]
-        self._play_announce_queue(source_id, self._next_announce_file(source_id, item["folder"]))
+        self._play_announce_queue(source_id, self._next_announce_file(source_id, item["folder"]),
+                                  volume_key=source_id)
         if not on_demand and item.get("trigger") == "time":
             self.state.mark_triggered_today("custom_%s" % item["id"])
 
@@ -1114,7 +1144,7 @@ class RadioDaemon:
         log.info("End of current track -> starting the cutoff announcement")
         self.state.set_pending_cutoff(False)
         files = self._list_announce_files(self.cfg["CUTOFF_ANNOUNCE_DIR"], source_id="cutoff")
-        self._play_announce_queue("cutoff_announce", files)
+        self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
 
     def _do_shutdown_sequence(self, force=False, reason="cutoff"):
         self._end_play("shutdown")
@@ -1226,6 +1256,7 @@ class RadioDaemon:
         self._resume_track = resume
         self._next_is_user = action == "next"
         self.mode = "meme"
+        self._sound_volume = self._source_volume(sound_source)
         self._begin_play("meme", chosen)
 
     def _perform_direct_action(self, action, source):
@@ -1280,7 +1311,7 @@ class RadioDaemon:
         self._resume_mode = self.mode
         self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
         self._restore_base_volume()
-        self._play_announce_queue("button_announce:on_demand", files)
+        self._play_announce_queue("button_announce:on_demand", files, volume_key=folder_source)
         return None
 
     def _handle_single_click(self, source="unknown"):
@@ -1817,7 +1848,7 @@ class RadioDaemon:
                     counters={"ap_client_connections": 1},
                     daily={"ap_client_connections": 1},
                 )
-                self._play_cue_sound(self.cfg["AP_CONNECT_SOUND"])
+                self._play_cue_sound(self.cfg["AP_CONNECT_SOUND"], "AP_CONNECT_SOUND")
             for mac in sorted(self._ap_known_clients - clients):
                 log.info("Admin access point: client disconnected (%s)", mac)
                 self.stats.record("ap_client_disconnected", label=mac)
@@ -2217,7 +2248,7 @@ class RadioDaemon:
                 path = self.cfg.get(key) or ""
                 if not path or not os.path.exists(path):
                     return {"ok": False, "error": "sound_missing"}
-                self._play_cue_sound(path)
+                self._play_cue_sound(path, key)
                 return {"ok": True}
             if cmd == "schedule_restart":
                 self._schedule_restart(bool(msg.get("on", True)))
@@ -2247,6 +2278,7 @@ class RadioDaemon:
                 return self._reload_config()
             if cmd == "reload_announcements":
                 self._custom_announcements = announcements.load(self.cfg["ANNOUNCEMENTS_FILE"])
+                self._announce_volumes = announcements.volumes(self.cfg["ANNOUNCEMENTS_FILE"])
                 return {"ok": True, "count": len(self._custom_announcements)}
             if cmd == "play_announcement":
                 if self.mode != "music":

@@ -1830,6 +1830,25 @@ def api_delete_announcement(item_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/announcement_volumes")
+def api_announcement_volumes():
+    """The volume each announcement source and System sound plays at, if it
+    has one of its own."""
+    return jsonify({"ok": True, "data": announcements.volumes(_announcements_path())})
+
+
+@app.route("/api/announcement_volumes/<path:key>", methods=["POST"])
+def api_set_announcement_volume(key):
+    body = request.get_json(silent=True) or {}
+    try:
+        entry = announcements.set_volume(_announcements_path(), key, body)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    notify_daemon("reload_announcements")
+    stats.record("announcement_volume_set", label=key, detail=entry)
+    return jsonify({"ok": True, "data": entry})
+
+
 @app.route("/api/action/announce", methods=["POST"])
 def api_action_announce():
     """Plays one announcement folder on demand, chosen in the interface."""

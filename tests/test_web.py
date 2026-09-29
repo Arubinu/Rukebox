@@ -148,6 +148,32 @@ class WebTest(unittest.TestCase):
         owner.post("/api/devices/free_credits", json={"device_id": device["id"], "on": False})
         self.assertEqual(guest.post("/api/action/next_track").status_code, 429)
 
+    def test_an_announcements_volume_is_the_owners(self):
+        guest = ws.app.test_client()
+        self.assertEqual(guest.get("/api/announcement_volumes").status_code, 401)
+        self.assertEqual(
+            guest.post("/api/announcement_volumes/meme", json={"on": True, "volume": 20}).status_code,
+            401, "a guest does not set the volume of the announcements")
+
+        owner = self.owner()
+        self.assertNotIn("meme", owner.get("/api/announcement_volumes").get_json()["data"])
+        saved = owner.post("/api/announcement_volumes/meme", json={"on": True, "volume": 20})
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(saved.get_json()["data"], {"on": True, "volume": 20})
+        self.assertEqual(owner.get("/api/announcement_volumes").get_json()["data"]["meme"],
+                         {"on": True, "volume": 20})
+        self.assertIn("reload_announcements", [cmd for cmd, _ in self.calls],
+                      "the daemon is told, so the next play uses it")
+
+        self.assertEqual(
+            owner.post("/api/announcement_volumes/meme", json={"on": True, "volume": 101})
+            .get_json()["error"], "announcement_bad_volume")
+        self.assertEqual(
+            owner.post("/api/announcement_volumes/meme", json={"on": True, "volume": "loud"})
+            .get_json()["error"], "announcement_bad_volume")
+        self.assertEqual(owner.get("/api/announcement_volumes").get_json()["data"]["meme"],
+                         {"on": True, "volume": 20}, "a refused value changed nothing")
+
     def test_pairing_keeps_the_scan_running(self):
         # Measured on the Pi: BlueZ drops a device it has only seen the moment
         # discovery stops, and `pair` then answers "not available" - so the

@@ -22,36 +22,101 @@ def _is_absolute_path(folder):
     return folder.startswith("/") or bool(re.match(r"^[A-Za-z]:[\\/]", folder))
 
 
-def load(path):
-    """Every custom announcement, oldest first."""
+EMPTY_DOC = {"items": [], "volumes": {}}
+
+
+def _read_doc(path):
+    """The whole file: {"items": [...], "volumes": {...}}."""
     if not path or not os.path.exists(path):
-        return []
+        return dict(EMPTY_DOC, items=[], volumes={})
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError):
         log.exception("Could not read %s, treating as empty", path)
-        return []
-    items = data.get("items") if isinstance(data, dict) else None
-    if not isinstance(items, list):
-        return []
-    return [item for item in items if isinstance(item, dict) and item.get("id")]
+        return dict(EMPTY_DOC, items=[], volumes={})
+    if not isinstance(data, dict):
+        return dict(EMPTY_DOC, items=[], volumes={})
+    items = data.get("items")
+    data["items"] = (
+        [item for item in items if isinstance(item, dict) and item.get("id")]
+        if isinstance(items, list) else []
+    )
+    if not isinstance(data.get("volumes"), dict):
+        data["volumes"] = {}
+    return data
 
 
-def _save(path, items):
+def load(path):
+    """Every custom announcement, oldest first."""
+    return _read_doc(path)["items"]
+
+
+def _save(path, doc):
     directory = os.path.dirname(path)
     if directory:
         os.makedirs(directory, exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump({"items": items}, f, ensure_ascii=False, indent=2)
+        json.dump(doc, f, ensure_ascii=False, indent=2)
         f.write("\n")
     os.replace(tmp, path)
 
 
 def save_all(path, items):
     """Replaces the whole list, validating nothing."""
-    _save(path, items)
+    doc = _read_doc(path)
+    doc["items"] = items
+    _save(path, doc)
+
+
+VOLUME_MIN = 0
+VOLUME_MAX = 100
+
+
+def clean_volume(data):
+    """One volume entry ({"on": bool, "volume": 0..100}) or a ValueError."""
+    try:
+        volume = int(round(float((data or {}).get("volume", VOLUME_MAX))))
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError("announcement_bad_volume")
+    if not (VOLUME_MIN <= volume <= VOLUME_MAX):
+        raise ValueError("announcement_bad_volume")
+    return {"on": bool((data or {}).get("on", False)), "volume": volume}
+
+
+def volumes(path):
+    """The per-source volume: {"<source id>": {"on": bool, "volume": 0..100}}.
+
+    A source id is "meme"/"cutoff", "custom:<id>", or the name of a System
+    sound setting (KEEPALIVE_SOUND, ...)."""
+    out = {}
+    for key, entry in _read_doc(path)["volumes"].items():
+        if not isinstance(entry, dict):
+            continue
+        try:
+            out[key] = clean_volume(entry)
+        except ValueError:
+            continue
+    return out
+
+
+def set_volume(path, key, data):
+    """Stores one source's volume."""
+    key = str(key or "").strip()
+    if not key or len(key) > 80:
+        raise ValueError("announcement_bad_volume")
+    entry = clean_volume(data)
+    doc = _read_doc(path)
+    doc["volumes"][key] = entry
+    _save(path, doc)
+    return entry
+
+
+def source_volume(entries, key):
+    """The volume a source plays at, or None when it follows the music."""
+    entry = (entries or {}).get(key) or {}
+    return entry.get("volume") if entry.get("on") else None
 
 
 TRIGGERS = ("time", "manual", "after_music", "after_boot")
@@ -114,7 +179,8 @@ def validate(data):
 
 def add(path, data, default_parent=None):
     """Creates a new announcement type."""
-    items = load(path)
+    doc = _read_doc(path)
+    items = doc["items"]
     data = dict(data)
     wants_default = not str(data.get("folder", "")).strip() and default_parent
     if wants_default:
@@ -137,13 +203,15 @@ def add(path, data, default_parent=None):
     clean["id"] = new_id
     clean["created_at"] = time.time()
     items.append(clean)
-    _save(path, items)
+    doc["items"] = items
+    _save(path, doc)
     return clean
 
 
 def update(path, item_id, data):
     """Partial update: fields left out of `data` keep their current value."""
-    items = load(path)
+    doc = _read_doc(path)
+    items = doc["items"]
     for i, item in enumerate(items):
         if item["id"] == item_id:
             merged = dict(item)
@@ -152,17 +220,21 @@ def update(path, item_id, data):
             clean["id"] = item_id
             clean["created_at"] = item.get("created_at", time.time())
             items[i] = clean
-            _save(path, items)
+            doc["items"] = items
+            _save(path, doc)
             return clean
     raise KeyError(item_id)
 
 
 def delete(path, item_id):
-    items = load(path)
+    doc = _read_doc(path)
+    items = doc["items"]
     remaining = [item for item in items if item["id"] != item_id]
     if len(remaining) == len(items):
         raise KeyError(item_id)
-    _save(path, remaining)
+    doc["items"] = remaining
+    doc["volumes"].pop("custom:%s" % item_id, None)
+    _save(path, doc)
 
 
 def get(path, item_id):

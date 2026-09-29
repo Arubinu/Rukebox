@@ -1970,6 +1970,34 @@ typically has, not for a collection of hundreds or thousands of tracks;
 `ordered` mode for music is natural filename sort only (name files
 "01 - ...", "02 - ..." to control it).
 
+### A volume for each announcement
+
+Asked for as "let me set the volume of each announcement, with an on/off".
+A **Volume** row — a switch and a slider — sits under the announcement
+picker of the Announcement files card, in the form of a custom
+announcement, and in each row of the System sounds card.
+
+- **Off** (the default) is what the radio always did: the announcement
+  plays at the volume of the music, and follows the Home slider like the
+  songs do.
+- **On** makes that one announcement play at its own volume, whatever the
+  music is at: a cutoff announcement that stays quiet at night, a button
+  sound that stays discreet, a morning announcement loud enough to wake
+  someone up. The music takes its own volume back as soon as the
+  announcement is over, and the Home slider keeps showing the music's
+  volume the whole time — the two are separate, on purpose.
+- It applies to every announcement source: the button sounds (`meme`),
+  the cutoff (`cutoff`), each custom announcement, and each **System
+  sound** (keep-alive, clock confirmation, Wi-Fi hotspot connection,
+  restart) — whatever the picker shows.
+- Stored in `/etc/rukebox/announcements.json`, next to the announcements
+  themselves, under `volumes`. Plain JSON like the rest of that file, not
+  a YAML setting; deleting an announcement drops its volume with it.
+- Changing a volume applies at the **next** play of that announcement, no
+  restart. Moving the Home slider *during* an announcement overrides it
+  until that announcement ends, which is the one case where the slider
+  and the announcement disagree.
+
 ## Tests
 
 ```bash
