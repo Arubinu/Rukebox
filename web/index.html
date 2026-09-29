@@ -246,44 +246,61 @@
 
         <section class="card" id="listsCard" data-tab="home" aria-labelledby="listsTitle" hidden>
           <h2 data-icon="list" id="listsTitle"><span data-i18n="lists.title">Lists</span></h2>
-          <p class="hint help-text" data-i18n="lists.help" hidden>
-            The radio plays everything, or one list at a time. A list is
-            either the tracks you pick from the Library, or everything of the
-            genres you tick - a genre list keeps up with the library by
-            itself.
-          </p>
-          <p class="hint lists-now" id="listsNow" role="status"></p>
-          <div class="form-actions">
-            <button type="button" class="btn" id="listsPlayAll" data-icon="play"
-                    data-i18n="lists.play_all">Play everything</button>
-          </div>
-          <ol class="device-list ann-list" id="listsList"></ol>
 
-          <details class="subsection" id="listsNew">
-            <summary><span data-i18n="lists.new">New list</span></summary>
-            <div class="field-row">
-              <label for="listName" data-i18n="lists.name">Name</label>
-              <input type="text" id="listName" class="text-input" maxlength="40" autocomplete="off">
-            </div>
-            <div class="field-row">
-              <label for="listKind" data-i18n="lists.kind">What it holds</label>
-              <select id="listKind">
-                <option value="manual" data-i18n="lists.kind_manual">Tracks I pick</option>
-                <option value="genre" data-i18n="lists.kind_genre">Everything of some genres</option>
-              </select>
-            </div>
-            <div class="field-row" id="listGenresRow" hidden>
-              <div class="field-text">
-                <span class="field-label" data-i18n="lists.genres">Genres</span>
-                <p class="field-desc" data-i18n="lists.genres_desc">Tick what this list keeps.</p>
-              </div>
-            </div>
-            <div class="genre-checks" id="listsGenres" hidden></div>
+          <div id="listsOverview">
+            <p class="hint help-text" data-i18n="lists.help" hidden>
+              The radio plays everything, or one list at a time. A list is
+              either the tracks you pick from the Library, or everything of the
+              genres you tick - a genre list keeps up with the library by
+              itself.
+            </p>
+            <p class="hint lists-now" id="listsNow" role="status"></p>
             <div class="form-actions">
-              <button type="button" class="btn btn-primary" id="listsCreate" data-icon="check"
-                      data-i18n="lists.create">Create</button>
+              <button type="button" class="btn" id="listsPlayAll" data-icon="play"
+                      data-i18n="lists.play_all">Play everything</button>
             </div>
-          </details>
+            <ol class="device-list ann-list" id="listsList"></ol>
+
+            <details class="subsection" id="listsNew">
+              <summary><span data-i18n="lists.new">New list</span></summary>
+              <div class="field-row">
+                <label for="listName" data-i18n="lists.name">Name</label>
+                <input type="text" id="listName" class="text-input" maxlength="40" autocomplete="off">
+              </div>
+              <div class="field-row">
+                <label for="listKind" data-i18n="lists.kind">What it holds</label>
+                <select id="listKind">
+                  <option value="manual" data-i18n="lists.kind_manual">Tracks I pick</option>
+                  <option value="genre" data-i18n="lists.kind_genre">Everything of some genres</option>
+                </select>
+              </div>
+              <div class="field-row" id="listGenresRow" hidden>
+                <div class="field-text">
+                  <span class="field-label" data-i18n="lists.genres">Genres</span>
+                  <p class="field-desc" data-i18n="lists.genres_desc">Tick what this list keeps.</p>
+                </div>
+              </div>
+              <div class="genre-checks" id="listsGenres" hidden></div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="listsCreate" data-icon="check"
+                        data-i18n="lists.create">Create</button>
+              </div>
+            </details>
+          </div>
+
+          <div id="listsDetail" hidden>
+            <div class="list-detail-head">
+              <button type="button" class="btn btn-icon" id="listsBack" data-icon="back"
+                      data-i18n-aria-label="lists.back" data-i18n-title="lists.back"
+                      aria-label="Back to the lists" title="Back to the lists"></button>
+              <span class="list-detail-text">
+                <span class="ann-name" id="listsDetailName"></span>
+                <span class="ann-meta" id="listsDetailMeta"></span>
+              </span>
+            </div>
+            <div class="ann-actions" id="listsDetailActions"></div>
+            <div id="listsDetailBody"></div>
+          </div>
         </section>
 
         <div class="guest-release" id="guestRelease">

@@ -2799,6 +2799,12 @@ setInterval(() => {
 const listsCard = document.getElementById("listsCard");
 const listsList = document.getElementById("listsList");
 const listsNowLine = document.getElementById("listsNow");
+const listsOverview = document.getElementById("listsOverview");
+const listsDetail = document.getElementById("listsDetail");
+const listsDetailName = document.getElementById("listsDetailName");
+const listsDetailMeta = document.getElementById("listsDetailMeta");
+const listsDetailActions = document.getElementById("listsDetailActions");
+const listsDetailBody = document.getElementById("listsDetailBody");
 const listsNameInput = document.getElementById("listName");
 const listsKindSelect = document.getElementById("listKind");
 const listsGenresBox = document.getElementById("listsGenres");
@@ -2809,7 +2815,10 @@ const libraryGenrePlay = document.getElementById("libraryGenrePlay");
 let listsData = { lists: [], active: null };
 let listsGenres = [];
 let listsSeq = 0;
-let openListId = null;
+// The card shows one thing at a time: the lists, or the page of one list. No
+// list holds a scroll area of its own - the page scrolls, and nothing else.
+let detailListId = null;
+let detailSignature = "";
 let editingListId = null;
 let writingList = false;
 
@@ -2822,9 +2831,14 @@ function listKindLabel(item) {
   return (item.genres || []).join(", ") || t("lists.kind_genre_short");
 }
 
-function listRowById(id) {
-  return Array.from(document.querySelectorAll("#listsList .ann-item"))
-    .find((li) => li.dataset.id === id) || null;
+function listMeta(item) {
+  return [listKindLabel(item), tracksLabel(item.count),
+          item.id === listsData.active ? t("lists.playing") : ""]
+    .filter(Boolean).join(" \u00b7 ");
+}
+
+function listById(id) {
+  return (listsData.lists || []).find((list) => list.id === id) || null;
 }
 
 function listActionButton(icon, key, onClick, variant) {
@@ -2841,6 +2855,8 @@ function foldText(text) {
   // The genre search compares the way the library does: no accents, no case.
   return String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
+
+const GENRE_OPTIONS_MAX = 8;
 
 function pickedGenres(host) {
   // What is ticked IS what the pills above the list show, so the search can
@@ -2883,7 +2899,11 @@ function paintGenreOptions(host) {
     options.replaceChildren(none);
     return;
   }
-  options.replaceChildren(...matching.map((genre) => {
+  // A short list, never a box of its own: the search narrows it, and the page
+  // keeps the only scroll. A genre already ticked can be taken back from its
+  // pill above whatever is shown here.
+  const shown = matching.slice(0, GENRE_OPTIONS_MAX);
+  const rows = shown.map((genre) => {
     const label = document.createElement("label");
     label.className = "genre-option";
     const box = document.createElement("input");
@@ -2903,7 +2923,14 @@ function paintGenreOptions(host) {
     });
     label.append(box, name, count);
     return label;
-  }));
+  });
+  if (matching.length > shown.length) {
+    const more = document.createElement("p");
+    more.className = "hint genre-none";
+    more.textContent = t("lists.more_genres", { n: matching.length - shown.length });
+    rows.push(more);
+  }
+  options.replaceChildren(...rows);
 }
 
 function genrePicker(host, selected) {
@@ -3017,20 +3044,20 @@ async function deleteList(item) {
     showError(r.error);
     return;
   }
-  if (openListId === item.id) openListId = null;
-  if (editingListId === item.id) editingListId = null;
+  if (detailListId === item.id) {
+    detailListId = null;
+    editingListId = null;
+  }
   showToast(t("lists.deleted", { name: item.name }));
   refreshLists();
 }
 
 async function saveList(item) {
-  // The row that was being edited, never "the one that happens to be open".
-  const li = listRowById(item.id);
-  if (!li || writingList) return;
-  const name = (li.querySelector(".list-name").value || "").trim();
+  if (writingList) return;
+  const name = (listsDetailBody.querySelector(".list-name").value || "").trim();
   const body = { name: name };
   if (item.kind === "genre") {
-    body.genres = pickedGenres(li.querySelector(".genre-picker"));
+    body.genres = pickedGenres(listsDetailBody.querySelector(".genre-picker"));
   }
   writingList = true;
   const r = await apiPost("/api/lists/" + encodeURIComponent(item.id), body);
@@ -3102,99 +3129,15 @@ async function loadListTracks(item, holder, editable) {
   holder.replaceChildren(...rows);
 }
 
-function fillListBody(body, item) {
-  if (!item) return;
-  const editing = editingListId === item.id;
-  const actions = document.createElement("div");
-  actions.className = "ann-actions" + (editing ? " is-two" : "");
-  if (editing) {
-    actions.append(
-      listActionButton("check", "common.save", () => saveList(item)),
-      listActionButton("x", "common.cancel", () => {
-        editingListId = null;
-        fillListBody(body, item);
-      }),
-    );
-  } else {
-    actions.append(
-      listActionButton("play", "lists.play", () => playList(item)),
-      listActionButton("pencil", "common.edit", () => {
-        editingListId = item.id;
-        fillListBody(body, item);
-      }),
-      listActionButton("trash", "common.delete", () => deleteList(item), "btn-danger-outline"),
-    );
-  }
-
-  const fields = document.createElement("div");
-  fields.className = "list-fields";
-  const nameRow = document.createElement("div");
-  nameRow.className = "field-row";
-  const nameLabel = document.createElement("label");
-  nameLabel.textContent = t("lists.name");
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.className = "text-input list-name";
-  nameInput.maxLength = 40;
-  nameInput.value = item.name;
-  nameInput.disabled = !editing;
-  nameRow.append(nameLabel, nameInput);
-  fields.append(nameRow);
-
-  if (item.kind === "genre") {
-    const box = document.createElement("div");
-    box.className = "genre-checks";
-    if (editing) {
-      genrePicker(box, item.genres);
-    } else {
-      const pills = document.createElement("div");
-      pills.className = "genre-pills";
-      pills.replaceChildren(...(item.genres || []).map((genre) => {
-        const pill = document.createElement("span");
-        pill.className = "genre-pill is-static";
-        pill.textContent = genre;
-        return pill;
-      }));
-      box.append(pills);
-    }
-    fields.append(box);
-  }
-
-  body.replaceChildren(actions, fields);
-  // A genre list shows what it holds too - read only: those tracks are the
-  // library's, not the list's.
-  const tracks = document.createElement("ol");
-  tracks.className = "device-list recent-list list-tracks";
-  body.append(tracks);
-  loadListTracks(item, tracks, item.kind === "manual");
-}
-
-function setListOpen(id) {
-  openListId = id;
-  document.querySelectorAll("#listsList .ann-item").forEach((li) => {
-    const isOpen = li.dataset.id === id;
-    li.classList.toggle("is-open", isOpen);
-    li.querySelector(".ann-head").setAttribute("aria-expanded", isOpen ? "true" : "false");
-    const body = li.querySelector(".ann-body");
-    body.hidden = !isOpen;
-    if (isOpen) fillListBody(body, listsData.lists.find((l) => l.id === li.dataset.id));
-  });
-}
-
 function listRow(item) {
   const li = document.createElement("li");
   li.className = "ann-item";
   li.dataset.id = item.id;
-  const open = item.id === openListId;
-  if (open) li.classList.add("is-open");
   if (item.id === listsData.active) li.classList.add("is-playing");
 
-  const bodyId = "list-body-" + item.id;
   const head = document.createElement("button");
   head.type = "button";
   head.className = "ann-head";
-  head.setAttribute("aria-expanded", open ? "true" : "false");
-  head.setAttribute("aria-controls", bodyId);
 
   const text = document.createElement("span");
   text.className = "ann-text";
@@ -3203,9 +3146,7 @@ function listRow(item) {
   name.textContent = item.name;
   const meta = document.createElement("span");
   meta.className = "ann-meta";
-  meta.textContent = [listKindLabel(item), tracksLabel(item.count),
-                      item.id === listsData.active ? t("lists.playing") : ""]
-    .filter(Boolean).join(" \u00b7 ");
+  meta.textContent = listMeta(item);
   text.append(name, meta);
 
   const chevron = document.createElement("span");
@@ -3213,23 +3154,115 @@ function listRow(item) {
   chevron.dataset.icon = "chevron";
   chevron.setAttribute("aria-hidden", "true");
   head.append(text, chevron);
-  head.addEventListener("click", () => {
-    editingListId = null;
-    setListOpen(open ? null : item.id);
-  });
+  head.addEventListener("click", () => openList(item.id));
 
-  const body = document.createElement("div");
-  body.className = "ann-body";
-  body.id = bodyId;
-  body.hidden = !open;
-  if (open) fillListBody(body, item);
-
-  li.append(head, body);
+  li.append(head);
   return li;
 }
 
+function renderOverview() {
+  listsList.replaceChildren(...(listsData.lists || []).map(listRow));
+}
+
+function renderDetailHeader(item) {
+  listsDetailName.textContent = item.name;
+  listsDetailMeta.textContent = listMeta(item);
+}
+
+function renderDetail(item) {
+  // Rebuilt only when something it shows changed: the tracks are fetched
+  // again on every rebuild, and the 20s refresh must not do that for nothing.
+  const signature = [item.id, item.name, item.count, item.kind,
+                     (item.genres || []).join(","), item.id === listsData.active,
+                     editingListId === item.id].join("|");
+  if (signature === detailSignature) return;
+  detailSignature = signature;
+
+  const editing = editingListId === item.id;
+  listsDetailActions.classList.toggle("is-two", editing);
+  listsDetailActions.replaceChildren(...(editing ? [
+    listActionButton("check", "common.save", () => saveList(item)),
+    listActionButton("x", "common.cancel", () => {
+      editingListId = null;
+      renderDetail(item);
+    }),
+  ] : [
+    listActionButton("play", "lists.play", () => playList(item)),
+    listActionButton("pencil", "common.edit", () => {
+      editingListId = item.id;
+      renderDetail(item);
+    }),
+    listActionButton("trash", "common.delete", () => deleteList(item), "btn-danger-outline"),
+  ]));
+
+  const parts = [];
+  if (editing) {
+    const fields = document.createElement("div");
+    fields.className = "list-fields";
+    const nameRow = document.createElement("div");
+    nameRow.className = "field-row";
+    const nameLabel = document.createElement("label");
+    nameLabel.textContent = t("lists.name");
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.className = "text-input list-name";
+    nameInput.maxLength = 40;
+    nameInput.value = item.name;
+    nameRow.append(nameLabel, nameInput);
+    fields.append(nameRow);
+    if (item.kind === "genre") {
+      const box = document.createElement("div");
+      box.className = "genre-checks";
+      genrePicker(box, item.genres);
+      fields.append(box);
+    }
+    parts.push(fields);
+  }
+
+  // Both kinds show what they hold; only a manual one can be given a cross
+  // (a genre list's tracks are the library's, not the list's).
+  const tracks = document.createElement("ol");
+  tracks.className = "device-list recent-list list-tracks";
+  parts.push(tracks);
+  listsDetailBody.replaceChildren(...parts);
+  loadListTracks(item, tracks, item.kind === "manual");
+}
+
+function renderLists() {
+  const item = detailListId ? listById(detailListId) : null;
+  if (!item) {
+    detailListId = null;
+    editingListId = null;
+    detailSignature = "";
+  }
+  listsOverview.hidden = Boolean(item);
+  listsDetail.hidden = !item;
+  if (!item) {
+    renderOverview();
+    return;
+  }
+  renderDetailHeader(item);
+  renderDetail(item);
+}
+
+function openList(id) {
+  detailListId = id;
+  editingListId = null;
+  detailSignature = "";
+  renderLists();
+}
+
+function closeList() {
+  detailListId = null;
+  editingListId = null;
+  detailSignature = "";
+  renderLists();
+}
+
+document.getElementById("listsBack").addEventListener("click", closeList);
+
 async function refreshLists() {
-  // Never while a row is being edited: it would throw the typing away.
+  // Never while a name is being typed: it would throw the typing away.
   if (document.body.dataset.access === "guest" || editingListId) return;
   const seq = ++listsSeq;
   const results = await Promise.all([apiGet("/api/lists"), apiGet("/api/library/facets")]);
@@ -3244,12 +3277,12 @@ async function refreshLists() {
   listsData = res.data;
   if (facets.ok && facets.data) listsGenres = facets.data.genres || [];
 
-  const active = (listsData.lists || []).find((l) => l.id === listsData.active);
+  const active = listById(listsData.active);
   listsNowLine.textContent = active
     ? t("lists.now_line", { name: active.name, tracks: tracksLabel(active.count) })
     : t("lists.now_all");
-  listsList.replaceChildren(...(listsData.lists || []).map(listRow));
-  paintCreateGenres();
+  renderLists();
+  if (!detailListId) paintCreateGenres();
 }
 
 function paintCreateGenres() {
@@ -3293,9 +3326,10 @@ document.getElementById("listsCreate").addEventListener("click", async () => {
   listsNameInput.value = "";
   clearGenrePicker(listsGenresBox);
   listsNewBox.open = false;
-  openListId = r.data.id;
   showToast(t("lists.created", { name: r.data.name }), tracksLabel(r.data.count));
-  refreshLists();
+  // The new list has to be in the catalogue before its page can be shown.
+  await refreshLists();
+  openList(r.data.id);
 });
 
 refreshLists();

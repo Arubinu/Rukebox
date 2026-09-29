@@ -1765,10 +1765,9 @@ list replaces that with a smaller set:
 
 - **A manual list** holds the songs you add to it, in the order you added
   them: the **+** button beside a song of the Library card offers the lists,
-  and the list's own **Edit** shows what it holds, with a cross to take a
-  song out. With `music_order_mode: ordered`, a manual list plays in the
-  order you built it (`random` and `random_albums` shuffle it like the
-  library).
+  and the list's own page shows what it holds, with a cross to take a song
+  out. With `music_order_mode: ordered`, a manual list plays in the order you
+  built it (`random` and `random_albums` shuffle it like the library).
 - **A genre list** holds everything the library tags with the genres you
   tick - several genres at once if you like. It follows the library by
   itself: a song added tomorrow with that genre is in the list tomorrow,
@@ -1783,10 +1782,14 @@ list replaces that with a smaller set:
   that song belongs to both.
   Genres are **searched, not scrolled**: type a few letters in the box, tick
   what you want, and what is ticked stays above as pills you can take back.
-  The number beside each genre is how many tracks carry it.
-  Opening a genre list shows the songs it stands for right now - read only,
-  since they come from the library; a very long one stops at 200 rows and
-  says how many are left out.
+  Eight genres are offered at a time - the search narrows them - and the
+  number beside each one is how many tracks carry it.
+- **Opening a list** (a tap on its row) shows it on its own, in place of the
+  list of lists: its songs, and **Play / Edit / Delete**. A **←** brings the
+  lists back. Both kinds show what they hold - read only for a genre list,
+  since those songs are the library's - and a very long one stops at 200 rows
+  and says how many are left out. Nothing has a scroll of its own: the page
+  scrolls, so a finger never ends up moving the wrong thing.
 - **Play** on a list makes it the list being played and starts it at once
   (the song playing fades out into it). **Play everything**, at the top of
   the card, goes back to the whole library. The choice is kept in the
