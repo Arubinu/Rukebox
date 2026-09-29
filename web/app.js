@@ -2815,9 +2815,9 @@ function listKindLabel(item) {
   return (item.genres || []).join(", ") || t("lists.kind_genre_short");
 }
 
-function openListRow() {
+function listRowById(id) {
   return Array.from(document.querySelectorAll("#listsList .ann-item"))
-    .find((li) => li.dataset.id === openListId) || null;
+    .find((li) => li.dataset.id === id) || null;
 }
 
 function listActionButton(icon, key, onClick, variant) {
@@ -3017,7 +3017,8 @@ async function deleteList(item) {
 }
 
 async function saveList(item) {
-  const li = openListRow();
+  // The row that was being edited, never "the one that happens to be open".
+  const li = listRowById(item.id);
   if (!li || writingList) return;
   const name = (li.querySelector(".list-name").value || "").trim();
   const body = { name: name };
@@ -3036,24 +3037,32 @@ async function saveList(item) {
   refreshLists();
 }
 
-async function loadListTracks(item, holder) {
+const LIST_TRACKS_MAX = 200;
+
+function listNote(text) {
+  const li = document.createElement("li");
+  li.className = "list-note";
+  li.textContent = text;
+  return li;
+}
+
+async function loadListTracks(item, holder, editable) {
   const r = await apiGet("/api/lists/" + encodeURIComponent(item.id) + "/tracks");
   if (!r.ok || !r.data) {
-    holder.hidden = true;
+    holder.replaceChildren(listNote(errorLabel(r.error)));
     return;
   }
   const items = r.data.items || [];
   if (!items.length) {
-    const note = document.createElement("p");
-    note.className = "hint";
-    note.textContent = t("lists.empty_manual");
-    holder.replaceChildren(note);
+    holder.replaceChildren(listNote(t(item.kind === "genre"
+      ? "lists.empty_genre" : "lists.empty_manual")));
     return;
   }
-  const rows = items.map((track) => {
+  const rows = items.slice(0, LIST_TRACKS_MAX).map((track) => {
     const li = document.createElement("li");
     if (track.missing) li.classList.add("is-off");
     li.append(trackMain(track));
+    if (!editable) return li;
 
     const remove = document.createElement("button");
     remove.type = "button";
@@ -3077,14 +3086,13 @@ async function loadListTracks(item, holder) {
     li.append(remove);
     return li;
   });
-  const children = rows;
-  if (r.data.missing) {
-    const hint = document.createElement("li");
-    hint.className = "hint";
-    hint.textContent = t("lists.missing", { n: r.data.missing });
-    children.push(hint);
+  if (items.length > rows.length) {
+    rows.push(listNote(t("lists.more_tracks", { n: items.length - rows.length })));
   }
-  holder.replaceChildren(...children);
+  if (r.data.missing) {
+    rows.push(listNote(t("lists.missing", { n: r.data.missing })));
+  }
+  holder.replaceChildren(...rows);
 }
 
 function fillListBody(body, item) {
@@ -3146,12 +3154,12 @@ function fillListBody(body, item) {
   }
 
   body.replaceChildren(actions, fields);
-  if (item.kind === "manual") {
-    const tracks = document.createElement("ol");
-    tracks.className = "device-list recent-list list-tracks";
-    body.append(tracks);
-    loadListTracks(item, tracks);
-  }
+  // A genre list shows what it holds too - read only: those tracks are the
+  // library's, not the list's.
+  const tracks = document.createElement("ol");
+  tracks.className = "device-list recent-list list-tracks";
+  body.append(tracks);
+  loadListTracks(item, tracks, item.kind === "manual");
 }
 
 function setListOpen(id) {

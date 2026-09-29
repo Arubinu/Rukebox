@@ -2021,6 +2021,15 @@ select {
 .ann-actions.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .list-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .list-tracks { max-height: 320px; overflow-y: auto; margin-top: 12px; }
+/* A note inside the box ("no track yet", "…and 30 more"): a row like the
+   others, so opening an empty list never looks like nothing happened. */
+.device-list li.list-note {
+  display: block;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
 
 /* Genre picker: search on top, the chosen genres as pills, then only the
    matching genres - a library can hold hundreds, so the list is bounded and

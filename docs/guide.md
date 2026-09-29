@@ -1784,6 +1784,9 @@ list replaces that with a smaller set:
   Genres are **searched, not scrolled**: type a few letters in the box, tick
   what you want, and what is ticked stays above as pills you can take back.
   The number beside each genre is how many tracks carry it.
+  Opening a genre list shows the songs it stands for right now - read only,
+  since they come from the library; a very long one stops at 200 rows and
+  says how many are left out.
 - **Play** on a list makes it the list being played and starts it at once
   (the song playing fades out into it). **Play everything**, at the top of
   the card, goes back to the whole library. The choice is kept in the
