@@ -9,6 +9,7 @@ import threading
 import unittest
 
 import _path  # noqa: F401
+import bt_link
 from config_and_scan import load_config
 import library
 import music_lists
@@ -195,6 +196,56 @@ class DaemonListsTest(unittest.TestCase):
         self.daemon.mpv.set_audio_filter = lambda chain: False
         self.daemon.cfg["AUDIO_COMPRESSION"] = "soft"
         self.assertFalse(self.daemon._apply_compression())
+
+    def test_the_speaker_is_looked_for_on_every_controller(self):
+        original = bt_link.locate
+        seen = []
+        bt_link.locate = lambda mac, adapter="": seen.append((mac, adapter)) or {
+            "mac": mac, "connected": True, "controller": "B8:27:EB:62:82:CB",
+            "expected": adapter, "paired_here": False, "known_here": False,
+            "name": "", "unknown": False}
+        try:
+            self.daemon.cfg["SPEAKER_MAC"] = "7C:E9:13:69:66:55"
+            self.daemon.cfg["SPEAKER_BT_ADAPTER"] = "00:A7:50:72:14:C4"
+            state = self.daemon._speaker_link()
+        finally:
+            bt_link.locate = original
+        self.assertTrue(state["connected"])
+        self.assertEqual(seen, [("7C:E9:13:69:66:55", "00:A7:50:72:14:C4")],
+                         "the configured controller is the one named to bt_link")
+
+    def test_the_speaker_is_moved_to_the_controller_set_for_it(self):
+        original_locate, original_connect = bt_link.locate, bt_link.connect_here
+        calls = []
+        bt_link.locate = lambda mac, adapter="": {
+            "mac": mac, "connected": True, "controller": "B8:27:EB:62:82:CB",
+            "expected": "00:A7:50:72:14:C4", "paired_here": True, "known_here": True,
+            "name": "", "unknown": False}
+        bt_link.connect_here = lambda mac, adapter: calls.append((mac, adapter)) or True
+        try:
+            self.daemon.cfg["SPEAKER_MAC"] = "7C:E9:13:69:66:55"
+            state = self.daemon._speaker_link()
+            self.daemon._move_speaker_to_its_controller(state)
+            self.assertEqual(calls, [("7C:E9:13:69:66:55", "00:A7:50:72:14:C4")])
+            self.daemon._move_speaker_to_its_controller(state)
+            self.assertEqual(len(calls), 1, "not again before the retry delay")
+        finally:
+            bt_link.locate, bt_link.connect_here = original_locate, original_connect
+
+    def test_a_controller_that_does_not_know_the_speaker_is_left_alone(self):
+        original_locate, original_connect = bt_link.locate, bt_link.connect_here
+        calls = []
+        bt_link.locate = lambda mac, adapter="": {
+            "mac": mac, "connected": True, "controller": "B8:27:EB:62:82:CB",
+            "expected": "00:A7:50:72:14:C4", "paired_here": False, "known_here": False,
+            "name": "", "unknown": False}
+        bt_link.connect_here = lambda mac, adapter: calls.append(adapter) or True
+        try:
+            self.daemon.cfg["SPEAKER_MAC"] = "7C:E9:13:69:66:55"
+            self.daemon._move_speaker_to_its_controller(self.daemon._speaker_link())
+        finally:
+            bt_link.locate, bt_link.connect_here = original_locate, original_connect
+        self.assertEqual(calls, [], "a controller that never saw it cannot take it back")
 
 
 if __name__ == "__main__":

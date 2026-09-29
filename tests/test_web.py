@@ -156,6 +156,43 @@ class WebTest(unittest.TestCase):
         self.assertEqual(owner.delete("/api/lists/%s" % list_id).status_code, 200)
         self.assertEqual(owner.delete("/api/lists/%s" % list_id).status_code, 404)
 
+    def status_of(self, link_state, controllers=None):
+        """The status payload, with the speaker link and the audio-output probe
+        (which needs a real Linux session) stood in for."""
+        original = (ws.bt_link.locate, ws._bt_controllers, ws._audio_output_state)
+        ws.bt_link.locate = lambda mac, adapter="": dict(link_state, mac=mac,
+                                                         expected=link_state.get("expected"))
+        ws._bt_controllers = lambda: controllers or []
+        ws._audio_output_state = lambda: {}
+        ws._status_probes.clear()
+        try:
+            return self.owner().get("/api/status").get_json()["data"]
+        finally:
+            ws.bt_link.locate, ws._bt_controllers, ws._audio_output_state = original
+            ws._status_probes.clear()
+
+    def test_the_speaker_status_says_where_it_is(self):
+        # The reported bug: connected on the built-in controller while the
+        # settings name the USB dongle read as "disconnected".
+        dongle, builtin = "00:A7:50:72:14:C4", "B8:27:EB:62:82:CB"
+        data = self.status_of(
+            {"connected": True, "controller": builtin, "expected": dongle,
+             "paired_here": False, "known_here": False, "name": "soundcore",
+             "unknown": False},
+            [{"address": dongle, "bus": "usb", "name": "hci1"},
+             {"address": builtin, "bus": "uart", "name": "hci0"}])
+        self.assertTrue(data["speaker_connected"], "connected somewhere is connected")
+        self.assertEqual(data["speaker_controller"], builtin)
+        self.assertEqual(data["speaker_controller_kind"], "builtin")
+        self.assertEqual(data["speaker_expected"], dongle)
+        self.assertEqual(data["speaker_expected_kind"], "usb")
+
+    def test_a_controller_that_does_not_answer_is_not_a_speaker_that_is_off(self):
+        data = self.status_of({"connected": False, "controller": None, "expected": None,
+                               "paired_here": False, "known_here": False, "name": "",
+                               "unknown": True})
+        self.assertIsNone(data["speaker_connected"])
+
     def test_backup_refusals(self):
         owner = self.owner()
         r = owner.post("/api/backup/inspect", data={"file": (io.BytesIO(b"not a zip"), "x.zip")},

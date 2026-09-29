@@ -80,7 +80,7 @@ class GuestPathsTest(unittest.TestCase):
         # the list. A path the server allows and that copy forgets is a button
         # that shows its price and does nothing - which is what happened to
         # pause and skip a sound, added to the server and not to the page.
-        source = open(os.path.join(_path.SRC, "web_server.py"), encoding="utf-8").read()
+        source = _path.read("src", "web_server.py")
         start = source.index("_GUEST_PATHS = frozenset({")
         server = set(re.findall(r'"(/api/[^"]*)"', source[start:source.index("})", start)]))
 

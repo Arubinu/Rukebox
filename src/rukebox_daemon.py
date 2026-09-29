@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import announcements  # noqa: E402
 import audio_output  # noqa: E402
+import bt_link  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import library  # noqa: E402
@@ -70,6 +71,8 @@ class RadioDaemon:
         self._error_backoff_timer = None
 
         self._speaker_was_connected = None
+        self._speaker_move_at = 0.0
+        self._speaker_move_failed = False
         self._restart_pending = False
         self._audio_device = None
         self._audio_output_checked = 0.0
@@ -125,6 +128,7 @@ class RadioDaemon:
 
     AUDIO_OUTPUT_RECHECK_SEC = 30
     GENRE_CACHE_SEC = 5.0
+    SPEAKER_MOVE_RETRY_SEC = 300
 
     def _wired_output(self):
         """True when the sound goes to a wired output of the Pi, not the
@@ -170,14 +174,38 @@ class RadioDaemon:
             return False
         deadline = time.time() + timeout_sec
         while time.time() < deadline:
-            try:
-                result = self._bluetoothctl("info", mac, timeout=5)
-                if "Connected: yes" in result.stdout:
-                    return True
-            except subprocess.SubprocessError:
-                pass
+            if self._speaker_link(mac)["connected"]:
+                return True
             time.sleep(1)
         return False
+
+    def _speaker_link(self, mac=None):
+        """Where the speaker is: connected (on any controller), and which one
+        carries it - see src/bt_link.py."""
+        mac = mac if mac is not None else self.cfg.get("SPEAKER_MAC", "")
+        return bt_link.locate(mac, self.cfg.get("SPEAKER_BT_ADAPTER", ""))
+
+    def _move_speaker_to_its_controller(self, state):
+        """The speaker is connected on a controller the settings did not name:
+        ask the right one to take it, because that is which radio carries the
+        sound. Only worth trying when that controller already knows it."""
+        expected = state.get("expected")
+        if not expected or not state.get("paired_here"):
+            return
+        now = time.monotonic()
+        if now - self._speaker_move_at < self.SPEAKER_MOVE_RETRY_SEC:
+            return
+        self._speaker_move_at = now
+        if bt_link.connect_here(state["mac"], expected):
+            log.info("Speaker moved from %s to %s, the sound follows it",
+                     state["controller"], expected)
+            self._speaker_move_failed = False
+            return
+        if not self._speaker_move_failed:
+            self._speaker_move_failed = True
+            log.warning("The speaker is connected over %s while %s is the controller set for "
+                        "it, and it cannot be moved (it has to be paired there once): the "
+                        "sound goes out of the first one", state["controller"], expected)
 
     def _play_cue_sound(self, path):
         if not path or not os.path.exists(path):
@@ -1488,11 +1516,12 @@ class RadioDaemon:
                 self._check_speaker_absent()
                 continue
             warned = None
-            try:
-                result = self._bluetoothctl("info", mac, timeout=8)
-            except (subprocess.SubprocessError, OSError):
-                continue
-            connected = "Connected: yes" in result.stdout
+            state = self._speaker_link(mac)
+            if state["unknown"]:
+                continue  # no controller answered: not the same as "gone"
+            if state["connected"] and state["controller"] != state["expected"]:
+                self._move_speaker_to_its_controller(state)
+            connected = state["connected"]
             if connected:
                 self._speaker_ever_connected = True
 

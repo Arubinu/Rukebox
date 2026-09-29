@@ -41,6 +41,7 @@ from control_client import send_control_command  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
 import suggestions  # noqa: E402
 import audio_output  # noqa: E402
+import bt_link  # noqa: E402
 import library  # noqa: E402
 import music_lists  # noqa: E402
 from version import read_version_file, set_release  # noqa: E402
@@ -1441,7 +1442,10 @@ def _output_fallback_state():
     kinds = sorted({s["kind"] for s in sinks if s["kind"] in audio_output.KINDS})
     if planned == "bluetooth":
         mac = c.get("SPEAKER_MAC", "")
-        missing = not (mac and _status_probe(("speaker", mac), lambda: _speaker_connected(mac)))
+        link = _status_probe(("speaker", mac), lambda: _speaker_link(mac))
+        # The speaker counts as there wherever it is connected; a controller
+        # that did not answer is not proof that it is gone.
+        missing = not (mac and link["connected"])
     else:
         missing = planned not in kinds
     status = control("get_status")
@@ -1632,7 +1636,13 @@ def api_status():
     data["track_artist"] = info.get("artist")
     data["speaker_mac"] = cfg().get("SPEAKER_MAC", "")
     mac = data["speaker_mac"]
-    data["speaker_connected"] = _status_probe(("speaker", mac), lambda: _speaker_connected(mac))
+    link = _status_probe(("speaker", mac), lambda: _speaker_link(mac))
+    # A controller that does not answer is not a speaker that is off.
+    data["speaker_connected"] = None if link["unknown"] else link["connected"]
+    data["speaker_controller"] = link["controller"] if link["connected"] else None
+    data["speaker_controller_kind"] = _controller_kind(link["controller"])
+    data["speaker_expected"] = link["expected"]
+    data["speaker_expected_kind"] = _controller_kind(link["expected"])
     data["audio_output"] = _audio_output_state()
     data["timezone"] = _timezone_name()
     data["ssh_active"] = _status_probe("ssh_active", lambda: _service_is_active("ssh"))
@@ -2799,10 +2809,21 @@ def _bt_discover(mac, timeout=12):
 CONNECT_SETTLE_SECONDS = 2.5
 
 
-def _speaker_connected(mac):
-    if not mac or mac == "XX:XX:XX:XX:XX:XX":
-        return False
-    return _bt_device_info(mac)["connected"]
+def _speaker_link(mac):
+    """Where the speaker is: connected (on any controller), and which one
+    carries it - see src/bt_link.py."""
+    return bt_link.locate(mac, cfg().get("SPEAKER_BT_ADAPTER", ""))
+
+
+def _controller_kind(address, controllers=None):
+    """Whether a controller is the USB dongle or the built-in chip."""
+    if not address:
+        return ""
+    controllers = _bt_controllers() if controllers is None else controllers
+    found = next((c for c in controllers if c["address"] == address), None)
+    if found is None:
+        return ""
+    return "usb" if found["bus"] == "usb" else "builtin"
 
 
 def _service_is_active(name):
