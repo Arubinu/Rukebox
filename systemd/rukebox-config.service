@@ -1,6 +1,6 @@
 [Unit]
 Description=Prepares the radio configuration (YAML -> flat env file for the other units)
-Before=rukebox-daemon.service rukebox-web.service flicd.service flic-bridge.service bt-connect.service
+Before=rukebox-daemon.service rukebox-web.service flicd.service flic-bridge.service bt-connect.service home-wifi-connect.service
 DefaultDependencies=no
 After=local-fs.target
 Requires=local-fs.target

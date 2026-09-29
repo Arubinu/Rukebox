@@ -95,6 +95,7 @@ class WebTest(unittest.TestCase):
             "MUSIC_CACHE_FILE": os.path.join(cls.dir, "music_cache.json"),
             "MUSIC_LISTS_FILE": os.path.join(cls.dir, "music_lists.json"),
             "ANNOUNCEMENTS_FILE": os.path.join(cls.dir, "announcements.json"),
+            "HOME_WIFI_CONN_NAME": "rukebox-home",
             "GUEST_QUOTA_ENABLED": True, "GUEST_QUOTA_MAX": 3, "GUEST_QUOTA_REFILL_SEC": 600,
             "GUEST_QUOTA_REPEAT_MIN": 0, "GUEST_COST_NEXT": 1,
         }
@@ -211,6 +212,60 @@ class WebTest(unittest.TestCase):
         self.assertTrue(verdict)
         self.assertEqual(proc.lines, ["scan on", "pair AA:BB:CC:DD:EE:FF"])
         self.assertGreaterEqual(proc.at[1] - proc.at[0], 0.04, "the pause was honoured")
+
+    def wifi_card(self, active=True, address="192.168.42.12/24", autoconnect="yes",
+                  client="192.168.42.42"):
+        """The Wi-Fi card's status, with nmcli stood in for."""
+        original = ws.subprocess.run
+
+        def fake(args, **kw):
+            if "-f" in args:
+                out = "rukebox-home:wlan0\n" if active else "lo:lo\n"
+            elif "IP4.ADDRESS" in args:
+                out = address + "\n"
+            elif "connection.autoconnect" in args:
+                out = autoconnect + "\n"
+            else:
+                out = ""
+            return types.SimpleNamespace(returncode=0, stdout=out, stderr="")
+
+        ws.subprocess.run = fake
+        try:
+            return self.owner().get("/api/wifi/status",
+                                    environ_base={"REMOTE_ADDR": client}).get_json()["data"]
+        finally:
+            ws.subprocess.run = original
+
+    def test_the_wifi_card_knows_when_it_is_its_own_lifeline(self):
+        # Cutting the network the page arrived through closes the page: the
+        # card has to know, to warn before doing it.
+        data = self.wifi_card()
+        self.assertTrue(data["active"])
+        self.assertTrue(data["client_here"], "the page is reached through it")
+
+        ap = self.wifi_card(address="10.42.0.1/24")
+        self.assertFalse(ap["client_here"], "the access point is not that lifeline")
+
+        self.assertTrue(ws._same_network("192.168.42.42", "192.168.42.12/24"))
+        self.assertFalse(ws._same_network("::1", "192.168.42.12/24"))
+        self.assertFalse(ws._same_network(None, "192.168.42.12/24"))
+
+    def test_turning_the_personal_wifi_off_is_remembered(self):
+        # The watchdog (scripts/home-wifi-connect.sh) reads this back: without
+        # it, it would take the connection up again behind the user's back.
+        written = []
+        original = (ws.subprocess.run, ws.update_config_file)
+        ws.subprocess.run = lambda args, **kw: types.SimpleNamespace(
+            returncode=0, stdout="", stderr="")
+        ws.update_config_file = lambda values: written.append(values)
+        try:
+            off = self.owner().post("/api/wifi/toggle", json={"enabled": False})
+            on = self.owner().post("/api/wifi/toggle", json={"enabled": True})
+        finally:
+            ws.subprocess.run, ws.update_config_file = original
+        self.assertTrue(off.get_json()["ok"], off.get_json())
+        self.assertTrue(on.get_json()["ok"], on.get_json())
+        self.assertEqual(written, [{"HOME_WIFI_ENABLED": False}, {"HOME_WIFI_ENABLED": True}])
 
     def test_play_now_only_from_up_next(self):
         owner = self.owner()

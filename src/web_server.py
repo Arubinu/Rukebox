@@ -3389,6 +3389,14 @@ def api_audio_restart():
     return jsonify({"ok": True, "data": _audio_output_state()})
 
 
+def _same_network(address, reference):
+    """True when both IPv4 addresses sit in the same /24 (what a home network
+    is, in practice)."""
+    left = str(address or "").split("/")[0].rsplit(".", 1)
+    right = str(reference or "").split("/")[0].rsplit(".", 1)
+    return len(left) == 2 and len(right) == 2 and left[0] == right[0]
+
+
 @app.route("/api/wifi/status")
 def api_wifi_status():
     conn_name = cfg().get("HOME_WIFI_CONN_NAME", "")
@@ -3416,7 +3424,10 @@ def api_wifi_status():
     return jsonify({
         "ok": True,
         "data": {"configured": True, "conn_name": conn_name, "active": active, "ip_address": ip_address,
-                 "autoconnect": auto == "yes"},
+                 "autoconnect": auto == "yes",
+                 # Cutting the network the page is reached through closes it: the
+                 # page warns before doing that.
+                 "client_here": bool(ip_address) and _same_network(request.remote_addr, ip_address)},
     })
 
 
@@ -3453,6 +3464,10 @@ def api_wifi_toggle():
     if result.returncode != 0:
         return jsonify({"ok": False, "error": "wifi_toggle_failed",
                         "detail": (result.stderr or result.stdout).strip()[-300:]}), 500
+    # The intent, for scripts/home-wifi-connect.sh: it takes the connection
+    # back when NetworkManager gave up on it, and leaves it alone when it was
+    # switched off here on purpose.
+    update_config_file({"HOME_WIFI_ENABLED": action == "up"})
     stats.record("home_wifi_toggle", label=action, detail={"conn_name": conn_name})
     return jsonify({"ok": True})
 
@@ -3475,6 +3490,7 @@ SYSTEM_SERVICES = (
     ("rukebox-daemon", True),
     ("rukebox-web", True),
     ("bt-connect", True),
+    ("home-wifi-connect", True),
     ("rukebox-speaker-buttons", True),
     ("rukebox-gpio-button", True),
     ("flicd", True),

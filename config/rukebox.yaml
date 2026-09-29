@@ -435,6 +435,14 @@ network:
   # Empty = feature not configured (its web interface card stays hidden).
   home_wifi_connection: ""
 
+  # Whether that connection is wanted UP. The web interface's switch
+  # writes it; scripts/home-wifi-connect.sh reads it back on every turn
+  # and takes the connection back when NetworkManager gave up on it -
+  # which is what left the Pi off its own network for twenty minutes
+  # once. It stays off when this is false, so switching it off by hand
+  # is never undone behind your back.
+  home_wifi_enabled: true
+
   # What happens once someone has opened the portal page.
   #   release -> stop intercepting THAT device's connectivity
   #              checks, so its phone marks the network as a normal

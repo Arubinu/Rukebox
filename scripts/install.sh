@@ -214,6 +214,7 @@ systemctl daemon-reload
 systemctl enable rukebox-config.service
 systemctl enable rukebox-gpio-reset.service
 systemctl enable bt-connect.service
+systemctl enable home-wifi-connect.service
 systemctl enable rukebox-daemon.service
 systemctl enable rukebox-web.service
 systemctl enable create-uap0.service

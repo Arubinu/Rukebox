@@ -1711,6 +1711,27 @@ touching the `uap0` access point. **Connect at startup** is the profile's
 `connection.autoconnect`: off, the personal Wi-Fi stays off after every
 restart until it is switched on again.
 
+**The connection is kept, not just asked for** (`home-wifi-connect.service`,
+`scripts/home-wifi-connect.sh`). NetworkManager does **not** come back from
+a connection that failed for missing secrets: one lost packet during the
+WPA handshake makes it ask for the key again, and a headless Pi has no
+agent to answer — it then stays down until someone brings it up by hand.
+That is not hypothetical: it happened here, and the Pi spent twenty
+minutes off its own network. This service checks every few seconds that
+the connection is up and takes it back when it is not, exactly as
+`bt-connect.service` does for the Bluetooth speaker.
+
+- It only acts when **both** switches agree: *Connection active* (the
+  intent, remembered in `home_wifi_enabled`) and *Connect at startup*
+  (the profile's `autoconnect`). Switching either one off is therefore
+  never undone behind your back.
+- When the page you are reading **arrived through that network**, the card
+  says so and asks for confirmation before switching it off — otherwise
+  the click closes the very page you clicked it from. Reached through the
+  access point instead, no question is asked.
+- The service is listed in the System tab with the others, and can be
+  restarted there.
+
 If you prefer the command line over the web interface:
 
 ```bash

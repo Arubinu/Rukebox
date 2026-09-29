@@ -393,6 +393,7 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
             /etc/systemd/system/user@.service.d/10-rukebox-rt.conf 2>/dev/null || true
     fi
     systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
+    systemctl enable --now home-wifi-connect.service 2>/dev/null || true
     loginctl enable-linger pi 2>/dev/null || true
 fi
 

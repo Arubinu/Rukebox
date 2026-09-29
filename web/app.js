@@ -4978,6 +4978,7 @@ document.getElementById("apForm").addEventListener("submit", async (e) => {
 });
 
 let homeWifiToggleBusy = false;
+let homeWifiClientHere = false;
 
 async function refreshHomeWifi() {
   if (homeWifiToggleBusy) return;
@@ -4998,6 +4999,11 @@ async function refreshHomeWifi() {
     : t("wifi.disconnected");
   statusBox.dataset.state = result.data.active ? "ok" : "off";
   document.getElementById("homeWifiAuto").checked = !!result.data.autoconnect;
+
+  // This page is reached through that very network: say so, and warn before
+  // switching it off (which closes the page).
+  homeWifiClientHere = !!result.data.client_here;
+  document.getElementById("homeWifiHere").hidden = !homeWifiClientHere;
 }
 
 document.getElementById("homeWifiAuto").addEventListener("change", async (e) => {
@@ -5016,6 +5022,13 @@ refreshHomeWifi();
 setInterval(refreshHomeWifi, 6000);
 
 document.getElementById("homeWifiToggle").addEventListener("change", async (e) => {
+  if (!e.target.checked && homeWifiClientHere) {
+    const go = await showConfirm(t("wifi.confirm_cut"));
+    if (!go) {
+      e.target.checked = true;
+      return;
+    }
+  }
   homeWifiToggleBusy = true;
   const result = await apiPost("/api/wifi/toggle", { enabled: e.target.checked });
   if (!result.ok) {

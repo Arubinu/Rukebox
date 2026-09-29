@@ -522,6 +522,16 @@ SETTINGS = [
         "Personal Wi-Fi profile",
     ),
     Setting(
+        "HOME_WIFI_ENABLED", "network", "home_wifi_enabled", "bool", "true",
+        "Whether that connection is wanted UP. The web interface's switch\n"
+        "writes it; scripts/home-wifi-connect.sh reads it back on every turn\n"
+        "and takes the connection back when NetworkManager gave up on it -\n"
+        "which is what left the Pi off its own network for twenty minutes\n"
+        "once. It stays off when this is false, so switching it off by hand\n"
+        "is never undone behind your back.",
+        "Personal Wi-Fi wanted",
+    ),
+    Setting(
         "CAPTIVE_PORTAL_MODE", "network", "captive_portal_mode", "str", "release",
         "What happens once someone has opened the portal page.\n"
         "  release -> stop intercepting THAT device's connectivity\n"

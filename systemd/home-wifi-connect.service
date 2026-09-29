@@ -1,0 +1,14 @@
+[Unit]
+Description=Keeps the personal Wi-Fi connected
+After=NetworkManager.service rukebox-config.service
+Wants=NetworkManager.service
+Requires=rukebox-config.service
+
+[Service]
+Type=simple
+ExecStart=/opt/rukebox/scripts/home-wifi-connect.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
