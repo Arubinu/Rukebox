@@ -976,6 +976,14 @@ async function refreshStatus() {
   badge.classList.toggle("connected", d.speaker_connected);
   document.getElementById("speakerMacDisplay").textContent = d.speaker_mac || "—";
 
+  // Connected, the button takes the link back instead of doing nothing: a
+  // speaker that stayed "connected" while silent is cured by exactly that.
+  const connectBtn = document.getElementById("btnSpeakerConnect");
+  const connectKey = d.speaker_connected === true ? "speaker.reconnect" : "speaker.connect";
+  connectBtn.dataset.i18n = connectKey;
+  connectBtn.textContent = t(connectKey);
+  lastKnownSpeakerConnected = d.speaker_connected === true;
+
   lastKnownSpeakerMac = d.speaker_mac || "";
 
   const audioLine = document.getElementById("audioOutputLine");
@@ -2235,11 +2243,14 @@ function volumeControl(key, options) {
 }
 
 async function refreshAnnouncements() {
-  const result = await apiGet("/api/announcements");
+  // Both requests in flight together, and the list is emptied only once the
+  // answer is in hand: clearing it before the second fetch is what made the
+  // card blink empty every 20 seconds.
+  const [result] = await Promise.all([apiGet("/api/announcements"),
+                                      refreshAnnouncementVolumes()]);
   const list = document.getElementById("announcementList");
   list.innerHTML = "";
 
-  await refreshAnnouncementVolumes();
   const items = result.ok && Array.isArray(result.data) ? result.data : [];
 
   customAnnouncementsCache = items;
@@ -4648,6 +4659,7 @@ let scanning = false;
 let lastScanSignature = "";
 
 let lastKnownSpeakerMac = "";
+let lastKnownSpeakerConnected = false;
 
 function showToolError(title, result) {
   if (result.error === "quota_exceeded" && result.retry_after) {
@@ -4835,9 +4847,13 @@ document.getElementById("btnSpeakerConnect").addEventListener("click", async () 
     showToast(t("speaker.none_configured"));
     return;
   }
-  const result = await apiPost("/api/bluetooth/connect", { mac });
-  if (result.ok) showToast(t("speaker.connected_alert"));
-  else showToolError(t("speaker.connect_failed"), result);
+  const connected = status.data && status.data.speaker_connected === true;
+  const result = await apiPost("/api/bluetooth/connect", { mac, reconnect: connected });
+  if (result.ok) {
+    showToast(connected ? t("speaker.reconnected_alert") : t("speaker.connected_alert"));
+  } else {
+    showToolError(t("speaker.connect_failed"), result);
+  }
   refreshStatus();
 });
 

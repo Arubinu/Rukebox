@@ -3083,6 +3083,13 @@ def api_bt_connect():
     if not _bt_discover(mac):
         return jsonify({"ok": False, "error": "bt_not_found"})
 
+    if body.get("reconnect"):
+        # Taking the link back is a disconnect first: a speaker that stayed
+        # "connected" while silent is cured by nothing less, and a plain
+        # connect on a link BlueZ believes is up does nothing at all.
+        _bt_script([f"disconnect {mac}"], timeout=10)
+        time.sleep(1.5)
+
     verdict = None
     text = ""
     already_trying = False
@@ -3113,7 +3120,8 @@ def api_bt_connect():
 
     stats.record(
         "bluetooth_connect", label=mac,
-        detail={"ok": ok, "set_as_speaker": bool(body.get("set_as_speaker")), "verdict": verdict},
+        detail={"ok": ok, "set_as_speaker": bool(body.get("set_as_speaker")),
+                "reconnect": bool(body.get("reconnect")), "verdict": verdict},
     )
     if not ok:
         if accepted:
