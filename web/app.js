@@ -6488,6 +6488,15 @@ async function runMusicSync() {
 
   pendingMusicFiles = remaining.length ? musicSelectedFiles.slice() : [];
   await refreshMusicLibrary();
+  if (!musicQueue.length) {
+    // Nothing left to send: the card goes back to rest, like the sidebar box
+    // that has just faded - it used to keep "sending 42 / 42" for good. A
+    // partial failure is handled by buildMusicPlan(), which does the same.
+    document.getElementById("musicPlanBox").hidden = true;
+    document.getElementById("musicProgressLine").textContent = "";
+    document.getElementById("musicProgressBar").style.width = "0%";
+    musicSelectedFiles = [];
+  }
   refreshStatus();
 
   const done = t("music.sent", { count: sent, size: formatBytes(sentBytes) });
