@@ -1185,10 +1185,6 @@ function applyNowMeta(d) {
     next.textContent = d.mode === "music" && !d.music_loop ? t("np.next_end") : "";
     next.title = "";
   }
-  const count = document.getElementById("npCount");
-  const n = typeof d.track_count === "number" ? d.track_count : null;
-  count.textContent = n === null ? "" : (n === 1 ? t("np.tracks_one")
-    : t("np.tracks", { n: n.toLocaleString() }));
 }
 
 function piMinutes(d) {

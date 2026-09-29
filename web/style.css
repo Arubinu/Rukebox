@@ -1178,7 +1178,6 @@ body.lyrics-fullscreen { overflow: hidden; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.np-count { flex: none; white-space: nowrap; }
 
 .np-notices {
   list-style: none;
