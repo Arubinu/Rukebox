@@ -13,7 +13,16 @@ CALL_TIMEOUT=10
 # either succeed or say why (measured: 1s when healthy, over 10s when jammed).
 CONNECT_TIMEOUT=30
 REPAIR_AFTER_FAILURES=3
-REPAIR_TICKS=100
+# Seconds, not ticks: the loop's own pace changes with the branch it is in (3s
+# while it fails, CONNECTED_TICKS x CHECK_SECONDS while connected), so a repair
+# counted in ticks was either five minutes or fifty, depending on the fault.
+REPAIR_SECONDS=300
+# A link that is up but carries no audio at all: the controller's own byte
+# counter must move while the radio is playing (a silence is still bytes). That
+# long with nothing on the air, and the daemon swearing it is playing, is the
+# fault measured on 2026-09-29 - see the connected branch below.
+SILENT_SECONDS=45
+SILENT_MIN_BYTES=2000
 
 SPEAKER_MAC=""
 ADAPTER=""
@@ -141,6 +150,40 @@ is_connected() {
         | grep -q "Connected: yes"
 }
 
+# What the controller says it put on the air, since it was powered on. It grows
+# whenever anything streams - a silence is still SBC frames - so a counter that
+# does not move means nothing is streaming at all.
+hci_tx_bytes() {
+    local index
+    index="$(controller_index)"
+    [ -z "$index" ] && return 0
+    hciconfig "hci${index}" 2>/dev/null \
+        | sed -n 's/.*TX bytes:\([0-9]*\).*/\1/p' | head -1
+}
+
+# True only when the radio believes it is playing something: a frozen counter
+# while the music is paused and the keep-alive sound is off is what was asked
+# for, not a fault. The control socket answers without any authentication.
+radio_is_playing() {
+    python3 - "${CONTROL_SOCKET:-/tmp/rukebox_control.sock}" <<'PY' 2>/dev/null
+import json
+import socket
+import sys
+
+try:
+    sock = socket.socket(socket.AF_UNIX)
+    sock.settimeout(4)
+    sock.connect(sys.argv[1])
+    sock.sendall(b'{"cmd": "get_status"}\n')
+    state = json.loads(sock.recv(65536).decode()).get("data") or {}
+except Exception:
+    raise SystemExit(1)
+mode = str(state.get("mode") or "")
+busy = mode not in ("", "idle", "stopped", "shutting_down")
+print("yes" if busy and not state.get("paused") else "no")
+PY
+}
+
 # The controller's own answer when its queue is jammed - nothing is connected,
 # yet it refuses every attempt. Measured on the owner's Pi, both strings, in the
 # very state `hci_stuck_marks` counts. `br-connection-refused` is NOT one of
@@ -173,8 +216,10 @@ connect_reported=0
 # The kernel's timeout count as it was when the radio last worked. Any growth
 # since then means the controller jammed in between - see the repair below.
 healthy_marks=0
-last_repair_tick=-$((REPAIR_TICKS * 2))
+last_repair_time=-$((REPAIR_SECONDS * 2))
 healthy_marks=$(hci_stuck_marks)
+last_tx=""
+silent_since=$(date +%s)
 
 while :; do
     tick=$((tick + 1))
@@ -203,6 +248,34 @@ while :; do
         connect_reported=0
         healthy_marks=$(hci_stuck_marks)
         next_attempt=$((tick + 1))
+
+        # Everything says connected, the speaker's own transport says "active",
+        # and yet not a byte reaches it: measured 2026-09-29 20:34, a full-scale
+        # tone played into the sink while the controller's counter did not move
+        # once, and the radio was silent however loud it was set. Nothing but a
+        # fresh link clears that, so it is repaired like a jammed radio.
+        now=$(date +%s)
+        now_tx=$(hci_tx_bytes)
+        if [ -z "$now_tx" ] || [ -z "$last_tx" ] || [ "$now_tx" -lt "$last_tx" ]; then
+            last_tx=$now_tx            # first reading, or the counter was reset
+            silent_since=$now
+        elif [ $((now_tx - last_tx)) -ge "$SILENT_MIN_BYTES" ]; then
+            last_tx=$now_tx
+            silent_since=$now
+        elif [ $((now - silent_since)) -ge "$SILENT_SECONDS" ] \
+                && [ $((now - last_repair_time)) -ge "$REPAIR_SECONDS" ]; then
+            if [ "$(radio_is_playing)" = "yes" ]; then
+                echo "The speaker is connected but the radio is sending it nothing: repairing."
+                repair_controller
+                last_repair_time=$now
+                last_tx=""
+                silent_since=$now
+                sleep "$CHECK_SECONDS"
+                continue
+            fi
+            silent_since=$now
+        fi
+
         sleep "$((CHECK_SECONDS * CONNECTED_TICKS))"
         continue
     fi
@@ -242,7 +315,7 @@ while :; do
         # radio is jammed (see hci_stuck_marks above). Either the controller
         # says so itself - which is what connect_refused matches - or the kernel
         # has timed out at least once since the radio last worked. Reset it, at
-        # most every REPAIR_TICKS.
+        # most every REPAIR_SECONDS.
         #
         # The count is compared with the level recorded while the radio worked,
         # not with its previous reading: a jam whose timeouts STOP coming (the
@@ -250,12 +323,12 @@ while :; do
         # count to grow left the speaker off the air for good - measured on the
         # owner's Pi, 20:12, where 97 -> 102 then nothing, and no repair.
         marks=$(hci_stuck_marks)
-        if [ $((tick - last_repair_tick)) -ge "$REPAIR_TICKS" ] \
+        if [ $(( $(date +%s) - last_repair_time )) -ge "$REPAIR_SECONDS" ] \
                 && { connect_refused \
                      || { [ "$failures" -ge "$REPAIR_AFTER_FAILURES" ] \
                           && [ "$marks" -gt "$healthy_marks" ]; }; }; then
             repair_controller
-            last_repair_tick=$tick
+            last_repair_time=$(date +%s)
             healthy_marks=$(hci_stuck_marks)
             failures=0
             warned_calm=0

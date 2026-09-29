@@ -2099,6 +2099,19 @@ journalctl -u bt-connect.service -f
 > `br-connection-refused` or "not available", and the script keeps trying
 > quietly. If it never recovers, the speaker itself is holding a stale link:
 > switch it off and on once.
+>
+> **If the speaker is connected, its volume is up, the radio says it is
+> playing — and nothing comes out at all, whatever the volume**: the link is
+> up but carries no audio. Nothing looks wrong: `bluetoothctl info` says
+> connected, the BlueZ transport says `active`, the sink runs, `wpctl` shows
+> the streams as active, and the speaker even reports its own volume at its
+> maximum. The one honest witness is the **controller's own byte counter**
+> (`hciconfig hciN` → `TX bytes`): it does not move by a single byte while
+> audio plays. `bt-connect.service` watches exactly that — about forty-five
+> seconds with nothing on the air while the daemon says it is playing, and it
+> re-establishes the link by itself (`The speaker is connected but the radio
+> is sending it nothing: repairing.`). Chasing the volume is a dead end in
+> that state; only a fresh link clears it.
 
 ## Clock: hardware RTC module required (no Wi-Fi)
 
