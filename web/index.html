@@ -459,6 +459,17 @@
             </div>
             <div data-level="detail" class="field-row">
               <div class="field-text">
+                <label for="audioCompression" data-i18n="settings.audio_compression">Volume boost</label>
+                <p class="field-desc" id="audioCompressionDesc" data-i18n="settings.audio_compression_desc">Evens the loudness out when the recordings are quiet, without touching the slider.</p>
+              </div>
+              <select id="audioCompression" data-key="AUDIO_COMPRESSION" aria-describedby="audioCompressionDesc">
+                <option value="off" data-i18n="compression.off">Off - exactly what the files contain</option>
+                <option value="soft" data-i18n="compression.soft">Soft</option>
+                <option value="strong" data-i18n="compression.strong">Strong</option>
+              </select>
+            </div>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
                 <label for="pauseDurations" data-i18n="settings.pause_durations">Timed pause (min)</label>
                 <p class="field-desc" data-i18n="settings.pause_durations_desc">Durations offered by Timer…, comma-separated.</p>
               </div>
@@ -468,18 +479,6 @@
             <div data-level="detail" class="field-row">
               <label for="sleepTimerMin" data-i18n="settings.sleep_timer_min">Sleep timer (min)</label>
               <input type="number" id="sleepTimerMin" min="1" max="600" step="1" data-key="SLEEP_TIMER_MIN" class="num-input" inputmode="numeric">
-            </div>
-
-            <div data-level="detail" class="field-row">
-              <div class="field-text">
-                <label for="audioCompression" data-i18n="settings.audio_compression">Volume boost</label>
-                <p class="field-desc" id="audioCompressionDesc" data-i18n="settings.audio_compression_desc">Evens the loudness out when the recordings are quiet, without touching the slider.</p>
-              </div>
-              <select id="audioCompression" data-key="AUDIO_COMPRESSION" aria-describedby="audioCompressionDesc">
-                <option value="off" data-i18n="compression.off">Off - exactly what the files contain</option>
-                <option value="soft" data-i18n="compression.soft">Soft</option>
-                <option value="strong" data-i18n="compression.strong">Strong</option>
-              </select>
             </div>
             <div data-level="detail" class="field-row">
               <label for="musicOrderMode" data-i18n="settings.order">Order</label>
