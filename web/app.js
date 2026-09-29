@@ -946,6 +946,7 @@ async function refreshStatus() {
     slider.value = Math.round(d.volume);
     setVolumeFill(slider);
     document.getElementById("volumeValue").textContent = Math.round(d.volume);
+    refreshAnnounceVolumeNotes();
   }
 
   // A guest has "Start music" while nothing plays and the pause button the rest
@@ -1661,6 +1662,7 @@ volumeSlider.addEventListener("input", () => {
   volumePending = { value: Number(volumeSlider.value), until: Date.now() + VOLUME_HOLD_MS };
   document.getElementById("volumeValue").textContent = volumeSlider.value;
   setVolumeFill(volumeSlider);
+  refreshAnnounceVolumeNotes();
   clearTimeout(volumeDebounce);
   volumeDebounce = setTimeout(() => {
     apiPost("/api/volume", { value: Number(volumeSlider.value) });
@@ -2167,6 +2169,24 @@ function defaultAnnounceVolume() {
   return Number.isFinite(value) ? value : 50;
 }
 
+function announceVolumeWarning(entry, music) {
+  /* A source left far above the music is what "the music never arrived" sounds
+     like: measured 40 dB apart on the Pi, the music at 19 and a jingle at 100
+     (2026-09-29). Four times is about 12 dB - past that the music is covered. */
+  if (!entry.on || entry.volume === null || !music) return "";
+  if (entry.volume < music * 4) return "";
+  return t("annvol.louder", { music: Math.round(music) });
+}
+
+function refreshAnnounceVolumeNotes() {
+  const music = defaultAnnounceVolume();
+  document.querySelectorAll(".ann-volume-note").forEach((note) => {
+    const text = announceVolumeWarning(announceVolume(note.dataset.key), music);
+    note.textContent = text;
+    note.hidden = !text;
+  });
+}
+
 let volumeControlSeq = 0;
 
 function volumeField(labelKey, control, describedBy) {
@@ -2225,20 +2245,34 @@ function volumeControl(key, options) {
   const holder = document.createElement("div");
   holder.className = "ann-volume" + (opts.inline ? " is-inline" : "");
 
+  const note = document.createElement("p");
+  note.className = "hint ann-volume-note";
+  note.dataset.key = key;
+  // Written here rather than left to refreshAnnounceVolumeNotes(): the holder
+  // is not in the page yet when this runs, so that sweep cannot see this note.
+  const paintNote = () => {
+    const text = announceVolumeWarning(announceVolume(key), defaultAnnounceVolume());
+    note.textContent = text;
+    note.hidden = !text;
+  };
+
   const paint = () => {
     value.disabled = !toggle.checked;
     holder.classList.toggle("is-on", toggle.checked);
+    paintNote();
   };
   const store = async () => {
     const volume = Math.max(0, Math.min(100, Math.round(Number(value.value) || 0)));
     value.value = String(volume);
     if (await saveAnnounceVolume(key, toggle.checked, volume)) paint();
+    paintNote();
   };
   toggle.addEventListener("change", store);
   value.addEventListener("change", store);
 
   paint();
-  holder.append(volumeField("annvol.own", toggle, hint), volumeField("annvol.label", value));
+  holder.append(volumeField("annvol.own", toggle, hint), volumeField("annvol.label", value),
+                note);
   return holder;
 }
 

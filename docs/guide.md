@@ -751,7 +751,12 @@ disconnects"), all driven by that same check:
   speaker disconnects and resumes when it comes back, rising over
   `SPEAKER_RESUME_FADE_SEC` seconds (0 = straight back). Only a song is
   paused - an announcement plays to its end - and a pause you chose
-  yourself is left alone.
+  yourself is left alone. A button press while the speaker is away does
+  **not** put the music back on the air either: its sound is played (and
+  heard if the speaker comes back mid-sound), the next song is loaded, and
+  it stays paused until the speaker really is there. Before, a press undid
+  that pause and the radio played on into nothing for as long as the speaker
+  was gone.
 - `SPEAKER_LOSS_SHUTDOWN_MIN`: power the Pi off after the speaker has
   been gone that many minutes (0 = never).
 - `SPEAKER_ABSENT_SHUTDOWN_MIN`: power it off when no speaker has
@@ -2021,6 +2026,13 @@ sounds card.
   restart. Moving the Home slider *during* an announcement overrides it
   until that announcement ends, which is the one case where the slider
   and the announcement disagree.
+- **Watch out for a source left far above the music**, which reads exactly
+  like a broken radio: the jingle comes out loud and clear, then the song
+  that follows is there but almost inaudible, and nothing in the page looks
+  wrong. It happened for real — music at 19, a button sound at 100, about
+  **40 dB** apart. The row now says so as soon as one of them reaches four
+  times the music's volume ("Much louder than the music (19): the jingle
+  will drown it out."), and the line follows the Home slider as you move it.
 
 ## Tests
 

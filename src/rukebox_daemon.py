@@ -627,6 +627,26 @@ class RadioDaemon:
         self._begin_play("music", path)
         if self._pending_seek:
             self._position = self._pending_seek
+        self._hold_music_without_speaker()
+
+    def _hold_music_without_speaker(self):
+        """Keeps a song paused when it starts while the speaker is away.
+
+        A click - or an announcement - otherwise undoes the pause
+        `_on_speaker_lost()` just made, and the radio plays to nothing for as
+        long as the speaker is gone (measured: ten minutes, 2026-09-29).
+        `_on_speaker_back()` lifts it like the pause it replaced."""
+        if not self.cfg.get("SPEAKER_LOSS_PAUSE"):
+            return
+        if self._output_kind() != "bluetooth":
+            return
+        if self._speaker_lost_at is None:
+            return
+        log.info("Speaker away: keeping the music paused until it comes back")
+        self.mpv.set_pause(True)
+        self._paused = True
+        self._paused_for_speaker = True
+        self._bump_state()
 
     def _album_neighbour(self, path, step):
         """The track `step` places from `path` in its own folder (the album),
