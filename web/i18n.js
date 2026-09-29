@@ -1771,7 +1771,7 @@ const I18N = {
     "click.next": "Morceau suivant",
     "audioout.transfer_limit": "Limiter les transferts",
     "audioout.transfer_limit_desc": "Ralentit les envois (synchronisation de musique, sons, sauvegardes) pour que le son Bluetooth ne saute pas : le Wi-Fi et le Bluetooth du Pi partagent la même radio.",
-    "audioout.transfer_auto": "Pendant la musique sur le Bluetooth intégré",
+    "audioout.transfer_auto": "Musique sur le Bluetooth intégré",
     "audioout.transfer_always": "Toujours",
     "audioout.transfer_off": "Jamais",
     "audioout.transfer_kbps": "Vitesse limitée (Ko/s)",
