@@ -8,6 +8,10 @@ CONNECTED_TICKS=10
 SLOW_TICKS=20
 BACKOFF_TICKS=(1 2 3 5 10 20)
 CALL_TIMEOUT=10
+# A connect on a jammed controller blocks until bluetoothd gives up, which is
+# longer than a plain query: 10s used to kill the attempt before it could
+# either succeed or say why (measured: 1s when healthy, over 10s when jammed).
+CONNECT_TIMEOUT=30
 REPAIR_AFTER_FAILURES=3
 REPAIR_TICKS=100
 
@@ -137,12 +141,26 @@ is_connected() {
         | grep -q "Connected: yes"
 }
 
+# The controller's own answer when its queue is jammed - nothing is connected,
+# yet it refuses every attempt. Measured on the owner's Pi, both strings, in the
+# very state `hci_stuck_marks` counts. `br-connection-refused` is NOT one of
+# them: that one means the speaker is connected elsewhere (a phone).
+CONNECT_OUT=""
+connect_refused() {
+    case "$CONNECT_OUT" in
+        *br-connection-busy*|*org.bluez.Error.InProgress*|*"Operation already in progress"*) return 0 ;;
+    esac
+    return 1
+}
+
 request_connect() {
     if [ -n "$ADAPTER" ]; then
-        printf 'select %s\nconnect %s\n' "$ADAPTER" "$SPEAKER_MAC"
+        CONNECT_OUT="$(printf 'select %s\nconnect %s\n' "$ADAPTER" "$SPEAKER_MAC" \
+            | timeout "$CONNECT_TIMEOUT" bluetoothctl 2>&1 || true)"
     else
-        printf 'connect %s\n' "$SPEAKER_MAC"
-    fi | timeout "$CALL_TIMEOUT" bluetoothctl >/dev/null 2>&1 || true
+        CONNECT_OUT="$(printf 'connect %s\n' "$SPEAKER_MAC" \
+            | timeout "$CONNECT_TIMEOUT" bluetoothctl 2>&1 || true)"
+    fi
 }
 
 tick=0
@@ -151,8 +169,12 @@ next_attempt=0
 connected=0
 warned_unconfigured=0
 warned_calm=0
-stuck_marks=0
+connect_reported=0
+# The kernel's timeout count as it was when the radio last worked. Any growth
+# since then means the controller jammed in between - see the repair below.
+healthy_marks=0
 last_repair_tick=-$((REPAIR_TICKS * 2))
+healthy_marks=$(hci_stuck_marks)
 
 while :; do
     tick=$((tick + 1))
@@ -178,7 +200,8 @@ while :; do
         fi
         failures=0
         warned_calm=0
-        stuck_marks=$(hci_stuck_marks)
+        connect_reported=0
+        healthy_marks=$(hci_stuck_marks)
         next_attempt=$((tick + 1))
         sleep "$((CHECK_SECONDS * CONNECTED_TICKS))"
         continue
@@ -202,21 +225,42 @@ while :; do
         fi
         next_attempt=$((tick + BACKOFF_TICKS[failures - 1]))
 
-        # Connections that keep failing while the kernel's own commands time
-        # out are not a speaker problem: the radio is jammed (see
-        # hci_stuck_marks above). Reset it, at most every REPAIR_TICKS.
+        # Why the attempt failed, once per burst: a wedged radio otherwise
+        # leaves nothing at all in the journal to go on.
+        if [ "$connect_reported" -eq 0 ] && [ -n "$CONNECT_OUT" ]; then
+            case "$CONNECT_OUT" in
+                *"Connection successful"*) ;;
+                *)
+                    echo "Connect attempt answered: $(printf '%s' "$CONNECT_OUT" \
+                        | tr -d '\r' | tr '\n' ' ' | cut -c1-140)"
+                    connect_reported=1
+                    ;;
+            esac
+        fi
+
+        # Connections that keep failing are not a speaker problem any more: the
+        # radio is jammed (see hci_stuck_marks above). Either the controller
+        # says so itself - which is what connect_refused matches - or the kernel
+        # has timed out at least once since the radio last worked. Reset it, at
+        # most every REPAIR_TICKS.
+        #
+        # The count is compared with the level recorded while the radio worked,
+        # not with its previous reading: a jam whose timeouts STOP coming (the
+        # kernel gives up its own retries) is still a jam, and waiting for the
+        # count to grow left the speaker off the air for good - measured on the
+        # owner's Pi, 20:12, where 97 -> 102 then nothing, and no repair.
         marks=$(hci_stuck_marks)
-        if [ "$failures" -ge "$REPAIR_AFTER_FAILURES" ] \
-                && [ "$marks" -gt "$stuck_marks" ] \
-                && [ $((tick - last_repair_tick)) -ge "$REPAIR_TICKS" ]; then
+        if [ $((tick - last_repair_tick)) -ge "$REPAIR_TICKS" ] \
+                && { connect_refused \
+                     || { [ "$failures" -ge "$REPAIR_AFTER_FAILURES" ] \
+                          && [ "$marks" -gt "$healthy_marks" ]; }; }; then
             repair_controller
             last_repair_tick=$tick
-            stuck_marks=$(hci_stuck_marks)
+            healthy_marks=$(hci_stuck_marks)
             failures=0
             warned_calm=0
+            connect_reported=0
             next_attempt=$((tick + 2))
-        else
-            stuck_marks=$marks
         fi
     fi
 

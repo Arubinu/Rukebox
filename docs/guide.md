@@ -2071,16 +2071,22 @@ journalctl -u bt-connect.service -f
 > established when the speaker went away. The kernel says so — `dmesg` shows
 > `Bluetooth: hciN: command 0x041f tx timeout` every twenty seconds for ever,
 > while `hciconfig` still reports `UP RUNNING` and the radio still answers
-> `btmgmt`. **`bt-connect.service` repairs it by itself**: it counts those
-> kernel timeouts, and once a few connections have failed in a row while they
-> keep coming it stops `bluetooth`, takes the controller down and up, starts
-> `bluetooth` again and reconnects — about forty seconds, once every five
-> minutes at most (`journalctl -u bt-connect.service -f` shows
-> `Repairing hciN: ...`). Only the *controller's* own timeouts count: a
-> speaker that is simply switched off or out of range produces
-> `link tx timeout` instead, and no repair is attempted for that. If it never
-> recovers, the speaker itself is holding a stale link: switch it off and on
-> once.
+> `btmgmt`. **`bt-connect.service` repairs it by itself**: it stops
+> `bluetooth`, takes the controller down and up, starts `bluetooth` again and
+> reconnects — about forty seconds, once every five minutes at most
+> (`journalctl -u bt-connect.service -f` shows `Repairing hciN: ...`, and the
+> line just above says what the connection attempt answered).
+>
+> It repairs on either of two signs, and both are needed: a controller that
+> **refuses** the attempt (`br-connection-busy`, `InProgress`) is jammed
+> whatever the kernel says, and a controller whose kernels timeouts have
+> **grown since the radio last worked** is jammed even if they have stopped
+> coming. Only the *controller's* own timeouts count: a speaker that is simply
+> switched off or out of range produces `link tx timeout` instead, and no
+> repair is attempted for that — the attempt is answered
+> `br-connection-refused` or "not available", and the script keeps trying
+> quietly. If it never recovers, the speaker itself is holding a stale link:
+> switch it off and on once.
 
 ## Clock: hardware RTC module required (no Wi-Fi)
 
