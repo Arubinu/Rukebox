@@ -3018,7 +3018,8 @@ select {
 #modalBody { white-space: pre-line; }
 
 #audioOutputDetected, #securityStatus, #apStatus, #clientsSummary, #releaseStatus,
-#updateVersion, #updateSource, #updateOs, #setupHiddenLine, #configHint { text-align: center; }
+#gitUpdateHint, #updateVersion, #updateSource, #updateOs, #setupHiddenLine,
+#configHint { text-align: center; }
 #configHint { white-space: pre-line; }
 
 .cmd-list { display: grid; gap: 8px; margin: 8px 0; }
