@@ -3,12 +3,30 @@
 import json
 import logging
 import os
+import queue
 import socket
 import subprocess
 import threading
 import time
 
 log = logging.getLogger("mpv")
+
+# Loudness filters, named as libavfilter spells them (every mpv since 0.25
+# takes those names directly): acompressor tames the peaks, a fixed gain
+# brings the quiet parts up, and alimiter keeps the result below full scale.
+# That is what makes a quiet recording audible on a small speaker without
+# clipping the loud ones - measured with ffmpeg on tones at -1/-18/-38 dBFS.
+COMPRESSION_FILTERS = {
+    "soft": ("acompressor=threshold=0.125:ratio=2.5:attack=20:release=400:makeup=1"
+             ":knee=6:link=average,volume=5dB,alimiter=limit=0.95:level=false"),
+    "strong": ("acompressor=threshold=0.063:ratio=4:attack=15:release=300:makeup=1"
+               ":knee=6:link=average,volume=9dB,alimiter=limit=0.95:level=false"),
+}
+
+
+def compression_filter(mode):
+    """The filter chain for a compression mode, "" when it is off or unknown."""
+    return COMPRESSION_FILTERS.get(str(mode or "").strip().lower(), "")
 
 
 def audio_env():
@@ -33,6 +51,8 @@ class MPVController:
         self._request_id = 0
         self._event_callbacks = []
         self._listener_thread = None
+        self._pending = {}
+        self._pending_lock = threading.Lock()
 
     def start(self):
         if os.path.exists(self.socket_path):
@@ -86,6 +106,57 @@ class MPVController:
                 log.exception("Failed to send mpv command, attempting to reconnect")
                 self._connect()
                 self.sock.sendall(payload.encode("utf-8"))
+
+    def request(self, command, timeout=3.0):
+        """Sends a command and waits for mpv's answer, or None if it never
+        came - the one way to know whether a property write was refused."""
+        with self._lock:
+            self._request_id += 1
+            request_id = self._request_id
+            box = queue.Queue(maxsize=1)
+            with self._pending_lock:
+                self._pending[request_id] = box
+            payload = json.dumps({"command": command, "request_id": request_id}) + "\n"
+            try:
+                self.sock.sendall(payload.encode("utf-8"))
+            except OSError:
+                log.exception("Failed to send mpv command, attempting to reconnect")
+                try:
+                    self._connect()
+                    self.sock.sendall(payload.encode("utf-8"))
+                except OSError:
+                    self._forget(request_id)
+                    return None
+        try:
+            return box.get(timeout=max(0.1, float(timeout)))
+        except queue.Empty:
+            log.warning("mpv never answered %s", command[0])
+            return None
+        finally:
+            self._forget(request_id)
+
+    def _forget(self, request_id):
+        with self._pending_lock:
+            self._pending.pop(request_id, None)
+
+    def set_audio_filter(self, chain):
+        """Applies a libavfilter chain ("" clears it). False when mpv took
+        neither syntax, i.e. a build without the filter."""
+        chain = str(chain or "")
+        if not chain:
+            return self._set_af("")
+        # Every mpv since 0.25 accepts libavfilter names directly; the lavfi
+        # wrapper is the fallback for an older one, or a name clash.
+        return self._set_af(chain) or self._set_af("lavfi=[%s]" % chain)
+
+    def _set_af(self, value):
+        msg = self.request(["set_property", "af", value])
+        if msg is None:
+            return False
+        if msg.get("error") != "success":
+            log.warning("mpv refused the audio filter %s (%s)", value, msg.get("error"))
+            return False
+        return True
 
     def loadfile(self, path):
         log.info("loadfile: %s", path)
@@ -155,6 +226,11 @@ class MPVController:
                             cb(msg)
                         except Exception:
                             log.exception("Error in an mpv event callback")
+                    continue
+                with self._pending_lock:
+                    box = self._pending.get(msg.get("request_id"))
+                if box is not None:
+                    box.put(msg)
 
     def stop(self):
         if self.proc:

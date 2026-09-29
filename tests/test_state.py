@@ -49,6 +49,13 @@ class StateTest(unittest.TestCase):
         self.assertEqual(sorted(plays), [False, True])
         self.assertTrue(all(self.s.chance_allows("z", "1/1") for _ in range(5)))
 
+    def test_active_list_survives_a_restart(self):
+        self.assertIsNone(self.s.active_list())
+        self.assertEqual(self.s.set_active_list("jazz"), "jazz")
+        self.assertEqual(self.s.set_active_list(""), None)
+        self.s.set_active_list("soir")
+        self.assertEqual(state.RadioState(self.path).active_list(), "soir")
+
     def test_click_bag_order(self):
         build = lambda: ["1.mp3", "2.mp3", "3.mp3"]  # noqa: E731
         got = [self.s.next_click_sound("meme", build) for _ in range(4)]

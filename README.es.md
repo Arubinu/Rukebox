@@ -22,7 +22,8 @@ cualquier móvil conectado al Wi-Fi de la Pi.
   volumen, temporizador, reposo.
 - **Una interfaz web clara** en el móvil, la tableta o el ordenador: lo
   que suena con carátula y letra, lo que viene después, una biblioteca
-  para buscar y todos los ajustes. Seis idiomas, tema claro y oscuro.
+  para buscar, tus propias listas -todo o solo algunos géneros- y todos
+  los ajustes. Seis idiomas, tema claro y oscuro.
 - **Fácil de compartir**: tus invitados se unen al Wi-Fi escaneando un
   código QR, ponen canciones en cola y proponen otras - con créditos, para
   que nadie acapare la radio.

@@ -26,6 +26,13 @@ class PlaylistTest(unittest.TestCase):
             keys = [playlist.group_key(p, ROOT) for p in order]
             self.assertFalse(any(a == b for a, b in zip(keys, keys[1:])), order)
 
+    def test_a_hand_made_order_is_kept(self):
+        # What a manual music list relies on: "ordered" means the order the
+        # list was built in, not the file names.
+        order = playlist.order_files(FILES, ROOT, "ordered", ["1 c.mp3", "2 b.mp3"])
+        self.assertEqual(order[:2], ["/music/C/1 c.mp3", "/music/B/2 b.mp3"])
+        self.assertEqual(sorted(order), sorted(FILES), "every file is still there")
+
     def test_unknown_mode(self):
         self.assertEqual(playlist.order_files(FILES, ROOT, "typo"), playlist.order_files(FILES, ROOT, "ordered"))
 

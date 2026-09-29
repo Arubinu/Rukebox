@@ -18,10 +18,13 @@ import announcements  # noqa: E402
 import audio_output  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
-from mpv_controller import MPVController, audio_env  # noqa: E402
+import library  # noqa: E402
+from mpv_controller import MPVController, audio_env, compression_filter  # noqa: E402
+import music_lists  # noqa: E402
 import playlist  # noqa: E402
 from state import RadioState  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
+import track_media  # noqa: E402
 import track_order  # noqa: E402
 
 logging.basicConfig(
@@ -89,6 +92,10 @@ class RadioDaemon:
         self._volume_glide_target = None
 
         self._custom_announcements = announcements.load(cfg["ANNOUNCEMENTS_FILE"])
+        self._music_lists = music_lists.load(cfg["MUSIC_LISTS_FILE"])
+        self._lists_stamp = None
+        self._list_library = None
+        self._genre_resolved = None
 
         self._resume_mode = "music"
 
@@ -117,6 +124,7 @@ class RadioDaemon:
         )
 
     AUDIO_OUTPUT_RECHECK_SEC = 30
+    GENRE_CACHE_SEC = 5.0
 
     def _wired_output(self):
         """True when the sound goes to a wired output of the Pi, not the
@@ -279,6 +287,7 @@ class RadioDaemon:
         self.mpv.start()
         self._apply_audio_output(force=True)
         self.mpv.set_replaygain(self.cfg["REPLAYGAIN_MODE"])
+        self._apply_compression()
         self.mpv.on_event(self._on_mpv_event)
         self.mpv.observe(1, "time-pos")
         self.mpv.observe(2, "duration")
@@ -290,8 +299,9 @@ class RadioDaemon:
         self._start_watchdogs()
 
         self.state.ensure_queue(
-            self._get_music_list(), self.cfg["MUSIC_ORDER_MODE"], self.cfg["MUSIC_DIR"],
+            self._playable_tracks(), self.cfg["MUSIC_ORDER_MODE"], self.cfg["MUSIC_DIR"],
             self.cfg["MUSIC_KEEP_PROGRESS"], self.cfg["MUSIC_RESUME_MODE"],
+            custom_order=music_lists.custom_order(self._active_list_entry()),
         )
 
         if self.cfg["MUSIC_START_MODE"] == "boot":
@@ -343,10 +353,12 @@ class RadioDaemon:
                 self.mpv.set_replaygain(self.cfg["REPLAYGAIN_MODE"])
             except Exception:  # noqa: BLE001
                 log.exception("Could not apply the ReplayGain mode")
+        if "AUDIO_COMPRESSION" in applied:
+            self._apply_compression()
         if "MUSIC_ORDER_MODE" in applied or "MUSIC_DIR" in applied:
-            tracks = self._get_music_list()
+            tracks = self._playable_tracks()
             if tracks:
-                self.state.rebuild_queue(tracks, self.cfg["MUSIC_ORDER_MODE"], self.cfg["MUSIC_DIR"])
+                self._rebuild_queue(tracks)
         if applied:
             log.info("Settings applied without a restart: %s", ", ".join(sorted(applied)))
             self.stats.record("config_reloaded", label=", ".join(sorted(applied))[:200],
@@ -359,6 +371,126 @@ class RadioDaemon:
         if not tracks:
             log.warning("No tracks found in %s", self.cfg["MUSIC_DIR"])
         return tracks
+
+    def _lists(self):
+        """The music lists, re-read whenever the file changed: the web
+        interface is the only writer, and it says so on the socket too."""
+        path = self.cfg["MUSIC_LISTS_FILE"]
+        try:
+            stamp = os.path.getmtime(path)
+        except OSError:
+            stamp = None
+        if stamp != self._lists_stamp:
+            self._music_lists = music_lists.load(path)
+            self._lists_stamp = stamp
+        return self._music_lists
+
+    def _active_list_entry(self):
+        """The list the radio plays, or None when it plays everything."""
+        list_id = self.state.active_list()
+        if not list_id:
+            return None
+        entry = next((item for item in self._lists() if item["id"] == list_id), None)
+        if entry is None:
+            log.warning("The active music list %s is gone, playing everything", list_id)
+            self.state.set_active_list(None)
+        return entry
+
+    def _genre_paths(self, genres):
+        """The library's tracks for these genres: the tags are read by the web
+        server into the same SQLite file, which the daemon opens read-mostly.
+        Resolved at most once every few seconds - the status asks for the
+        count on every poll, and this is a scan of every tag."""
+        key = tuple(sorted(str(genre) for genre in (genres or [])))
+        now = time.monotonic()
+        cached = self._genre_resolved
+        if cached and cached[0] == key and now - cached[1] < self.GENRE_CACHE_SEC:
+            return cached[2]
+        paths = self._read_genre_paths(key)
+        self._genre_resolved = (key, now, paths)
+        return paths
+
+    def _read_genre_paths(self, genres):
+        try:
+            if self._list_library is None:
+                self._list_library = library.Library(self.cfg["LIBRARY_DB_FILE"],
+                                                     track_media.track_key)
+            return self._list_library.paths_for_genres(list(genres))
+        except Exception:  # noqa: BLE001 - a genre list must never stop the radio
+            log.exception("Could not read the genres from the library")
+            return []
+
+    def _playable_tracks(self):
+        """What the radio plays: the active list's tracks, or the whole
+        library when no list is active."""
+        tracks = self._get_music_list()
+        entry = self._active_list_entry()
+        if not entry:
+            return tracks
+        return music_lists.resolved(entry, tracks, self._genre_paths)
+
+    def _active_list_status(self):
+        entry = self._active_list_entry()
+        if not entry:
+            return None
+        if entry.get("kind") == "genre":
+            count = len(self._genre_paths(entry.get("genres") or []))
+        else:
+            count = len(self._playable_tracks())
+        return {"id": entry["id"], "name": entry["name"], "kind": entry["kind"],
+                "genres": entry.get("genres") or [], "tracks": count}
+
+    def _rebuild_queue(self, tracks=None):
+        """Restarts the playing pass from whatever is active now."""
+        entry = self._active_list_entry()
+        tracks = self._playable_tracks() if tracks is None else tracks
+        self.state.rebuild_queue(tracks, self.cfg["MUSIC_ORDER_MODE"], self.cfg["MUSIC_DIR"],
+                                 music_lists.custom_order(entry))
+        return tracks
+
+    def _set_active_list(self, list_id, source, start=False):
+        """Makes a list (None: everything) what the radio plays from the next
+        track on, or right now with `start`."""
+        list_id = str(list_id or "").strip() or None
+        entry = None
+        if list_id:
+            entry = next((item for item in self._lists() if item["id"] == list_id), None)
+            if entry is None:
+                return {"ok": False, "error": "list_not_found"}
+        self.state.set_active_list(entry["id"] if entry else None)
+        tracks = self._rebuild_queue()
+        if entry and not tracks:
+            log.warning("The list %s holds no playable track", entry["id"])
+        self.stats.record("list_selected", label=entry["name"] if entry else "all",
+                          detail={"source": source, "tracks": len(tracks)})
+        log.info("Playing %s (%d tracks)", entry["name"] if entry else "the whole library",
+                 len(tracks))
+        if start and tracks and self.mode != "shutting_down":
+            # An explicit choice of what to hear now outranks a loop.
+            self._loop_mode = "off"
+            self._forced_next = None
+            if self.mode in ("idle", "stopped"):
+                self._start_or_restart_playback(log_label="list")
+            else:
+                self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
+                self._restore_base_volume()
+                self._play_next_track(user=True)
+        self._bump_state()
+        return {"ok": True, "data": {"active": self.state.active_list(), "tracks": len(tracks)}}
+
+    def _apply_compression(self):
+        """Pushes the loudness filter to mpv, which holds it across every
+        loadfile; an empty chain clears it."""
+        mode = self.cfg["AUDIO_COMPRESSION"]
+        chain = compression_filter(mode)
+        if chain and not self.mpv.set_audio_filter(chain):
+            log.warning("This mpv build does not take the %s compression filter,"
+                        " playing without it", mode)
+            self.mpv.set_audio_filter("")
+            return False
+        if not chain:
+            self.mpv.set_audio_filter("")
+        return True
 
     def _play_next_track(self, user=False):
         """`user`: a "next" someone asked for (a click, the interface), as
@@ -382,7 +514,7 @@ class RadioDaemon:
                 if following:
                     self._play_track(following)
                     return
-        tracks = self._get_music_list()
+        tracks = self._playable_tracks()
         if not tracks:
             return
 
@@ -391,7 +523,7 @@ class RadioDaemon:
             if not self.cfg["MUSIC_LOOP"]:
                 self._enter_stopped_mode()
                 return
-            self.state.rebuild_queue(tracks, self.cfg["MUSIC_ORDER_MODE"], self.cfg["MUSIC_DIR"])
+            self._rebuild_queue(tracks)
             track = self.state.pop_next_track_or_none()
             if track is None:
                 return
@@ -411,7 +543,7 @@ class RadioDaemon:
         """The track `step` places from `path` in its own folder (the album),
         in natural order, wrapping round."""
         folder = os.path.dirname(path)
-        album = [t for t in self._get_music_list() if os.path.dirname(t) == folder]
+        album = [t for t in self._playable_tracks() if os.path.dirname(t) == folder]
         if not album:
             return None
         album = playlist.order_files(album, self.cfg["MUSIC_DIR"], "ordered")
@@ -752,9 +884,9 @@ class RadioDaemon:
         was_stopped = self.mode == "stopped"
         self._stop_keepalive()
         if was_stopped:
-            tracks = self._get_music_list()
+            tracks = self._playable_tracks()
             if tracks:
-                self.state.rebuild_queue(tracks, self.cfg["MUSIC_ORDER_MODE"], self.cfg["MUSIC_DIR"])
+                self._rebuild_queue(tracks)
         self._start_music_faded(self._play_next_track)
 
     def _start_music_faded(self, start):
@@ -1808,6 +1940,7 @@ class RadioDaemon:
             "last_sound": self._last_sound_status(),
             "upcoming_track_path": self._upcoming_track(),
             "track_count": self._track_count,
+            "active_list": self._active_list_status(),
             "music_started_today": self.state.already_triggered_today("last_music_start"),
             "version": self._state_version,
             "restart_pending": self._restart_pending,
@@ -1995,6 +2128,11 @@ class RadioDaemon:
                     return {"ok": False, "error": "invalid_value"}
                 self._set_loop_mode(mode, source)
                 return {"ok": True, "data": {"loop_mode": self._loop_mode}}
+            if cmd == "reload_lists":
+                self._lists_stamp = None
+                return {"ok": True, "count": len(self._lists())}
+            if cmd == "set_active_list":
+                return self._set_active_list(msg.get("id"), source, bool(msg.get("start")))
             if cmd == "skip_sound":
                 mode = self.mode
                 if not (mode == "meme" or mode.startswith(("custom:", "button_announce:"))):

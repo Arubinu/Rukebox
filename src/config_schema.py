@@ -218,6 +218,22 @@ SETTINGS = [
             "Volume (0-100) reset at every daemon start, whatever the previous state.",
             "Base volume"),
     Setting(
+        "AUDIO_COMPRESSION", "playback", "audio_compression", "str", "off",
+        "Loudness filter mpv applies to everything it plays, before the\n"
+        "volume control - see \"Getting more volume\" in docs/guide.md:\n"
+        "  off    -> exactly what the files contain (the default)\n"
+        "  soft   -> the quiet passages come up, the peaks are tamed, and\n"
+        "            the result is held just below full scale. The volume\n"
+        "            slider keeps working exactly as before.\n"
+        "  strong -> the same, more so: for a very quiet recording or a\n"
+        "            small speaker, at the cost of some of the dynamics\n"
+        "            (loud tracks end up slightly quieter, quiet ones up\n"
+        "            to 9 dB louder).\n"
+        "Nothing is added to the files; an unknown value behaves as off.\n"
+        "Applied without a restart.",
+        "Volume boost (compression)",
+    ),
+    Setting(
         "VOLUME_CHANGE", "playback", "volume_change", "str", "instant",
         "How a volume change from the web interface (or a button) is heard:\n"
         "  instant -> at once\n"
@@ -773,6 +789,17 @@ SETTINGS = [
         "reasoning as announcements_file above: a plain JSON file, not part\n"
         "of the YAML settings.",
         "Track order file",
+    ),
+    Setting(
+        "MUSIC_LISTS_FILE", "paths", "music_lists_file", "str",
+        "/etc/rukebox/music_lists.json",
+        "The music lists built from the web interface - see\n"
+        "src/music_lists.py. Same reasoning as announcements_file above: a\n"
+        "growable list managed entirely by its own form, so JSON rather\n"
+        "than a hand-edited setting. A list is either manual (tracks picked\n"
+        "one by one) or by genre (kept up to date from the library's tags);\n"
+        "the radio plays one list, or everything when none is active.",
+        "Music lists file",
     ),
 ]
 

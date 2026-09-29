@@ -164,6 +164,20 @@ playback:
   # Volume (0-100) reset at every daemon start, whatever the previous state.
   base_volume: 70
 
+  # Loudness filter mpv applies to everything it plays, before the
+  # volume control - see "Getting more volume" in docs/guide.md:
+  #   off    -> exactly what the files contain (the default)
+  #   soft   -> the quiet passages come up, the peaks are tamed, and
+  #             the result is held just below full scale. The volume
+  #             slider keeps working exactly as before.
+  #   strong -> the same, more so: for a very quiet recording or a
+  #             small speaker, at the cost of some of the dynamics
+  #             (loud tracks end up slightly quieter, quiet ones up
+  #             to 9 dB louder).
+  # Nothing is added to the files; an unknown value behaves as off.
+  # Applied without a restart.
+  audio_compression: "off"
+
   # How a volume change from the web interface (or a button) is heard:
   #   instant -> at once
   #   fade    -> gliding to the new level over volume_fade_sec
@@ -483,6 +497,10 @@ security:
 
   guest_cost_start: 1
 
+  # The middle button does both: pause or resume a song, and skip a
+  # sound that is playing.
+  guest_cost_pause: 1
+
   guest_cost_sound: 2
 
   guest_cost_announce: 3
@@ -560,7 +578,9 @@ hardware:
 
   # Slows file uploads down (music sync, sounds, backups) so they do not
   # crowd out the Bluetooth sound on the radio it shares with Wi-Fi:
-  #   auto   -> only while music plays on a speaker of the built-in chip
+  #   auto   -> while a sound plays to a connected speaker of the built-in
+  #             chip: music or an announcement, never the keep-alive chime
+  #             and never in pause
   #   always -> always
   #   off    -> never
   transfer_limit: "auto"
@@ -665,3 +685,11 @@ paths:
   # reasoning as announcements_file above: a plain JSON file, not part
   # of the YAML settings.
   track_order_file: "/etc/rukebox/track_order.json"
+
+  # The music lists built from the web interface - see
+  # src/music_lists.py. Same reasoning as announcements_file above: a
+  # growable list managed entirely by its own form, so JSON rather
+  # than a hand-edited setting. A list is either manual (tracks picked
+  # one by one) or by genre (kept up to date from the library's tags);
+  # the radio plays one list, or everything when none is active.
+  music_lists_file: "/etc/rukebox/music_lists.json"

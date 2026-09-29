@@ -12,6 +12,7 @@ src/mpv_controller.py       mpv driven through its IPC socket, one file at a tim
 src/state.py                Persistent state: play queue, requests, daily triggers
 src/playlist.py             Play orders (random, random by album, ordered)
 src/library.py              Music library catalogue (tags, search, suggestions)
+src/music_lists.py          The music lists: manual, or by genre
 src/track_media.py          Cover art, tags and lyrics of the playing track
 src/announcements.py        User-defined announcement types
 src/track_order.py          Saved order of announcement folders
@@ -1007,6 +1008,12 @@ update make it for you.
   then songs are named after their folders. A music suggestion that is
   already in the library says so - before it is sent, and on its row,
   with a button to play it.
+- **Lists** (Home): what the radio plays - everything, or one list at a
+  time. A list is either the songs you add to it by hand (the **+** beside
+  a Library song), or everything the library tags with the genres you tick
+  - kept up to date on its own. **Play** starts a list at once,
+  **Play everything** puts the whole library back, and the choice survives
+  a reboot. See "Your own lists" below.
 - **Guests see what an action costs** as a small badge on its button, red
   when their credits do not cover it. Buttons **vibrate** under the finger
   on phones that allow it (not iPhones); a switch in System turns it off
@@ -1749,6 +1756,75 @@ The same thing by hand, over SSH or the USB cable:
 ```bash
 rsync -av --info=progress2 ~/Music/ pi@rukebox.local:/home/pi/audio/music/
 ```
+
+### Your own lists: everything, or only some of it
+
+The **Lists** card (Home) decides what the radio plays. Left alone, it plays
+everything in the music folder, in the order `music_order_mode` gives. A
+list replaces that with a smaller set:
+
+- **A manual list** holds the songs you add to it, in the order you added
+  them: the **+** button beside a song of the Library card offers the lists,
+  and the list's own **Edit** shows what it holds, with a cross to take a
+  song out. With `music_order_mode: ordered`, a manual list plays in the
+  order you built it (`random` and `random_albums` shuffle it like the
+  library).
+- **A genre list** holds everything the library tags with the genres you
+  tick - several genres at once if you like. It follows the library by
+  itself: a song added tomorrow with that genre is in the list tomorrow,
+  without touching anything. The genres come from the files' own tags (the
+  same ones the Library card's genre filter lists), so a genre list only
+  holds songs whose tags have been read - the Library card says how far that
+  has got ("reading the tags: n / total"). Until then, those songs are simply
+  not in it yet.
+  A tag often holds several genres at once (`Alternative Metal;Kawaii
+  Metal`, also written with commas or slashes): each of them then counts on
+  its own - in the list, and in the Library card's genre filter too - so
+  that song belongs to both.
+  Genres are **searched, not scrolled**: type a few letters in the box, tick
+  what you want, and what is ticked stays above as pills you can take back.
+  The number beside each genre is how many tracks carry it.
+- **Play** on a list makes it the list being played and starts it at once
+  (the song playing fades out into it). **Play everything**, at the top of
+  the card, goes back to the whole library. The choice is kept in the
+  daemon's state, so a reboot comes back to the same list.
+
+The Library card's genre filter has one shortcut: with a genre chosen, **Play
+this genre** makes the list for it (or reuses the one that already matches)
+and plays it - the quickest way to hear one kind of music for a while. Songs
+are added to a manual list the same way from anywhere the Library shows them.
+
+The lists are one file, `/etc/rukebox/music_lists.json`
+(`music_lists_file`), plain JSON written by the interface - it travels with
+the rest in a configuration backup.
+
+### Getting more volume out of a quiet speaker
+
+`audio_compression` (`playback:`) is `off` by default: the sound is exactly
+what the files contain. The other two values apply a loudness filter in mpv,
+before the volume control - `soft` or `strong`:
+
+- the quiet passages come up (up to 5 dB for `soft`, 9 dB for `strong`),
+- the peaks are tamed and the result is held just below full scale, so
+  nothing clips,
+- loud tracks end up a touch quieter and less dynamic - that is what evening
+  the loudness out means, and it is what makes a quiet recording audible on
+  a small speaker.
+
+Nothing is written to the files, and the volume slider keeps working exactly
+as before: this is not a higher ceiling, it is a different balance. It
+applies to music, announcements and the system sounds alike, and takes
+effect without a restart. Choose **Volume boost** in the Playback settings,
+or by hand:
+
+```bash
+sudo python3 src/config_file.py set AUDIO_COMPRESSION=soft
+echo '{"cmd":"reload_config"}' | nc -U /tmp/rukebox_control.sock
+```
+
+If the mpv on the Pi was built without those filters, the daemon says so in
+the log (`journalctl -u rukebox-daemon`) and plays without them rather than
+staying silent.
 
 ### An announcement that plays only some of the time
 

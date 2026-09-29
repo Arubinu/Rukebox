@@ -40,18 +40,27 @@ class WebTest(unittest.TestCase):
             "WEB_PASSWORD_HASH": web_auth.hash_password("secret"), "GUEST_MODE_ENABLED": True,
             "SUGGESTIONS_ENABLED": True, "SUGGESTIONS_DB_FILE": os.path.join(cls.dir, "s.db"),
             "LIBRARY_DB_FILE": os.path.join(cls.dir, "l.db"), "STATE_DIR": cls.dir,
+            "MUSIC_DIR": os.path.join(cls.dir, "music"),
+            "MUSIC_CACHE_FILE": os.path.join(cls.dir, "music_cache.json"),
+            "MUSIC_LISTS_FILE": os.path.join(cls.dir, "music_lists.json"),
             "GUEST_QUOTA_ENABLED": True, "GUEST_QUOTA_MAX": 3, "GUEST_QUOTA_REFILL_SEC": 600,
             "GUEST_QUOTA_REPEAT_MIN": 0, "GUEST_COST_NEXT": 1,
         }
         ws.cfg = lambda: dict(cls.orig_cfg(), **cls.extra)
         cls.calls = []
+        cls.status = {"mode": "music"}
 
         def fake(cmd, **kw):
             cls.calls.append((cmd, kw))
             if cmd == "get_status":
-                return {"ok": True, "data": {"mode": "music"}}
+                return {"ok": True, "data": dict(cls.status)}
             if cmd == "get_queue":
                 return {"ok": True, "data": {"paths": [], "requested": []}}
+            if cmd == "set_active_list":
+                cls.status["active_list"] = (
+                    {"id": kw.get("id"), "name": "Soir", "kind": "manual", "tracks": 1}
+                    if kw.get("id") else None)
+                return {"ok": True, "data": {"active": kw.get("id"), "tracks": 1}}
             return {"ok": True}
         ws.control = fake
 
@@ -91,6 +100,61 @@ class WebTest(unittest.TestCase):
         owner = self.owner()
         self.assertEqual(owner.post("/api/library/queue", json={"key": "unknown"}).status_code, 404)
         self.assertEqual(owner.post("/api/library/play", json={"key": "unknown"}).status_code, 404)
+
+    def test_lists(self):
+        music = self.extra["MUSIC_DIR"]
+        os.makedirs(music, exist_ok=True)
+        track = os.path.join(music, "a.mp3")
+        with open(track, "wb") as f:
+            f.write(b"x" * 10)
+        lib = ws._get_library()
+        lib.sync([track], music)
+        key = lib.item_for_path(track)["key"]
+
+        guest = ws.app.test_client()
+        self.assertEqual(guest.get("/api/lists").status_code, 401, "lists are the owner's")
+
+        owner = self.owner()
+        created = owner.post("/api/lists", json={"name": "Soir", "kind": "manual"}).get_json()
+        self.assertTrue(created["ok"], created)
+        list_id = created["data"]["id"]
+        self.assertEqual((created["data"]["kind"], created["data"]["count"]), ("manual", 0))
+        self.assertEqual(owner.post("/api/lists", json={"name": " "}).get_json()["error"],
+                         "list_name_required")
+        self.assertEqual(
+            owner.post("/api/lists", json={"name": "Jazz", "kind": "genre"}).get_json()["error"],
+            "list_genres_required")
+
+        added = owner.post("/api/lists/%s/tracks" % list_id, json={"key": key}).get_json()
+        self.assertEqual(added["data"]["count"], 1)
+        contents = owner.get("/api/lists/%s/tracks" % list_id).get_json()["data"]
+        self.assertEqual([(i["title"], bool(i.get("missing"))) for i in contents["items"]],
+                         [("a", False)])
+        self.assertEqual(contents["missing"], 0)
+
+        # The active switch goes through the daemon, and comes back in the list.
+        active = owner.post("/api/lists/active", json={"id": list_id, "start": True}).get_json()
+        self.assertTrue(active["ok"], active)
+        self.assertEqual(active["data"]["active"], list_id)
+        self.assertEqual(owner.get("/api/lists").get_json()["data"]["active"], list_id)
+        self.assertIn(("set_active_list", list_id),
+                      [(cmd, kw.get("id")) for cmd, kw in self.calls])
+        self.assertEqual(owner.post("/api/lists/active", json={"id": "nope"}).status_code, 404)
+
+        # The genre shortcut reuses the list that already matches.
+        made = owner.post("/api/lists/from_genres", json={"genres": ["Jazz"]}).get_json()
+        self.assertTrue(made["ok"], made)
+        again = owner.post("/api/lists/from_genres", json={"genres": ["jazz"]}).get_json()
+        self.assertEqual(again["data"]["id"], made["data"]["id"])
+        self.assertEqual(len(owner.get("/api/lists").get_json()["data"]["lists"]), 2)
+
+        removed = owner.delete("/api/lists/%s/tracks" % list_id, json={"key": key}).get_json()
+        self.assertEqual(removed["data"]["count"], 0)
+        self.assertEqual(owner.delete("/api/lists/%s" % made["data"]["id"]).status_code, 200)
+        self.assertIsNone(owner.get("/api/lists").get_json()["data"]["active"],
+                          "deleting the list being played goes back to everything")
+        self.assertEqual(owner.delete("/api/lists/%s" % list_id).status_code, 200)
+        self.assertEqual(owner.delete("/api/lists/%s" % list_id).status_code, 404)
 
     def test_backup_refusals(self):
         owner = self.owner()

@@ -23,8 +23,9 @@ Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
   Lautstärke, Sleep-Timer, Ruhezustand.
 - **Eine übersichtliche Weboberfläche** auf Handy, Tablet oder Computer:
   der laufende Titel mit Cover und Songtext, was als Nächstes kommt, eine
-  durchsuchbare Bibliothek und alle Einstellungen. Sechs Sprachen, helles
-  und dunkles Design.
+  durchsuchbare Bibliothek, eigene Listen - alles oder nur bestimmte
+  Genres - und alle Einstellungen. Sechs Sprachen, helles und dunkles
+  Design.
 - **Leicht zu teilen**: Gäste treten dem WLAN per QR-Code bei, reihen
   Titel ein und schlagen neue vor - mit Guthaben, damit niemand das Radio
   für sich allein beansprucht.

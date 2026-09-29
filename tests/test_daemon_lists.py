@@ -1,0 +1,201 @@
+"""What the daemon plays (src/rukebox_daemon.py): the whole library, or the
+active music list - a manual one in the order it was built, a genre one from
+the library's tags - and the loudness filter pushed to mpv. mpv itself is
+faked, so this runs off-hardware."""
+import os
+import shutil
+import tempfile
+import threading
+import unittest
+
+import _path  # noqa: F401
+from config_and_scan import load_config
+import library
+import music_lists
+import rukebox_daemon
+import track_media
+
+
+class FakeMpv:
+    """Records what the daemon asked mpv to do."""
+
+    def __init__(self):
+        self.files = []
+        self.filters = []
+        self.paused = None
+        self.volume = None
+
+    def loadfile(self, path):
+        self.files.append(path)
+
+    def set_pause(self, paused):
+        self.paused = paused
+
+    def set_volume(self, volume):
+        self.volume = volume
+
+    def set_audio_filter(self, chain):
+        self.filters.append(chain)
+        return True
+
+    def stop(self):
+        self.files.append(None)
+
+    def set_loop(self, mode="no"):
+        pass
+
+    def seek(self, seconds):
+        pass
+
+    def set_replaygain(self, mode):
+        pass
+
+    def set_mute(self, muted):
+        pass
+
+    def set_audio_device(self, device):
+        pass
+
+    def observe(self, prop_id, name):
+        pass
+
+    def on_event(self, callback):
+        pass
+
+
+class DaemonListsTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.music = os.path.join(self.dir, "music")
+        self.paths = {}
+        for name in ("jazz1.mp3", "rock1.mp3", "metal.mp3", "Daft Punk/album1.mp3"):
+            path = os.path.join(self.music, *name.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as f:
+                f.write(b"x" * 10)
+            self.paths[name] = path
+
+        self.lists_file = os.path.join(self.dir, "music_lists.json")
+        lib = library.Library(os.path.join(self.dir, "library.db"), track_media.track_key)
+        lib.sync(list(self.paths.values()), self.music)
+        for name, genre in (("jazz1.mp3", "Jazz"), ("rock1.mp3", "Rock"),
+                            ("metal.mp3", "Alternative Metal;Heavy Metal;Kawaii Metal"),
+                            ("Daft Punk/album1.mp3", "Jazz")):
+            lib.store(self.paths[name], {"genre": genre}, self.music)
+        lib._db.close()
+
+        cfg = load_config()
+        cfg.update({
+            "MUSIC_DIR": self.music,
+            "MUSIC_CACHE_FILE": os.path.join(self.dir, "music_cache.json"),
+            "STATE_DIR": self.dir,
+            "LIST_LIBRARY_DB": None, "STATS_ENABLED": False,
+            "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
+            "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
+            "MUSIC_LISTS_FILE": self.lists_file,
+            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
+            "INTERACTIVE_FADE_DURATION_SEC": 0,
+        })
+        self.daemon = rukebox_daemon.RadioDaemon(cfg)
+        self.daemon.mpv = FakeMpv()
+        self.daemon._clock_ready = threading.Event()
+
+    def tearDown(self):
+        if self.daemon._list_library is not None:
+            self.daemon._list_library._db.close()
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def jazz(self):
+        return [self.paths["jazz1.mp3"], self.paths["Daft Punk/album1.mp3"]]
+
+    def test_everything_plays_when_no_list_is_active(self):
+        self.assertIsNone(self.daemon.state.active_list())
+        self.assertEqual(sorted(self.daemon._playable_tracks()),
+                         sorted(self.paths.values()))
+        self.assertIsNone(self.daemon._active_list_status())
+        self.assertIsNone(self.daemon._build_status()["active_list"])
+
+    def test_a_genre_list_limits_what_plays(self):
+        entry = music_lists.add(self.lists_file,
+                                {"name": "Jazz", "kind": "genre", "genres": ["jazz"]})
+        result = self.daemon._set_active_list(entry["id"], "test")
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["data"]["tracks"], 2)
+        self.assertEqual(sorted(self.daemon._playable_tracks()), sorted(self.jazz()))
+        self.assertEqual(sorted(self.daemon.state.data["play_queue"]), sorted(self.jazz()))
+        self.assertEqual(self.daemon._active_list_status(),
+                         {"id": entry["id"], "name": "Jazz", "kind": "genre",
+                          "genres": ["jazz"], "tracks": 2})
+        self.assertEqual(self.daemon._build_status()["active_list"]["name"], "Jazz")
+
+    def test_a_genre_list_finds_a_genre_among_several(self):
+        entry = music_lists.add(self.lists_file,
+                                {"name": "Heavy", "kind": "genre", "genres": ["Heavy Metal"]})
+        self.daemon._set_active_list(entry["id"], "test")
+        self.assertEqual(self.daemon._playable_tracks(), [self.paths["metal.mp3"]])
+
+    def test_a_manual_list_keeps_the_order_it_was_built_in(self):
+        entry = music_lists.add(self.lists_file, {"name": "Soir", "kind": "manual"})
+        music_lists.add_track(self.lists_file, entry["id"], self.paths["rock1.mp3"])
+        music_lists.add_track(self.lists_file, entry["id"], self.paths["jazz1.mp3"])
+        self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
+        self.daemon._set_active_list(entry["id"], "test")
+        self.assertEqual(self.daemon.state.data["play_queue"],
+                         [self.paths["rock1.mp3"], self.paths["jazz1.mp3"]])
+
+    def test_playing_a_list_starts_it_now(self):
+        entry = music_lists.add(self.lists_file, {"name": "Soir", "kind": "manual"})
+        music_lists.add_track(self.lists_file, entry["id"], self.paths["rock1.mp3"])
+        self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
+        self.daemon.mode = "music"
+        self.daemon._set_active_list(entry["id"], "test", start=True)
+        self.assertEqual(self.daemon.mpv.files[-1], self.paths["rock1.mp3"])
+        self.assertEqual(self.daemon.state.active_list(), entry["id"])
+
+    def test_going_back_to_everything(self):
+        entry = music_lists.add(self.lists_file, {"name": "Jazz", "kind": "genre",
+                                                  "genres": ["Jazz"]})
+        self.daemon._set_active_list(entry["id"], "test")
+        self.assertTrue(self.daemon._set_active_list(None, "test")["ok"])
+        self.assertIsNone(self.daemon.state.active_list())
+        self.assertEqual(sorted(self.daemon._playable_tracks()), sorted(self.paths.values()))
+
+    def test_an_unknown_list_is_refused(self):
+        result = self.daemon._set_active_list("nope", "test")
+        self.assertEqual((result["ok"], result["error"]), (False, "list_not_found"))
+        self.assertIsNone(self.daemon.state.active_list())
+
+    def test_a_deleted_list_goes_back_to_everything(self):
+        entry = music_lists.add(self.lists_file, {"name": "Jazz", "kind": "genre",
+                                                  "genres": ["Jazz"]})
+        self.daemon._set_active_list(entry["id"], "test")
+        music_lists.delete(self.lists_file, entry["id"])
+        self.assertEqual(sorted(self.daemon._playable_tracks()), sorted(self.paths.values()))
+        self.assertIsNone(self.daemon.state.active_list())
+
+    def test_a_manual_list_forgets_a_file_the_library_lost(self):
+        entry = music_lists.add(self.lists_file, {"name": "Soir", "kind": "manual"})
+        music_lists.add_track(self.lists_file, entry["id"], self.paths["jazz1.mp3"])
+        music_lists.add_track(self.lists_file, entry["id"], "/nowhere/gone.mp3")
+        self.daemon._set_active_list(entry["id"], "test")
+        self.assertEqual(self.daemon._playable_tracks(), [self.paths["jazz1.mp3"]])
+
+    def test_the_compression_filter_follows_the_setting(self):
+        self.daemon.cfg["AUDIO_COMPRESSION"] = "soft"
+        self.assertTrue(self.daemon._apply_compression())
+        self.assertIn("acompressor=", self.daemon.mpv.filters[-1])
+        self.daemon.cfg["AUDIO_COMPRESSION"] = "nonsense"
+        self.assertTrue(self.daemon._apply_compression())
+        self.assertEqual(self.daemon.mpv.filters[-1], "", "unknown means off")
+        self.daemon.cfg["AUDIO_COMPRESSION"] = "strong"
+        self.assertTrue(self.daemon._apply_compression())
+        self.assertIn("volume=9dB", self.daemon.mpv.filters[-1])
+
+    def test_a_build_without_the_filter_still_plays(self):
+        self.daemon.mpv.set_audio_filter = lambda chain: False
+        self.daemon.cfg["AUDIO_COMPRESSION"] = "soft"
+        self.assertFalse(self.daemon._apply_compression())
+
+
+if __name__ == "__main__":
+    unittest.main()

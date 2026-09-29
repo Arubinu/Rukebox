@@ -29,6 +29,9 @@ CREATE INDEX IF NOT EXISTS tracks_artist ON tracks(artist);
 
 PROBE_TIMEOUT_SEC = 20
 _LEADING_NUMBER = re.compile(r"^\s*\d{1,3}\s*[-._)]\s*")
+# A genre tag often holds several at once ("Alternative Metal;Kawaii Metal"),
+# and the same list is also written with commas or slashes.
+_GENRE_SEPARATORS = re.compile(r"[;,/|]")
 
 
 def fold(text):
@@ -37,6 +40,19 @@ def fold(text):
     text = unicodedata.normalize("NFKD", str(text or ""))
     text = "".join(c for c in text if not unicodedata.combining(c)).casefold()
     return " ".join(re.sub(r"[^0-9a-z]+", " ", text).split())
+
+
+def split_genres(value):
+    """Every genre a tag holds, in the order they are written: "Rock; Pop"
+    is two genres, "Rock" stays one. Empty parts are dropped and a genre
+    written twice counts once."""
+    out, seen = [], set()
+    for part in _GENRE_SEPARATORS.split(str(value or "")):
+        name = " ".join(part.split())
+        if name and name.casefold() not in seen:
+            seen.add(name.casefold())
+            out.append(name)
+    return out
 
 
 def _from_path(path, music_dir):
@@ -102,6 +118,7 @@ class Library:
         self._db.executescript(SCHEMA)
         self._lock = threading.Lock()
         self._key_fn = key_fn
+        self._genre_cache = None
 
     def sync(self, paths, music_dir):
         """Brings the rows in step with the music list: new files added."""
@@ -131,6 +148,7 @@ class Library:
                      fold(" ".join([title, artist, album, os.path.basename(path)]))))
                 added += 1
             self._db.commit()
+        self._genre_cache = None
         return added, len(removed)
 
     def unread(self, limit=50):
@@ -155,6 +173,7 @@ class Library:
                  fold(" ".join(filter(None, [title, artist, album, tags.get("genre"),
                                              os.path.basename(path)]))), path))
             self._db.commit()
+        self._genre_cache = None
 
     def status(self):
         with self._lock:
@@ -172,10 +191,18 @@ class Library:
         for token in fold(words).split():
             clauses.append("search LIKE ?")
             args.append("%" + token + "%")
-        for column, value in (("artist", artist), ("album", album), ("genre", genre)):
+        for column, value in (("artist", artist), ("album", album)):
             if value:
                 clauses.append(column + " = ?")
                 args.append(value)
+        if genre:
+            # A tag can hold several genres, so the one asked for has to be
+            # found inside them: the raw values it hides in are listed first.
+            raw = self._raw_genres(genre)
+            if not raw:
+                return {"items": [], "total": 0}
+            clauses.append("genre IN (%s)" % ",".join("?" * len(raw)))
+            args.extend(raw)
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         with self._lock:
             total = self._db.execute("SELECT COUNT(*) FROM tracks" + where, args).fetchone()[0]
@@ -185,21 +212,61 @@ class Library:
                 " LIMIT ? OFFSET ?", args + [int(limit), int(offset)]).fetchall()
         return {"items": [self._item(r) for r in rows], "total": total}
 
+    def _genre_index(self):
+        """Every genre the library holds, once each: a tag carrying several
+        ("Rock; Pop") counts for each of them, and each entry remembers the
+        raw tag values it comes from, so a search can find them back. The
+        spelling shown is the one the most files use."""
+        if self._genre_cache is not None:
+            return self._genre_cache
+        index = {}
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT genre, COUNT(*) FROM tracks WHERE genre IS NOT NULL AND genre <> ''"
+                " GROUP BY genre ORDER BY COUNT(*) DESC, genre").fetchall()
+        for raw, count in rows:
+            for name in split_genres(raw):
+                entry = index.setdefault(name.casefold(), {"name": name, "count": 0, "raw": []})
+                entry["count"] += count
+                entry["raw"].append(raw)
+        self._genre_cache = index
+        return index
+
+    def _raw_genres(self, genre):
+        """The tag values, as stored, that hold `genre` among others."""
+        return list(self._genre_index().get(fold(genre), {}).get("raw") or [])
+
     def facets(self, artist=None):
-        """Artists and genres with their counts."""
+        """Artists, genres and albums with their counts, genres one by one."""
         with self._lock:
             artists = [{"name": r[0], "count": r[1]} for r in self._db.execute(
                 "SELECT artist, COUNT(*) FROM tracks WHERE artist <> '' GROUP BY artist"
                 " ORDER BY artist COLLATE NOCASE")]
-            genres = [{"name": r[0], "count": r[1]} for r in self._db.execute(
-                "SELECT genre, COUNT(*) FROM tracks WHERE genre IS NOT NULL AND genre <> ''"
-                " GROUP BY genre ORDER BY genre COLLATE NOCASE")]
             album_sql = ("SELECT album, COUNT(*) FROM tracks WHERE album <> ''" +
                          (" AND artist = ?" if artist else "") +
                          " GROUP BY album ORDER BY album COLLATE NOCASE")
             albums = [{"name": r[0], "count": r[1]} for r in
                       self._db.execute(album_sql, (artist,) if artist else ())]
+        genres = [{"name": entry["name"], "count": entry["count"]}
+                  for entry in sorted(self._genre_index().values(),
+                                      key=lambda e: fold(e["name"]))]
         return {"artists": artists, "genres": genres, "albums": albums}
+
+    def paths_for_genres(self, genres):
+        """The paths of every track tagged with one of `genres`, compared
+        without case or accents - so a list built from the web interface's
+        "Jazz" also finds files tagged "jazz", and a file tagged
+        "Jazz; Vocal" belongs to both."""
+        wanted = {fold(g) for g in (genres or []) if str(g).strip()}
+        if not wanted:
+            return []
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT path, genre FROM tracks WHERE genre IS NOT NULL AND genre <> ''"
+                " ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track,"
+                " title COLLATE NOCASE").fetchall()
+        return [r["path"] for r in rows
+                if wanted.intersection(fold(g) for g in split_genres(r["genre"]))]
 
     def path_for_key(self, key):
         with self._lock:
@@ -210,6 +277,22 @@ class Library:
         with self._lock:
             row = self._db.execute("SELECT * FROM tracks WHERE path = ?", (path,)).fetchone()
         return self._item(row) if row else None
+
+    def items_for_paths(self, paths):
+        """The catalogue rows for these paths, in the order given; a path the
+        catalogue does not know is left out."""
+        wanted = [p for p in paths if p]
+        rows = {}
+        with self._lock:
+            for start in range(0, len(wanted), 500):
+                chunk = wanted[start:start + 500]
+                marks = ",".join("?" * len(chunk))
+                for row in self._db.execute(
+                        "SELECT * FROM tracks WHERE path IN (%s)" % marks, chunk):
+                    item = self._item(row)
+                    item["path"] = row["path"]
+                    rows[row["path"]] = item
+        return [rows[p] for p in wanted if p in rows]
 
     def item_for_basename(self, name):
         """The track whose file is called `name`."""

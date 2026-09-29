@@ -235,10 +235,56 @@
             <select id="libraryGenre"><option value="" data-i18n="library.all_genres">All genres</option></select>
           </div>
           <p class="hint library-count" id="libraryCount" role="status"></p>
+          <div class="form-actions" id="libraryGenreActions" hidden>
+            <button type="button" class="btn" id="libraryGenrePlay" data-icon="play"
+                    data-i18n="lists.play_genre">Play this genre</button>
+          </div>
           <ol class="device-list recent-list library-list" id="libraryList"></ol>
           <div class="form-actions">
             <button type="button" class="btn" id="libraryMore" data-icon="plus" hidden data-i18n="library.more">Show more</button>
           </div>
+        </section>
+
+        <section class="card" id="listsCard" data-tab="home" aria-labelledby="listsTitle" hidden>
+          <h2 data-icon="list" id="listsTitle"><span data-i18n="lists.title">Lists</span></h2>
+          <p class="hint help-text" data-i18n="lists.help" hidden>
+            The radio plays everything, or one list at a time. A list is
+            either the tracks you pick from the Library, or everything of the
+            genres you tick - a genre list keeps up with the library by
+            itself.
+          </p>
+          <p class="hint lists-now" id="listsNow" role="status"></p>
+          <div class="form-actions">
+            <button type="button" class="btn" id="listsPlayAll" data-icon="play"
+                    data-i18n="lists.play_all">Play everything</button>
+          </div>
+          <ol class="device-list ann-list" id="listsList"></ol>
+
+          <details class="subsection" id="listsNew">
+            <summary><span data-i18n="lists.new">New list</span></summary>
+            <div class="field-row">
+              <label for="listName" data-i18n="lists.name">Name</label>
+              <input type="text" id="listName" class="text-input" maxlength="40" autocomplete="off">
+            </div>
+            <div class="field-row">
+              <label for="listKind" data-i18n="lists.kind">What it holds</label>
+              <select id="listKind">
+                <option value="manual" data-i18n="lists.kind_manual">Tracks I pick</option>
+                <option value="genre" data-i18n="lists.kind_genre">Everything of some genres</option>
+              </select>
+            </div>
+            <div class="field-row" id="listGenresRow" hidden>
+              <div class="field-text">
+                <span class="field-label" data-i18n="lists.genres">Genres</span>
+                <p class="field-desc" data-i18n="lists.genres_desc">Tick what this list keeps.</p>
+              </div>
+            </div>
+            <div class="genre-checks" id="listsGenres" hidden></div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-primary" id="listsCreate" data-icon="check"
+                      data-i18n="lists.create">Create</button>
+            </div>
+          </details>
         </section>
 
         <div class="guest-release" id="guestRelease">
@@ -408,7 +454,18 @@
               <input type="number" id="sleepTimerMin" min="1" max="600" step="1" data-key="SLEEP_TIMER_MIN" class="num-input" inputmode="numeric">
             </div>
 
-            <div class="field-row">
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
+                <label for="audioCompression" data-i18n="settings.audio_compression">Volume boost</label>
+                <p class="field-desc" id="audioCompressionDesc" data-i18n="settings.audio_compression_desc">Evens the loudness out when the recordings are quiet, without touching the slider.</p>
+              </div>
+              <select id="audioCompression" data-key="AUDIO_COMPRESSION" aria-describedby="audioCompressionDesc">
+                <option value="off" data-i18n="compression.off">Off - exactly what the files contain</option>
+                <option value="soft" data-i18n="compression.soft">Soft</option>
+                <option value="strong" data-i18n="compression.strong">Strong</option>
+              </select>
+            </div>
+            <div data-level="detail" class="field-row">
               <label for="musicOrderMode" data-i18n="settings.order">Order</label>
               <select id="musicOrderMode" data-key="MUSIC_ORDER_MODE">
                 <option value="random" data-i18n="order.random">Completely random</option>

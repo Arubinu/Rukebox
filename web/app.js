@@ -535,8 +535,13 @@ function apiPost(path, body) {
   });
 }
 
-function apiDelete(path) {
-  return apiFetch(path, { method: "DELETE" });
+function apiDelete(path, body) {
+  const options = { method: "DELETE" };
+  if (body) {
+    options.headers = { "Content-Type": "application/json" };
+    options.body = JSON.stringify(body);
+  }
+  return apiFetch(path, options);
 }
 
 function setConnDot(ok) {
@@ -2705,6 +2710,7 @@ async function refreshLibraryFacets() {
   fillFacet(libraryAlbum, r.data.albums || [], "library.all_albums");
   fillFacet(libraryGenre, r.data.genres || [], "library.all_genres");
   libraryGenre.hidden = !(r.data.genres || []).length;
+  paintGenrePlay();
 }
 
 function libraryAsked() {
@@ -2753,6 +2759,7 @@ async function refreshLibrary(more) {
     li.append(trackMain(item));
     const actions = document.createElement("span");
     actions.className = "library-actions";
+    if (document.body.dataset.access !== "guest") actions.append(libraryListButton(item));
     actions.append(libraryButton(item, true));
     li.append(actions);
     return li;
@@ -2773,13 +2780,515 @@ libraryArtist.addEventListener("change", async () => {
   refreshLibrary(false);
 });
 libraryAlbum.addEventListener("change", () => refreshLibrary(false));
-libraryGenre.addEventListener("change", () => refreshLibrary(false));
+libraryGenre.addEventListener("change", () => {
+  refreshLibrary(false);
+  paintGenrePlay();
+});
 document.getElementById("libraryMore").addEventListener("click", () => refreshLibrary(true));
 refreshLibrary(false);
 
 setInterval(() => {
   if (!libraryAsked()) refreshLibrary(false);
 }, 30000);
+
+/* ---------- Music lists: everything, or one list at a time ---------- */
+
+const listsCard = document.getElementById("listsCard");
+const listsList = document.getElementById("listsList");
+const listsNowLine = document.getElementById("listsNow");
+const listsNameInput = document.getElementById("listName");
+const listsKindSelect = document.getElementById("listKind");
+const listsGenresBox = document.getElementById("listsGenres");
+const listsGenresRow = document.getElementById("listGenresRow");
+const listsNewBox = document.getElementById("listsNew");
+const libraryGenrePlay = document.getElementById("libraryGenrePlay");
+
+let listsData = { lists: [], active: null };
+let listsGenres = [];
+let listsSeq = 0;
+let openListId = null;
+let editingListId = null;
+let writingList = false;
+
+function tracksLabel(n) {
+  return t(n === 1 ? "lists.track_one" : "lists.track_other", { n: n });
+}
+
+function listKindLabel(item) {
+  if (item.kind !== "genre") return t("lists.kind_manual_short");
+  return (item.genres || []).join(", ") || t("lists.kind_genre_short");
+}
+
+function openListRow() {
+  return Array.from(document.querySelectorAll("#listsList .ann-item"))
+    .find((li) => li.dataset.id === openListId) || null;
+}
+
+function listActionButton(icon, key, onClick, variant) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn" + (variant ? " " + variant : "");
+  b.dataset.icon = icon;
+  b.textContent = t(key);
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function foldText(text) {
+  // The genre search compares the way the library does: no accents, no case.
+  return String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+function pickedGenres(host) {
+  // What is ticked IS what the pills above the list show, so the search can
+  // be changed or emptied without losing the choice.
+  return Array.from(host.querySelectorAll(".genre-pill")).map((pill) => pill.dataset.genre);
+}
+
+function setPickedGenres(host, names) {
+  const pills = host.querySelector(".genre-pills");
+  pills.replaceChildren(...(names || []).map((name) => {
+    const pill = document.createElement("span");
+    pill.className = "genre-pill";
+    pill.dataset.genre = name;
+    const text = document.createElement("span");
+    text.textContent = name;
+    const off = document.createElement("button");
+    off.type = "button";
+    off.className = "genre-pill-x";
+    off.dataset.icon = "x";
+    off.title = t("lists.genre_remove", { name: name });
+    off.setAttribute("aria-label", off.title);
+    off.addEventListener("click", () => {
+      setPickedGenres(host, pickedGenres(host).filter((kept) => kept !== name));
+    });
+    pill.append(text, off);
+    return pill;
+  }));
+  paintGenreOptions(host);
+}
+
+function paintGenreOptions(host) {
+  const options = host.querySelector(".genre-options");
+  const query = foldText(host.querySelector(".genre-search").value);
+  const picked = pickedGenres(host).map((name) => foldText(name));
+  const matching = listsGenres.filter((genre) => !query || foldText(genre.name).includes(query));
+  if (!matching.length) {
+    const none = document.createElement("p");
+    none.className = "hint genre-none";
+    none.textContent = t(listsGenres.length ? "lists.genre_none" : "lists.genre_empty");
+    options.replaceChildren(none);
+    return;
+  }
+  options.replaceChildren(...matching.map((genre) => {
+    const label = document.createElement("label");
+    label.className = "genre-option";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = genre.name;
+    box.checked = picked.includes(foldText(genre.name));
+    const name = document.createElement("span");
+    name.className = "genre-option-name";
+    name.textContent = genre.name;
+    const count = document.createElement("span");
+    count.className = "genre-count";
+    count.textContent = String(genre.count);
+    box.addEventListener("change", () => {
+      const kept = pickedGenres(host).filter((one) => foldText(one) !== foldText(genre.name));
+      if (box.checked) kept.push(genre.name);
+      setPickedGenres(host, kept);
+    });
+    label.append(box, name, count);
+    return label;
+  }));
+}
+
+function genrePicker(host, selected) {
+  if (!host.dataset.built) {
+    host.dataset.built = "1";
+    host.classList.add("genre-picker");
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "text-input genre-search";
+    search.autocomplete = "off";
+    search.dataset.i18nPlaceholder = "lists.genre_search";
+    search.dataset.i18nAriaLabel = "lists.genre_search";
+    search.placeholder = t("lists.genre_search");
+    search.setAttribute("aria-label", t("lists.genre_search"));
+    const pills = document.createElement("div");
+    pills.className = "genre-pills";
+    const options = document.createElement("div");
+    options.className = "genre-options";
+    search.addEventListener("input", () => paintGenreOptions(host));
+    host.replaceChildren(search, pills, options);
+  }
+  setPickedGenres(host, selected || []);
+}
+
+function clearGenrePicker(host) {
+  host.querySelector(".genre-search").value = "";
+  setPickedGenres(host, []);
+}
+
+function paintGenrePlay() {
+  // Looked up here rather than kept in a const: this runs from the library
+  // card, which is set up before the Lists card below.
+  const actions = document.getElementById("libraryGenreActions");
+  if (actions) {
+    actions.hidden = !libraryGenre.value || document.body.dataset.access === "guest";
+  }
+}
+
+async function playGenre() {
+  if (!libraryGenre.value) return;
+  libraryGenrePlay.disabled = true;
+  const r = await apiPost("/api/lists/from_genres",
+                          { genres: [libraryGenre.value], start: true });
+  libraryGenrePlay.disabled = false;
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  showToast(t("lists.now_playing", { name: r.data.name }), tracksLabel(r.data.tracks || 0));
+  refreshStatus();
+  refreshUpnext();
+  refreshLists();
+}
+
+libraryGenrePlay.addEventListener("click", playGenre);
+
+function openListsCard() {
+  setActiveTab("home");
+  listsNewBox.open = true;
+  listsCard.scrollIntoView({ block: "start", behavior: "smooth" });
+  listsNameInput.focus();
+}
+
+async function addToManualList(item) {
+  const manual = (listsData.lists || []).filter((l) => l.kind === "manual");
+  if (!manual.length) {
+    showToast(t("lists.none_yet"), t("lists.none_yet_hint"),
+              { action: { label: t("lists.open_card"), icon: "list", run: openListsCard } });
+    return;
+  }
+  const name = item.title || item.name || "";
+  const chosen = await showChoice("", manual.map((l) => ({ label: l.name, value: l.id })),
+                                  t("lists.add_to", { title: name }));
+  if (!chosen) return;
+  const r = await apiPost("/api/lists/" + encodeURIComponent(chosen) + "/tracks", { key: item.key });
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  showToast(t("lists.added", { name: r.data.name }), tracksLabel(r.data.count));
+  refreshLists();
+}
+
+function libraryListButton(item) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn btn-icon btn-small";
+  b.dataset.icon = "plus";
+  b.title = t("lists.add_to", { title: item.title || item.name || "" });
+  b.setAttribute("aria-label", b.title);
+  b.addEventListener("click", () => addToManualList(item));
+  return b;
+}
+
+async function playList(item) {
+  const r = await apiPost("/api/lists/active", { id: item.id, start: true });
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  showToast(t("lists.now_playing", { name: item.name }), tracksLabel(r.data.tracks || 0));
+  refreshStatus();
+  refreshUpnext();
+  refreshLists();
+}
+
+async function deleteList(item) {
+  if (!(await showConfirm(t("lists.confirm_delete", { name: item.name })))) return;
+  const r = await apiDelete("/api/lists/" + encodeURIComponent(item.id));
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  if (openListId === item.id) openListId = null;
+  if (editingListId === item.id) editingListId = null;
+  showToast(t("lists.deleted", { name: item.name }));
+  refreshLists();
+}
+
+async function saveList(item) {
+  const li = openListRow();
+  if (!li || writingList) return;
+  const name = (li.querySelector(".list-name").value || "").trim();
+  const body = { name: name };
+  if (item.kind === "genre") {
+    body.genres = pickedGenres(li.querySelector(".genre-picker"));
+  }
+  writingList = true;
+  const r = await apiPost("/api/lists/" + encodeURIComponent(item.id), body);
+  writingList = false;
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  editingListId = null;
+  showToast(t("lists.saved", { name: r.data.name }), tracksLabel(r.data.count));
+  refreshLists();
+}
+
+async function loadListTracks(item, holder) {
+  const r = await apiGet("/api/lists/" + encodeURIComponent(item.id) + "/tracks");
+  if (!r.ok || !r.data) {
+    holder.hidden = true;
+    return;
+  }
+  const items = r.data.items || [];
+  if (!items.length) {
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = t("lists.empty_manual");
+    holder.replaceChildren(note);
+    return;
+  }
+  const rows = items.map((track) => {
+    const li = document.createElement("li");
+    if (track.missing) li.classList.add("is-off");
+    li.append(trackMain(track));
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn btn-icon btn-small";
+    remove.dataset.icon = "x";
+    const title = track.title || track.name || "";
+    remove.title = t("lists.remove_track", { title: title });
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", async () => {
+      remove.disabled = true;
+      const res = await apiDelete("/api/lists/" + encodeURIComponent(item.id) + "/tracks",
+                                  { path: track.path, key: track.key });
+      if (!res.ok) {
+        remove.disabled = false;
+        showError(res.error);
+        return;
+      }
+      li.remove();
+      refreshLists();
+    });
+    li.append(remove);
+    return li;
+  });
+  const children = rows;
+  if (r.data.missing) {
+    const hint = document.createElement("li");
+    hint.className = "hint";
+    hint.textContent = t("lists.missing", { n: r.data.missing });
+    children.push(hint);
+  }
+  holder.replaceChildren(...children);
+}
+
+function fillListBody(body, item) {
+  if (!item) return;
+  const editing = editingListId === item.id;
+  const actions = document.createElement("div");
+  actions.className = "ann-actions" + (editing ? " is-two" : "");
+  if (editing) {
+    actions.append(
+      listActionButton("check", "common.save", () => saveList(item)),
+      listActionButton("x", "common.cancel", () => {
+        editingListId = null;
+        fillListBody(body, item);
+      }),
+    );
+  } else {
+    actions.append(
+      listActionButton("play", "lists.play", () => playList(item)),
+      listActionButton("pencil", "common.edit", () => {
+        editingListId = item.id;
+        fillListBody(body, item);
+      }),
+      listActionButton("trash", "common.delete", () => deleteList(item), "btn-danger-outline"),
+    );
+  }
+
+  const fields = document.createElement("div");
+  fields.className = "list-fields";
+  const nameRow = document.createElement("div");
+  nameRow.className = "field-row";
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = t("lists.name");
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.className = "text-input list-name";
+  nameInput.maxLength = 40;
+  nameInput.value = item.name;
+  nameInput.disabled = !editing;
+  nameRow.append(nameLabel, nameInput);
+  fields.append(nameRow);
+
+  if (item.kind === "genre") {
+    const box = document.createElement("div");
+    box.className = "genre-checks";
+    if (editing) {
+      genrePicker(box, item.genres);
+    } else {
+      const pills = document.createElement("div");
+      pills.className = "genre-pills";
+      pills.replaceChildren(...(item.genres || []).map((genre) => {
+        const pill = document.createElement("span");
+        pill.className = "genre-pill is-static";
+        pill.textContent = genre;
+        return pill;
+      }));
+      box.append(pills);
+    }
+    fields.append(box);
+  }
+
+  body.replaceChildren(actions, fields);
+  if (item.kind === "manual") {
+    const tracks = document.createElement("ol");
+    tracks.className = "device-list recent-list list-tracks";
+    body.append(tracks);
+    loadListTracks(item, tracks);
+  }
+}
+
+function setListOpen(id) {
+  openListId = id;
+  document.querySelectorAll("#listsList .ann-item").forEach((li) => {
+    const isOpen = li.dataset.id === id;
+    li.classList.toggle("is-open", isOpen);
+    li.querySelector(".ann-head").setAttribute("aria-expanded", isOpen ? "true" : "false");
+    const body = li.querySelector(".ann-body");
+    body.hidden = !isOpen;
+    if (isOpen) fillListBody(body, listsData.lists.find((l) => l.id === li.dataset.id));
+  });
+}
+
+function listRow(item) {
+  const li = document.createElement("li");
+  li.className = "ann-item";
+  li.dataset.id = item.id;
+  const open = item.id === openListId;
+  if (open) li.classList.add("is-open");
+  if (item.id === listsData.active) li.classList.add("is-playing");
+
+  const bodyId = "list-body-" + item.id;
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "ann-head";
+  head.setAttribute("aria-expanded", open ? "true" : "false");
+  head.setAttribute("aria-controls", bodyId);
+
+  const text = document.createElement("span");
+  text.className = "ann-text";
+  const name = document.createElement("span");
+  name.className = "ann-name";
+  name.textContent = item.name;
+  const meta = document.createElement("span");
+  meta.className = "ann-meta";
+  meta.textContent = [listKindLabel(item), tracksLabel(item.count),
+                      item.id === listsData.active ? t("lists.playing") : ""]
+    .filter(Boolean).join(" \u00b7 ");
+  text.append(name, meta);
+
+  const chevron = document.createElement("span");
+  chevron.className = "ann-chevron";
+  chevron.dataset.icon = "chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  head.append(text, chevron);
+  head.addEventListener("click", () => {
+    editingListId = null;
+    setListOpen(open ? null : item.id);
+  });
+
+  const body = document.createElement("div");
+  body.className = "ann-body";
+  body.id = bodyId;
+  body.hidden = !open;
+  if (open) fillListBody(body, item);
+
+  li.append(head, body);
+  return li;
+}
+
+async function refreshLists() {
+  // Never while a row is being edited: it would throw the typing away.
+  if (document.body.dataset.access === "guest" || editingListId) return;
+  const seq = ++listsSeq;
+  const results = await Promise.all([apiGet("/api/lists"), apiGet("/api/library/facets")]);
+  if (seq !== listsSeq) return;
+  const res = results[0];
+  const facets = results[1];
+  if (!res.ok || !res.data) {
+    listsCard.hidden = true;
+    return;
+  }
+  listsCard.hidden = false;
+  listsData = res.data;
+  if (facets.ok && facets.data) listsGenres = facets.data.genres || [];
+
+  const active = (listsData.lists || []).find((l) => l.id === listsData.active);
+  listsNowLine.textContent = active
+    ? t("lists.now_line", { name: active.name, tracks: tracksLabel(active.count) })
+    : t("lists.now_all");
+  listsList.replaceChildren(...(listsData.lists || []).map(listRow));
+  paintCreateGenres();
+}
+
+function paintCreateGenres() {
+  // Rebuilt when the library gained a genre, but the ticks are kept: the
+  // pills are the selection.
+  genrePicker(listsGenresBox, pickedGenres(listsGenresBox));
+}
+
+async function playEverything() {
+  const r = await apiPost("/api/lists/active", { id: null, start: true });
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  showToast(t("lists.now_all"), t("lists.now_all_hint"));
+  refreshStatus();
+  refreshUpnext();
+  refreshLists();
+}
+
+document.getElementById("listsPlayAll").addEventListener("click", playEverything);
+
+listsKindSelect.addEventListener("change", () => {
+  const byGenre = listsKindSelect.value === "genre";
+  listsGenresRow.hidden = !byGenre;
+  listsGenresBox.hidden = !byGenre;
+});
+
+document.getElementById("listsCreate").addEventListener("click", async () => {
+  const kind = listsKindSelect.value;
+  const body = {
+    name: listsNameInput.value.trim(),
+    kind: kind,
+    genres: pickedGenres(listsGenresBox),
+  };
+  const r = await apiPost("/api/lists", body);
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  listsNameInput.value = "";
+  clearGenrePicker(listsGenresBox);
+  listsNewBox.open = false;
+  openListId = r.data.id;
+  showToast(t("lists.created", { name: r.data.name }), tracksLabel(r.data.count));
+  refreshLists();
+});
+
+refreshLists();
+setInterval(refreshLists, 20000);
 
 const hapticsToggle = document.getElementById("hapticsToggle");
 hapticsToggle.checked = hapticsOn();
@@ -4411,7 +4920,8 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "counters_reset", "music_upload", "playback_pause", "portal_released", "stats_rows_deleted",
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
-  "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect"];
+  "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
+  "list_selected", "list_added", "list_changed", "list_removed"];
 function eventLabel(type) {
   return EVENT_TYPE_KEYS.includes(type) ? t("event." + type) : type;
 }

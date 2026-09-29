@@ -2014,6 +2014,75 @@ select {
   .ann-actions .btn { flex-direction: column; gap: 4px; min-height: 58px; font-size: 13px; }
 }
 
+/* Music lists: the announcements' accordion, plus what a list holds and the
+   genre picker of the create/edit form. */
+.lists-now { text-align: center; }
+.device-list li.ann-item.is-playing { border-color: var(--accent); background: var(--accent-soft); }
+.ann-item.is-playing .ann-name { color: var(--accent); }
+.ann-actions.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.list-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.list-tracks { max-height: 320px; overflow-y: auto; margin-top: 12px; }
+
+/* Genre picker: search on top, the chosen genres as pills, then only the
+   matching genres - a library can hold hundreds, so the list is bounded and
+   never the whole catalogue at once. */
+.genre-picker { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.genre-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.genre-pills:empty { display: none; }
+.genre-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  max-width: 100%;
+}
+.genre-pill.is-static { padding-right: 10px; }
+.genre-pill-x {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 2px;
+  cursor: pointer;
+}
+.genre-options {
+  display: flex;
+  flex-direction: column;
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.genre-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.genre-option + .genre-option { border-top: 1px solid var(--border); }
+.genre-option input { flex: none; }
+.genre-option-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.genre-count {
+  flex: none;
+  min-width: 26px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.genre-none { padding: 10px; }
+
 #systemSoundsList { max-height: none; overflow: visible; }
 #systemSoundsList .device-actions:not(.btn-split) { display: flex; gap: 8px; width: 100%; }
 #systemSoundsList .device-actions:not(.btn-split) > .btn { flex: 1 1 0; }

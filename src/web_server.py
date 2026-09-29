@@ -42,6 +42,7 @@ from stats import StatsRecorder  # noqa: E402
 import suggestions  # noqa: E402
 import audio_output  # noqa: E402
 import library  # noqa: E402
+import music_lists  # noqa: E402
 from version import read_version_file, set_release  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [web] %(message)s")
@@ -1244,6 +1245,192 @@ def api_queue():
         item["requested"] = path in requested
         items.append(item)
     return jsonify({"ok": True, "data": {"enabled": True, "items": items}})
+
+
+def _lists_path():
+    return cfg()["MUSIC_LISTS_FILE"]
+
+
+def _with_counts(entries):
+    """Lists as the interface shows them: how many tracks each stands for
+    right now, which is what the radio would play."""
+    lib = _get_library()
+    tracks = get_music_list(cfg()["MUSIC_DIR"], cfg()["MUSIC_CACHE_FILE"])
+    return [dict(entry, count=len(music_lists.resolved(entry, tracks, lib.paths_for_genres)))
+            for entry in entries]
+
+
+def _active_list_id():
+    """The list the daemon is playing, or None - including when it cannot be
+    reached, in which case "everything" is what it will play."""
+    try:
+        status = control("get_status")
+    except Exception:  # noqa: BLE001
+        log.exception("Could not read the active list from the daemon")
+        return None
+    return (((status.get("data") or {}).get("active_list") or {}).get("id")
+            if status.get("ok") else None)
+
+
+@app.route("/api/lists")
+def api_lists():
+    return jsonify({"ok": True, "data": {
+        "lists": _with_counts(music_lists.load(_lists_path())),
+        "active": _active_list_id(),
+    }})
+
+
+@app.route("/api/lists", methods=["POST"])
+def api_create_list():
+    body = request.get_json(silent=True) or {}
+    try:
+        entry = music_lists.add(_lists_path(), body)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    notify_daemon("reload_lists")
+    stats.record("list_added", label=entry["name"],
+                 detail={"id": entry["id"], "kind": entry["kind"]})
+    return jsonify({"ok": True, "data": _with_counts([entry])[0]})
+
+
+@app.route("/api/lists/<list_id>", methods=["POST"])
+def api_update_list(list_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        entry = music_lists.update(_lists_path(), list_id, body)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    notify_daemon("reload_lists")
+    stats.record("list_changed", label=entry["name"],
+                 detail={"id": list_id, "changes": sorted(body)})
+    return jsonify({"ok": True, "data": _with_counts([entry])[0]})
+
+
+@app.route("/api/lists/<list_id>", methods=["DELETE"])
+def api_delete_list(list_id):
+    try:
+        entry = music_lists.get(_lists_path(), list_id)
+        music_lists.delete(_lists_path(), list_id)
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    notify_daemon("reload_lists")
+    if _active_list_id() == list_id:
+        notify_daemon("set_active_list", id=None)
+    stats.record("list_removed", label=entry["name"], detail={"id": list_id})
+    return jsonify({"ok": True})
+
+
+@app.route("/api/lists/<list_id>/tracks")
+def api_list_tracks(list_id):
+    """What a list holds right now, as catalogue rows: the contents of a
+    manual list (with the files it kept that are gone from the library), or
+    what a genre list resolves to."""
+    try:
+        entry = music_lists.get(_lists_path(), list_id)
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    lib = _get_library()
+    if entry.get("kind") == "genre":
+        items = lib.items_for_paths(lib.paths_for_genres(entry.get("genres") or []))
+        return jsonify({"ok": True, "data": {"items": items, "missing": 0}})
+
+    stored = list(entry.get("tracks") or [])
+    items = lib.items_for_paths(stored)
+    known = {item["path"] for item in items}
+    missing = [
+        {"key": None, "path": path, "title": os.path.splitext(os.path.basename(path))[0],
+         "missing": True}
+        for path in stored if path not in known
+    ]
+    return jsonify({"ok": True, "data": {"items": items + missing, "missing": len(missing)}})
+
+
+def _stored_track(body):
+    """The path a request names: an opaque key from the library, or a path
+    already in the list (what removing a file the library no longer knows
+    needs)."""
+    return str(body.get("path") or "").strip() or _path_for_key(body.get("key"))
+
+
+@app.route("/api/lists/<list_id>/tracks", methods=["POST"])
+def api_add_list_track(list_id):
+    body = request.get_json(silent=True) or {}
+    path = _stored_track(body)
+    if not path:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    try:
+        entry = music_lists.add_track(_lists_path(), list_id, path)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    notify_daemon("reload_lists")
+    stats.record("list_changed", label=entry["name"],
+                 detail={"id": list_id, "added": os.path.basename(path)})
+    return jsonify({"ok": True, "data": {"name": entry["name"], "count": len(entry["tracks"])}})
+
+
+@app.route("/api/lists/<list_id>/tracks", methods=["DELETE"])
+def api_remove_list_track(list_id):
+    body = request.get_json(silent=True) or {}
+    path = _stored_track(body)
+    if not path:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    try:
+        entry = music_lists.remove_track(_lists_path(), list_id, path)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    notify_daemon("reload_lists")
+    stats.record("list_changed", label=entry["name"],
+                 detail={"id": list_id, "removed": os.path.basename(path)})
+    return jsonify({"ok": True, "data": {"name": entry["name"], "count": len(entry["tracks"])}})
+
+
+@app.route("/api/lists/active", methods=["POST"])
+def api_active_list():
+    """{id: null | "list-id", start: true}: what the radio plays from the next
+    track on, or right now."""
+    body = request.get_json(silent=True) or {}
+    list_id = str(body.get("id") or "").strip() or None
+    if list_id and not any(entry["id"] == list_id for entry in music_lists.load(_lists_path())):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    notify_daemon("reload_lists")
+    result = control("set_active_list", id=list_id, start=bool(body.get("start")))
+    return jsonify(result), (200 if result.get("ok") else 400)
+
+
+@app.route("/api/lists/from_genres", methods=["POST"])
+def api_list_from_genres():
+    """{genres: [...], start}: the list for these genres, the one that already
+    matches or a fresh one - what the library's genre filter offers."""
+    body = request.get_json(silent=True) or {}
+    genres = [str(g).strip() for g in (body.get("genres") or []) if str(g).strip()]
+    if not genres:
+        return jsonify({"ok": False, "error": "list_genres_required"}), 400
+    wanted = {g.casefold() for g in genres}
+    entry = next((item for item in music_lists.load(_lists_path())
+                  if item.get("kind") == "genre"
+                  and {g.casefold() for g in (item.get("genres") or [])} == wanted), None)
+    if entry is None:
+        try:
+            entry = music_lists.add(_lists_path(), {"name": music_lists.genre_list_name(genres),
+                                                    "kind": "genre", "genres": genres})
+        except ValueError as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+        stats.record("list_added", label=entry["name"],
+                     detail={"id": entry["id"], "kind": "genre"})
+    notify_daemon("reload_lists")
+    result = control("set_active_list", id=entry["id"], start=bool(body.get("start", True)))
+    if not result.get("ok"):
+        return jsonify(result), 400
+    data = dict(result.get("data") or {})
+    data["id"] = entry["id"]
+    data["name"] = entry["name"]
+    return jsonify({"ok": True, "data": data})
 
 
 def _output_fallback_state():

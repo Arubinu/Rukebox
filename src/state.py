@@ -38,6 +38,7 @@ class RadioState:
         self.data.setdefault("chance_bags", {})
         self.data.setdefault("recent", [])
         self.data.setdefault("requests", [])
+        self.data.setdefault("active_list", None)
 
     def _save(self):
         os.makedirs(os.path.dirname(self.state_path), exist_ok=True)
@@ -46,7 +47,8 @@ class RadioState:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
         os.replace(tmp_path, self.state_path)
 
-    def ensure_queue(self, all_tracks, order_mode, music_dir, keep_progress, resume_mode="next_track"):
+    def ensure_queue(self, all_tracks, order_mode, music_dir, keep_progress, resume_mode="next_track",
+                     custom_order=None):
         """Called once at daemon startup, before the first track of the session
         is chosen."""
         with self._lock:
@@ -59,7 +61,8 @@ class RadioState:
                 self.data["last_track"] = None
 
             if not self.data["play_queue"]:
-                self.data["play_queue"] = playlist.order_files(all_tracks, music_dir, order_mode)
+                self.data["play_queue"] = playlist.order_files(
+                    all_tracks, music_dir, order_mode, custom_order)
             elif (
                 keep_progress
                 and resume_mode == "same_track"
@@ -80,15 +83,27 @@ class RadioState:
             self._save()
             return track
 
-    def rebuild_queue(self, all_tracks, order_mode, music_dir):
+    def rebuild_queue(self, all_tracks, order_mode, music_dir, custom_order=None):
         """Starts a fresh pass - called when the queue has just run out and
         MUSIC_LOOP is true."""
         with self._lock:
-            self.data["play_queue"] = playlist.order_files(all_tracks, music_dir, order_mode)
+            self.data["play_queue"] = playlist.order_files(
+                all_tracks, music_dir, order_mode, custom_order)
             self._save()
 
     def has_queued_tracks(self):
         return bool(self.data["play_queue"])
+
+    def active_list(self):
+        """The id of the music list being played, or None for the whole
+        library."""
+        return self.data.get("active_list") or None
+
+    def set_active_list(self, list_id):
+        with self._lock:
+            self.data["active_list"] = list_id or None
+            self._save()
+        return self.data["active_list"]
 
     def add_recent(self, path, limit):
         """The music track that just started, newest first, at most `limit`
