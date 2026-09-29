@@ -11,7 +11,10 @@ import io
 import os
 import shutil
 import tempfile
+import time
+import types
 import unittest
+import unittest.mock
 
 import _path  # noqa: F401
 
@@ -29,6 +32,54 @@ if flask:
     import web_server as ws
 
 
+class FakeBluetoothctl:
+    """The little of a `bluetoothctl` process that `_bt_await` uses."""
+
+    started = []
+
+    def __init__(self, *args, **kwargs):
+        self.lines = []
+        self.at = []
+        self.out = []
+        self.terminated = False
+        self.stdin = self
+        self.stdout = self
+        FakeBluetoothctl.started.append(self)
+
+    def write(self, line):
+        line = line.strip()
+        self.lines.append(line)
+        self.at.append(time.monotonic())
+        if line.startswith(("pair", "connect")):
+            self.out.append("Pairing successful\n")
+
+    def flush(self):
+        pass
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while True:
+            if self.out:
+                return self.out.pop(0)
+            if self.terminated:
+                raise StopIteration
+            time.sleep(0.01)
+
+    def poll(self):
+        return 0 if self.terminated else None
+
+    def terminate(self):
+        self.terminated = True
+
+    def kill(self):
+        self.terminated = True
+
+    def wait(self, timeout=None):
+        return 0
+
+
 @unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
 class WebTest(unittest.TestCase):
     @classmethod
@@ -43,6 +94,7 @@ class WebTest(unittest.TestCase):
             "MUSIC_DIR": os.path.join(cls.dir, "music"),
             "MUSIC_CACHE_FILE": os.path.join(cls.dir, "music_cache.json"),
             "MUSIC_LISTS_FILE": os.path.join(cls.dir, "music_lists.json"),
+            "ANNOUNCEMENTS_FILE": os.path.join(cls.dir, "announcements.json"),
             "GUEST_QUOTA_ENABLED": True, "GUEST_QUOTA_MAX": 3, "GUEST_QUOTA_REFILL_SEC": 600,
             "GUEST_QUOTA_REPEAT_MIN": 0, "GUEST_COST_NEXT": 1,
         }
@@ -95,6 +147,44 @@ class WebTest(unittest.TestCase):
         self.assertEqual([guest.post("/api/action/next_track").status_code for _ in range(3)], [200] * 3)
         owner.post("/api/devices/free_credits", json={"device_id": device["id"], "on": False})
         self.assertEqual(guest.post("/api/action/next_track").status_code, 429)
+
+    def test_pairing_keeps_the_scan_running(self):
+        # Measured on the Pi: BlueZ drops a device it has only seen the moment
+        # discovery stops, and `pair` then answers "not available" - so the
+        # scan has to be started in the pairing session itself.
+        seen = {}
+        original = (ws._bt_device_info, ws._bt_discover, ws._bt_await,
+                    ws._bt_wait_flag, ws._bt_script)
+        ws._bt_device_info = lambda mac: {"paired": False, "available": True, "connected": False,
+                                          "name": "", "kind": "", "custom": False}
+        ws._bt_discover = lambda mac, timeout=12: True
+        ws._bt_wait_flag = lambda mac, flag, **kw: {"paired": True, "connected": True,
+                                                    "available": True, "name": "", "kind": ""}
+
+        def fake_await(commands, verdicts, **kwargs):
+            seen["commands"] = list(commands)
+            return "Pairing successful", True
+
+        ws._bt_await = fake_await
+        ws._bt_script = lambda commands, **kw: types.SimpleNamespace(stdout="", returncode=0)
+        try:
+            answer = self.owner().post("/api/bluetooth/pair", json={"mac": "7C:E9:13:69:66:55"})
+        finally:
+            (ws._bt_device_info, ws._bt_discover, ws._bt_await,
+             ws._bt_wait_flag, ws._bt_script) = original
+        self.assertTrue(answer.get_json()["ok"], answer.get_json())
+        self.assertEqual(seen["commands"][0], "scan on")
+        self.assertIn("pair 7C:E9:13:69:66:55", seen["commands"])
+        self.assertIsInstance(seen["commands"][1], float, "the scan needs a moment first")
+
+    def test_a_number_in_the_commands_is_a_pause(self):
+        with unittest.mock.patch.object(ws.subprocess, "Popen", FakeBluetoothctl):
+            verdict = ws._bt_await(["scan on", 0.05, "pair AA:BB:CC:DD:EE:FF"],
+                                   {"Pairing successful": True}, timeout=5)[1]
+        proc = FakeBluetoothctl.started[-1]
+        self.assertTrue(verdict)
+        self.assertEqual(proc.lines, ["scan on", "pair AA:BB:CC:DD:EE:FF"])
+        self.assertGreaterEqual(proc.at[1] - proc.at[0], 0.04, "the pause was honoured")
 
     def test_play_now_only_from_up_next(self):
         owner = self.owner()

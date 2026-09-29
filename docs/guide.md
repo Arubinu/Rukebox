@@ -863,6 +863,16 @@ is the surest cure for a sound that still stutters now and then: on one
 radio the Pi can send on time while the link itself drops, which no setting
 here can prevent.
 
+That sharing has a second face, measured while streaming to a speaker: the
+**Wi-Fi link itself gets flaky** — SSH sessions time out, and a file
+transfer can arrive truncated (an update pushed by hand during playback left
+a source file empty and the daemon refused to start until it was sent
+again). `scripts/update.sh` protects you here: it checks that every file at
+the other end hashes to what was sent, and refuses code that does not
+import, before it swaps anything in. A hand `scp` does not — if you copy
+files onto the Pi yourself, stop the music first, or check the file sizes
+afterwards.
+
 ### Using the USB port for devices instead
 
 A Pi Zero has a single USB data port. By default it is the network link

@@ -2735,18 +2735,20 @@ def _bt_wait_flag(mac, flag, timeout=4):
 
 
 def _bt_await(commands, verdicts, timeout=30, agent=False):
-    """Runs bluetoothctl with its stdin left open and waits for the answer."""
+    """Runs bluetoothctl with its stdin left open and waits for the answer.
+
+    A number in `commands` is a pause, in seconds, before the next one:
+    bluetoothctl has no wait of its own, and a scan needs a moment before the
+    device it is looking for exists again."""
     command = ["bluetoothctl"]
     if agent:
         command += ["--agent", "NoInputNoOutput"]
     adapter = cfg().get("SPEAKER_BT_ADAPTER", "")
-    script = (f"select {adapter}\n" if adapter else "") + "\n".join(commands) + "\n"
+    script = ([f"select {adapter}"] if adapter else []) + list(commands)
     proc = subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, bufsize=1,
     )
-    proc.stdin.write(script)
-    proc.stdin.flush()
 
     collected = []
 
@@ -2754,7 +2756,19 @@ def _bt_await(commands, verdicts, timeout=30, agent=False):
         for raw in proc.stdout:
             collected.append(raw)
 
+    def feed():
+        for item in script:
+            if isinstance(item, (int, float)):
+                time.sleep(float(item))
+                continue
+            try:
+                proc.stdin.write(item + "\n")
+                proc.stdin.flush()
+            except (OSError, ValueError):
+                return
+
     threading.Thread(target=reader, daemon=True).start()
+    threading.Thread(target=feed, daemon=True).start()
 
     verdict = None
     deadline = time.time() + timeout
@@ -2807,6 +2821,7 @@ def _bt_discover(mac, timeout=12):
 
 
 CONNECT_SETTLE_SECONDS = 2.5
+PAIR_SCAN_WAIT = 2.5
 
 
 def _speaker_link(mac):
@@ -3018,7 +3033,12 @@ def api_bt_pair():
         stats.record("bluetooth_pair", label=mac, detail={"ok": False, "reason": "not_found"})
         return jsonify({"ok": False, "error": "bt_not_found"})
 
-    text, verdict = _bt_await([f"pair {mac}"], _BT_PAIR_VERDICTS, timeout=30, agent=True)
+    # The scan runs in the SAME session as the pairing: BlueZ drops a device it
+    # has only ever seen as soon as discovery stops, and `pair` then answers a
+    # flat "not available" - measured on the Pi, where pairing the speaker on
+    # the dongle failed every time until the scan was kept on.
+    text, verdict = _bt_await(["scan on", PAIR_SCAN_WAIT, f"pair {mac}"], _BT_PAIR_VERDICTS,
+                              timeout=40, agent=True)
     _bt_info_cache.pop(mac, None)
     info = _bt_wait_flag(mac, "paired")
     if info["paired"]:
