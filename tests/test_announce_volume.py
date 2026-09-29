@@ -174,6 +174,28 @@ class StoreTest(unittest.TestCase):
             self.assertIn("a second document", f.read(), "the file was left alone")
 
 
+class PlayTargetTest(unittest.TestCase):
+    """What a play_announcement command names: the row's "Jouer" names its
+    announcement by id, but the web server adds source="web" to every command
+    it sends - which the daemon read as an announcement source, and answered
+    "unknown source" (reported as "Cette annonce n'existe plus")."""
+
+    def test_the_provenance_of_a_command_is_not_an_announcement_source(self):
+        target = rukebox_daemon.announcement_target
+        self.assertEqual(target({"id": "morning", "source": "web"}), (None, "morning", False))
+        self.assertEqual(target({"id": "morning", "source": "flic"}), (None, "morning", False))
+        self.assertEqual(target({"id": "", "source": "gpio"}), (None, "", False))
+
+    def test_a_built_in_list_is_played_by_name(self):
+        target = rukebox_daemon.announcement_target
+        self.assertEqual(target({"source": "cutoff"}), ("cutoff", None, True))
+        self.assertEqual(target({"source": "meme"}), ("meme", None, True))
+
+    def test_a_custom_source_is_a_chooser(self):
+        self.assertEqual(rukebox_daemon.announcement_target({"source": "custom:morning"}),
+                         (None, "morning", True))
+
+
 class DaemonVolumeTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()

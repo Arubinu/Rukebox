@@ -35,6 +35,26 @@ logging.basicConfig(
 log = logging.getLogger("radio")
 
 
+def announcement_target(msg):
+    """(source, item_id, chooser) for a play_announcement command.
+
+    `source` carries two different things: the announcement to play, and where
+    the command came from ("web", "flic", "gpio", "speaker" - the web server
+    adds source="web" to everything). Only a real announcement source counts
+    as one here, or the row's own "Play" - which names its announcement by id
+    - is answered "unknown source"."""
+    source = msg.get("source")
+    item_id = msg.get("id")
+    if source and not (source in announcements.BUILTIN_SOURCES
+                       or source.startswith("custom:")):
+        source = None
+    chooser = bool(source)
+    if source and source.startswith("custom:"):
+        item_id = source[len("custom:"):]
+        source = None
+    return source, item_id, chooser
+
+
 class RadioDaemon:
     def __init__(self, cfg):
         self._state_cond = threading.Condition()
@@ -2312,12 +2332,7 @@ class RadioDaemon:
                 if self.mode != "music":
                     return {"ok": False, "error": "not_playing_music"}
 
-                source = msg.get("source")
-                item_id = msg.get("id")
-                chooser = bool(source)
-                if source and source.startswith("custom:"):
-                    item_id = source[len("custom:"):]
-                    source = None
+                source, item_id, chooser = announcement_target(msg)
 
                 if source:
                     if source not in announcements.BUILTIN_SOURCES:
