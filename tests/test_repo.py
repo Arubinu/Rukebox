@@ -74,5 +74,24 @@ class FilesTest(unittest.TestCase):
         self.assertEqual(sh, ps1)
 
 
+class GuestPathsTest(unittest.TestCase):
+    def test_the_two_guest_lists_agree(self):
+        # app.js refuses a guest call before sending it, from its own copy of
+        # the list. A path the server allows and that copy forgets is a button
+        # that shows its price and does nothing - which is what happened to
+        # pause and skip a sound, added to the server and not to the page.
+        source = open(os.path.join(_path.SRC, "web_server.py"), encoding="utf-8").read()
+        start = source.index("_GUEST_PATHS = frozenset({")
+        server = set(re.findall(r'"(/api/[^"]*)"', source[start:source.index("})", start)]))
+
+        app = _path.read("web", "app.js")
+        start = app.index("GUEST_API_PATHS = [")
+        client = set(re.findall(r'"(/api/[^"]*)"', app[start:app.index("];", start)]))
+        client = {path for path in client if not path.endswith("/")}
+
+        self.assertTrue(server and client)
+        self.assertEqual(server ^ client, set())
+
+
 if __name__ == "__main__":
     unittest.main()

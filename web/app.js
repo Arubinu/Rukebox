@@ -121,6 +121,11 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
 let guestMode = false;
 
+// The guest-allowed paths, to refuse a call before sending it - so this has
+// to stay in step with web_server.py's _GUEST_PATHS, path for path (a test
+// compares the two: a path the server allows and this list forgets is a
+// button that shows its price and does nothing). "/api/auth/" is not in the
+// server's set: it is the exempt prefix, handled below.
 const GUEST_API_PATHS = [
   "/api/status",
   "/api/status/wait",
@@ -131,6 +136,8 @@ const GUEST_API_PATHS = [
 
   "/api/action/next_track",
   "/api/action/previous_track",
+  "/api/action/toggle_pause",
+  "/api/action/skip_sound",
   "/api/action/announce",
   "/api/announcements",
   "/api/portal/status",
