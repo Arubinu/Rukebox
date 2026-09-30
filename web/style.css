@@ -745,6 +745,36 @@ body[data-page=""] .grid { flex: 1 1 auto; align-content: center; }
 .recent-list li.is-current .recent-when { color: var(--accent); font-weight: 600; }
 #recentEmpty { text-align: center; }
 
+/* Duplicate tracks: one card per song, its copies listed inside it, each with
+   what it weighs - the size, the length and the bitrate are what the choice is
+   made on, and the ones a check set aside are struck through. */
+.device-list li.duplicate-group { display: block; padding: 0; overflow: hidden; }
+.duplicate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.duplicate-head strong { font-size: 15px; overflow-wrap: anywhere; }
+.duplicate-badge { flex: none; }
+.duplicate-same { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.duplicate-copies { list-style: none; margin: 0; padding: 0; }
+.device-list .duplicate-copies li {
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding: 8px 14px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+.device-list .duplicate-copies li:first-child { border-top: 0; }
+.duplicate-copy .recent-main { flex: 1 1 12rem; }
+.duplicate-copy.is-hidden { opacity: 0.6; }
+.duplicate-copy.is-hidden .recent-title { text-decoration: line-through; }
+
 .suggest-me-line { margin: 4px 0 12px; color: var(--text-muted); text-align: center; }
 .suggest-me-line strong { color: var(--text); }
 .suggest-list { max-height: none; }

@@ -934,6 +934,33 @@ What it usually shows, in order of likelihood:
   much range to work with. Raise it once with
   `wpctl set-volume @DEFAULT_AUDIO_SINK@ 1.0`.
 
+### Duplicate tracks: what the catalogue already knows
+
+*Library > Duplicate tracks* lists the songs the library holds more than once.
+It costs nothing to run: the scan already read every file once, so this is a
+query over the catalogue (title, artist, album, size, duration) and it never
+touches the card.
+
+Two spellings of one song are the same song - brackets, a leading track number
+and a "feat." clause come off before comparing, so "05 - La Seine" and
+"13 - La Seine (Extrait de la bande originale)" end up in one group. Inside a
+group, a copy marked **same file, twice** weighs exactly what another one
+weighs, to the second: nothing but a real copy does that, and it is the group a
+reader can act on without listening.
+
+Each copy shows its album, its size, its length and the bitrate its own bytes
+imply, with the usual **play** and **up next** buttons so two of them can be
+compared by ear. **Keep this one** sets the other copies aside: they leave what
+the radio chooses by itself and are struck through here, but **no file is ever
+deleted** - the song is still there to be played by hand, and *Give it back*
+puts it straight back in the rotation.
+
+Nothing is hashed. On a Pi Zero, reading 12 GB of music to compare it would
+cost ten minutes of card access and say nothing more, since two files of the
+same size and the same length to the second are copies. Two different masters,
+a re-encode, a live version: they are still grouped, and the sizes and the
+bitrates are what tells them apart.
+
 ### Using the USB port for devices instead
 
 A Pi Zero has a single USB data port. By default it is the network link

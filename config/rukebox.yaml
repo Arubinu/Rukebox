@@ -719,3 +719,8 @@ paths:
   # remembered by its library key, so the like survives a rescan; each
   # entry carries the date it was liked, which is what the list shows.
   likes_file: "/var/lib/rukebox/likes.json"
+
+  # The tracks a duplicate check kept aside - see src/hidden_tracks.py:
+  # the radio stops choosing them on its own. Nothing is deleted, and the
+  # file is still there to be played by hand.
+  hidden_file: "/var/lib/rukebox/hidden.json"

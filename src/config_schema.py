@@ -834,6 +834,14 @@ SETTINGS = [
         "entry carries the date it was liked, which is what the list shows.",
         "Liked tracks file",
     ),
+    Setting(
+        "HIDDEN_FILE", "paths", "hidden_file", "str",
+        "/var/lib/rukebox/hidden.json",
+        "The tracks a duplicate check kept aside - see src/hidden_tracks.py:\n"
+        "the radio stops choosing them on its own. Nothing is deleted, and the\n"
+        "file is still there to be played by hand.",
+        "Hidden tracks file",
+    ),
 ]
 
 BY_ENV = {s.env: s for s in SETTINGS}

@@ -229,6 +229,18 @@
           <p class="hint" id="likesEmpty" data-i18n="likes.empty" hidden>No liked track yet.</p>
         </section>
 
+        <section class="card" id="duplicatesCard" data-page="duplicates" data-tab="home" aria-labelledby="duplicatesTitle" hidden>
+          <h2 data-icon="copy" id="duplicatesTitle"><span data-i18n="duplicates.title">Duplicate tracks</span></h2>
+          <p class="hint help-text" data-i18n="duplicates.help" hidden>
+            The same song more than once, read from the catalogue the scan already built -
+            nothing is re-read from the card. Keeping one copy only keeps the others out of
+            what the radio plays by itself: no file is ever deleted.
+          </p>
+          <p class="hint" id="duplicatesSummary"></p>
+          <ul class="device-list duplicate-list" id="duplicatesList"></ul>
+          <p class="hint" id="duplicatesEmpty" data-i18n="duplicates.empty" hidden>No duplicate found.</p>
+        </section>
+
         <section class="card" id="todayCard" data-page="today" data-tab="home" aria-labelledby="todayTitle" hidden>
           <h2 data-icon="sun" id="todayTitle"><span data-i18n="today.title">Today</span></h2>
           <dl class="today-grid" id="todayFigures"></dl>

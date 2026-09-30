@@ -20,6 +20,7 @@ import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
+import hidden_tracks  # noqa: E402
 import library  # noqa: E402
 from mpv_controller import MPVController, audio_env, compression_filter  # noqa: E402
 import music_lists  # noqa: E402
@@ -515,12 +516,25 @@ class RadioDaemon:
 
     def _playable_tracks(self):
         """What the radio plays: the active list's tracks, or the whole
-        library when no list is active."""
+        library when no list is active, minus what a duplicate check kept
+        aside - the files are still there, the radio just stops choosing them
+        by itself."""
         tracks = self._get_music_list()
         entry = self._active_list_entry()
-        if not entry:
+        if entry:
+            tracks = music_lists.resolved(entry, tracks, self._genre_paths)
+        hidden = self._hidden_paths()
+        if not hidden:
             return tracks
-        return music_lists.resolved(entry, tracks, self._genre_paths)
+        return [path for path in tracks if path not in hidden]
+
+    def _hidden_paths(self):
+        """The paths a duplicate check kept aside, or nothing at all."""
+        try:
+            return hidden_tracks.paths(self.cfg.get("HIDDEN_FILE") or "")
+        except Exception:  # noqa: BLE001 - never keep the radio from playing
+            log.exception("Could not read the hidden tracks")
+            return set()
 
     def _active_list_status(self):
         entry = self._active_list_entry()
@@ -2306,6 +2320,10 @@ class RadioDaemon:
             if cmd == "reload_lists":
                 self._lists_stamp = None
                 return {"ok": True, "count": len(self._lists())}
+            if cmd == "reload_hidden":
+                tracks = self._rebuild_queue()
+                return {"ok": True, "tracks": len(tracks),
+                        "hidden": len(self._hidden_paths())}
             if cmd == "set_active_list":
                 return self._set_active_list(msg.get("id"), source, bool(msg.get("start")))
             if cmd == "skip_sound":

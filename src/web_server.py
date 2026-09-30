@@ -30,6 +30,8 @@ import announcements  # noqa: E402
 import audio_diag  # noqa: E402
 import bt_codec  # noqa: E402
 import config_bundle  # noqa: E402
+import duplicates  # noqa: E402
+import hidden_tracks  # noqa: E402
 import playlist  # noqa: E402
 import track_order  # noqa: E402
 import track_media  # noqa: E402
@@ -3894,6 +3896,49 @@ def api_likes_toggle():
                  detail={"key": key})
     return jsonify({"ok": True, "data": {"liked": liked,
                                          "count": len(likes.load(cfg()["LIKES_FILE"]))}})
+
+
+@app.route("/api/library/duplicates")
+def api_library_duplicates():
+    """The songs the library holds more than once, from library.db alone: the
+    scan already read every file, so the check costs no disk access at all."""
+    c = cfg()
+    path = c.get("LIBRARY_DB_FILE") or ""
+    if not path or not os.path.exists(path):
+        return jsonify({"ok": False, "error": "library_missing"}), 404
+    hidden = hidden_tracks.keys(c.get("HIDDEN_FILE") or "")
+    found = duplicates.groups(path, hidden)
+    return jsonify({"ok": True, "data": {"groups": found,
+                                         "summary": duplicates.summary(found)}})
+
+
+@app.route("/api/library/hide", methods=["POST"])
+def api_library_hide():
+    """{key, hidden}: keeps one copy out of what the radio chooses by itself.
+    Nothing is deleted - the file is still there to be played by hand."""
+    body = request.get_json(silent=True) or {}
+    key = str(body.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "hidden_key_required"}), 400
+    hidden = bool(body.get("hidden", True))
+    known = _library_item(key)
+    c = cfg()
+    file_path = c.get("HIDDEN_FILE") or ""
+    try:
+        hidden_tracks.set_hidden(
+            file_path, key, hidden,
+            track_path=str(body.get("path") or known.get("path") or ""),
+            title=str(body.get("title") or known.get("title") or ""),
+            artist=str(body.get("artist") or known.get("artist") or ""))
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    # The queue follows at once: the current track finishes, and the next one
+    # cannot be a copy that was just put aside.
+    control("reload_hidden")
+    stats.record("track_hidden" if hidden else "track_shown",
+                 label=str(known.get("title") or key), detail={"key": key})
+    return jsonify({"ok": True, "data": {
+        "hidden": hidden, "count": len(hidden_tracks.keys(file_path))}})
 
 
 def _library_item(key):

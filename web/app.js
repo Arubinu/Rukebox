@@ -3308,6 +3308,143 @@ window.LANG_CHANGE_LISTENERS.push(() => {
   paintLikeButton();
 });
 
+/* ------------------------------------------------------------------
+   Duplicate tracks: the same song catalogued more than once, grouped by
+   title and artist, with the copies that are the very same file marked.
+   Read from the catalogue on demand - it costs no disk access - and a
+   copy can be kept out of what the radio chooses by itself.
+   ------------------------------------------------------------------ */
+let duplicateGroups = [];
+let duplicatesAsked = false;
+
+function duplicateFacts(copy) {
+  return [copy.album, formatBytes(copy.size), formatClock(copy.duration),
+    copy.kbps ? copy.kbps + " kb/s" : ""].filter(Boolean).join(" \u00b7 ");
+}
+
+function duplicateCopy(copy, group) {
+  const li = document.createElement("li");
+  li.className = "duplicate-copy" + (copy.hidden ? " is-hidden" : "");
+  const main = document.createElement("span");
+  main.className = "recent-main";
+  const title = document.createElement("span");
+  title.className = "recent-title";
+  title.textContent = copy.name;
+  const facts = document.createElement("span");
+  facts.className = "recent-artist";
+  facts.textContent = duplicateFacts(copy);
+  main.append(title, facts);
+  li.append(main);
+  if (copy.hidden) {
+    const badge = document.createElement("span");
+    badge.className = "badge duplicate-badge";
+    badge.textContent = t("duplicates.hidden_badge");
+    li.append(badge);
+  }
+  li.append(libraryButton(copy, false), libraryButton(copy, true),
+    duplicateKeepButton(copy, group));
+  return li;
+}
+
+function duplicateKeepButton(copy, group) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn btn-small duplicate-keep";
+  b.dataset.icon = copy.hidden ? "refresh" : "check";
+  const label = document.createElement("span");
+  label.textContent = t(copy.hidden ? "duplicates.restore" : "duplicates.keep");
+  b.append(label);
+  b.title = t(copy.hidden ? "duplicates.restore_aria" : "duplicates.keep_aria",
+    { name: copy.name });
+  b.setAttribute("aria-label", b.title);
+  b.dataset.costAction = "";
+  b.addEventListener("click", async () => {
+    b.disabled = true;
+    let failed = null;
+    if (copy.hidden) {
+      const asked = await apiPost("/api/library/hide",
+        { key: copy.key, hidden: false, path: copy.path });
+      if (!asked.ok) failed = asked;
+    } else {
+      // Keeping one copy only puts the others aside: the newest takes the
+      // place of the rest, which is what "the same song, twice" means here.
+      for (const other of group.tracks) {
+        if (other.key === copy.key) continue;
+        const asked = await apiPost("/api/library/hide",
+          { key: other.key, hidden: true, path: other.path });
+        if (!asked.ok) failed = asked;
+      }
+    }
+    b.disabled = false;
+    if (failed) {
+      showToolError(t("duplicates.failed"), failed);
+      return;
+    }
+    showToast(copy.hidden
+      ? t("duplicates.restored", { name: copy.name })
+      : t("duplicates.kept", { name: copy.name }));
+    refreshDuplicates();
+  });
+  return b;
+}
+
+function renderDuplicates() {
+  const list = document.getElementById("duplicatesList");
+  const summary = document.getElementById("duplicatesSummary");
+  const empty = document.getElementById("duplicatesEmpty");
+  empty.hidden = duplicateGroups.length > 0;
+  summary.textContent = duplicateGroups.length ? t("duplicates.summary", {
+    groups: duplicateGroups.length,
+    tracks: duplicateGroups.reduce((total, group) => total + group.tracks.length, 0),
+    size: formatBytes(duplicateGroups.reduce(
+      (total, group) => total + (group.reclaimable || 0), 0)),
+  }) : "";
+  list.replaceChildren(...duplicateGroups.map((group) => {
+    const li = document.createElement("li");
+    li.className = "duplicate-group";
+    const head = document.createElement("div");
+    head.className = "duplicate-head";
+    const name = document.createElement("strong");
+    name.textContent = [group.artist, group.title].filter(Boolean).join(" \u2014 ");
+    const badge = document.createElement("span");
+    badge.className = "badge" + (group.same_file ? " duplicate-same" : "");
+    badge.textContent = group.same_file
+      ? t("duplicates.same_file")
+      : t("duplicates.copies", { n: group.tracks.length });
+    head.append(name, badge);
+    const copies = document.createElement("ul");
+    copies.className = "duplicate-copies";
+    copies.replaceChildren(...group.tracks.map((copy) => duplicateCopy(copy, group)));
+    li.append(head, copies);
+    return li;
+  }));
+}
+
+function duplicatesAvailable() {
+  return !guestMode;
+}
+
+async function refreshDuplicates() {
+  const card = document.getElementById("duplicatesCard");
+  if (!duplicatesAvailable()) {
+    card.hidden = true;
+    return;
+  }
+  const result = await apiGet("/api/library/duplicates");
+  if (!result.ok || !result.data) {
+    card.hidden = true;
+    return;
+  }
+  duplicateGroups = result.data.groups || [];
+  duplicatesAsked = true;
+  card.hidden = duplicateGroups.length === 0;
+  renderDuplicates();
+}
+
+window.LANG_CHANGE_LISTENERS.push(() => {
+  if (duplicatesAsked) renderDuplicates();
+});
+
 // ------------------------------------------------------------------
 // Bluetooth controllers and the Flic button (Bluetooth card): which
 // controller the speaker uses, which one flicd takes, the Flic software,
@@ -6027,7 +6164,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
-  "track_liked", "track_unliked",
+  "track_liked", "track_unliked", "track_hidden", "track_shown",
   "list_selected", "list_added", "list_changed", "list_removed",
   "announcement_volume_set"];
 function eventLabel(type) {
@@ -7077,6 +7214,7 @@ document.addEventListener("page-shown", (event) => {
     loadEvents(false);
   }
   if (page === "likes") refreshLikes();
+  if (page === "duplicates") refreshDuplicates();
 });
 
 refreshStats();
