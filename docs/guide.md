@@ -879,6 +879,42 @@ import, before it swaps anything in. A hand `scp` does not — if you copy
 files onto the Pi yourself, stop the music first, or check the file sizes
 afterwards.
 
+### If the sound stops for no reason: the audio diagnostic
+
+A Bluetooth link can carry nothing at all while every layer above it says it
+is fine: BlueZ reports the speaker as connected, mpv goes on playing, and the
+radio makes no sound because PipeWire has moved the stream to its Dummy
+Output. `bt-connect.sh` notices it (the controller's own byte counter stops
+moving) and repairs the radio, which takes about half a minute - and the music
+used to keep "playing" silently through it. It now **pauses** and says so, and
+the event log gets a *Speaker link silent* line.
+
+To see exactly what the path was made of - the output, the codec, the kernel's
+own radio timeouts, the bitrate the link really carries over a few seconds -
+use **System > System health > Audio diagnostic**. The report can be copied
+with one button; it is what to send if the sound cuts out again. Over SSH, the
+same report is `sudo /opt/rukebox/scripts/audio-check.sh`.
+
+What it usually shows, in order of likelihood:
+
+- **`hci0: n kernel timeout(s)`** - the radio stopped answering the kernel,
+  which is what wedges a link. `bt-connect.sh` repairs it by itself.
+- **The default output is not the speaker** - the sink left and the music is
+  playing into nothing.
+- **`bluetooth codec: sbc` with about 200-250 kbit/s** - the common case: SBC
+  at bitpool 35, the lowest rung. This is the *speaker* choosing it. Offering
+  SBC-XQ alone makes a speaker that does not support it answer on the headset
+  profile instead (telephone quality), and PipeWire on Raspberry Pi OS has no
+  AAC encoder - so a Bluetooth speaker that does LDAC or aptX is the only way
+  to a better link.
+- **`mpv filters: acompressor, volume, alimiter`** - the **Volume boost** is
+  on. It makes quiet recordings audible, and it does squash dynamics: set it
+  back to *Off* to hear what the speaker really does.
+- **`its own volume 0.4`** - the speaker's own AVRCP volume is attenuating
+  everything before it is amplified, so the interface's slider only has that
+  much range to work with. Raise it once with
+  `wpctl set-volume @DEFAULT_AUDIO_SINK@ 1.0`.
+
 ### Using the USB port for devices instead
 
 A Pi Zero has a single USB data port. By default it is the network link

@@ -15,6 +15,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import announcements  # noqa: E402
+import audio_diag  # noqa: E402
 import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config  # noqa: E402
@@ -56,6 +57,10 @@ def announcement_target(msg):
 
 
 class RadioDaemon:
+    # Two watch turns without a Bluetooth output, so a track change or a
+    # PipeWire hiccup is not mistaken for a dead link.
+    SINK_MISSING_CHECKS = 2
+
     def __init__(self, cfg):
         self._state_cond = threading.Condition()
         self._state_version = 0
@@ -91,6 +96,7 @@ class RadioDaemon:
         self._error_backoff_timer = None
 
         self._speaker_was_connected = None
+        self._sink_missing_checks = 0
         self._speaker_move_at = 0.0
         self._speaker_move_failed = False
         self._restart_pending = False
@@ -835,6 +841,14 @@ class RadioDaemon:
             "Playback failed: %s (%s) - %d consecutive failure(s)",
             name, error, self._consecutive_play_errors,
         )
+        if self._consecutive_play_errors == 1 and "output" in error:
+            # "audio output initialization failed" says the path, not where it
+            # broke: say what the path was made of, once per burst.
+            try:
+                log.warning("Audio path at the failure:\n%s", audio_diag.report(
+                    cfg=self.cfg, status=self._build_status(), measure=0))
+            except Exception:  # noqa: BLE001
+                log.debug("Could not report the audio path", exc_info=True)
         self.stats.record(
             "playback_error", label=name,
             detail={
@@ -1621,35 +1635,57 @@ class RadioDaemon:
             if state["connected"] and state["controller"] != state["expected"]:
                 self._move_speaker_to_its_controller(state)
             connected = state["connected"]
+
+            # BlueZ keeps saying "connected" while a wedged dongle carries
+            # nothing at all, and the music then plays into PipeWire's Dummy
+            # Output: the sink being gone is the only visible proof, and two
+            # checks in a row are needed so a track change cannot be mistaken
+            # for it.
+            silent = False
+            if connected and self.mode == "music" and not self._wired_output():
+                if audio_diag.bluetooth_sink_missing(env=audio_env()):
+                    self._sink_missing_checks += 1
+                else:
+                    self._sink_missing_checks = 0
+                silent = self._sink_missing_checks >= self.SINK_MISSING_CHECKS
+            else:
+                self._sink_missing_checks = 0
+            audible = connected and not silent
+
             if connected:
                 self._speaker_ever_connected = True
 
             if self._speaker_was_connected is None:
-                self._speaker_was_connected = connected
-                if connected:
+                self._speaker_was_connected = audible
+                if audible:
                     self._start_music_on_speaker_connect(mac)
                 else:
                     self._speaker_lost_at = time.monotonic()
                 self._check_speaker_absent()
                 continue
 
-            if connected != self._speaker_was_connected:
-                self._speaker_was_connected = connected
-                if connected:
+            if audible != self._speaker_was_connected:
+                self._speaker_was_connected = audible
+                if audible:
                     self._on_speaker_back(mac)
                 else:
-                    self._on_speaker_lost(mac)
+                    self._on_speaker_lost(mac, "disconnected" if not connected else "silent")
 
-            if not connected:
+            if not audible:
                 self._check_speaker_lost_too_long()
             self._check_speaker_absent()
 
-    def _on_speaker_lost(self, mac):
-        log.warning("Speaker disconnected while running (%s)", mac)
+    def _on_speaker_lost(self, mac, reason="disconnected"):
+        if reason == "silent":
+            log.warning("Speaker connected (%s) but the link carries nothing: PipeWire has no "
+                        "Bluetooth output left, so the music was playing into silence", mac)
+        else:
+            log.warning("Speaker disconnected while running (%s)", mac)
         self._speaker_lost_at = time.monotonic()
         self.stats.record(
-            "speaker_disconnected", label=mac,
+            "speaker_silent" if reason == "silent" else "speaker_disconnected", label=mac,
             detail={
+                "reason": reason,
                 "mode": self.mode,
                 "track": os.path.basename(self._current_track) if self._current_track else None,
             },

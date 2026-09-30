@@ -26,7 +26,10 @@ def classify(props):
 
 
 def parse_sinks(dump):
-    """[{"name", "description", "kind"}] from pw-dump's JSON."""
+    """[{"name", "description", "kind", "codec", "address"}] from pw-dump's JSON.
+
+    codec and address are only filled in for a Bluetooth output, and are what
+    the audio diagnostic reports quality questions with."""
     sinks = []
     for obj in dump if isinstance(dump, list) else []:
         props = ((obj or {}).get("info") or {}).get("props") or {}
@@ -36,6 +39,8 @@ def parse_sinks(dump):
             "name": props["node.name"],
             "description": props.get("node.description") or props["node.name"],
             "kind": classify(props),
+            "codec": props.get("api.bluez5.codec"),
+            "address": (props.get("api.bluez5.address") or "").upper() or None,
         })
     return sinks
 

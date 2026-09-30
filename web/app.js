@@ -5735,7 +5735,7 @@ function formatBytes(n) {
 const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shutdown",
   "clock_ready", "clock_unreliable", "clock_manual_set", "timezone_set", "click", "track_played",
   "meme_played", "announce_played", "playback_error", "playback_stalled",
-  "speaker_disconnected", "speaker_reconnected", "ap_client_connected",
+  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "ap_client_connected",
   "ap_client_disconnected", "web_session", "music_started", "music_list_stopped",
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",
@@ -6709,6 +6709,26 @@ setInterval(() => {
   if (document.body.dataset.tab === "system" && !document.hidden) refreshHealth();
 }, 15000);
 document.querySelectorAll('.tab-btn[data-tab="system"]').forEach((btn) => btn.addEventListener("click", refreshHealth));
+
+// The report is what the radio can see of its own audio path, measured over a
+// few seconds: it is meant to be copied into a message, hence the one button.
+document.getElementById("btnAudioDiag").addEventListener("click", async () => {
+  const btn = document.getElementById("btnAudioDiag");
+  btn.disabled = true;
+  const result = await apiPost("/api/diag/audio", {});
+  btn.disabled = false;
+  if (!result.ok) {
+    showToolError(t("diag.failed"), result);
+    return;
+  }
+  const text = (result.data && result.data.report) || "";
+  const choice = await openModal({
+    title: t("diag.title"),
+    body: text,
+    choices: [{ label: t("diag.copy"), value: "copy" }],
+  });
+  if (choice === "copy") copyText(text, document.getElementById("modalBody"));
+});
 
 function renderRecentStats(series) {
   const sum = (rows, key) => rows.reduce((acc, row) => acc + (Number(row[key]) || 0), 0);

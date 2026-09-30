@@ -27,6 +27,7 @@ from flask import Flask, Response, g, jsonify, redirect, request, send_from_dire
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import announcements  # noqa: E402
+import audio_diag  # noqa: E402
 import config_bundle  # noqa: E402
 import playlist  # noqa: E402
 import track_order  # noqa: E402
@@ -3808,6 +3809,20 @@ def _cached_probe(key, ttl, compute):
 
 
 SETUP_ITEMS = ("speaker", "clock", "timezone", "music", "password", "ap_open", "storage")
+
+
+@app.route("/api/diag/audio", methods=["POST"])
+def api_diag_audio():
+    """What the audio path is made of right now - the link, the sink, the codec
+    and the bitrate actually measured - for a cut-out or a doubt about the
+    sound. Measured over a few seconds, so the page disables the button."""
+    try:
+        text = audio_diag.report(cfg=cfg(), env=_user_session_env())
+    except Exception:  # noqa: BLE001
+        log.exception("Could not build the audio diagnostic")
+        return jsonify({"ok": False, "error": "diag_failed"}), 500
+    log.info("Audio diagnostic sent to %s", _client_ip())
+    return jsonify({"ok": True, "data": {"report": text}})
 
 
 @app.route("/api/setup/pending")
