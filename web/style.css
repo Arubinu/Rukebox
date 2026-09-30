@@ -1070,26 +1070,26 @@ body[data-access="guest"] .view-bar { display: none; }
 }
 .np-info { flex: 1; min-width: 0; }
 
-/* The heart sits on the cover's bottom-right corner, like the badge on a
-   thumbnail: it is about the song showing, not about the transport. */
+/* The heart sits on the cover's own top-right corner with no frame and no
+   background of its own - just the glyph, kept readable over any artwork by a
+   drop shadow. It is about the song showing, not about the transport. */
 .np-cover-box { position: relative; flex: none; }
 .np-like {
   position: absolute;
-  right: -6px;
-  bottom: -6px;
+  top: 4px;
+  right: 4px;
   width: 32px;
   height: 32px;
   min-height: 0;
   padding: 0;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-muted);
-  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.2));
+  border: 0;
+  background: none;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.75));
 }
-.np-like::before { width: 17px; height: 17px; }
-.np-like:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
-.np-like.is-on { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+.np-like::before { width: 20px; height: 20px; }
+.np-like:hover:not(:disabled), .np-like:focus-visible { color: var(--danger); }
+.np-like.is-on { color: var(--danger); }
 .np-unlike { color: var(--danger); }
 
 .np-info > .np-lyrics-btn { float: right; margin: 0 0 0 10px; }
@@ -1767,6 +1767,11 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
   .field-row > .time-input,
   .field-row > .pin-field { margin-inline: auto; }
 
+  /* The codec answer and its description do not fit side by side on a phone,
+     so it takes the full width under the label, as a text input does. */
+  .field-row > .codec-field { flex: 1 1 100%; }
+  .codec-open { max-width: 100%; }
+
   .card .device-list .device-actions.btn-split:not(:has(.btn:not(.btn-icon))) { flex: 1 1 100%; }
 
   .field-row > .label-wide-only {
@@ -2330,17 +2335,34 @@ select {
 .duration-row:last-child { border-bottom: 0; }
 .btn.btn-icon.duration-row-x { width: 38px; min-height: 38px; flex: none; }
 
-/* One checkbox per Bluetooth codec the Pi can offer: a list of names, not a
-   text field, because a typo there silently offers nothing. */
-.codec-field {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 4px 14px;
-  flex: 0 1 19rem;
+/* The codecs the Pi can offer: the row is too narrow for eight names (they
+   wrapped and made it twice as tall as its neighbours), so it shows the answer
+   and opens the list in a dialog - one tickable row per codec, like the
+   duration list. */
+.codec-field { flex: 0 1 auto; min-width: 0; margin-left: auto; }
+.codec-open {
+  justify-content: flex-start;
+  max-width: min(19rem, 100%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+  text-overflow: ellipsis;
+  font-weight: 600;
 }
-.codec-box { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
-.codec-box input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.codec-list { display: flex; flex-direction: column; }
+.codec-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.codec-box:last-child { border-bottom: 0; }
+.codec-box.is-disabled { color: var(--text-muted); cursor: default; }
+.codec-box input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
 
 #systemSoundsList { max-height: none; overflow: visible; }
 #systemSoundsList .device-actions:not(.btn-split) { display: flex; gap: 8px; width: 100%; }

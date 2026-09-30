@@ -2301,8 +2301,9 @@ function durationField(el) {
 document.querySelectorAll(".duration-field").forEach(durationField);
 
 /* Which Bluetooth codecs the Pi offers the speaker: one checkbox per codec
-   PipeWire knows, and the container's `value` is the setting's own form
-   ("sbc_xq,sbc") - what the settings code below reads. */
+   PipeWire knows, in a dialog - eight names in the row itself wrapped and made
+   it twice as tall as its neighbours. The container's `value` stays the
+   setting's own form ("sbc_xq,sbc"), which is what the settings code reads. */
 const BT_CODEC_LABELS = {
   ldac: "LDAC", aptx_hd: "aptX HD", aptx: "aptX", aac: "AAC",
   sbc_xq: "SBC-XQ", sbc: "SBC", faststream: "FastStream", opus: "Opus",
@@ -2314,31 +2315,66 @@ function codecValues(el) {
     .filter((part) => part.length > 0);
 }
 
-function paintCodecField(el) {
+function codecSummary(el) {
   const chosen = codecValues(el);
-  el.querySelectorAll("input[type=checkbox]").forEach((box) => {
-    box.checked = chosen.includes(box.value);
-  });
+  return chosen.length
+    ? chosen.map((codec) => BT_CODEC_LABELS[codec] || codec).join(", ")
+    : t("audioout.codecs_none");
 }
 
-function codecField(el) {
-  el.value = el.value || "";
-  el.replaceChildren(...Object.keys(BT_CODEC_LABELS).map((codec) => {
+function paintCodecField(el) {
+  const open = el.querySelector(".codec-open");
+  if (open) open.textContent = codecSummary(el);
+}
+
+function codecList(el) {
+  const chosen = codecValues(el);
+  const list = document.createElement("div");
+  list.className = "codec-list";
+  Object.keys(BT_CODEC_LABELS).forEach((codec) => {
     const label = document.createElement("label");
     label.className = "codec-box";
     const box = document.createElement("input");
     box.type = "checkbox";
     box.value = codec;
+    box.checked = chosen.includes(codec);
+    // One codec has to stay: offering none leaves the speaker with nothing to
+    // negotiate, which is how it ends up on the telephone-quality profile.
+    box.disabled = chosen.length < 2 && box.checked;
+    if (box.disabled) label.classList.add("is-disabled");
     const text = document.createElement("span");
     text.textContent = BT_CODEC_LABELS[codec];
     box.addEventListener("change", () => {
       const kept = codecValues(el).filter((one) => one !== codec);
       if (box.checked) kept.push(codec);
       el.value = kept.join(",");
+      paintCodecField(el);
+      list.replaceWith(codecList(el));
     });
     label.append(box, text);
-    return label;
-  }));
+    list.appendChild(label);
+  });
+  return list;
+}
+
+function openCodecList(el) {
+  const row = el.closest(".field-row");
+  const label = row ? row.querySelector("label") : null;
+  return openModal({
+    title: label ? label.textContent : t("audioout.codecs"),
+    bodyNode: codecList(el),
+    actions: false,
+  });
+}
+
+function codecField(el) {
+  el.value = el.value || "";
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "btn codec-open";
+  open.addEventListener("click", () => openCodecList(el));
+  el.replaceChildren(open);
+  paintCodecField(el);
 }
 
 document.querySelectorAll(".codec-field").forEach(codecField);

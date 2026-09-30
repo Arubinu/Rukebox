@@ -912,7 +912,9 @@ What it usually shows, in order of likelihood:
   profile instead (telephone quality), and PipeWire on Raspberry Pi OS has no
   AAC encoder - so a Bluetooth speaker that does LDAC or aptX is the only way
   to a better link. **Which codecs the Pi offers is a setting** (*Audio output >
-  Bluetooth codecs offered*): tick only what the speaker accepts. Saving it
+  Bluetooth codecs offered*): the row shows what is offered now and opens the
+  list, where you tick only what the speaker accepts (the last one cannot be
+  unticked - offering none leaves the speaker nothing to negotiate). Saving it
   writes a WirePlumber drop-in (`/etc/wireplumber/wireplumber.conf.d/
   20-rukebox-codecs.conf`) and restarts the audio service - the speaker may take
   a few seconds to come back, and the diagnostic then says which codec the link
