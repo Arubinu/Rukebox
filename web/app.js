@@ -1156,7 +1156,23 @@ function renderClockSync() {
 }
 window.LANG_CHANGE_LISTENERS.push(renderClockSync);
 
-setInterval(renderBrandClock, 1000);
+/* Nothing periodic runs while the page is in the background: nobody is looking
+   at it, and this Pi is a Pi Zero - measured on 2026-09-30, an open but
+   untouched page still asked it for about fifty requests a minute. Coming back
+   runs every registered refresh once, so nothing is ever left stale. */
+const ON_SHOW_REFRESHES = [];
+function refreshEvery(callback, ms) {
+  ON_SHOW_REFRESHES.push(callback);
+  return setInterval(() => {
+    if (!document.hidden) callback();
+  }, ms);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) ON_SHOW_REFRESHES.forEach((callback) => callback());
+});
+
+refreshEvery(renderBrandClock, 1000);
 setInterval(() => {
   document.querySelectorAll(".brand-clock").forEach((box) => {
     box.dataset.show = box.dataset.show === "time" ? "date" : "time";
@@ -2059,7 +2075,7 @@ document.getElementById("btnNext").addEventListener("click", async () => {
 });
 
 refreshStatus();
-setInterval(refreshStatus, 4000);
+refreshEvery(refreshStatus, 4000);
 
 const volumeSlider = document.getElementById("volumeSlider");
 let volumeDebounce = null;
@@ -2543,7 +2559,7 @@ async function refreshSettingsIfIdle() {
   updateStartTimeVisibility();
 }
 
-setInterval(refreshSettingsIfIdle, 20000);
+refreshEvery(refreshSettingsIfIdle, 20000);
 
 let restartPending = false;
 function paintRestartAfterSong() {
@@ -3064,7 +3080,7 @@ function announcementRow(item) {
 }
 
 refreshAnnouncements();
-setInterval(refreshAnnouncements, 20000);
+refreshEvery(refreshAnnouncements, 20000);
 
 let audioOutputs = [];
 
@@ -3104,7 +3120,7 @@ document.getElementById("btnAudioTest").addEventListener("click", async () => {
   }
 });
 refreshAudioOutputs();
-setInterval(refreshAudioOutputs, 20000);
+refreshEvery(refreshAudioOutputs, 20000);
 
 let recentPlayingKey;
 let recentRetry = null;
@@ -3145,7 +3161,7 @@ async function refreshRecent() {
 }
 
 refreshRecent();
-setInterval(refreshRecent, 60000);
+refreshEvery(refreshRecent, 60000);
 
 /* ------------------------------------------------------------------
    Liked tracks: the heart on the cover, and the list it builds. The keys are
@@ -3265,7 +3281,7 @@ document.getElementById("btnLike").addEventListener("click", async () => {
 });
 
 refreshLikes();
-setInterval(refreshLikes, 120000);
+refreshEvery(refreshLikes, 120000);
 window.LANG_CHANGE_LISTENERS.push(() => {
   renderLikes();
   paintLikeButton();
@@ -3505,7 +3521,7 @@ async function refreshToday() {
   }));
 }
 refreshToday();
-setInterval(refreshToday, 120000);
+refreshEvery(refreshToday, 120000);
 
 let upnextSignature;
 
@@ -3595,7 +3611,7 @@ async function refreshUpnext() {
   }));
   document.getElementById("upnextEmpty").hidden = items.length > 0;
 }
-setInterval(refreshUpnext, 60000);
+refreshEvery(refreshUpnext, 60000);
 
 const librarySearch = document.getElementById("librarySearch");
 const libraryArtist = document.getElementById("libraryArtist");
@@ -3706,7 +3722,7 @@ libraryGenre.addEventListener("change", () => {
 document.getElementById("libraryMore").addEventListener("click", () => refreshLibrary(true));
 refreshLibrary(false);
 
-setInterval(() => {
+refreshEvery(() => {
   if (!libraryAsked()) refreshLibrary(false);
 }, 30000);
 
@@ -4248,7 +4264,7 @@ document.getElementById("listsCreate").addEventListener("click", async () => {
 });
 
 refreshLists();
-setInterval(refreshLists, 20000);
+refreshEvery(refreshLists, 20000);
 
 const hapticsToggle = document.getElementById("hapticsToggle");
 hapticsToggle.checked = hapticsOn();
@@ -4606,7 +4622,7 @@ document.getElementById("suggestForm").addEventListener("submit", async (event) 
 });
 
 refreshSuggestions();
-setInterval(refreshSuggestions, 30000);
+refreshEvery(refreshSuggestions, 30000);
 
 let editingAnnouncementId = null;
 const annTrigger = document.getElementById("annTrigger");
@@ -5797,7 +5813,7 @@ async function refreshApCard() {
 }
 
 refreshApCard();
-setInterval(refreshApCard, 10000);
+refreshEvery(refreshApCard, 10000);
 
 document.getElementById("apForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -5871,7 +5887,7 @@ document.getElementById("homeWifiAuto").addEventListener("change", async (e) => 
 });
 
 refreshHomeWifi();
-setInterval(refreshHomeWifi, 6000);
+refreshEvery(refreshHomeWifi, 6000);
 
 document.getElementById("homeWifiToggle").addEventListener("change", async (e) => {
   if (!e.target.checked && homeWifiClientHere) {
@@ -6621,7 +6637,7 @@ async function refreshSetup() {
 }
 document.getElementById("setupShowHidden").addEventListener("click", () => saveSetupHidden([]));
 refreshSetup();
-setInterval(refreshSetup, 60000);
+refreshEvery(refreshSetup, 60000);
 
 document.querySelectorAll(".cmd-copy").forEach((btn) => {
   btn.addEventListener("click", () => copyText(btn.parentElement.querySelector(".cmd-text").textContent, btn));
@@ -7044,7 +7060,7 @@ document.addEventListener("page-shown", (event) => {
 
 refreshStats();
 
-setInterval(refreshStats, 30000);
+refreshEvery(refreshStats, 30000);
 
 let updatePollTimer = null;
 
