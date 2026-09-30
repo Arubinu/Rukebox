@@ -1590,7 +1590,6 @@ def api_device_free_credits():
     return jsonify({"ok": True})
 
 
-@app.route("/api/status/wait")
 # Written by scripts/update.sh for as long as an update is running, so the page
 # can say "update in progress" instead of looking like a Pi that has died while
 # the services are stopped. One left behind by a killed updater is ignored and
@@ -1614,6 +1613,7 @@ def update_in_progress(c):
     return True
 
 
+@app.route("/api/status/wait")
 def api_status_wait():
     """Answers as soon as something the page shows changes (mode, file, pause)."""
     try:
