@@ -1085,8 +1085,10 @@ body[data-access="guest"] .view-bar { display: none; }
   border: 0;
   background: none;
   color: #fff;
+  cursor: pointer;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.75));
 }
+.np-like:disabled { cursor: default; }
 .np-like::before { width: 20px; height: 20px; }
 .np-like:hover:not(:disabled), .np-like:focus-visible { color: var(--danger); }
 .np-like.is-on { color: var(--danger); }
