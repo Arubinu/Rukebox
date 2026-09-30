@@ -1611,6 +1611,15 @@ rather than helpful. Useful options, identical in both scripts:
 If the Pi already runs the exact same version, it says so and stops
 without touching anything.
 
+**The push also tells the Pi where the tree comes from.** It sends what `git
+describe` says of it - `v1.2.0-5-g5622dcf`, five commits past the v1.2.0 tag -
+and the Pi records that as its version. Without it a pushed tree has no release
+at all, and the Update card offered the last published release as "newer" to a
+Pi that already had more than it (the push said "already runs this exact
+version" while the card offered v1.2.0: both were reading a different
+question). A tree pushed with uncommitted changes is stamped `-dirty`, which is
+worth knowing before comparing it to a release.
+
 **The music is paused for the transfer, on purpose, and comes back when the
 services restart at the end of the update** (it is not resumed in between:
 that only bought two seconds of music before the daemon went down).

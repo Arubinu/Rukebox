@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 import time
 
@@ -94,6 +95,45 @@ def describe(root):
         "file_count": file_count,
         "git": collect_git_info(root),
     }
+
+
+_TAG = re.compile(r"^[vV]?(\d+)\.(\d+)(?:\.(\d+))?(.*)$")
+_TAG_COMMITS = re.compile(r"^-(\d+)-g[0-9a-f]+", re.IGNORECASE)
+
+
+def tag_parts(text):
+    """"v1.2.0" or "v1.2.0-5-g5622dcf" as (1, 2, 0, 5), or None when the text
+    is not a version at all. The commits that came after the tag are what tells
+    "five commits past v1.2.0" from "v1.2.0"."""
+    match = _TAG.match(str(text or "").strip())
+    if not match:
+        return None
+    major, minor, patch, rest = match.groups()
+    commits = _TAG_COMMITS.match(rest or "")
+    return (int(major), int(minor), int(patch or 0),
+            int(commits.group(1)) if commits else 0)
+
+
+def is_newer(candidate, installed):
+    """Whether a published release is one the installed version should move to.
+
+    A tree pushed from a repository records `git describe` - "v1.2.0-5-g5622dcf"
+    is five commits AFTER v1.2.0 - so it must not be offered v1.2.0 as an
+    update, which is exactly what a plain string comparison did."""
+    candidate = str(candidate or "").strip()
+    installed = str(installed or "").strip()
+    if not candidate or candidate == installed:
+        return False
+    if not installed:
+        return True
+    released, here = tag_parts(candidate), tag_parts(installed)
+    if not released or not here:
+        # A bare commit hash is not a version: a named release is still worth
+        # offering, since there is nothing to order it against.
+        return True
+    if released[:3] != here[:3]:
+        return released[:3] > here[:3]
+    return released[3] > here[3]
 
 
 def _write_json(path, data):

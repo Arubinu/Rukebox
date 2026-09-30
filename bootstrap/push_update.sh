@@ -278,6 +278,22 @@ fi
 
 echo ""
 echo "== Updating on the Pi =="
+# What git says of this tree ("v1.2.0-5-g5622dcf": five commits past v1.2.0),
+# recorded on the Pi so its Update card can tell "ahead of v1.2.0" from
+# "v1.2.0" - without it a pushed tree has no release at all and the card offers
+# the last published release as newer, which it is not.
+RELEASE_STAMP=""
+if command -v git >/dev/null 2>&1; then
+    DESCRIBED="$(git -C "$PROJECT_ROOT" describe --tags --always --dirty 2>/dev/null || true)"
+    case "$DESCRIBED" in
+        ''|*[!A-Za-z0-9_.-]*) ;;
+        *) RELEASE_STAMP="$DESCRIBED" ;;
+    esac
+fi
+if [ -n "$RELEASE_STAMP" ]; then
+    echo "   stamping: $RELEASE_STAMP"
+    EXTRA_UPDATE_ARGS="$EXTRA_UPDATE_ARGS --release-tag $RELEASE_STAMP"
+fi
 # The steps to run on the Pi are sent as their own little script rather
 # than squeezed into the ssh command line: quoting a multi-line command
 # through a local shell, ssh, and the remote shell is exactly the kind of

@@ -27,6 +27,7 @@ GIT_CHECKOUT="$STATE_DIR/git-source"
 
 SOURCE_DIR=""
 RELEASE_TAG=""
+RELEASE_STAMP=""
 SOURCE_KIND=""
 ARCHIVE=""
 GIT_URL=""
@@ -66,6 +67,9 @@ Source (exactly one):
 
 Options:
   --branch NAME        Git branch (default: UPDATE_GIT_BRANCH, or main)
+  --release-tag NAME   Record NAME as the installed release: a push sends its
+                       own "git describe" (v1.2.0-5-g5622dcf), so the interface
+                       can tell "ahead of v1.2.0" from "v1.2.0"
   --no-restart         Install without restarting the services
   --keep N             Number of backups to keep (default: UPDATE_BACKUP_KEEP)
   --quiet              Only print errors
@@ -95,6 +99,7 @@ while [ $# -gt 0 ]; do
             SOURCE_KIND=release
             if [ "${2:-}" ] && [ "${2#-}" = "$2" ]; then RELEASE_TAG="$2"; shift 2; else shift; fi ;;
         --branch)        GIT_BRANCH="${2:-}"; shift 2 ;;
+        --release-tag)   RELEASE_STAMP="${2:-}"; shift 2 ;;
         --keep)          BACKUP_KEEP="${2:-3}"; BACKUP_KEEP_SET=1; shift 2 ;;
         --no-restart)    DO_RESTART=0; shift ;;
         --quiet)         QUIET=1; shift ;;
@@ -104,6 +109,11 @@ while [ $# -gt 0 ]; do
         *)               echo "Unknown option: $1" >&2; usage; exit 2 ;;
     esac
 done
+
+if [ -n "$RELEASE_STAMP" ]; then
+    printf '%s' "$RELEASE_STAMP" | grep -Eq '^[A-Za-z0-9_.-]+$' \
+        || fail "invalid release tag: $RELEASE_STAMP"
+fi
 
 if [ "$INSTALL_DIR" = "/opt/rukebox" ] && [ "$EUID" -ne 0 ]; then
     fail "run this script with sudo."
@@ -451,7 +461,7 @@ fi
 install -m 755 -o root -g root "$INSTALL_DIR/scripts/update.sh" "$UPDATE_WRAPPER"
 
 mkdir -p "$STATE_DIR"
-python3 "$INSTALL_DIR/src/version.py" write "$VERSION_FILE" "$SOURCE_DIR" "$SOURCE_KIND" $RELEASE_TAG >/dev/null
+python3 "$INSTALL_DIR/src/version.py" write "$VERSION_FILE" "$SOURCE_DIR" "$SOURCE_KIND" "${RELEASE_STAMP:-$RELEASE_TAG}" >/dev/null
 chown -R "$RUKEBOX_USER:$RUKEBOX_USER" "$STATE_DIR"
 
 trap 'rm -f "$0"' ERR

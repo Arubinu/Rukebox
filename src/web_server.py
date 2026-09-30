@@ -49,7 +49,7 @@ import bt_link  # noqa: E402
 import library  # noqa: E402
 import likes  # noqa: E402
 import music_lists  # noqa: E402
-from version import read_version_file, set_release  # noqa: E402
+from version import is_newer, read_version_file, set_release  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [web] %(message)s")
 log = logging.getLogger("web")
@@ -4834,7 +4834,7 @@ def api_update_release():
             except OSError:
                 pass
         return jsonify({"ok": True, "data": dict(data, repo=repo, installed=installed,
-                                                 newer=bool(data["tag"]) and data["tag"] != installed,
+                                                 newer=is_newer(data["tag"], installed),
                                                  allowed=bool(c["UPDATE_ALLOW_WEB"]))})
     if not c["UPDATE_ALLOW_WEB"]:
         return jsonify({"ok": False, "error": "web_updates_disabled"}), 403

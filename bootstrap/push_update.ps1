@@ -288,6 +288,24 @@ if ($scpExit -ne 0) {
 $ExtraArgs = ""
 if ($NoRestart) { $ExtraArgs = " --no-restart" }
 
+# What git says of this tree ("v1.2.0-5-g5622dcf": five commits past v1.2.0),
+# recorded on the Pi so its Update card can tell "ahead of v1.2.0" from
+# "v1.2.0" - without it a pushed tree has no release at all and the card offers
+# the last published release as newer, which it is not.
+$Describe = ""
+$git = Get-Command git.exe -ErrorAction SilentlyContinue
+if (-not $git) { $git = Get-Command git -ErrorAction SilentlyContinue }
+if ($git) {
+    $described = & $git.Source "-C" $ProjectRoot "describe" "--tags" "--always" "--dirty" 2>$null
+    if ($LASTEXITCODE -eq 0 -and "$described" -match '^[A-Za-z0-9_.-]+$') {
+        $Describe = "$described".Trim()
+    }
+}
+if ($Describe) {
+    Write-Host "   stamping: ${Describe}"
+    $ExtraArgs += " --release-tag ${Describe}"
+}
+
 $ApplyTemplate = @'
 set -e
 STAGING="$(mktemp -d /tmp/rukebox-staging-XXXXXX)"
