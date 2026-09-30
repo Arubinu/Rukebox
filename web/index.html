@@ -59,7 +59,11 @@
         <h1 id="loginTitle" data-i18n="login.title">Rukebox</h1>
         <p class="hint" data-i18n="login.subtitle">This interface is password-protected.</p>
         <label class="sr-only" for="loginPassword" data-i18n="login.password_placeholder">Password</label>
-        <input type="password" id="loginPassword" class="text-input" autocomplete="current-password"
+        <!-- Not shown: there is one account, but a user name is what browser
+             password managers file a password under. -->
+        <input type="text" id="loginUsername" name="username" class="sr-only" value="rukebox"
+               autocomplete="username" tabindex="-1" aria-hidden="true">
+        <input type="password" id="loginPassword" name="password" class="text-input" autocomplete="current-password"
                data-i18n-placeholder="login.password_placeholder" placeholder="Password" required>
         <p class="hint login-error" id="loginError" role="alert" hidden></p>
         <button type="submit" class="btn btn-primary" id="loginSubmit" data-icon="login" data-i18n="login.submit">Log in</button>
@@ -474,15 +478,17 @@
             </div>
             <div data-level="detail" class="field-row">
               <div class="field-text">
-                <label for="pauseDurations" data-i18n="settings.pause_durations">Timed pause (min)</label>
-                <p class="field-desc" data-i18n="settings.pause_durations_desc">Durations offered by Timer…, comma-separated.</p>
+                <label for="pauseDurationsNew" data-i18n="settings.pause_durations">Timed pause (min)</label>
+                <p class="field-desc" data-i18n="settings.pause_durations_desc">The durations Timer… offers for a pause.</p>
               </div>
-              <input type="text" id="pauseDurations" data-key="PAUSE_DURATIONS" class="text-input" inputmode="numeric"
-                     pattern="[0-9 ,;]*" autocomplete="off">
+              <div class="duration-field" id="pauseDurations" data-key="PAUSE_DURATIONS"></div>
             </div>
             <div data-level="detail" class="field-row">
-              <label for="sleepTimerMin" data-i18n="settings.sleep_timer_min">Sleep timer (min)</label>
-              <input type="number" id="sleepTimerMin" min="1" max="600" step="1" data-key="SLEEP_TIMER_MIN" class="num-input" inputmode="numeric">
+              <div class="field-text">
+                <label for="sleepDurationsNew" data-i18n="settings.sleep_durations">Sleep timer (min)</label>
+                <p class="field-desc" data-i18n="settings.sleep_durations_desc">The durations Timer… offers for the sleep timer. The shortest is what a button set to Sleep timer uses.</p>
+              </div>
+              <div class="duration-field" id="sleepDurations" data-key="SLEEP_DURATIONS"></div>
             </div>
             <div data-level="detail" class="field-row">
               <label for="musicOrderMode" data-i18n="settings.order">Order</label>
@@ -1219,9 +1225,11 @@
             <div class="field-text">
               <label for="hapticsToggle" data-i18n="haptics.label">Vibrate on touch</label>
               <p class="field-desc" id="hapticsDesc" data-i18n="haptics.desc">A short vibration on each button, on this device only.</p>
+              <button type="button" class="btn btn-small haptics-test" id="hapticsTest" data-i18n="haptics.test">Test the vibration</button>
             </div>
             <input type="checkbox" id="hapticsToggle" class="switch-input" role="switch" aria-describedby="hapticsDesc">
           </div>
+          <p class="hint" id="hapticsResult" role="status"></p>
           <p class="hint help-text" data-level="detail" data-i18n="system.ssh_hint" hidden>Turn it off when you don't need it.</p>
           <div class="actions-row">
             <button type="button" class="btn" id="btnRescan" data-icon="refresh" data-i18n="system.rescan">Rescan music</button>
@@ -1452,13 +1460,13 @@
           <p class="hint help-text" data-i18n="wifi.hint" hidden>
             Connects to your personal network in addition to the access point.
           </p>
+          <p class="hint warning" id="homeWifiHere" hidden data-i18n="wifi.here">
+            This page is reached through this network: switching it off closes the page.
+          </p>
           <div class="field-row">
             <label for="homeWifiToggle" data-i18n="wifi.active">Connection active</label>
             <input type="checkbox" id="homeWifiToggle" class="switch-input" role="switch">
           </div>
-          <p class="hint warning" id="homeWifiHere" hidden data-i18n="wifi.here">
-            This page is reached through this network: switching it off closes the page.
-          </p>
           <div class="field-row">
             <div class="field-text">
               <label for="homeWifiAuto" data-i18n="wifi.autoconnect">Connect at startup</label>
@@ -1781,6 +1789,9 @@
 
       <div class="modal-overlay" id="modalOverlay" hidden>
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalBody">
+          <button type="button" class="btn btn-icon modal-close" id="modalClose" data-icon="x"
+                  data-i18n-aria-label="common.close" data-i18n-title="common.close"
+                  aria-label="Close" title="Close"></button>
           <h3 class="modal-title" id="modalTitle"></h3>
           <p class="modal-body" id="modalBody"></p>
           <div class="modal-choices" id="modalChoices" hidden></div>

@@ -1991,6 +1991,12 @@ select {
 
 .hint.warning { color: var(--danger); font-weight: 600; }
 
+/* The one line that warns the page is about to cut its own lifeline: centred,
+   above the switch it is about. */
+#homeWifiHere { text-align: center; }
+
+.haptics-test { margin-top: 8px; }
+
 .clock-status,
 .status-line {
   display: flex;
@@ -2271,6 +2277,32 @@ select {
   text-align: center;
 }
 .genre-none { padding: 10px; }
+
+/* A duration setting (the minutes Timer… offers): the field that adds one and
+   the two buttons beside it stay on the right of the option, on one line, so
+   the row keeps the height of every other row. The values themselves are in
+   the modal the list button opens. */
+.duration-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+}
+.duration-new { width: 5rem; flex: none; }
+.duration-list { display: flex; flex-direction: column; }
+.duration-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
+}
+.duration-row:last-child { border-bottom: 0; }
+.btn.btn-icon.duration-row-x { width: 38px; min-height: 38px; flex: none; }
 
 #systemSoundsList { max-height: none; overflow: visible; }
 #systemSoundsList .device-actions:not(.btn-split) { display: flex; gap: 8px; width: 100%; }
@@ -3017,6 +3049,7 @@ select {
 .login-error { color: var(--danger); font-weight: 600; }
 
 .modal {
+  position: relative;
   max-width: 420px;
   padding: 22px;
   display: flex;
@@ -3024,7 +3057,54 @@ select {
   gap: 14px;
 }
 .modal-wide { max-width: 600px; }
-.modal-title { font-size: 19px; font-weight: 750; letter-spacing: -0.01em; }
+.modal-title { font-size: 19px; font-weight: 750; letter-spacing: -0.01em; padding-right: 44px; }
+
+/* The way out of a dialog that carries no Cancel button. */
+.modal-close { position: absolute; top: 14px; right: 14px; }
+
+/* Timer…: the two families of choice side by side, each under its symbol, with
+   the legend that says what the symbols mean underneath both. */
+.timer-groups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.timer-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.timer-group-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 2px;
+}
+.timer-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.timer-symbol::before { width: 22px; height: 22px; }
+.timer-group-title { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.timer-option { width: 100%; min-height: 44px; padding: 8px 10px; font-size: 14px; }
+.timer-option-cancel { background: transparent; color: var(--text-muted); }
+.timer-intro { grid-column: 1 / -1; margin: 0; }
+.timer-legend {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.timer-legend-line { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; }
+.timer-symbol-small { width: 24px; height: 24px; }
+.timer-symbol-small::before { width: 14px; height: 14px; }
 
 #modalBody { white-space: pre-line; }
 

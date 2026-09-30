@@ -914,14 +914,26 @@ function closeModal(value) {
   resolve(value);
 }
 
-function openModal({ title, body, confirm, choices }) {
+function openModal({ title, body, bodyNode, confirm, choices, actions }) {
   closeModal(false);
   return new Promise((resolve) => {
     modalResolve = resolve;
     document.getElementById("modalTitle").textContent = title;
-    document.getElementById("modalBody").textContent = body;
+
+    const bodyBox = document.getElementById("modalBody");
+    if (bodyNode) {
+      bodyBox.replaceChildren(bodyNode);
+    } else {
+      bodyBox.replaceChildren();
+      bodyBox.textContent = body || "";
+    }
+    bodyBox.hidden = !body && !bodyNode;
 
     document.getElementById("modalCancel").hidden = !confirm;
+    // A dialog whose content carries its own ways out (Timer…, the duration
+    // list) shows the close cross and nothing else.
+    const actionsBox = document.querySelector("#modalOverlay .modal-actions");
+    actionsBox.hidden = actions === false;
 
     const box = document.getElementById("modalChoices");
     box.textContent = "";
@@ -940,7 +952,12 @@ function openModal({ title, body, confirm, choices }) {
 
     const overlay = document.getElementById("modalOverlay");
     overlay.hidden = false;
-    (choices ? box.firstChild : document.getElementById("modalOk")).focus();
+    // Not the red cross of a confirm (Enter there must confirm), and not one of
+    // the list's own remove buttons either: the close cross is neutral ground.
+    const target = choices ? box.firstChild
+      : actions === false ? document.getElementById("modalClose")
+        : document.getElementById("modalOk");
+    target.focus();
   });
 }
 
@@ -962,6 +979,9 @@ function dismissToast(toast) {
 }
 
 const HAPTICS_KEY = "rukebox_haptics";
+// A phone's vibrator does not render a tick much shorter than this as
+// something felt; the Test button in the settings uses the same value.
+const HAPTIC_TAP_MS = 30;
 function hapticsOn() {
   try {
     return localStorage.getItem(HAPTICS_KEY) !== "off";
@@ -979,7 +999,7 @@ function haptic(pattern) {
 document.addEventListener("click", (event) => {
   const el = event.target.closest && event.target.closest(
     "button, .btn, input[type=checkbox], summary, .tabbar a, .tabbar button");
-  if (el && !el.disabled) haptic(10);
+  if (el && !el.disabled) haptic(HAPTIC_TAP_MS);
 }, true);
 
 function showToast(title, detail, options) {
@@ -1042,6 +1062,7 @@ function showChoice(body, choices, title) {
 
 document.getElementById("modalOk").addEventListener("click", () => closeModal(true));
 document.getElementById("modalCancel").addEventListener("click", () => closeModal(false));
+document.getElementById("modalClose").addEventListener("click", () => closeModal(false));
 
 document.getElementById("modalOverlay").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) closeModal(false);
@@ -1634,24 +1655,99 @@ document.getElementById("btnLoop").addEventListener("click", async () => {
   refreshStatus();
 });
 
+/* Timer…: two families of choice, each under the symbol that names it (a pause
+   bar, a moon), with the legend that says what the two symbols mean. */
+function timerSymbol(name, small) {
+  const mark = document.createElement("span");
+  mark.className = "timer-symbol" + (small ? " timer-symbol-small" : "");
+  mark.dataset.icon = name;
+  mark.setAttribute("aria-hidden", "true");
+  return mark;
+}
+
+function timerChoiceBody(groups, intro) {
+  const wrap = document.createElement("div");
+  wrap.className = "timer-groups";
+
+  groups.forEach((group) => {
+    const box = document.createElement("div");
+    box.className = "timer-group";
+    const head = document.createElement("div");
+    head.className = "timer-group-head";
+    const title = document.createElement("span");
+    title.className = "timer-group-title";
+    title.textContent = group.title;
+    head.append(timerSymbol(group.icon, false), title);
+    box.appendChild(head);
+    group.options.forEach((option) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn timer-option" + (option.quiet ? " timer-option-cancel" : "");
+      btn.textContent = option.label;
+      btn.addEventListener("click", () => closeModal(option.value));
+      box.appendChild(btn);
+    });
+    wrap.appendChild(box);
+  });
+
+  // The legend: each symbol once more, next to what it does. Drawn with the
+  // same icons as above - the unicode glyphs for a pause bar and a moon are
+  // missing from a good many phone fonts.
+  const legend = document.createElement("div");
+  legend.className = "timer-legend";
+  [["pause", t("timer.legend_pause")], ["moon", t("timer.legend_sleep")]].forEach(([icon, text]) => {
+    const line = document.createElement("p");
+    line.className = "timer-legend-line";
+    const label = document.createElement("span");
+    label.textContent = text;
+    line.append(timerSymbol(icon, true), label);
+    legend.appendChild(line);
+  });
+  wrap.appendChild(legend);
+
+  if (intro) {
+    const line = document.createElement("p");
+    line.className = "timer-intro";
+    line.textContent = intro;
+    wrap.prepend(line);
+  }
+  return wrap;
+}
+
 document.getElementById("btnTimer").addEventListener("click", async () => {
   const d = playerStatus || {};
   const durations = Array.isArray(d.pause_durations) && d.pause_durations.length
     ? d.pause_durations : [5, 15, 30, 60];
-  const choices = durations.map((n) => ({ value: "pause:" + n, label: t("timer.pause_for", { n }) }));
-  if (timerEnds.resume) choices.push({ value: "resume", label: t("timer.pause_cancel") });
-  choices.push(timerEnds.sleep
-    ? { value: "sleep_off", label: t("timer.sleep_cancel") }
-    : { value: "sleep_on", label: t("timer.sleep_start", { n: d.sleep_timer_min || 30 }) });
-  const choice = await showChoice(t("timer.body"), choices, t("timer.title"));
+  const sleeps = Array.isArray(d.sleep_durations) && d.sleep_durations.length
+    ? d.sleep_durations : [30, 60, 90, 120];
+
+  const pauseOptions = durations.map((n) => ({ value: "pause:" + n, label: t("timer.minutes", { n }) }));
+  if (timerEnds.resume) {
+    pauseOptions.push({ value: "resume", label: t("timer.pause_cancel"), quiet: true });
+  }
+  const sleepOptions = sleeps.map((n) => ({ value: "sleep:" + n, label: t("timer.minutes", { n }) }));
+  if (timerEnds.sleep) {
+    sleepOptions.push({ value: "sleep_off", label: t("timer.sleep_cancel"), quiet: true });
+  }
+
+  const choice = await openModal({
+    title: t("timer.title"),
+    bodyNode: timerChoiceBody([
+      { icon: "pause", title: t("timer.group_pause"), options: pauseOptions },
+      { icon: "moon", title: t("timer.group_sleep"), options: sleepOptions },
+    ], t("timer.body")),
+    actions: false,
+  });
   if (!choice) return;
   let result;
   if (choice.startsWith("pause:")) {
     result = await apiPost("/api/action/timed_pause", { minutes: Number(choice.slice(6)) });
+  } else if (choice.startsWith("sleep:")) {
+    result = await apiPost("/api/action/sleep_timer", { on: true, minutes: Number(choice.slice(6)) });
   } else if (choice === "resume") {
     result = await apiPost("/api/action/toggle_pause");
   } else {
-    result = await apiPost("/api/action/sleep_timer", { on: choice === "sleep_on" });
+    result = await apiPost("/api/action/sleep_timer", { on: false });
   }
   if (!result.ok) showToolError(t("home.transport_failed"), result);
   refreshStatus();
@@ -2047,6 +2143,138 @@ const btClockEnabled = document.getElementById("btClockEnabled");
 // The forms send only the fields changed since they were loaded, so a stale
 // tab cannot overwrite a setting changed elsewhere.
 let settingsBaseline = {};
+
+/* PAUSE_DURATIONS and SLEEP_DURATIONS are lists of minutes. The row holds the
+   field that adds one (a whole number, nothing else can be typed there) and
+   two buttons: + adds, the list opens the dialog where one is removed. The
+   container carries `data-key` and its `value` is the setting's own form
+   ("5,15,30,60"), which is all the settings code below reads. */
+const DURATION_MAX_MIN = 600;
+
+function durationValues(el) {
+  return String(el.value || "").split(/[,;]/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+function saveDurations(el, values) {
+  el.value = values.join(",");
+}
+
+function addDuration(el) {
+  const input = el.querySelector(".duration-new");
+  const typed = input.value.trim();
+  if (!typed) return;
+  const value = Math.round(Number(typed));
+  if (!Number.isFinite(value) || value < 1 || value > DURATION_MAX_MIN) {
+    showError("invalid_value");
+    return;
+  }
+  const values = durationValues(el);
+  input.value = "";
+  if (values.includes(String(value))) {
+    showToast(t("settings.duration_exists", { n: value }));
+    return;
+  }
+  values.push(String(value));
+  values.sort((a, b) => Number(a) - Number(b));
+  saveDurations(el, values);
+  showToast(t("settings.duration_added", { n: value }));
+  input.focus();
+}
+
+// The list of what the setting offers, each with its own remove button: the
+// row itself stays the height of every other row, and this is where the
+// values can be read.
+function durationList(el) {
+  const values = durationValues(el);
+  const list = document.createElement("div");
+  list.className = "duration-list";
+  if (!values.length) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = t("settings.duration_none");
+    list.appendChild(empty);
+    return list;
+  }
+  values.forEach((value) => {
+    const row = document.createElement("div");
+    row.className = "duration-row";
+    const label = document.createElement("span");
+    label.textContent = t("settings.duration_min", { n: value });
+    const off = document.createElement("button");
+    off.type = "button";
+    // A trash bin, in red: a plain cross there reads as another way out of the
+    // dialog, next to the modal's own close cross.
+    off.className = "btn btn-icon duration-row-x btn-danger-outline";
+    off.dataset.icon = "trash";
+    off.title = t("settings.duration_remove", { n: value });
+    off.setAttribute("aria-label", off.title);
+    // One choice has to stay: an empty list leaves Timer… with nothing to offer.
+    off.disabled = values.length < 2;
+    off.addEventListener("click", () => {
+      const kept = durationValues(el);
+      if (kept.length < 2) return;
+      saveDurations(el, kept.filter((one) => one !== value));
+      list.replaceWith(durationList(el));
+    });
+    row.append(label, off);
+    list.appendChild(row);
+  });
+  return list;
+}
+
+function openDurationList(el) {
+  const label = el.closest(".field-row").querySelector("label");
+  return openModal({
+    title: label ? label.textContent : t("settings.duration_manage"),
+    bodyNode: durationList(el),
+    actions: false,
+  });
+}
+
+function durationField(el) {
+  el.value = "";
+  const input = document.createElement("input");
+  input.type = "number";
+  input.className = "num-input duration-new";
+  input.id = el.id + "New";
+  input.min = "1";
+  input.max = String(DURATION_MAX_MIN);
+  input.step = "1";
+  input.inputMode = "numeric";
+  input.placeholder = "15";
+  input.autocomplete = "off";
+
+  const plus = document.createElement("button");
+  plus.type = "button";
+  plus.className = "btn btn-icon duration-add-btn";
+  plus.dataset.icon = "plus";
+  plus.title = t("common.add");
+  plus.setAttribute("aria-label", t("common.add"));
+  plus.addEventListener("click", () => addDuration(el));
+
+  const list = document.createElement("button");
+  list.type = "button";
+  list.className = "btn btn-icon duration-open";
+  list.dataset.icon = "list";
+  list.title = t("settings.duration_manage");
+  list.setAttribute("aria-label", list.title);
+  list.addEventListener("click", () => openDurationList(el));
+
+  // `change` fires on leaving the field, so a number typed and then left there
+  // is taken into account before the form's own Save is read.
+  input.addEventListener("change", () => addDuration(el));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();  // otherwise the settings form is submitted
+      addDuration(el);
+    }
+  });
+  el.replaceChildren(input, plus, list);
+}
+
+document.querySelectorAll(".duration-field").forEach(durationField);
 
 function collectFieldValue(el) {
   if (el.type === "checkbox") return el.checked ? "true" : "false";
@@ -3802,7 +4030,26 @@ hapticsToggle.addEventListener("change", () => {
   try {
     localStorage.setItem(HAPTICS_KEY, hapticsToggle.checked ? "on" : "off");
   } catch (e) {  }
-  if (hapticsToggle.checked) haptic(20);
+  if (hapticsToggle.checked) haptic(HAPTIC_TAP_MS);
+});
+
+// "Vibrate on touch" is a setting you cannot see working, and a phone can
+// refuse the vibration without telling the page: this one asks the browser
+// directly (the switch above does not matter here) and writes down what it
+// answered, so "nothing happens" can be told apart from "the page never asked".
+document.getElementById("hapticsTest").addEventListener("click", () => {
+  const line = document.getElementById("hapticsResult");
+  if (typeof navigator.vibrate !== "function") {
+    line.textContent = t("haptics.unsupported");
+    return;
+  }
+  let accepted = false;
+  try {
+    accepted = navigator.vibrate([HAPTIC_TAP_MS, 60, HAPTIC_TAP_MS]);
+  } catch (e) {
+    accepted = false;
+  }
+  line.textContent = t(accepted ? "haptics.sent" : "haptics.refused");
 });
 
 let suggestState = null;
@@ -4801,6 +5048,14 @@ function deviceUtcString(now) {
     `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
 }
 
+function clockWriteDetail(result) {
+  // The server answers whether the RTC module was written too: without one,
+  // the Pi loses the time as soon as it is unplugged.
+  const written = result.data && result.data.written_to_rtc;
+  return [result.data && result.data.system_time, t(written ? "clock.rtc_written" : "clock.rtc_none")]
+    .filter(Boolean).join(" · ");
+}
+
 document.getElementById("btnUseDeviceTime").addEventListener("click", async () => {
   const btn = document.getElementById("btnUseDeviceTime");
   const now = new Date();
@@ -4817,8 +5072,7 @@ document.getElementById("btnUseDeviceTime").addEventListener("click", async () =
     showError(result.error, t("clock.sync_btn"));
     return;
   }
-  const confirmed = result.data && result.data.system_time;
-  showToast(t("clock.device_time_set"), confirmed || "");
+  showToast(t("clock.device_time_set"), clockWriteDetail(result));
 
   refreshStatus();
 });
@@ -4838,7 +5092,8 @@ document.getElementById("timeForm").addEventListener("submit", async (e) => {
   if (!raw) return;
   const formatted = raw.replace("T", " ");
   const result = await apiPost("/api/time", { datetime: formatted });
-  if (result.ok) showToast(t("clock.time_set")); else showError(result.error);
+  if (result.ok) showToast(t("clock.time_set"), clockWriteDetail(result));
+  else showError(result.error);
 });
 
 document.getElementById("btnSaveBtClock").addEventListener("click", async () => {
