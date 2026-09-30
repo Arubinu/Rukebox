@@ -780,6 +780,24 @@ body[data-page=""] .grid { flex: 1 1 auto; align-content: center; }
 .duplicate-copy.is-hidden { opacity: 0.6; }
 .duplicate-copy.is-hidden .recent-title { text-decoration: line-through; }
 
+/* The second button of a copy: the height of the play button it sits beside,
+   and in a narrow card - a phone - the same square. The words are what does
+   not fit there, so they are clipped rather than removed: they stay the
+   accessible name, as the queue button before them already did. */
+.btn-small.duplicate-keep { min-height: var(--tap); }
+.btn-small.duplicate-keep::before { width: 20px; height: 20px; }
+@container card (max-width: 520px) {
+  .btn-small.duplicate-keep { padding-inline: 0; width: var(--tap); }
+  .btn-small.duplicate-keep > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 /* The library's like-or-list button: the heart in it is filled in red once the
    track is liked, so one glyph tells both answers. */
 .library-add.is-liked { color: var(--danger); border-color: var(--danger); }

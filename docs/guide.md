@@ -951,11 +951,12 @@ weighs, to the second: nothing but a real copy does that, and it is the group a
 reader can act on without listening.
 
 Each copy shows its album, its size, its length and the bitrate its own bytes
-imply, with the usual **play** and **up next** buttons so two of them can be
-compared by ear. **Keep this one** sets the other copies aside: they leave what
-the radio chooses by itself and are struck through here, but **no file is ever
-deleted** - the song is still there to be played by hand, and *Give it back*
-puts it straight back in the rotation.
+imply, with a **play** button so two of them can be compared by ear and, beside
+it, **Keep this one** - a square on a phone, where its words have no room and
+the symbol alone says what it does. Keeping one copy sets the others aside:
+they leave what the radio chooses by itself and are struck through here, but
+**no file is ever deleted** - the song is still there to be played by hand, and
+*Give it back* puts it straight back in the rotation.
 
 Nothing is hashed. On a Pi Zero, reading 12 GB of music to compare it would
 cost ten minutes of card access and say nothing more, since two files of the

@@ -3341,8 +3341,7 @@ function duplicateCopy(copy, group) {
     badge.textContent = t("duplicates.hidden_badge");
     li.append(badge);
   }
-  li.append(libraryButton(copy, false), libraryButton(copy, true),
-    duplicateKeepButton(copy, group));
+  li.append(libraryButton(copy, false), duplicateKeepButton(copy, group));
   return li;
 }
 
