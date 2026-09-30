@@ -48,6 +48,9 @@ $Archive = Join-Path $env:TEMP "rukebox-install-${Stamp}.tar.gz"
 $ApplyLocal = Join-Path $env:TEMP "rukebox-install-apply-${Stamp}.sh"
 
 Write-Host "== Packing ${ProjectRoot} =="
+# Same list as push_update.ps1: an install only ever needs src/, scripts/,
+# web/, config/, systemd/ and assets/sounds/, and a .venv left in the project
+# folder would otherwise add hundreds of megabytes to the archive.
 $tarArgs = @(
     "-czf", $Archive,
     "-C", $ProjectRoot,
@@ -58,6 +61,19 @@ $tarArgs = @(
     "--exclude=.DS_Store",
     "--exclude=node_modules",
     "--exclude=*.tar.gz",
+    "--exclude=./.venv",
+    "--exclude=./graphify-out",
+    "--exclude=./src/graphify-out",
+    "--exclude=./assets/icons",
+    "--exclude=./bootstrap",
+    "--exclude=./dist",
+    "--exclude=./docs",
+    "--exclude=./tests",
+    "--exclude=./.claude",
+    "--exclude=./CLAUDE.md",
+    "--exclude=./TODO.md",
+    "--exclude=./README.md",
+    "--exclude=./README.*.md",
     "."
 )
 & tar.exe $tarArgs

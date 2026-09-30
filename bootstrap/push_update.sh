@@ -68,6 +68,10 @@ cleanup() { rm -f "$ARCHIVE"; }
 trap cleanup EXIT
 
 echo "== Packing $PROJECT_ROOT =="
+# What an update can install is src/, scripts/, web/, config/, systemd/ and
+# assets/sounds/ (see src/version.py): everything else here is the repository
+# itself - the docs, the icon sources, the card-setup build, the tests - and
+# sending it made every push carry ~23 MB that the Pi never looks at.
 tar czf "$ARCHIVE" -C "$PROJECT_ROOT" \
     --exclude='.git' \
     --exclude='__pycache__' \
@@ -79,6 +83,16 @@ tar czf "$ARCHIVE" -C "$PROJECT_ROOT" \
     --exclude='./.venv' \
     --exclude='./graphify-out' \
     --exclude='./src/graphify-out' \
+    --exclude='./assets/icons' \
+    --exclude='./bootstrap' \
+    --exclude='./dist' \
+    --exclude='./docs' \
+    --exclude='./tests' \
+    --exclude='./.claude' \
+    --exclude='./CLAUDE.md' \
+    --exclude='./TODO.md' \
+    --exclude='./README.md' \
+    --exclude='./README.*.md' \
     .
 SIZE="$(du -h "$ARCHIVE" | cut -f1)"
 echo "   archive: $SIZE"

@@ -68,6 +68,9 @@ cleanup() { rm -f "$ARCHIVE"; }
 trap cleanup EXIT
 
 echo "== Packing $PROJECT_ROOT =="
+# Same list as push_update.sh: an install only ever needs src/, scripts/,
+# web/, config/, systemd/ and assets/sounds/, and a .venv left in the project
+# folder would otherwise add hundreds of megabytes to the archive.
 tar czf "$ARCHIVE" -C "$PROJECT_ROOT" \
     --exclude='.git' \
     --exclude='__pycache__' \
@@ -76,6 +79,19 @@ tar czf "$ARCHIVE" -C "$PROJECT_ROOT" \
     --exclude='.DS_Store' \
     --exclude='node_modules' \
     --exclude='*.tar.gz' \
+    --exclude='./.venv' \
+    --exclude='./graphify-out' \
+    --exclude='./src/graphify-out' \
+    --exclude='./assets/icons' \
+    --exclude='./bootstrap' \
+    --exclude='./dist' \
+    --exclude='./docs' \
+    --exclude='./tests' \
+    --exclude='./.claude' \
+    --exclude='./CLAUDE.md' \
+    --exclude='./TODO.md' \
+    --exclude='./README.md' \
+    --exclude='./README.*.md' \
     .
 SIZE="$(du -h "$ARCHIVE" | cut -f1)"
 echo "   archive: $SIZE"

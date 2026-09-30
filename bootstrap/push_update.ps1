@@ -49,6 +49,10 @@ $Archive = Join-Path $env:TEMP "rukebox-update-${Stamp}.tar.gz"
 $ApplyLocal = Join-Path $env:TEMP "rukebox-apply-${Stamp}.sh"
 
 Write-Host "== Packing ${ProjectRoot} =="
+# What an update can install is src/, scripts/, web/, config/, systemd/ and
+# assets/sounds/ (see src/version.py): everything else here is the repository
+# itself - the docs, the icon sources, the card-setup build, the tests - and
+# sending it made every push carry ~23 MB that the Pi never looks at.
 $tarArgs = @(
     "-czf", $Archive,
     "-C", $ProjectRoot,
@@ -62,6 +66,16 @@ $tarArgs = @(
     "--exclude=./.venv",
     "--exclude=./graphify-out",
     "--exclude=./src/graphify-out",
+    "--exclude=./assets/icons",
+    "--exclude=./bootstrap",
+    "--exclude=./dist",
+    "--exclude=./docs",
+    "--exclude=./tests",
+    "--exclude=./.claude",
+    "--exclude=./CLAUDE.md",
+    "--exclude=./TODO.md",
+    "--exclude=./README.md",
+    "--exclude=./README.*.md",
     "."
 )
 & tar.exe $tarArgs
