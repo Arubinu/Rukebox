@@ -215,9 +215,22 @@ PY
 
 PAUSED_BY_US=""
 if [ "$KEEP_PLAYING" != "1" ]; then
-    QUIET="$(radio_quiet pause || true)"
-    if [ "$QUIET" = "paused" ]; then
-        PAUSED_BY_US=1
+    # Three tries: this is the one command that has to get through a link the
+    # music is currently ruining, and an ssh that times out here would leave
+    # the whole transfer on that same dead link.
+    attempt=1
+    while [ "$attempt" -le 3 ]; do
+        QUIET="$(radio_quiet pause || true)"
+        if [ "$QUIET" = "paused" ]; then
+            PAUSED_BY_US=1
+            break
+        fi
+        attempt=$((attempt + 1))
+        if [ "$attempt" -le 3 ]; then
+            sleep 6
+        fi
+    done
+    if [ "$PAUSED_BY_US" = "1" ]; then
         echo "Music paused for the transfer; the daemon brings it back."
     fi
 fi

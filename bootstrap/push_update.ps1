@@ -234,8 +234,14 @@ function Invoke-RadioQuiet([string]$Action) {
 
 $Quieted = $false
 if (-not $KeepPlaying) {
-    $quiet = Invoke-RadioQuiet "pause"
-    if ($quiet -contains "paused") { $Quieted = $true }
+    # Three tries: this is the one command that has to get through a link the
+    # music is currently ruining, and an ssh that times out here would leave
+    # the whole transfer on that same dead link.
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $quiet = Invoke-RadioQuiet "pause"
+        if ($quiet -contains "paused") { $Quieted = $true; break }
+        if ($attempt -lt 3) { Start-Sleep -Seconds 6 }
+    }
 }
 if ($Quieted) { Write-Host "Music paused for the transfer; the daemon brings it back." }
 
