@@ -8,6 +8,7 @@ param(
     [string]$Identity = "",
     [switch]$NoRestart,
     [switch]$DryRun,
+    [switch]$KeepPlaying,
     [switch]$Yes
 )
 
@@ -188,13 +189,48 @@ if (-not $Yes) {
     }
 }
 
+# Bluetooth audio from the USB dongle desensitises the Pi's own Wi-Fi
+# receiver: measured 2026-09-30, this archive uploads at ~590 KB/s with the
+# music paused and at ~3 KB/s while it plays, because the access point drops
+# the Pi to 1 Mbit/s with 20% of the large packets lost. Pausing for the
+# transfer is what turns a six-minute push back into seconds, so the radio is
+# quieted here - and only a pause this script asked for is undone.
+$RadioScript = @'
+import sys
+sys.path.insert(0, "/opt/rukebox/src")
+from control_client import send_control_command
+
+sock = "/tmp/rukebox_control.sock"
+action = sys.argv[1]
+data = send_control_command(sock, "get_status").get("data") or {}
+if action == "pause" and data.get("mode") == "music" and not data.get("paused"):
+    ok = send_control_command(sock, "toggle_pause", source="push").get("ok")
+    print("paused" if ok else "failed")
+if action == "resume" and data.get("paused"):
+    ok = send_control_command(sock, "toggle_pause", source="push").get("ok")
+    print("resumed" if ok else "failed")
+'@
+
+function Invoke-RadioQuiet([string]$Action) {
+    ($RadioScript -replace "`r`n", "`n") | & ssh.exe @SshOpts $Target "python3 - $Action" 2>$null
+}
+
+$Quieted = $false
+if (-not $KeepPlaying) {
+    $quiet = Invoke-RadioQuiet "pause"
+    if ($quiet -contains "paused") { $Quieted = $true }
+}
+if ($Quieted) { Write-Host "Music paused for the transfer (-KeepPlaying to skip)." }
+
 $RemoteArchive = "/tmp/rukebox-update-${Stamp}.tar.gz"
 $RemoteApply = "/tmp/rukebox-apply-${Stamp}.sh"
 
 Write-Host ""
 Write-Host "== Sending (${SizeKb} KB) =="
 & scp.exe @ScpOpts $Archive "${Target}:${RemoteArchive}"
-if ($LASTEXITCODE -ne 0) {
+$scpExit = $LASTEXITCODE
+if ($Quieted) { Invoke-RadioQuiet "resume" | Out-Null }
+if ($scpExit -ne 0) {
     Write-Host "Transfer failed." -ForegroundColor Red
     Remove-Item $Archive -Force -ErrorAction SilentlyContinue
     exit 1

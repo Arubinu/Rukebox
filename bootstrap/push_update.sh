@@ -10,6 +10,7 @@ REMOTE_TMP="/tmp"
 EXTRA_UPDATE_ARGS=""
 DRY_RUN=0
 ASSUME_YES=0
+KEEP_PLAYING=0
 
 usage() {
     cat <<'USAGE'
@@ -20,6 +21,7 @@ Usage: push_update.sh [OPTIONS]
   --port N           SSH port (default: 22)
   --identity FILE    SSH private key to use
   --no-restart       Install without restarting the services on the Pi
+  --keep-playing     Don't pause the music for the transfer
   --dry-run          Show what would be sent, change nothing
   --yes              Don't ask for confirmation
   -h, --help         This help
@@ -33,6 +35,7 @@ while [ $# -gt 0 ]; do
         --port)     PORT="${2:-}"; shift 2 ;;
         --identity) IDENTITY="${2:-}"; shift 2 ;;
         --no-restart) EXTRA_UPDATE_ARGS="$EXTRA_UPDATE_ARGS --no-restart"; shift ;;
+        --keep-playing) KEEP_PLAYING=1; shift ;;
         --dry-run)  DRY_RUN=1; shift ;;
         --yes|-y)   ASSUME_YES=1; shift ;;
         -h|--help)  usage; exit 0 ;;
@@ -181,11 +184,49 @@ if [ "$ASSUME_YES" != "1" ]; then
 fi
 
 # --- Send and apply ---------------------------------------------------
+# Bluetooth audio from the USB dongle desensitises the Pi's own Wi-Fi
+# receiver: measured 2026-09-30, the archive uploads at ~590 KB/s with the
+# music paused and at ~3 KB/s while it plays, because the access point drops
+# the Pi to 1 Mbit/s with 20% of the large packets lost. Pausing for the
+# transfer is what turns a six-minute push back into seconds, so the radio is
+# quieted here - and only a pause this script asked for is undone.
+radio_quiet() {
+    ssh "${SSH_OPTS[@]}" "$TARGET" "python3 - $1" <<'PY'
+import sys
+sys.path.insert(0, "/opt/rukebox/src")
+from control_client import send_control_command
+
+sock = "/tmp/rukebox_control.sock"
+action = sys.argv[1]
+data = send_control_command(sock, "get_status").get("data") or {}
+if action == "pause" and data.get("mode") == "music" and not data.get("paused"):
+    ok = send_control_command(sock, "toggle_pause", source="push").get("ok")
+    print("paused" if ok else "failed")
+if action == "resume" and data.get("paused"):
+    ok = send_control_command(sock, "toggle_pause", source="push").get("ok")
+    print("resumed" if ok else "failed")
+PY
+}
+
+PAUSED_BY_US=""
+if [ "$KEEP_PLAYING" != "1" ]; then
+    QUIET="$(radio_quiet pause || true)"
+    if [ "$QUIET" = "paused" ]; then
+        PAUSED_BY_US=1
+        echo "Music paused for the transfer (--keep-playing to skip)."
+    fi
+fi
+
 REMOTE_ARCHIVE="$REMOTE_TMP/rukebox-update-$STAMP.tar.gz"
 REMOTE_APPLY="$REMOTE_TMP/rukebox-apply-$STAMP.sh"
 echo ""
 echo "== Sending ($SIZE) =="
-scp "${SCP_OPTS[@]}" "$ARCHIVE" "$TARGET:$REMOTE_ARCHIVE"
+if ! scp "${SCP_OPTS[@]}" "$ARCHIVE" "$TARGET:$REMOTE_ARCHIVE"; then
+    [ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
+    echo "Transfer failed." >&2
+    exit 1
+fi
+[ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
 
 echo ""
 echo "== Updating on the Pi =="
