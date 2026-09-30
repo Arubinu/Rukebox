@@ -4,7 +4,12 @@ set -u
 CONFIG_FILE="/etc/rukebox/rukebox.env"
 
 CHECK_SECONDS=3
-CONNECTED_TICKS=10
+# How often the connected branch comes round to look at the controller's byte
+# counter. Every pass costs one bluetoothctl and one hciconfig, and this gap is
+# what delayed a repair by up to 30s: measured on the owner's Pi, 2026-09-30,
+# five dead links in three hours, each one leaving the speaker silent for
+# 65-95s. 9s instead of 30s costs a Pi Zero nothing worth counting.
+CONNECTED_TICKS=3
 SLOW_TICKS=20
 BACKOFF_TICKS=(1 2 3 5 10 20)
 CALL_TIMEOUT=10
@@ -20,8 +25,11 @@ REPAIR_SECONDS=300
 # A link that is up but carries no audio at all: the controller's own byte
 # counter must move while the radio is playing (a silence is still bytes). That
 # long with nothing on the air, and the daemon swearing it is playing, is the
-# fault measured on 2026-09-29 - see the connected branch below.
-SILENT_SECONDS=45
+# fault measured on 2026-09-29 - see the connected branch below. 15s and not 45:
+# the counter carries ~26 KB/s of SBC frames, so 15s of nothing means the link
+# is already dead, and the repair itself (down, up, bluetoothd restart,
+# reconnect) adds another ~20s on top.
+SILENT_SECONDS=15
 SILENT_MIN_BYTES=2000
 
 SPEAKER_MAC=""
