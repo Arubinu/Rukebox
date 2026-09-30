@@ -213,7 +213,7 @@ if [ "$KEEP_PLAYING" != "1" ]; then
     QUIET="$(radio_quiet pause || true)"
     if [ "$QUIET" = "paused" ]; then
         PAUSED_BY_US=1
-        echo "Music paused for the transfer (--keep-playing to skip)."
+        echo "Music paused for the transfer; the daemon brings it back."
     fi
 fi
 
@@ -222,11 +222,11 @@ REMOTE_APPLY="$REMOTE_TMP/rukebox-apply-$STAMP.sh"
 echo ""
 echo "== Sending ($SIZE) =="
 if ! scp "${SCP_OPTS[@]}" "$ARCHIVE" "$TARGET:$REMOTE_ARCHIVE"; then
+    # The update will not run, so nothing else will resume the music.
     [ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
     echo "Transfer failed." >&2
     exit 1
 fi
-[ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
 
 echo ""
 echo "== Updating on the Pi =="
@@ -262,11 +262,17 @@ scp "${SCP_OPTS[@]}" "$APPLY_LOCAL" "$TARGET:$REMOTE_APPLY"
 
 # -t: the updater runs under sudo and may need to ask for a password.
 if ! ssh -t "${SSH_OPTS[@]}" "$TARGET" "sh $REMOTE_APPLY"; then
+    [ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
     echo "" >&2
     echo "The update failed. The Pi restored its previous version by itself." >&2
     echo "Details:  ssh $TARGET 'journalctl -u rukebox-daemon.service -n 50'" >&2
     exit 1
 fi
+
+# The update restarts the daemon, which comes back playing on its own - so
+# this only does something when it did not run (--no-restart), and never
+# starts music on a radio that was not playing to begin with.
+[ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
 
 echo ""
 echo "== Done =="

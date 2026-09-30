@@ -40,8 +40,9 @@ def announcement_target(msg):
     """(source, item_id, chooser) for a play_announcement command.
 
     `source` carries two different things: the announcement to play, and where
-    the command came from ("web", "flic", "gpio", "speaker" - the web server
-    adds source="web" to everything). Only a real announcement source counts
+    the command came from ("web", "flic", "gpio", "speaker", "push" - the web
+    server adds source="web" to everything, and an update script pushing to the
+    Pi adds "push"). Only a real announcement source counts
     as one here, or the row's own "Play" - which names its announcement by id
     - is answered "unknown source"."""
     source = msg.get("source")
@@ -2158,7 +2159,7 @@ class RadioDaemon:
         def handle_command(msg):
             cmd = msg.get("cmd")
             source = msg.get("source", "unknown")
-            if source not in ("flic", "gpio", "web", "speaker", "unknown"):
+            if source not in ("flic", "gpio", "web", "speaker", "push", "unknown"):
                 source = "unknown"
             self._announcements()
 

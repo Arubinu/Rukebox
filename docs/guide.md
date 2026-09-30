@@ -1571,16 +1571,19 @@ rather than helpful. Useful options, identical in both scripts:
 If the Pi already runs the exact same version, it says so and stops
 without touching anything.
 
-**The music is paused for the transfer, on purpose.** Bluetooth audio
-leaves the USB dongle right next to the Pi's own Wi-Fi antenna, and while
-it plays the access point drops the Pi to 1 Mbit/s with a fifth of the
-large packets lost: measured on a Pi Zero 2 W, the archive uploads at
-about **3 KB/s** with the music playing and about **590 KB/s** with it
-paused, which is the difference between a six-minute push and a few
-seconds. Only a pause the script asked for is undone, so a pause of your
-own survives; `--keep-playing` skips it when you would rather listen than
-wait. A short USB extension cable between the Pi and the dongle moves it
-away from the antenna and fixes this at the source.
+**The music is paused for the transfer, on purpose, and comes back when the
+services restart at the end of the update** (it is not resumed in between:
+that only bought two seconds of music before the daemon went down).
+Bluetooth audio leaves the USB dongle right next to the Pi's own Wi-Fi
+antenna, and while it plays the access point drops the Pi to 1 Mbit/s with a
+fifth of the large packets lost: measured on a Pi Zero 2 W, the archive
+uploads at about **3 KB/s** with the music playing and about **590 KB/s**
+with it paused, which is the difference between a six-minute push and a few
+seconds. Only a pause the script asked for is undone, so a pause of your own
+survives (and a push with `--no-restart` does resume the music at the end,
+since nothing else will). `--keep-playing` skips the pause when you would
+rather listen than wait. A short USB extension cable between the Pi and the
+dongle moves it away from the antenna and fixes this at the source.
 
 ### From a GitHub release (needs network)
 

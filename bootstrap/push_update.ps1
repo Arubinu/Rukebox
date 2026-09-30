@@ -220,7 +220,7 @@ if (-not $KeepPlaying) {
     $quiet = Invoke-RadioQuiet "pause"
     if ($quiet -contains "paused") { $Quieted = $true }
 }
-if ($Quieted) { Write-Host "Music paused for the transfer (-KeepPlaying to skip)." }
+if ($Quieted) { Write-Host "Music paused for the transfer; the daemon brings it back." }
 
 $RemoteArchive = "/tmp/rukebox-update-${Stamp}.tar.gz"
 $RemoteApply = "/tmp/rukebox-apply-${Stamp}.sh"
@@ -229,8 +229,9 @@ Write-Host ""
 Write-Host "== Sending (${SizeKb} KB) =="
 & scp.exe @ScpOpts $Archive "${Target}:${RemoteArchive}"
 $scpExit = $LASTEXITCODE
-if ($Quieted) { Invoke-RadioQuiet "resume" | Out-Null }
 if ($scpExit -ne 0) {
+    # The update will not run, so nothing else will resume the music.
+    if ($Quieted) { Invoke-RadioQuiet "resume" | Out-Null }
     Write-Host "Transfer failed." -ForegroundColor Red
     Remove-Item $Archive -Force -ErrorAction SilentlyContinue
     exit 1
@@ -273,6 +274,11 @@ Write-Host "== Updating on the Pi =="
 
 & ssh.exe -t @SshOpts $Target "sh ${RemoteApply}"
 $updateExit = $LASTEXITCODE
+
+# The update restarts the daemon, which comes back playing on its own - so
+# this only does something when it did not run (--no-restart), and never
+# starts music on a radio that was not playing to begin with.
+if ($Quieted) { Invoke-RadioQuiet "resume" | Out-Null }
 
 Remove-Item $Archive, $ApplyLocal -Force -ErrorAction SilentlyContinue
 
