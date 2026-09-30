@@ -867,19 +867,29 @@ function showBootOverlay(key, subKey) {
 
 let piGoingDown = null;
 let goingDownSince = 0;
+let updateSeenDone = false;
 
 function setGoingDown(kind, askedAt) {
   if (kind === piGoingDown) return;
   if (!kind && askedAt !== undefined && askedAt < goingDownSince) return;
+  const wasUpdating = piGoingDown === "update";
   piGoingDown = kind;
   if (kind) goingDownSince = Date.now();
   if (kind) {
     overlayForConnection = true;
-    showBootOverlay(kind === "reboot" ? "boot.rebooting" : "boot.powered_off");
+    showBootOverlay(kind === "reboot" ? "boot.rebooting"
+      : kind === "update" ? "boot.updating" : "boot.powered_off",
+    kind === "update" ? "boot.updating_note" : undefined);
   } else if (overlayForConnection) {
     overlayForConnection = false;
     connectionFailures = 0;
     hideBootOverlay();
+    /* The services have just come back with the new version: reload, so the
+       page is the new one too rather than a mix of old cached files. */
+    if (wasUpdating && !updateSeenDone) {
+      updateSeenDone = true;
+      setTimeout(() => window.location.reload(), BOOT_FADE_MS + 100);
+    }
   }
 }
 
@@ -1240,7 +1250,7 @@ async function refreshStatus() {
   statusPaintedSeq = seq;
   const d = result.data;
   d.sampledAt = sampledAt;
-  setGoingDown(d.going_down || null, sentAt);
+  setGoingDown(d.going_down || (d.updating ? "update" : null), sentAt);
   lastKnownMode = d.mode;
 
   document.getElementById("npMode").textContent = modeLabel(d.mode);

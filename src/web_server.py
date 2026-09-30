@@ -1591,6 +1591,29 @@ def api_device_free_credits():
 
 
 @app.route("/api/status/wait")
+# Written by scripts/update.sh for as long as an update is running, so the page
+# can say "update in progress" instead of looking like a Pi that has died while
+# the services are stopped. One left behind by a killed updater is ignored and
+# removed rather than keeping the page on that screen for ever.
+UPDATE_FLAG_MAX_AGE_SEC = 900
+
+
+def update_in_progress(c):
+    """True while an update is running, from the flag update.sh writes."""
+    path = os.path.join(c.get("STATE_DIR") or "/var/lib/rukebox", "updating")
+    try:
+        age = time.time() - os.path.getmtime(path)
+    except OSError:
+        return False
+    if age > UPDATE_FLAG_MAX_AGE_SEC:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        return False
+    return True
+
+
 def api_status_wait():
     """Answers as soon as something the page shows changes (mode, file, pause)."""
     try:
@@ -1620,6 +1643,7 @@ def api_status():
 
     data = result["data"]
     data["going_down"] = _going_down or ("poweroff" if data.pop("powering_off", False) else None)
+    data["updating"] = update_in_progress(cfg())
     data["epoch"] = time.time()
     track_path = data.pop("current_track_path", None)
     upcoming = data.pop("upcoming_track_path", None)

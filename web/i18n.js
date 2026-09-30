@@ -1506,6 +1506,8 @@ const I18N = {
 "boot.lost_retrying": "Trying again…",
     "boot.powered_off": "The Rukebox is switched off. This page will reconnect by itself when it is switched back on.",
     "boot.rebooting": "The Rukebox is restarting…",
+    "boot.updating": "The Rukebox is being updated…",
+    "boot.updating_note": "It comes back on its own in a few seconds; this page reloads itself when it does."
     "conn.powered_off": "Switched off",
     "boot.retry": "Try again",
     "login.submit": "Log in",
@@ -3035,6 +3037,8 @@ const I18N = {
 "boot.lost_retrying": "Nouvelle tentative…",
     "boot.powered_off": "La Rukebox est éteinte. Cette page se reconnectera toute seule quand elle sera rallumée.",
     "boot.rebooting": "La Rukebox redémarre…",
+    "boot.updating": "La Rukebox est en cours de mise à jour…",
+    "boot.updating_note": "Elle revient toute seule dans quelques secondes ; cette page se rechargera d'elle-même à ce moment-là."
     "conn.powered_off": "Éteinte",
     "boot.retry": "Réessayer",
     "login.submit": "Se connecter",
@@ -4564,6 +4568,8 @@ const I18N = {
 "boot.lost_retrying": "Neuer Versuch…",
     "boot.powered_off": "Die Rukebox ist ausgeschaltet. Diese Seite verbindet sich von selbst wieder, sobald sie eingeschaltet wird.",
     "boot.rebooting": "Die Rukebox startet neu…",
+    "boot.updating": "Die Rukebox wird gerade aktualisiert…",
+    "boot.updating_note": "Sie ist in wenigen Sekunden von selbst wieder da; diese Seite lädt sich dann neu."
     "conn.powered_off": "Ausgeschaltet",
     "boot.retry": "Erneut versuchen",
     "login.submit": "Anmelden",
@@ -6093,6 +6099,8 @@ const I18N = {
 "boot.lost_retrying": "Reintentando…",
     "boot.powered_off": "La Rukebox está apagada. Esta página se volverá a conectar sola cuando se encienda de nuevo.",
     "boot.rebooting": "La Rukebox se está reiniciando…",
+    "boot.updating": "La Rukebox se está actualizando…",
+    "boot.updating_note": "Vuelve sola en unos segundos; esta página se recargará entonces."
     "conn.powered_off": "Apagada",
     "boot.retry": "Reintentar",
     "login.submit": "Iniciar sesión",
@@ -7622,6 +7630,8 @@ const I18N = {
 "boot.lost_retrying": "Nuovo tentativo…",
     "boot.powered_off": "La Rukebox è spenta. Questa pagina si ricollegherà da sola quando verrà riaccesa.",
     "boot.rebooting": "La Rukebox si sta riavviando…",
+    "boot.updating": "La Rukebox si sta aggiornando…",
+    "boot.updating_note": "Torna da sola tra qualche secondo; questa pagina si ricaricherà a quel punto."
     "conn.powered_off": "Spenta",
     "boot.retry": "Riprova",
     "login.submit": "Accedi",
@@ -9151,6 +9161,8 @@ const I18N = {
 "boot.lost_retrying": "Nieuwe poging…",
     "boot.powered_off": "De Rukebox staat uit. Deze pagina maakt vanzelf weer verbinding zodra hij weer aan staat.",
     "boot.rebooting": "De Rukebox wordt opnieuw opgestart…",
+    "boot.updating": "De Rukebox wordt bijgewerkt…",
+    "boot.updating_note": "Hij is binnen enkele seconden vanzelf terug; deze pagina herlaadt dan."
     "conn.powered_off": "Uitgeschakeld",
     "boot.retry": "Opnieuw proberen",
     "login.submit": "Inloggen",

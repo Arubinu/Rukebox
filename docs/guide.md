@@ -1590,6 +1590,16 @@ since nothing else will). `--keep-playing` skips the pause when you would
 rather listen than wait. A short USB extension cable between the Pi and the
 dongle moves it away from the antenna and fixes this at the source.
 
+**A page open while an update runs says so instead of looking dead.** The
+updater writes a flag (`/var/lib/rukebox/updating`) for as long as it runs, the
+status carries it, and the page shows "The Rukebox is being updated… — it comes
+back on its own in a few seconds; this page reloads itself when it does", the
+same full-screen notice as when the Pi is switched off. That covers every way
+of updating from a terminal, not just the push. When the flag goes away the
+page reloads by itself, so it is never left running a mix of old cached files
+and new ones. A flag left behind by an updater that was killed is ignored and
+cleared after fifteen minutes.
+
 ### From a GitHub release (needs network)
 
 The **Update** card (System tab, detailed view) checks the latest

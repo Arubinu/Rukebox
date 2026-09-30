@@ -173,6 +173,26 @@ class WebTest(unittest.TestCase):
         finally:
             ws.UPDATE_LOG = original
 
+    def test_the_page_says_an_update_is_running(self):
+        # scripts/update.sh writes this flag for as long as it runs, and
+        # /api/status carries it: the page then shows "update in progress"
+        # instead of looking like a Pi that has died, which is what happens
+        # while update.sh has the services stopped. Asked for as "remets la
+        # page, comme pour la RPi est eteinte mais pour dire qu'une mise a jour
+        # est en cours".
+        flag = os.path.join(self.dir, "updating")
+        state = {"STATE_DIR": self.dir}
+        self.assertFalse(ws.update_in_progress(state))
+        with open(flag, "w", encoding="utf-8") as fh:
+            fh.write("1790779000\n")
+        self.assertTrue(ws.update_in_progress(state))
+        # An old flag is an updater that died, not an update in progress: it
+        # must not keep the page on that screen for ever.
+        old = time.time() - ws.UPDATE_FLAG_MAX_AGE_SEC - 60
+        os.utime(flag, (old, old))
+        self.assertFalse(ws.update_in_progress(state))
+        self.assertFalse(os.path.exists(flag), "the stale flag is cleared while we are there")
+
     def test_credits_and_free_devices(self):
         guest = ws.app.test_client()
         codes = [guest.post("/api/action/next_track").status_code for _ in range(4)]

@@ -40,6 +40,18 @@ say()  { [ "$QUIET" = "1" ] || echo "$@"; }
 step() { [ "$QUIET" = "1" ] || echo "== $* =="; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
 
+# While this runs, the web page says "update in progress" instead of looking
+# like a Pi that has died: it reads this flag through /api/status (see
+# web_server.py's UPDATE_FLAG). The services go down a few seconds after it is
+# written, so the page has time to notice; the EXIT trap below takes it away
+# again, whichever way this script ends, and the web server ignores (and
+# removes) one older than fifteen minutes so a script killed with -9 cannot
+# leave the page stuck on it.
+UPDATING_FLAG="$STATE_DIR/updating"
+mark_updating() { mkdir -p "$STATE_DIR"; date +%s > "$UPDATING_FLAG" 2>/dev/null || true; }
+clear_updating() { rm -f "$UPDATING_FLAG" 2>/dev/null || true; }
+trap 'rm -f "$0"; clear_updating' EXIT
+
 usage() {
     cat <<'USAGE'
 Usage: sudo update.sh [SOURCE] [OPTIONS]
@@ -164,6 +176,7 @@ if [ "$ACTION" = "rollback" ]; then
     latest="$(list_backups | head -n1)"
     [ -n "$latest" ] || fail "no backup to restore in $BACKUP_DIR"
     step "Restoring $(basename "$latest")"
+    mark_updating
     remember_running
     stop_services
     rm -rf "$INSTALL_DIR.rollback"
@@ -257,6 +270,7 @@ SOURCE_DIR="$(readlink -f "$SOURCE_DIR")"
 [ -d "$SOURCE_DIR" ] || fail "source directory not found: $SOURCE_DIR"
 [ "$SOURCE_DIR" != "$INSTALL_DIR" ] || fail "the source cannot be $INSTALL_DIR itself."
 
+mark_updating
 step "Checking the new version"
 for required in src/rukebox_daemon.py src/web_server.py src/config_and_scan.py \
                 src/config_file.py src/config_schema.py src/announcements.py \
