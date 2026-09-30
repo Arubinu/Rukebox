@@ -177,6 +177,8 @@
   --i-copy: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%229%22 y=%229%22 width=%2213%22 height=%2213%22 rx=%222%22/%3E%3Cpath d=%22M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1%22/%3E%3C/svg%3E");
   --i-pencil: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z%22/%3E%3Cpath d=%22m15 5 4 4%22/%3E%3C/svg%3E");
   --i-package: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z%22/%3E%3Cpath d=%22m3.3 7 8.7 5 8.7-5M12 22V12%22/%3E%3C/svg%3E");
+  --i-heart: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z%22/%3E%3C/svg%3E");
+  --i-heart-filled: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22black%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z%22/%3E%3C/svg%3E");
 }
 
 [data-icon="home"] { --icon: var(--i-home); }
@@ -251,6 +253,8 @@
 [data-icon="copy"] { --icon: var(--i-copy); }
 [data-icon="pencil"] { --icon: var(--i-pencil); }
 [data-icon="package"] { --icon: var(--i-package); }
+[data-icon="heart"] { --icon: var(--i-heart); }
+[data-icon="heart-filled"] { --icon: var(--i-heart-filled); }
 
 [data-icon]::before,
 .icon-mask {
@@ -1065,6 +1069,28 @@ body[data-access="guest"] .view-bar { display: none; }
   min-width: 0;
 }
 .np-info { flex: 1; min-width: 0; }
+
+/* The heart sits on the cover's bottom-right corner, like the badge on a
+   thumbnail: it is about the song showing, not about the transport. */
+.np-cover-box { position: relative; flex: none; }
+.np-like {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.2));
+}
+.np-like::before { width: 17px; height: 17px; }
+.np-like:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+.np-like.is-on { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+.np-unlike { color: var(--danger); }
 
 .np-info > .np-lyrics-btn { float: right; margin: 0 0 0 10px; }
 .np-info > .np-text { clear: right; }
@@ -2304,6 +2330,18 @@ select {
 .duration-row:last-child { border-bottom: 0; }
 .btn.btn-icon.duration-row-x { width: 38px; min-height: 38px; flex: none; }
 
+/* One checkbox per Bluetooth codec the Pi can offer: a list of names, not a
+   text field, because a typo there silently offers nothing. */
+.codec-field {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 14px;
+  flex: 0 1 19rem;
+}
+.codec-box { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.codec-box input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+
 #systemSoundsList { max-height: none; overflow: visible; }
 #systemSoundsList .device-actions:not(.btn-split) { display: flex; gap: 8px; width: 100%; }
 #systemSoundsList .device-actions:not(.btn-split) > .btn { flex: 1 1 0; }
@@ -3061,6 +3099,18 @@ select {
 
 /* The way out of a dialog that carries no Cancel button. */
 .modal-close { position: absolute; top: 14px; right: 14px; }
+
+/* The audio diagnostic is a report: wider where the screen allows, and in the
+   fixed-width font it was written in. */
+.modal-report { max-width: 780px; }
+.diag-text {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 /* Timer…: the two families of choice side by side, each under its symbol, with
    the legend that says what the symbols mean underneath both. */

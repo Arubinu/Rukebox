@@ -2129,6 +2129,7 @@ class RadioDaemon:
                        for name, due in (("resume", self._timer_due.get("resume")),
                                          ("sleep", self._timer_due.get("sleep")))},
             "music_order_mode": self.cfg["MUSIC_ORDER_MODE"],
+            "previous_restart_sec": self.PREVIOUS_RESTART_AFTER_SEC,
             "music_loop": self.cfg["MUSIC_LOOP"],
             "music_start_mode": self.cfg["MUSIC_START_MODE"],
             "music_start_time": "%02d:%02d" % (

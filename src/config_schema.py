@@ -92,6 +92,18 @@ SETTINGS = [
         "Fade-in on resume (sec)",
     ),
     Setting(
+        "BT_AUDIO_CODECS", "bluetooth", "bt_audio_codecs", "str", "sbc_xq,sbc",
+        "The Bluetooth codecs (A2DP) the Pi OFFERS the speaker; the speaker\n"
+        "picks among them. Known names: ldac, aptx_hd, aptx, aac, sbc_xq, sbc,\n"
+        "faststream, opus. Write only what the speaker can do: offering one it\n"
+        "cannot handle is not harmless - measured here, with SBC-XQ offered\n"
+        "alone, a soundcore Select 4 Go answered on the headset profile\n"
+        "instead (mSBC, telephone quality) rather than falling back to SBC.\n"
+        "The Pi's own codecs, and what the link ended up using, are in\n"
+        "System health > Audio diagnostic.",
+        "Bluetooth codecs offered",
+    ),
+    Setting(
         "SPEAKER_LOSS_SHUTDOWN_MIN", "bluetooth", "shutdown_after_speaker_loss_min", "int", "0",
         "Power the Pi off when the speaker has been disconnected for this many\n"
         "minutes. 0 = never.",
@@ -813,6 +825,14 @@ SETTINGS = [
         "one by one) or by genre (kept up to date from the library's tags);\n"
         "the radio plays one list, or everything when none is active.",
         "Music lists file",
+    ),
+    Setting(
+        "LIKES_FILE", "paths", "likes_file", "str",
+        "/var/lib/rukebox/likes.json",
+        "The tracks liked from the player - see src/likes.py. A song is\n"
+        "remembered by its library key, so the like survives a rescan; each\n"
+        "entry carries the date it was liked, which is what the list shows.",
+        "Liked tracks file",
     ),
 ]
 

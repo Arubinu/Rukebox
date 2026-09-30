@@ -914,11 +914,13 @@ function closeModal(value) {
   resolve(value);
 }
 
-function openModal({ title, body, bodyNode, confirm, choices, actions }) {
+function openModal({ title, body, bodyNode, confirm, choices, actions, modalClass }) {
   closeModal(false);
   return new Promise((resolve) => {
     modalResolve = resolve;
     document.getElementById("modalTitle").textContent = title;
+    document.querySelector("#modalOverlay .modal").className =
+      "modal" + (modalClass ? " " + modalClass : "");
 
     const bodyBox = document.getElementById("modalBody");
     if (bodyNode) {
@@ -1238,6 +1240,7 @@ async function refreshStatus() {
     recentPlayingKey = playingKey;
     refreshRecent();
     refreshUpnext();
+    paintLikeButton();
   }
 
   const nextSignature = JSON.stringify(d.next_track || null);
@@ -1599,6 +1602,25 @@ let playerStatus = null;
 let timerEnds = { resume: null, sleep: null };
 let timerTick = null;
 
+/* "Previous" does one of two things, and the daemon is the one who decides:
+   restart the song from the top once it has played a few seconds, or go back
+   to the one before. The button says which, using the same threshold the
+   daemon uses (previous_restart_sec), and the progress tick re-reads it so the
+   label flips at the right second without waiting for a status. */
+let previousAction = null;
+
+function paintPrevious() {
+  const btn = document.getElementById("btnPrev");
+  const position = currentTrackPosition();
+  const threshold = (playerStatus && playerStatus.previous_restart_sec) || 5;
+  const action = position !== null && position > threshold ? "restart" : "previous";
+  if (action === previousAction) return;
+  previousAction = action;
+  btn.dataset.icon = action === "restart" ? "restart" : "prev";
+  btn.dataset.i18n = action === "restart" ? "home.restart_track" : "home.previous";
+  btn.textContent = t(btn.dataset.i18n);
+}
+
 function applyLoopAndTimers(d) {
   playerStatus = d;
   const loop = ["track", "album"].includes(d.loop_mode) ? d.loop_mode : "off";
@@ -1609,6 +1631,7 @@ function applyLoopAndTimers(d) {
   label.dataset.i18n = "home.loop_" + loop;
   label.textContent = t(label.dataset.i18n);
   document.getElementById("btnPrev").disabled = d.mode !== "music";
+  paintPrevious();
 
   const timers = d.timers || {};
   const at = d.sampledAt || Date.now();
@@ -1785,6 +1808,7 @@ const nextFrame = window.requestAnimationFrame
   : (fn) => setTimeout(fn, 100);
 function progressFrame() {
   paintTrackProgress();
+  paintPrevious();
   paintLyrics(false);
   nextFrame(progressFrame);
 }
@@ -2276,6 +2300,49 @@ function durationField(el) {
 
 document.querySelectorAll(".duration-field").forEach(durationField);
 
+/* Which Bluetooth codecs the Pi offers the speaker: one checkbox per codec
+   PipeWire knows, and the container's `value` is the setting's own form
+   ("sbc_xq,sbc") - what the settings code below reads. */
+const BT_CODEC_LABELS = {
+  ldac: "LDAC", aptx_hd: "aptX HD", aptx: "aptX", aac: "AAC",
+  sbc_xq: "SBC-XQ", sbc: "SBC", faststream: "FastStream", opus: "Opus",
+};
+
+function codecValues(el) {
+  return String(el.value || "").split(/[,;]/)
+    .map((part) => part.trim().toLowerCase())
+    .filter((part) => part.length > 0);
+}
+
+function paintCodecField(el) {
+  const chosen = codecValues(el);
+  el.querySelectorAll("input[type=checkbox]").forEach((box) => {
+    box.checked = chosen.includes(box.value);
+  });
+}
+
+function codecField(el) {
+  el.value = el.value || "";
+  el.replaceChildren(...Object.keys(BT_CODEC_LABELS).map((codec) => {
+    const label = document.createElement("label");
+    label.className = "codec-box";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = codec;
+    const text = document.createElement("span");
+    text.textContent = BT_CODEC_LABELS[codec];
+    box.addEventListener("change", () => {
+      const kept = codecValues(el).filter((one) => one !== codec);
+      if (box.checked) kept.push(codec);
+      el.value = kept.join(",");
+    });
+    label.append(box, text);
+    return label;
+  }));
+}
+
+document.querySelectorAll(".codec-field").forEach(codecField);
+
 function collectFieldValue(el) {
   if (el.type === "checkbox") return el.checked ? "true" : "false";
   return el.value;
@@ -2310,6 +2377,7 @@ function setFieldValue(el, rawValue) {
     el.checked = String(rawValue).toLowerCase() === "true";
   } else {
     el.value = rawValue;
+    if (el.classList.contains("codec-field")) paintCodecField(el);
   }
 }
 
@@ -2490,6 +2558,11 @@ SETTINGS_FORMS.forEach((form) => {
       showToast(t("alert.settings_saved"), t("alert.restart_reminder"), {
         action: { label: t("settings.restart_now"), icon: "restart", run: restartDaemon },
       });
+    } else if ("BT_AUDIO_CODECS" in updates) {
+      // The codecs are read when the Bluetooth monitor starts: say which of
+      // the two happened rather than a bare "saved".
+      showToast(t("alert.settings_applied"),
+        t(d.audio_reloaded === false ? "alert.audio_later" : "alert.audio_reloaded"));
     } else if (d.applied_live === false) {
       showToast(t("alert.settings_saved_later"));
     } else {
@@ -3037,6 +3110,130 @@ async function refreshRecent() {
 
 refreshRecent();
 setInterval(refreshRecent, 60000);
+
+/* ------------------------------------------------------------------
+   Liked tracks: the heart on the cover, and the list it builds. The keys are
+   kept here so the heart answers without asking the server again on every
+   status, and the list is refetched whenever it is shown.
+   ------------------------------------------------------------------ */
+let likedKeys = new Set();
+let likedTracks = [];
+
+function likesAvailable() {
+  return document.body.dataset.access !== "guest";
+}
+
+function currentTrackKey() {
+  const d = playerStatus || {};
+  if (!d.track_key || ["idle", "stopped"].includes(d.mode)) return null;
+  return d.track_key;
+}
+
+function paintLikeButton() {
+  const btn = document.getElementById("btnLike");
+  const key = currentTrackKey();
+  btn.hidden = !key || !likesAvailable();
+  const on = !!key && likedKeys.has(key);
+  btn.dataset.icon = on ? "heart-filled" : "heart";
+  btn.classList.toggle("is-on", on);
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+  btn.dataset.i18n = on ? "likes.unlike" : "likes.like";
+  btn.title = t(btn.dataset.i18n);
+  btn.setAttribute("aria-label", btn.title);
+}
+
+function likedDate(seconds) {
+  if (!seconds) return "";
+  try {
+    return new Date(seconds * 1000).toLocaleDateString(currentLang,
+      { year: "numeric", month: "short", day: "numeric" });
+  } catch (e) {
+    return "";
+  }
+}
+
+function unlikeButton(item) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn btn-icon btn-small recent-play np-unlike";
+  b.dataset.icon = "heart-filled";
+  b.title = t("likes.unlike_title", { title: item.title || "" });
+  b.setAttribute("aria-label", b.title);
+  b.addEventListener("click", async () => {
+    b.disabled = true;
+    const r = await apiPost("/api/likes/toggle", { key: item.key, title: item.title });
+    b.disabled = false;
+    if (!r.ok) {
+      showToolError(t("likes.failed"), r);
+      return;
+    }
+    showToast(t("likes.removed", { title: item.title || "" }));
+    refreshLikes();
+  });
+  return b;
+}
+
+function renderLikes() {
+  const list = document.getElementById("likesList");
+  document.getElementById("likesEmpty").hidden = likedTracks.length > 0;
+  list.replaceChildren(...likedTracks.map((item) => {
+    const li = document.createElement("li");
+    li.append(trackMain(item));
+    const when = document.createElement("span");
+    when.className = "recent-when";
+    when.textContent = likedDate(item.liked_at);
+    li.append(when);
+    if (item.key) li.append(libraryButton(item, true), unlikeButton(item));
+    return li;
+  }));
+}
+
+async function refreshLikes() {
+  const card = document.getElementById("likesCard");
+  if (!likesAvailable()) {
+    card.hidden = true;
+    paintLikeButton();
+    return;
+  }
+  const result = await apiGet("/api/likes");
+  if (!result.ok || !result.data) {
+    card.hidden = true;
+    return;
+  }
+  likedTracks = result.data.tracks || [];
+  likedKeys = new Set(result.data.keys || []);
+  card.hidden = false;
+  renderLikes();
+  paintLikeButton();
+}
+
+document.getElementById("btnLike").addEventListener("click", async () => {
+  const key = currentTrackKey();
+  if (!key) return;
+  const btn = document.getElementById("btnLike");
+  const title = (playerStatus || {}).track_title || "";
+  btn.disabled = true;
+  const result = await apiPost("/api/likes/toggle", {
+    key, title, artist: (playerStatus || {}).track_artist || "",
+  });
+  btn.disabled = false;
+  if (!result.ok) {
+    showToolError(t("likes.failed"), result);
+    return;
+  }
+  const liked = !!(result.data && result.data.liked);
+  if (liked) likedKeys.add(key); else likedKeys.delete(key);
+  paintLikeButton();
+  showToast(t(liked ? "likes.added" : "likes.removed", { title }));
+  refreshLikes();
+});
+
+refreshLikes();
+setInterval(refreshLikes, 120000);
+window.LANG_CHANGE_LISTENERS.push(() => {
+  renderLikes();
+  paintLikeButton();
+});
 
 // ------------------------------------------------------------------
 // Bluetooth controllers and the Flic button (Bluetooth card): which
@@ -5757,6 +5954,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
+  "track_liked", "track_unliked",
   "list_selected", "list_added", "list_changed", "list_removed",
   "announcement_volume_set"];
 function eventLabel(type) {
@@ -6722,12 +6920,18 @@ document.getElementById("btnAudioDiag").addEventListener("click", async () => {
     return;
   }
   const text = (result.data && result.data.report) || "";
+  // A report is read line by line: it gets a wider dialog and a fixed-width
+  // font when the screen has the room.
+  const report = document.createElement("pre");
+  report.className = "diag-text";
+  report.textContent = text;
   const choice = await openModal({
     title: t("diag.title"),
-    body: text,
+    bodyNode: report,
+    modalClass: "modal-report",
     choices: [{ label: t("diag.copy"), value: "copy" }],
   });
-  if (choice === "copy") copyText(text, document.getElementById("modalBody"));
+  if (choice === "copy") copyText(text, report);
 });
 
 function renderRecentStats(series) {
@@ -6799,6 +7003,7 @@ document.addEventListener("page-shown", (event) => {
   if (page === "events" && document.getElementById("eventList").children.length === 0) {
     loadEvents(false);
   }
+  if (page === "likes") refreshLikes();
 });
 
 refreshStats();

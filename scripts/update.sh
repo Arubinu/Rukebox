@@ -365,6 +365,16 @@ else
 fi
 chown -R "$RUKEBOX_USER:$RUKEBOX_USER" "$(dirname "$CONFIG_FILE")"
 
+# The Bluetooth codecs the Pi offers are a setting, and PipeWire reads them
+# from a WirePlumber drop-in of its own (see src/bt_codec.py).
+if [ -f "$INSTALL_DIR/src/bt_codec.py" ]; then
+    if python3 "$INSTALL_DIR/src/bt_codec.py" write >/dev/null 2>&1; then
+        say "   Bluetooth codec drop-in written"
+    else
+        echo "WARNING: could not write the Bluetooth codec drop-in." >&2
+    fi
+fi
+
 if [ -d "$SOURCE_DIR/systemd" ]; then
     step "Updating the systemd units"
     cp "$SOURCE_DIR/systemd/"*.service "$SYSTEMD_DIR/"

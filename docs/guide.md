@@ -496,7 +496,12 @@ These same actions are also available as buttons in the web interface
 Playing also has **Previous**, a **loop** button (none → album → track,
 for this session) and **Timer…**: pause for a while (`pause_durations`,
 the music starts again by itself) or fall asleep after one of
-`sleep_durations` minutes (a fade, then silence). Under the track it
+`sleep_durations` minutes (a fade, then silence). **Previous** says what
+it will do: once the song has played a few seconds
+(`PREVIOUS_RESTART_AFTER_SEC`, 5) it reads *Back to the start* and does
+exactly that, and earlier in the song it reads *Previous* and goes back
+to the song before - the same rule the Flic button and a speaker button
+follow on the daemon's side. Under the track it
 shows the next one and the size of the library, and below the buttons
 what is worth knowing right now: when the music will start, or what
 stops it (speaker not connected, output unplugged, time not set, empty
@@ -906,7 +911,12 @@ What it usually shows, in order of likelihood:
   SBC-XQ alone makes a speaker that does not support it answer on the headset
   profile instead (telephone quality), and PipeWire on Raspberry Pi OS has no
   AAC encoder - so a Bluetooth speaker that does LDAC or aptX is the only way
-  to a better link.
+  to a better link. **Which codecs the Pi offers is a setting** (*Audio output >
+  Bluetooth codecs offered*): tick only what the speaker accepts. Saving it
+  writes a WirePlumber drop-in (`/etc/wireplumber/wireplumber.conf.d/
+  20-rukebox-codecs.conf`) and restarts the audio service - the speaker may take
+  a few seconds to come back, and the diagnostic then says which codec the link
+  really ended up using.
 - **`mpv filters: acompressor, volume, alimiter`** - the **Volume boost** is
   on. It makes quiet recordings audible, and it does squash dynamics: set it
   back to *Off* to hear what the speaker really does.
@@ -1072,6 +1082,13 @@ update make it for you.
 - **Recently played** (Home): the last tracks played, newest first, with
   their title and artist (guests see it too). How many: `recent_tracks`
   (20 by default, 0 hides it), in the Playback card's detailed view.
+- **Liked tracks** (Home, not for guests): the heart on the cover of Now
+  Playing marks the song playing, and this page lists what has been liked,
+  newest first, **with the day it was liked**; each line puts the song back
+  in the queue ("Next") or takes the like back (the red heart). A like is
+  kept by the track's library key, so it survives a rescan, and the file is
+  `likes_file` (`/var/lib/rukebox/likes.json`) - plain JSON you can copy to
+  another Pi. The page only appears once something has been liked.
 - **Today** (Home, guests too): music time, songs, sounds and
   announcements, button presses and the most played songs of the day.
 - **Mute**: the speaker icon left of the volume slider mutes and unmutes

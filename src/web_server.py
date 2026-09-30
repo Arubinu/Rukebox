@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import announcements  # noqa: E402
 import audio_diag  # noqa: E402
+import bt_codec  # noqa: E402
 import config_bundle  # noqa: E402
 import playlist  # noqa: E402
 import track_order  # noqa: E402
@@ -44,6 +45,7 @@ import suggestions  # noqa: E402
 import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 import library  # noqa: E402
+import likes  # noqa: E402
 import music_lists  # noqa: E402
 from version import read_version_file, set_release  # noqa: E402
 
@@ -2209,6 +2211,18 @@ def api_set_settings():
                            capture_output=True, text=True, timeout=20)
         except (subprocess.TimeoutExpired, OSError):
             log.warning("Could not restart bt-connect")
+    audio_reloaded = False
+    if "BT_AUDIO_CODECS" in body:
+        # The codecs live in a WirePlumber drop-in of their own, and the monitor
+        # reads them when it starts: write it, then restart the user service
+        # (a few seconds of silence, and the speaker reconnects by itself).
+        try:
+            bt_codec.write(codecs=bt_codec.parse(body.get("BT_AUDIO_CODECS")))
+            audio_reloaded = bt_codec.restart_wireplumber(env=_user_session_env())
+        except Exception:  # noqa: BLE001
+            log.exception("Could not apply the Bluetooth codec list")
+        if not audio_reloaded:
+            log.warning("The new codecs apply at the next start of WirePlumber")
     reboot_needed = False
     if "USB_PORT_MODE" in body:
         try:
@@ -2222,6 +2236,7 @@ def api_set_settings():
         "applied_live": bool(reload.get("ok")),
         "restart_needed": restart_needed,
         "reboot_needed": reboot_needed,
+        "audio_reloaded": audio_reloaded,
     }})
 
 
@@ -3823,6 +3838,49 @@ def api_diag_audio():
         return jsonify({"ok": False, "error": "diag_failed"}), 500
     log.info("Audio diagnostic sent to %s", _client_ip())
     return jsonify({"ok": True, "data": {"report": text}})
+
+
+@app.route("/api/likes")
+def api_likes():
+    """The liked tracks, most recently liked first, with their dates."""
+    items = likes.load(cfg()["LIKES_FILE"])
+    return jsonify({"ok": True, "data": {
+        "tracks": [{"key": item["key"], "title": item.get("title") or "",
+                    "artist": item.get("artist") or "", "liked_at": item.get("liked_at")}
+                   for item in items],
+        "keys": [item["key"] for item in items],
+    }})
+
+
+@app.route("/api/likes/toggle", methods=["POST"])
+def api_likes_toggle():
+    """{key, title, artist}: likes the track, or takes the like back."""
+    body = request.get_json(silent=True) or {}
+    key = str(body.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "like_key_required"}), 400
+    known = _library_item(key)
+    title = str(body.get("title") or "").strip() or str(known.get("title") or "").strip()
+    artist = str(body.get("artist") or "").strip() or str(known.get("artist") or "").strip()
+    try:
+        liked = likes.toggle(cfg()["LIKES_FILE"], key, title, artist)
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    stats.record("track_liked" if liked else "track_unliked", label=title or key,
+                 detail={"key": key})
+    return jsonify({"ok": True, "data": {"liked": liked,
+                                         "count": len(likes.load(cfg()["LIKES_FILE"]))}})
+
+
+def _library_item(key):
+    """The catalogue row for a track key, {} when the library does not know it
+    (a like can name a track that has since been removed)."""
+    try:
+        database = _get_library()
+        path = database.path_for_key(key)
+        return (database.item_for_path(path) or {}) if path else {}
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 @app.route("/api/setup/pending")

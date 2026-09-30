@@ -9,6 +9,9 @@ Requires=local-fs.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/bin/python3 /opt/rukebox/src/config_file.py ensure
+# The Bluetooth codecs the Pi offers are a setting, and PipeWire reads them
+# from a drop-in of its own: regenerate it from the file at every boot.
+ExecStart=/usr/bin/python3 /opt/rukebox/src/bt_codec.py write
 
 [Install]
 WantedBy=multi-user.target

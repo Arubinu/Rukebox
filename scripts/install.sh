@@ -167,6 +167,11 @@ case "$action" in
     *)             echo ">> /etc/rukebox/rukebox.yaml already present, left untouched." ;;
 esac
 
+# The Bluetooth codecs the Pi offers are a setting; PipeWire reads them from a
+# WirePlumber drop-in generated from the file (see src/bt_codec.py).
+python3 "$PROJECT_ROOT/src/bt_codec.py" write >/dev/null 2>&1 \
+    || echo "WARNING: could not write the Bluetooth codec drop-in." >&2
+
 chown -R pi:pi /opt/rukebox /var/lib/rukebox /home/pi/audio /etc/rukebox
 
 echo "== Passwordless sudo for shutdown, clock, and web admin =="

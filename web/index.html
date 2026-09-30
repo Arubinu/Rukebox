@@ -118,8 +118,13 @@
           <div class="player-grid">
             <div class="now-playing">
               <div class="np-head">
-                <div class="np-cover is-empty" id="npCover" data-icon="music" aria-hidden="true">
-                  <img id="npCoverImg" alt="" width="112" height="112" decoding="async" hidden>
+                <div class="np-cover-box">
+                  <div class="np-cover is-empty" id="npCover" data-icon="music" aria-hidden="true">
+                    <img id="npCoverImg" alt="" width="112" height="112" decoding="async" hidden>
+                  </div>
+                  <button type="button" class="np-like" id="btnLike" data-icon="heart" aria-pressed="false" hidden
+                          data-i18n-aria-label="likes.like" aria-label="Like"
+                          data-i18n-title="likes.like" title="Like"></button>
                 </div>
                 <div class="np-info">
                   <button type="button" class="btn btn-small np-lyrics-btn" id="btnLyrics" data-icon="mic"
@@ -212,6 +217,16 @@
           <h2 data-icon="history" id="recentTitle"><span data-i18n="recent.title">Recently played</span></h2>
           <ol class="device-list recent-list" id="recentList"></ol>
           <p class="hint" id="recentEmpty" data-i18n="recent.empty" hidden>Nothing played yet.</p>
+        </section>
+
+        <section class="card" id="likesCard" data-page="likes" data-tab="home" aria-labelledby="likesTitle" hidden>
+          <h2 data-icon="heart" id="likesTitle"><span data-i18n="likes.title">Liked tracks</span></h2>
+          <p class="hint help-text" data-i18n="likes.help" hidden>
+            The heart on the cover adds the song playing. Each line keeps the day it was liked,
+            and puts the song back in the queue.
+          </p>
+          <ol class="device-list recent-list" id="likesList"></ol>
+          <p class="hint" id="likesEmpty" data-i18n="likes.empty" hidden>No liked track yet.</p>
         </section>
 
         <section class="card" id="todayCard" data-page="today" data-tab="home" aria-labelledby="todayTitle" hidden>
@@ -965,6 +980,13 @@
               </select>
             </div>
             <p class="hint audio-detected" id="audioOutputDetected"></p>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
+                <label data-i18n="audioout.codecs">Bluetooth codecs offered</label>
+                <p class="field-desc" id="btCodecsDesc" data-i18n="audioout.codecs_desc">Only tick what the speaker accepts: offering one it cannot handle can make it answer on the telephone-quality headset profile instead.</p>
+              </div>
+              <div class="codec-field" id="btCodecs" data-key="BT_AUDIO_CODECS" aria-describedby="btCodecsDesc"></div>
+            </div>
             <div data-level="detail" class="field-row">
               <div class="field-text">
                 <label for="transferLimitMode" data-i18n="audioout.transfer_limit">Limit transfers</label>

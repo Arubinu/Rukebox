@@ -57,6 +57,16 @@ bluetooth:
   # 0 = resume at full volume straight away.
   resume_fade_sec: 3
 
+  # The Bluetooth codecs (A2DP) the Pi OFFERS the speaker; the speaker
+  # picks among them. Known names: ldac, aptx_hd, aptx, aac, sbc_xq, sbc,
+  # faststream, opus. Write only what the speaker can do: offering one it
+  # cannot handle is not harmless - measured here, with SBC-XQ offered
+  # alone, a soundcore Select 4 Go answered on the headset profile
+  # instead (mSBC, telephone quality) rather than falling back to SBC.
+  # The Pi's own codecs, and what the link ended up using, are in
+  # System health > Audio diagnostic.
+  bt_audio_codecs: "sbc_xq,sbc"
+
   # Power the Pi off when the speaker has been disconnected for this many
   # minutes. 0 = never.
   shutdown_after_speaker_loss_min: 0
@@ -704,3 +714,8 @@ paths:
   # one by one) or by genre (kept up to date from the library's tags);
   # the radio plays one list, or everything when none is active.
   music_lists_file: "/etc/rukebox/music_lists.json"
+
+  # The tracks liked from the player - see src/likes.py. A song is
+  # remembered by its library key, so the like survives a rescan; each
+  # entry carries the date it was liked, which is what the list shows.
+  likes_file: "/var/lib/rukebox/likes.json"
