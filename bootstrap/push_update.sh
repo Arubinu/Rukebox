@@ -195,8 +195,14 @@ fi
 # 10s of silence, 19.5 after a minute), so a transfer started in that window
 # crawls. Rather than guess a delay, time a small probe upload - the only
 # measure that matters - and wait for it.
+# Three tries each way: these run on the very link the music is ruining, and a
+# lost answer used to leave the music paused for good (the transfer failed, the
+# resume's ssh timed out too, and nothing else brings it back).
 radio_quiet() {
-    ssh "${SSH_OPTS[@]}" "$TARGET" "python3 - $1" <<'PY'
+    local attempt
+    attempt=1
+    while [ "$attempt" -le 3 ]; do
+        if ssh "${SSH_OPTS[@]}" "$TARGET" "python3 - $1" <<'PY'
 import sys
 sys.path.insert(0, "/opt/rukebox/src")
 from control_client import send_control_command
@@ -211,26 +217,22 @@ if action == "resume" and data.get("paused"):
     ok = send_control_command(sock, "toggle_pause", source="push").get("ok")
     print("resumed" if ok else "failed")
 PY
-}
-
-PAUSED_BY_US=""
-if [ "$KEEP_PLAYING" != "1" ]; then
-    # Three tries: this is the one command that has to get through a link the
-    # music is currently ruining, and an ssh that times out here would leave
-    # the whole transfer on that same dead link.
-    attempt=1
-    while [ "$attempt" -le 3 ]; do
-        QUIET="$(radio_quiet pause || true)"
-        if [ "$QUIET" = "paused" ]; then
-            PAUSED_BY_US=1
-            break
+        then
+            return 0
         fi
         attempt=$((attempt + 1))
         if [ "$attempt" -le 3 ]; then
             sleep 6
         fi
     done
-    if [ "$PAUSED_BY_US" = "1" ]; then
+    return 1
+}
+
+PAUSED_BY_US=""
+if [ "$KEEP_PLAYING" != "1" ]; then
+    QUIET="$(radio_quiet pause || true)"
+    if [ "$QUIET" = "paused" ]; then
+        PAUSED_BY_US=1
         echo "Music paused for the transfer; the daemon brings it back."
     fi
 fi

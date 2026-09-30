@@ -224,24 +224,26 @@ if action == "resume" and data.get("paused"):
 $ErrorActionPreference = "Continue"
 
 function Invoke-RadioQuiet([string]$Action) {
-    try {
-        $out = ($RadioScript -replace "`r`n", "`n") | & ssh.exe @SshOpts $Target "python3 - $Action" 2>&1
-    } catch {
-        return @()
+    # Three tries each way: these run on the very link the music is ruining,
+    # and a lost answer used to leave the music paused for good (the transfer
+    # failed, the resume's ssh timed out too, and nothing else brings it back).
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            $out = ($RadioScript -replace "`r`n", "`n") | & ssh.exe @SshOpts $Target "python3 - $Action" 2>&1
+        } catch {
+            $out = @()
+        }
+        $words = @($out | Where-Object { "$_" -match '^(paused|resumed|failed)$' })
+        if ($words.Count) { return $words }
+        if ($attempt -lt 3) { Start-Sleep -Seconds 6 }
     }
-    return @($out | Where-Object { "$_" -match '^(paused|resumed|failed)$' })
+    return @()
 }
 
 $Quieted = $false
 if (-not $KeepPlaying) {
-    # Three tries: this is the one command that has to get through a link the
-    # music is currently ruining, and an ssh that times out here would leave
-    # the whole transfer on that same dead link.
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
-        $quiet = Invoke-RadioQuiet "pause"
-        if ($quiet -contains "paused") { $Quieted = $true; break }
-        if ($attempt -lt 3) { Start-Sleep -Seconds 6 }
-    }
+    $quiet = Invoke-RadioQuiet "pause"
+    if ($quiet -contains "paused") { $Quieted = $true }
 }
 if ($Quieted) { Write-Host "Music paused for the transfer; the daemon brings it back." }
 
