@@ -2438,6 +2438,17 @@ function setFieldValue(el, rawValue) {
   if (el.type === "checkbox") {
     el.checked = String(rawValue).toLowerCase() === "true";
   } else {
+    // A <select> whose options do not hold the stored value would show nothing
+    // and then hand back "" on the next save - silently changing a setting
+    // somebody set by hand, or one whose list has since moved on. The value
+    // keeps an option of its own instead.
+    if (el.tagName === "SELECT"
+        && !Array.from(el.options).some((one) => one.value === String(rawValue))) {
+      const kept = document.createElement("option");
+      kept.value = String(rawValue);
+      kept.textContent = String(rawValue);
+      el.appendChild(kept);
+    }
     el.value = rawValue;
     if (el.classList.contains("codec-field")) paintCodecField(el);
   }

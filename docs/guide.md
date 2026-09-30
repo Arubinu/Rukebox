@@ -922,6 +922,13 @@ What it usually shows, in order of likelihood:
 - **`mpv filters: acompressor, volume, alimiter`** - the **Volume boost** is
   on. It makes quiet recordings audible, and it does squash dynamics: set it
   back to *Off* to hear what the speaker really does.
+- **`Limit transfers` with `Limited speed`** (*Audio output*): a big upload
+  (music sync, a sound file, a backup) takes the radio for itself and the
+  Bluetooth sound can stutter, so the Pi reads those uploads slowly on purpose
+  - a list to choose from (64 to 512 KB/s), not a number to type. *While music
+  plays over built-in Bluetooth* is the default: it does nothing when the
+  speaker is on a USB dongle (a separate radio was assumed not to compete) and
+  nothing when nothing is playing.
 - **`its own volume 0.4`** - the speaker's own AVRCP volume is attenuating
   everything before it is amplified, so the interface's slider only has that
   much range to work with. Raise it once with
