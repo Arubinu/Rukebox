@@ -187,9 +187,14 @@ fi
 # Bluetooth audio from the USB dongle desensitises the Pi's own Wi-Fi
 # receiver: measured 2026-09-30, the archive uploads at ~590 KB/s with the
 # music paused and at ~3 KB/s while it plays, because the access point drops
-# the Pi to 1 Mbit/s with 20% of the large packets lost. Pausing for the
+# the Pi to 1 Mbit/s with 20-40% of the large packets lost. Pausing for the
 # transfer is what turns a six-minute push back into seconds, so the radio is
 # quieted here - and only a pause this script asked for is undone.
+#
+# The rate does not come back instantly (measured: 1.0 -> 13.0 MBit/s after
+# 10s of silence, 19.5 after a minute), so a transfer started in that window
+# crawls. Rather than guess a delay, time a small probe upload - the only
+# measure that matters - and wait for it.
 radio_quiet() {
     ssh "${SSH_OPTS[@]}" "$TARGET" "python3 - $1" <<'PY'
 import sys
@@ -219,13 +224,41 @@ fi
 
 REMOTE_ARCHIVE="$REMOTE_TMP/rukebox-update-$STAMP.tar.gz"
 REMOTE_APPLY="$REMOTE_TMP/rukebox-apply-$STAMP.sh"
+
+if [ "$PAUSED_BY_US" = "1" ]; then
+    # 32 KB: instant on a recovered link, ~10s while it is still at 1 Mbit/s.
+    PROBE="$(mktemp -t rukebox-probe-XXXXXX)"
+    head -c 32768 /dev/urandom > "$PROBE"
+    attempt=1
+    while [ "$attempt" -le 5 ]; do
+        started="$(date +%s)"
+        scp "${SCP_OPTS[@]}" "$PROBE" "$TARGET:/tmp/rukebox-probe.bin" >/dev/null 2>&1 || true
+        waited=$(( $(date +%s) - started ))
+        if [ "$waited" -lt 6 ]; then
+            break
+        fi
+        echo "   the link is still slow (${waited}s for 32 KB), waiting ..."
+        sleep 5
+        attempt=$((attempt + 1))
+    done
+    rm -f "$PROBE"
+fi
+
 echo ""
 echo "== Sending ($SIZE) =="
 if ! scp "${SCP_OPTS[@]}" "$ARCHIVE" "$TARGET:$REMOTE_ARCHIVE"; then
-    # The update will not run, so nothing else will resume the music.
-    [ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
-    echo "Transfer failed." >&2
-    exit 1
+    # One retry: a transfer that dies mid-way is usually the link dropping for
+    # a moment, and the file is only ~1 MB.
+    echo "   transfer interrupted, trying once more ..."
+    sleep 3
+    if ! scp "${SCP_OPTS[@]}" "$ARCHIVE" "$TARGET:$REMOTE_ARCHIVE"; then
+        # The update will not run, so nothing else will resume the music.
+        if [ "$PAUSED_BY_US" = "1" ]; then
+            radio_quiet resume >/dev/null 2>&1 || true
+        fi
+        echo "Transfer failed. The music has been resumed; run this again when the link is back." >&2
+        exit 1
+    fi
 fi
 
 echo ""

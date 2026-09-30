@@ -1581,7 +1581,10 @@ antenna, and while it plays the access point drops the Pi to 1 Mbit/s with a
 fifth of the large packets lost: measured on a Pi Zero 2 W, the archive
 uploads at about **3 KB/s** with the music playing and about **590 KB/s**
 with it paused, which is the difference between a six-minute push and a few
-seconds. Only a pause the script asked for is undone, so a pause of your own
+seconds. The rate takes 10-30 s to climb back once the audio stops, so the
+script times a small probe upload and waits rather than firing the archive
+into a link that is still at 1 Mbit/s, and it retries once if the transfer
+is cut. Only a pause the script asked for is undone, so a pause of your own
 survives (and a push with `--no-restart` does resume the music at the end,
 since nothing else will). `--keep-playing` skips the pause when you would
 rather listen than wait. A short USB extension cable between the Pi and the

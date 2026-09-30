@@ -192,9 +192,14 @@ if (-not $Yes) {
 # Bluetooth audio from the USB dongle desensitises the Pi's own Wi-Fi
 # receiver: measured 2026-09-30, this archive uploads at ~590 KB/s with the
 # music paused and at ~3 KB/s while it plays, because the access point drops
-# the Pi to 1 Mbit/s with 20% of the large packets lost. Pausing for the
+# the Pi to 1 Mbit/s with 20-40% of the large packets lost. Pausing for the
 # transfer is what turns a six-minute push back into seconds, so the radio is
 # quieted here - and only a pause this script asked for is undone.
+#
+# The rate does not come back instantly (measured: 1.0 -> 13.0 MBit/s after
+# 10s of silence, 19.5 after a minute), so a transfer started in that window
+# crawls. Rather than guess a delay, time a small probe upload - the only
+# measure that matters - and wait for it.
 $RadioScript = @'
 import sys
 sys.path.insert(0, "/opt/rukebox/src")
@@ -211,8 +216,20 @@ if action == "resume" and data.get("paused"):
     print("resumed" if ok else "failed")
 '@
 
+# ssh and scp say perfectly ordinary things on stderr ("Connection closed" on a
+# lost link is the usual one), and PowerShell 5.1 turns that into a TERMINATING
+# error under $ErrorActionPreference = "Stop" - which is how a failed transfer
+# once ended with the music still paused and no message saying why. Everything
+# below checks $LASTEXITCODE itself, so stderr is only ever data here.
+$ErrorActionPreference = "Continue"
+
 function Invoke-RadioQuiet([string]$Action) {
-    ($RadioScript -replace "`r`n", "`n") | & ssh.exe @SshOpts $Target "python3 - $Action" 2>$null
+    try {
+        $out = ($RadioScript -replace "`r`n", "`n") | & ssh.exe @SshOpts $Target "python3 - $Action" 2>&1
+    } catch {
+        return @()
+    }
+    return @($out | Where-Object { "$_" -match '^(paused|resumed|failed)$' })
 }
 
 $Quieted = $false
@@ -225,14 +242,37 @@ if ($Quieted) { Write-Host "Music paused for the transfer; the daemon brings it 
 $RemoteArchive = "/tmp/rukebox-update-${Stamp}.tar.gz"
 $RemoteApply = "/tmp/rukebox-apply-${Stamp}.sh"
 
+if ($Quieted) {
+    # 32 KB: instant on a recovered link, ~10s while it is still at 1 Mbit/s.
+    $Probe = Join-Path $env:TEMP "rukebox-probe-${Stamp}.bin"
+    [System.IO.File]::WriteAllBytes($Probe, (New-Object byte[] 32768))
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        $elapsed = (Measure-Command {
+            & scp.exe @ScpOpts $Probe "${Target}:/tmp/rukebox-probe.bin" 2>&1 | Out-Null
+        }).TotalSeconds
+        if ($LASTEXITCODE -eq 0 -and $elapsed -lt 6) { break }
+        Write-Host ("   the link is still slow ({0:N1}s for 32 KB), waiting ..." -f $elapsed)
+        Start-Sleep -Seconds 5
+    }
+    Remove-Item $Probe -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host ""
 Write-Host "== Sending (${SizeKb} KB) =="
 & scp.exe @ScpOpts $Archive "${Target}:${RemoteArchive}"
 $scpExit = $LASTEXITCODE
 if ($scpExit -ne 0) {
+    # One retry: a transfer that dies mid-way is usually the link dropping for
+    # a moment, and the file is only ~1 MB.
+    Write-Host "   transfer interrupted, trying once more ..."
+    Start-Sleep -Seconds 3
+    & scp.exe @ScpOpts $Archive "${Target}:${RemoteArchive}"
+    $scpExit = $LASTEXITCODE
+}
+if ($scpExit -ne 0) {
     # The update will not run, so nothing else will resume the music.
     if ($Quieted) { Invoke-RadioQuiet "resume" | Out-Null }
-    Write-Host "Transfer failed." -ForegroundColor Red
+    Write-Host "Transfer failed. The music has been resumed; run this again when the link is back." -ForegroundColor Red
     Remove-Item $Archive -Force -ErrorAction SilentlyContinue
     exit 1
 }
