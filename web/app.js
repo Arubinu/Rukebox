@@ -3445,6 +3445,11 @@ window.LANG_CHANGE_LISTENERS.push(() => {
   if (duplicatesAsked) renderDuplicates();
 });
 
+// Run once at startup, like the hearts: a page is a card, so a card still
+// hidden has no tile in the menu - and the page could never be opened to run
+// the very check that would have revealed it.
+refreshDuplicates();
+
 // ------------------------------------------------------------------
 // Bluetooth controllers and the Flic button (Bluetooth card): which
 // controller the speaker uses, which one flicd takes, the Flic software,

@@ -936,10 +936,12 @@ What it usually shows, in order of likelihood:
 
 ### Duplicate tracks: what the catalogue already knows
 
-*Library > Duplicate tracks* lists the songs the library holds more than once.
-It costs nothing to run: the scan already read every file once, so this is a
-query over the catalogue (title, artist, album, size, duration) and it never
-touches the card.
+*Home > Duplicate tracks* lists the songs the library holds more than once.
+The check runs twice: once when the interface starts, and again every time the
+page is opened. The page takes its place in Home only when it has something to
+say, and it costs nothing to run: the scan already read every file once, so
+this is a query over the catalogue (title, artist, album, size, duration) and
+it never touches the card.
 
 Two spellings of one song are the same song - brackets, a leading track number
 and a "feat." clause come off before comparing, so "05 - La Seine" and
