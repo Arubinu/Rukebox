@@ -204,13 +204,15 @@ playback:
   volume_step: 10
 
   # The durations (minutes, comma-separated) the web interface's
-  # "Pause for..." offers: the music pauses, then starts again by
-  # itself.
+  # "Timer" offers as a timed pause: the music pauses, then starts
+  # again by itself.
   pause_durations: "5,15,30,60"
 
-  # A button set to "Sleep timer": the music pauses (with a fade) this
-  # many minutes later. Pressing it again cancels it.
-  sleep_timer_min: 30
+  # The durations (minutes, comma-separated) the web interface's
+  # "Timer" offers as a sleep timer: the music pauses (with a fade)
+  # that many minutes later. The shortest is also the one a button set
+  # to "Sleep timer" uses.
+  sleep_durations: "30,60,90,120"
 
   # When the music starts.
   #   boot      -> as soon as the daemon is up, the way a radio
@@ -266,7 +268,8 @@ buttons:
   #   loop_album  -> loops its album, i.e. its folder (again: normal)
   #   loop_off    -> normal playback
   #   volume_up | volume_down -> by volume_step
-  #   sleep       -> pauses the music in sleep_timer_min (again: cancel)
+  #   sleep       -> pauses the music in the shortest of
+  #                  sleep_durations (again: cancel)
   #   off         -> nothing
   # The sound below only goes with next, previous and sound. From idle
   # (music not started yet), a single click always starts the music.

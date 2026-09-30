@@ -495,7 +495,8 @@ These same actions are also available as buttons in the web interface
 (see below), to control the radio without the physical button. Now
 Playing also has **Previous**, a **loop** button (none → album → track,
 for this session) and **Timer…**: pause for a while (`pause_durations`,
-the music starts again by itself) or a sleep timer. Under the track it
+the music starts again by itself) or fall asleep after one of
+`sleep_durations` minutes (a fade, then silence). Under the track it
 shows the next one and the size of the library, and below the buttons
 what is worth knowing right now: when the music will start, or what
 stops it (speaker not connected, output unplugged, time not set, empty
@@ -539,7 +540,7 @@ Both are configurable independently, from the web interface's
 
 | Setting | Choices |
 | --- | --- |
-| Action (`single_click_action` / `double_click_action`) | `next` — next track · `previous` — previous track (the same one from the top once it has played 5 s) · `sound` — plays the sound below, then the same song goes on where it was · `playpause` / `pause` / `play` · `loop_track` / `loop_album` — loops the song / its album (press again: normal playback) · `loop_off` — normal playback · `volume_up` / `volume_down` — by `volume_step` · `sleep` — the music pauses in `sleep_timer_min` minutes (press again: cancelled) · `off` — nothing |
+| Action (`single_click_action` / `double_click_action`) | `next` — next track · `previous` — previous track (the same one from the top once it has played 5 s) · `sound` — plays the sound below, then the same song goes on where it was · `playpause` / `pause` / `play` · `loop_track` / `loop_album` — loops the song / its album (press again: normal playback) · `loop_off` — normal playback · `volume_up` / `volume_down` — by `volume_step` · `sleep` — the music pauses in the shortest of `sleep_durations` minutes (press again: cancelled) · `off` — nothing |
 | Sound played first (`single_click_source` / `double_click_source`) | Only with `next`, `previous` and `sound`: `none`, the button sounds (`meme`), the cutoff announcement (`cutoff`), or any custom announcement (`custom:<id>`, the morning and double-click ones included) |
 
 The speaker's own buttons (`speaker_*_action`) take the same actions. A

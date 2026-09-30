@@ -1734,17 +1734,27 @@ class RadioDaemon:
                 detail={"source": source, "volume": round(vol)},
             )
 
-    def _pause_durations(self):
-        """PAUSE_DURATIONS ("5,15,30,60")."""
+    def _durations(self, key, fallback):
+        """A duration list ("5,15,30,60"): whole minutes, 1-600, sorted, no
+        duplicates. An empty or unusable setting falls back to the default
+        rather than leaving the feature with nothing to offer."""
         out = []
-        for part in str(self.cfg.get("PAUSE_DURATIONS") or "").replace(";", ",").split(","):
+        for part in str(self.cfg.get(key) or "").replace(";", ",").split(","):
             try:
                 value = int(part.strip())
             except ValueError:
                 continue
             if 1 <= value <= 600 and value not in out:
                 out.append(value)
-        return sorted(out)
+        return sorted(out) or list(fallback)
+
+    def _pause_durations(self):
+        """PAUSE_DURATIONS ("5,15,30,60")."""
+        return self._durations("PAUSE_DURATIONS", (5, 15, 30, 60))
+
+    def _sleep_durations(self):
+        """SLEEP_DURATIONS ("30,60,90,120")."""
+        return self._durations("SLEEP_DURATIONS", (30, 60, 90, 120))
 
     def _set_timer(self, name, delay, fn=None):
         """One named timer ("resume", "sleep")."""
@@ -1777,10 +1787,7 @@ class RadioDaemon:
 
     def _start_sleep_timer(self, minutes, source):
         if minutes is None:
-            try:
-                minutes = int(self.cfg.get("SLEEP_TIMER_MIN", 30))
-            except (TypeError, ValueError):
-                minutes = 30
+            minutes = self._sleep_durations()[0]
         minutes = max(1, min(600, minutes))
         log.info("Sleep timer: the music pauses in %d min", minutes)
         self.stats.record("sleep_timer", label=str(minutes), detail={"source": source})
@@ -2081,7 +2088,7 @@ class RadioDaemon:
             "muted": self._muted,
             "output_override": self._output_override,
             "pause_durations": self._pause_durations(),
-            "sleep_timer_min": self.cfg.get("SLEEP_TIMER_MIN", 30),
+            "sleep_durations": self._sleep_durations(),
             "timers": {name: (round(max(0.0, due - time.monotonic())) if due else None)
                        for name, due in (("resume", self._timer_due.get("resume")),
                                          ("sleep", self._timer_due.get("sleep")))},

@@ -247,6 +247,30 @@ class DaemonListsTest(unittest.TestCase):
             bt_link.locate, bt_link.connect_here = original_locate, original_connect
         self.assertEqual(calls, [], "a controller that never saw it cannot take it back")
 
+    def test_a_duration_list_is_cleaned_and_never_left_empty(self):
+        self.assertEqual(self.daemon._pause_durations(), [5, 15, 30, 60])
+        self.assertEqual(self.daemon._sleep_durations(), [30, 60, 90, 120])
+        self.daemon.cfg["SLEEP_DURATIONS"] = "60; 30,30,15, 900,abc"
+        self.assertEqual(self.daemon._sleep_durations(), [15, 30, 60],
+                         "sorted, no duplicate, nothing outside 1-600")
+        for empty in ("", None, "pony"):
+            self.daemon.cfg["SLEEP_DURATIONS"] = empty
+            self.assertEqual(self.daemon._sleep_durations(), [30, 60, 90, 120],
+                             "an unusable setting falls back to the default")
+
+    def test_the_sleep_timer_offers_what_the_web_dialog_does(self):
+        self.daemon.cfg["SLEEP_DURATIONS"] = "45,20"
+        self.assertEqual(self.daemon._build_status()["sleep_durations"], [20, 45])
+        seen = []
+        original = self.daemon._set_timer
+        self.daemon._set_timer = lambda name, delay, fn=None: seen.append((name, delay))
+        try:
+            # No minutes named: the click action sleeps for the shortest one.
+            self.daemon._start_sleep_timer(None, "test")
+        finally:
+            self.daemon._set_timer = original
+        self.assertEqual(seen, [("sleep", 20 * 60)])
+
 
 if __name__ == "__main__":
     unittest.main()

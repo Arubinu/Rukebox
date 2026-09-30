@@ -269,15 +269,17 @@ SETTINGS = [
     Setting(
         "PAUSE_DURATIONS", "playback", "pause_durations", "str", "5,15,30,60",
         "The durations (minutes, comma-separated) the web interface's\n"
-        "\"Pause for...\" offers: the music pauses, then starts again by\n"
-        "itself.",
+        "\"Timer\" offers as a timed pause: the music pauses, then starts\n"
+        "again by itself.",
         "Timed pause durations (min)",
     ),
     Setting(
-        "SLEEP_TIMER_MIN", "playback", "sleep_timer_min", "int", "30",
-        "A button set to \"Sleep timer\": the music pauses (with a fade) this\n"
-        "many minutes later. Pressing it again cancels it.",
-        "Sleep timer (min)",
+        "SLEEP_DURATIONS", "playback", "sleep_durations", "str", "30,60,90,120",
+        "The durations (minutes, comma-separated) the web interface's\n"
+        "\"Timer\" offers as a sleep timer: the music pauses (with a fade)\n"
+        "that many minutes later. The shortest is also the one a button set\n"
+        "to \"Sleep timer\" uses.",
+        "Sleep timer durations (min)",
     ),
     Setting(
         "MUSIC_START_MODE", "playback", "start_mode", "str", "boot",
@@ -337,7 +339,8 @@ SETTINGS = [
         "  loop_album  -> loops its album, i.e. its folder (again: normal)\n"
         "  loop_off    -> normal playback\n"
         "  volume_up | volume_down -> by volume_step\n"
-        "  sleep       -> pauses the music in sleep_timer_min (again: cancel)\n"
+        "  sleep       -> pauses the music in the shortest of\n"
+        "                 sleep_durations (again: cancel)\n"
         "  off         -> nothing\n"
         "The sound below only goes with next, previous and sound. From idle\n"
         "(music not started yet), a single click always starts the music.",
