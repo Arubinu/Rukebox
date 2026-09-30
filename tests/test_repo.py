@@ -6,6 +6,8 @@ things, and no endpoint is named like analytics (ad blockers drop those)."""
 import os
 import re
 import unittest
+from urllib.parse import unquote
+from xml.etree import ElementTree
 
 import _path
 
@@ -78,6 +80,40 @@ class IconsTest(unittest.TestCase):
         used = set(re.findall(r"var\(--i-([\w-]+)\)", css))
         self.assertEqual(used - drawings, set())
         self.assertEqual(drawings - used, set())
+
+    def test_every_drawing_is_a_readable_svg(self):
+        """A drawing is a data URI written by hand: one unescaped character in
+        it and the icon is silently blank, which no other check would see."""
+        css = _path.read("web", "style.css")
+        drawings = re.findall(r"--i-([\w-]+): url\(\"data:image/svg\+xml,([^\"]+)\"\)", css)
+        self.assertTrue(drawings)
+        for name, payload in drawings:
+            root = ElementTree.fromstring(unquote(payload))
+            self.assertEqual(root.tag, "{http://www.w3.org/2000/svg}svg", name)
+            self.assertEqual(root.get("viewBox"), "0 0 24 24", name)
+
+    def test_two_pages_of_one_area_do_not_share_an_icon(self):
+        """The pages of an area sit side by side in its menu, so one drawing
+        for two of them says nothing about either. Reported on 2026-09-30:
+        "Now Playing" and "Library" were both a music note."""
+        tab = None
+        seen = {}
+        clashes = []
+        for line in _path.read("web", "index.html").splitlines():
+            section = re.search(r'<section[^>]*\bdata-tab="([^"]+)"', line)
+            if section:
+                tab = section.group(1)
+            icon = re.search(r'<h2 data-icon="([^"]+)"', line)
+            if not icon or not tab:
+                continue
+            name = re.search(r'id="([^"]+)"', line)
+            name = name.group(1) if name else line.strip()
+            clash = seen.get((tab, icon.group(1)))
+            if clash:
+                clashes.append("%s and %s both draw \"%s\" in the %s area"
+                               % (clash, name, icon.group(1), tab))
+            seen[(tab, icon.group(1))] = name
+        self.assertEqual(clashes, [])
 
 
 class FilesTest(unittest.TestCase):

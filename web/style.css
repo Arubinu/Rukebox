@@ -107,6 +107,10 @@
 :root {
   --i-home: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 10.5 12 3l9 7.5%22/%3E%3Cpath d=%22M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5%22/%3E%3C/svg%3E");
   --i-music: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 18V5l12-2v13%22/%3E%3Ccircle cx=%226%22 cy=%2218%22 r=%223%22/%3E%3Ccircle cx=%2218%22 cy=%2216%22 r=%223%22/%3E%3C/svg%3E");
+  /* The catalogue, as books on a shelf: the note belongs to what is playing
+     (the cover placeholder uses it too), and two pages of one area never share
+     a drawing - the menus show them side by side. */
+  --i-library: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m16 6 4 14%22/%3E%3Cpath d=%22M12 6v14%22/%3E%3Cpath d=%22M8 8v12%22/%3E%3Cpath d=%22M4 4v16%22/%3E%3C/svg%3E");
   --i-sliders: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6%22/%3E%3C/svg%3E");
   --i-speaker: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11 5 6 9H2v6h4l5 4z%22/%3E%3Cpath d=%22M15.5 8.5a5 5 0 0 1 0 7%22/%3E%3Cpath d=%22M19 5a10 10 0 0 1 0 14%22/%3E%3C/svg%3E");
   --i-volume-low: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11 5 6 9H2v6h4l5 4z%22/%3E%3Cpath d=%22M15.5 8.5a5 5 0 0 1 0 7%22/%3E%3C/svg%3E");
@@ -153,6 +157,9 @@
   --i-clock: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22M12 6v6l4 2%22/%3E%3C/svg%3E");
   --i-shield: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3C/svg%3E");
   --i-wifi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M5 12.5a11 11 0 0 1 14 0M1.4 9a16 16 0 0 1 21.2 0M8.5 16a6 6 0 0 1 7 0M12 20h.01%22/%3E%3C/svg%3E");
+  /* The devices on the network, as against the network itself: the arcs are
+     the Wi-Fi card's, this one is what is attached to it. */
+  --i-monitor-smartphone: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8%22/%3E%3Cpath d=%22M10 19v-3.96 3.15%22/%3E%3Cpath d=%22M7 19h5%22/%3E%3Crect width=%226%22 height=%2210%22 x=%2216%22 y=%2212%22 rx=%222%22/%3E%3C/svg%3E");
   --i-antenna: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%222%22/%3E%3Cpath d=%22M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2%22/%3E%3C/svg%3E");
   --i-bell: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9%22/%3E%3Cpath d=%22M13.7 21a2 2 0 0 1-3.4 0%22/%3E%3C/svg%3E");
   --i-list: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01%22/%3E%3C/svg%3E");
@@ -187,6 +194,7 @@
 
 [data-icon="home"] { --icon: var(--i-home); }
 [data-icon="music"] { --icon: var(--i-music); }
+[data-icon="library"] { --icon: var(--i-library); }
 [data-icon="sliders"] { --icon: var(--i-sliders); }
 [data-icon="speaker"] { --icon: var(--i-speaker); }
 [data-icon="volume-low"] { --icon: var(--i-volume-low); }
@@ -233,6 +241,7 @@
 [data-icon="clock"] { --icon: var(--i-clock); }
 [data-icon="shield"] { --icon: var(--i-shield); }
 [data-icon="wifi"] { --icon: var(--i-wifi); }
+[data-icon="monitor-smartphone"] { --icon: var(--i-monitor-smartphone); }
 [data-icon="antenna"] { --icon: var(--i-antenna); }
 [data-icon="bell"] { --icon: var(--i-bell); }
 [data-icon="list"] { --icon: var(--i-list); }
