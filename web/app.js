@@ -4103,14 +4103,43 @@ async function addToManualList(item) {
   refreshLists();
 }
 
+/* One button for the two things a track can collect: a heart (a like, shown
+   filled while it is liked) and a plus (a place in a manual list). The two
+   answers are the dialog's, which is what the drawn symbol says. */
+async function addOrLike(item, button) {
+  const name = item.title || item.name || "";
+  const liked = !!(item.key && likedKeys.has(item.key));
+  const chosen = await showChoice("", [
+    { label: t(liked ? "likes.unlike" : "likes.like"), value: "like" },
+    { label: t("lists.add_to", { title: name }), value: "list" },
+  ], name || t("library.add_or_like"));
+  if (!chosen) return;
+  if (chosen === "list") {
+    addToManualList(item);
+    return;
+  }
+  const r = await apiPost("/api/likes/toggle", {
+    key: item.key, title: item.title || item.name || "", artist: item.artist || "",
+  });
+  if (!r.ok) {
+    showToolError(t("likes.failed"), r);
+    return;
+  }
+  showToast(t(r.data.liked ? "likes.added" : "likes.removed", { title: name }));
+  await refreshLikes();
+  // The list is not refetched just for this: the button carries the state.
+  if (button) button.classList.toggle("is-liked", !!r.data.liked);
+}
+
 function libraryListButton(item) {
   const b = document.createElement("button");
   b.type = "button";
-  b.className = "btn btn-icon btn-small";
-  b.dataset.icon = "plus";
-  b.title = t("lists.add_to", { title: item.title || item.name || "" });
+  b.className = "btn btn-icon btn-small library-add";
+  b.dataset.icon = "plus-heart";
+  if (item.key && likedKeys.has(item.key)) b.classList.add("is-liked");
+  b.title = t("library.add_or_like");
   b.setAttribute("aria-label", b.title);
-  b.addEventListener("click", () => addToManualList(item));
+  b.addEventListener("click", () => addOrLike(item, b));
   return b;
 }
 

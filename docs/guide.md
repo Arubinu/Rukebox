@@ -1137,15 +1137,19 @@ update make it for you.
   genre, then put a song up next ("Next", also in Recently played): it
   plays after the current one and the songs already asked for, or at once
   when nothing plays.
+  Each row also carries one **heart-and-plus** button, which asks what the
+  song should collect: a **like** (the heart in it turns red once the song is
+  liked, exactly like the one on the cover) or **a place in a list**. Two
+  answers, one symbol, and nothing to open first.
   The Pi reads each file's tags once, in the background (about one file a
   second on a Pi Zero), so a first catalogue takes a few minutes; until
   then songs are named after their folders. A music suggestion that is
   already in the library says so - before it is sent, and on its row,
   with a button to play it.
 - **Lists** (Home): what the radio plays - everything, or one list at a
-  time. A list is either the songs you add to it by hand (the **+** beside
-  a Library song), or everything the library tags with the genres you tick
-  - kept up to date on its own. **Play** starts a list at once,
+  time. A list is either the songs you add to it by hand (the **+♥**
+  beside a Library song), or everything the library tags with the genres you
+  tick - kept up to date on its own. **Play** starts a list at once,
   **Play everything** puts the whole library back, and the choice survives
   a reboot. See "Your own lists" below.
 - **Guests see what an action costs** as a small badge on its button, red
