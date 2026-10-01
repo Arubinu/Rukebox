@@ -3662,6 +3662,11 @@ body[data-access="guest"] .guest-release:has(#portalHint:not(:empty)) {
    exists its foot carries it instead, on every page: see the 640px block. */
 .guest-release { order: -1; }
 
+/* The Flic switch while the radio holds the button: shown on, dimmed. Never
+   `disabled` - turning it off for good is the one thing that can still be done
+   from here, and the owner's decision to make. */
+.field-row.is-held .switch-input { opacity: 0.55; }
+
 /* The one slot at the foot of the band, above the menu bar. On the Home grid
    "Finish connecting" waits there, exactly where every other area shows "Show
    all options" - the view bar is hidden on Home, so the two are never wanted at

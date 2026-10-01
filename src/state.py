@@ -238,3 +238,12 @@ class RadioState:
 
     def is_pending_cutoff(self):
         return self.data.get("pending_cutoff", False)
+
+    def flag(self, key, default=False):
+        """A plain on/off fact the daemon has to remember across restarts."""
+        return self.data.get(key, default)
+
+    def set_flag(self, key, value):
+        with self._lock:
+            self.data[key] = bool(value)
+            self._save()

@@ -127,6 +127,7 @@ class RadioDaemon:
         self._volume_glide_target = None
         self._sink_level = None
         self._sink_warned = False
+        self._flic_warned = False
 
         self._custom_announcements = announcements.load(cfg["ANNOUNCEMENTS_FILE"])
         self._announce_volumes = announcements.volumes(cfg["ANNOUNCEMENTS_FILE"])
@@ -1715,17 +1716,68 @@ class RadioDaemon:
         if self.cfg["AP_WATCH_INTERVAL_SEC"] > 0:
             threading.Thread(target=self._ap_watch_loop, daemon=True).start()
 
+    # The Flic button and the speaker share the Bluetooth radio, and flicd takes
+    # a controller for itself (HCI user channel).
+    FLIC_UNITS = ("flicd.service", "flic-bridge.service")
+    FLIC_FLAG = "flic_held"
+
+    def _flic_flag(self, verb):
+        """systemctl's own answer for flicd ("enabled", "active"...), or ""."""
+        try:
+            done = subprocess.run(["systemctl", verb, "flicd.service"],
+                                  capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
+        return done.stdout.strip()
+
+    def _watch_flic(self):
+        """Puts the Flic button on hold while the radio cannot spare a
+        controller, and lets it go when one is free again. Asked for as:
+        disable it on its own when the built-in radio is all there is, but not
+        for good - and let the owner turn it off for real, which this never
+        undoes."""
+        usable, reason = audio_diag.flic_availability(not self._wired_output())
+        enabled = self._flic_flag("is-enabled") == "enabled"
+        if usable:
+            if enabled and self.state.flag(self.FLIC_FLAG) and self._flic_flag("is-active") != "active":
+                self._set_flic_services("start")
+            return
+        if not enabled or self._flic_flag("is-active") != "active":
+            return
+        if self._set_flic_services("stop"):
+            log.info("Flic button on hold (%s): the speaker needs the only "
+                     "Bluetooth controller there is", reason)
+
+    def _set_flic_services(self, action):
+        """Starts or stops both Flic units, through the narrow sudoers grant."""
+        try:
+            done = subprocess.run(["sudo", "-n", "systemctl", action] + list(self.FLIC_UNITS),
+                                  capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.TimeoutExpired):
+            done = None
+        if done is None or done.returncode != 0:
+            if not self._flic_warned:
+                self._flic_warned = True
+                log.warning("Could not %s the Flic services: %s", action,
+                            (done.stderr or "").strip()[-200:] if done else "no answer")
+            return False
+        self.state.set_flag(self.FLIC_FLAG, action == "stop")
+        if action == "start":
+            log.info("Flic button back on: a controller is free again")
+        return True
+
     def _speaker_watch_loop(self):
         """Watches the speaker connection: statistics, pause, power-off delays."""
         wait = 3.0
         warned = None
         while not self._stop_event.wait(wait):
+            if self.mode == "shutting_down":
+                return
+            self._watch_flic()
             interval = self._speaker_watch_interval()
             wait = interval if interval > 0 else 30.0
             if interval <= 0:
                 continue
-            if self.mode == "shutting_down":
-                return
             mac = self.cfg.get("SPEAKER_MAC", "")
             if not mac or mac == "XX:XX:XX:XX:XX:XX":
                 if warned != "no_mac":

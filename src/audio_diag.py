@@ -96,6 +96,32 @@ def controllers():
     return found
 
 
+def controller_list(env=None):
+    """The controllers the kernel knows, or None when it could not be asked.
+    hciconfig and not bluetoothctl: a controller flicd holds disappears from
+    BlueZ's list, so counting there would fall to one exactly while the Flic
+    button works - and holding the button for that would be a loop."""
+    result = _run(["hciconfig"], timeout=5, env=env)
+    if result is None or result.returncode != 0:
+        return None
+    return parse_hciconfig(result.stdout)
+
+
+def flic_availability(bluetooth_output, found=None):
+    """(usable, reason) for the Flic button: flicd takes a controller for
+    itself (HCI user channel), so with a single one - and the sound on
+    Bluetooth - it leaves the speaker nothing to stream on."""
+    if found is None:
+        found = controller_list()
+        if found is None:
+            return True, None          # nothing readable: never hold on a guess
+    if not found:
+        return False, "no_controller"
+    if bluetooth_output and len(found) < 2:
+        return False, "single_controller"
+    return True, None
+
+
 def kernel_marks():
     """{"hci0": n} - the controller failing to answer the kernel (its own "tx
     timeout", or a command that never came back). The speaker failing to answer

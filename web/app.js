@@ -3597,11 +3597,13 @@ async function refreshFlic() {
   flicState = d;
   const line = document.getElementById("flicStatusLine");
   let text;
-  // One controller, and the speaker needs it: no Flic button here. The
-  // switch stays usable only to turn off a Flic button left on (a dongle
-  // removed since).
+  // One controller, and the speaker needs it: no Flic button here.
   const blocked = !d.usable;
-  if (blocked && d.enabled) text = t("btctl.flic_blocked_on");
+  // On hold: it is on, and the radio stops it rather than share the only
+  // controller with the speaker. Shown on and dimmed, never disabled -
+  // turning it off here is the one thing left to do, and it is final.
+  const held = !!d.held;
+  if (held) text = t("btctl.flic_blocked_on");
   else if (blocked) text = t("btctl.flic_" + (d.unusable_reason || "single_controller"));
   else if (!d.sdk) text = t("btctl.flic_no_sdk");
   else if (!d.enabled) text = t("btctl.flic_off");
@@ -3611,6 +3613,7 @@ async function refreshFlic() {
   line.dataset.state = blocked ? "warn" : "";
   document.getElementById("btnFlicInstall").hidden = d.sdk || blocked;
   document.getElementById("flicEnabledRow").hidden = !d.sdk || (blocked && !d.enabled);
+  document.getElementById("flicEnabledRow").classList.toggle("is-held", held);
   document.getElementById("flicEnabled").checked = !!d.enabled;
   document.getElementById("btnFlicPair").hidden = !(d.sdk && d.active) || blocked;
   document.getElementById("btFlicController").disabled = blocked;

@@ -2731,14 +2731,13 @@ def _flic_enabled():
 
 def _flic_availability(controllers=None):
     """Whether a Flic button can be used here, and why not: flicd takes a
-    controller for itself - unless the sound goes to a wired output."""
+    controller for itself - unless the sound goes to a wired output. The rule
+    itself lives in audio_diag, where the daemon reads it too: it is the daemon
+    that puts the button on hold while that is so, and lets it go afterwards."""
     if controllers is None:
         controllers = _bt_controllers()
-    if not controllers:
-        return False, "no_controller"
-    if len(controllers) < 2 and (cfg().get("AUDIO_OUTPUT") or "bluetooth") == "bluetooth":
-        return False, "single_controller"
-    return True, None
+    return audio_diag.flic_availability(
+        (cfg().get("AUDIO_OUTPUT") or "bluetooth") == "bluetooth", controllers)
 
 
 @app.route("/api/bluetooth/controllers")
@@ -2826,11 +2825,15 @@ def api_flic_status():
     sdk = os.path.isfile(os.path.join(FLIC_SDK_DIR, "clientlib", "python", "fliclib.py"))
     active = _service_is_active("flicd")
     usable, reason = _flic_availability()
+    enabled = _flic_enabled()
     return jsonify({"ok": True, "data": {
         "sdk": sdk,
         "usable": usable,
         "unusable_reason": reason,
-        "enabled": _flic_enabled(),
+        "enabled": enabled,
+        # Wanted, but the radio cannot let it run: the daemon stops it and
+        # starts it again by itself once a controller is free.
+        "held": bool(enabled and not usable),
         "active": active,
         "bridge": _service_is_active("flic-bridge"),
         "buttons": _flic_buttons() if sdk and active else None,

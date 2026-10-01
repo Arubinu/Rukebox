@@ -439,6 +439,30 @@ of BlueZ** (HCI user channel), exactly as the paragraph above says. A speaker
 paired on that controller can then no longer connect at all, so once the Flic
 button is in use the speaker *must* live on the other controller.
 
+### The Flic button is put on hold by itself when it cannot work
+
+With **one** controller and the sound on Bluetooth, the Flic button and the
+speaker cannot both work: the radio the speaker streams on is the one `flicd`
+would take for itself. The daemon then **stops `flicd` and the bridge on its
+own** (within ten seconds, and within three at boot), rather than let the
+music lose its radio.
+
+This is a hold, not a decision:
+
+- the switch stays where you left it - **on** - and the page dims it and says
+  why. Nothing is written down as "off";
+- the moment a second controller is there (a USB dongle plugged in) or the
+  sound goes to a wired output, the daemon **starts the two services again**
+  by itself, and the button works as before;
+- turning the switch off while it is on hold is the one thing left to do from
+  there, and it is final: the services are disabled, and nothing starts them
+  again. Turning the switch back on is refused while there is only one
+  controller - the page says what to plug in.
+
+`journalctl -u rukebox-daemon | grep -i flic` shows both sides of it:
+`Flic button on hold (single_controller): the speaker needs the only Bluetooth
+controller there is`, then `Flic button back on: a controller is free again`.
+
 ### Working without a Flic button
 
 The Flic button is entirely optional. If you don't have a second
