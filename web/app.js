@@ -1331,8 +1331,9 @@ async function refreshStatus() {
   document.getElementById("audioRepairRow").hidden = !broken;
 
   document.getElementById("sshToggle").checked = !!d.ssh_active;
-  if (restartPending !== !!d.restart_pending) {
+  if (restartPending !== !!d.restart_pending || restartDirect !== !!d.restart_direct) {
     restartPending = !!d.restart_pending;
+    restartDirect = !!d.restart_direct;
     paintRestartAfterSong();
   }
 
@@ -2536,9 +2537,13 @@ async function refreshSettingsIfIdle() {
 refreshEvery(refreshSettingsIfIdle, 20000);
 
 let restartPending = false;
+let restartDirect = false;
 function paintRestartAfterSong() {
   const btn = document.getElementById("btnRestartAfterSong");
-  btn.dataset.i18n = restartPending ? "system.restart_cancel" : "system.restart_after_song";
+  // Nothing playing: the daemon restarts at once, and the button says so.
+  btn.dataset.i18n = restartPending ? "system.restart_cancel"
+    : (restartDirect ? "system.restart_now" : "system.restart_after_song");
+  btn.dataset.icon = restartDirect && !restartPending ? "restart" : "clock";
   btn.textContent = t(btn.dataset.i18n);
   btn.classList.toggle("is-on", restartPending);
 }

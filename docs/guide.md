@@ -2154,8 +2154,11 @@ button in its own row is a test and always plays.
 ### Restarting after the song, the system sounds, the announcement files
 
 - **Restart after this song** (System card): the service restarts once the
-  song playing ends - right away if none is - after the **Restart sound**
-  (System sounds card). The same button cancels it while it waits.
+  song playing ends - after the **Restart sound** (System sounds card). The
+  same button cancels it while it waits. **When nothing is playing** (no
+  music, or the music is paused) there is no song to wait for: it restarts at
+  once, and the button says so, reading **Restart now** with the restart
+  symbol instead of the waiting clock.
 - **System sounds**: each can be listened to, replaced by your own file,
   put back to the original, or **turned off** - the keep-alive sound
   included, for a speaker that stays awake by itself (no energy spent

@@ -984,13 +984,18 @@ class RadioDaemon:
     def _stop_keepalive(self):
         self.mpv.set_loop("no")
 
+    def _restart_is_direct(self):
+        """Nothing is playing, so there is no song to wait for."""
+        return self.mode in ("idle", "stopped") or self._paused
+
     def _schedule_restart(self, on):
-        """"Restart the service at the end of the song"."""
+        """"Restart the service at the end of the song" - or at once when
+        nothing is being played."""
         if not on:
             self._restart_pending = False
             self._bump_state()
             return
-        if self.mode in ("idle", "stopped"):
+        if self._restart_is_direct():
             self._do_planned_restart()
             return
         self._restart_pending = True
@@ -2274,6 +2279,7 @@ class RadioDaemon:
             "music_started_today": self.state.already_triggered_today("last_music_start"),
             "version": self._state_version,
             "restart_pending": self._restart_pending,
+            "restart_direct": self._restart_is_direct(),
             "powering_off": self._powering_off,
             "position": round(self._position, 1),
             "duration": round(self._duration, 1),
