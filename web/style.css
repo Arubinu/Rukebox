@@ -2323,6 +2323,7 @@ select {
   font-size: 13px;
   color: var(--text-muted);
   margin: -8px 0 16px;
+  text-align: center;
 }
 
 .update-running { color: var(--accent); font-weight: 650; }
