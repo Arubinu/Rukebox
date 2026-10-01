@@ -3544,18 +3544,32 @@ body[data-access="guest"] .guest-release:has(#portalHint:not(:empty)) {
   gap: 6px;
 }
 /* The button belongs to the menu, not to a page. Where that menu is the grid -
-   a phone, and the guest at any width - it waits on the Home grid, where a
-   device the portal holds lands, and on nothing else. Where the rail exists its
-   foot carries it instead, on every page: see the 640px block below. */
+   a phone, and the guest at any width - it waits at the TOP of every grid, in
+   every area, and on no page: a page opens on its own title. Where the rail
+   exists its foot carries it instead, on every page: see the 640px block. */
+.guest-release { order: -1; }
 @media (max-width: 639.98px) {
-  body[data-page]:not([data-page=""]) .guest-release,
-  body[data-tab]:not([data-tab="home"]) .guest-release { display: none !important; }
+  body[data-page]:not([data-page=""]) .guest-release { display: none !important; }
 }
-body[data-access="guest"][data-page]:not([data-page=""]) .guest-release,
-body[data-access="guest"][data-tab]:not([data-tab="home"]) .guest-release { display: none !important; }
+body[data-access="guest"][data-page]:not([data-page=""]) .guest-release { display: none !important; }
 
-.guest-release #portalHint { margin: 0; text-align: center; }
+/* Two lines, broken where the sentence breaks rather than wherever the edge
+   falls: the string carries its own line break. */
+.guest-release #portalHint { margin: 0; text-align: center; white-space: pre-line; }
+
 .guest-release #portalHint:empty { display: none; }
+/* Discreet, and once: the sentence appears where the button was, and a device
+   that has just joined needs to be told that it went through. */
+.guest-release.is-done #portalHint { animation: guest-done 2.4s ease-out 1; }
+@keyframes guest-done {
+  0% { opacity: 0; transform: translateY(-4px); }
+  18% { opacity: 1; transform: none; color: var(--success-text); }
+  65% { color: var(--success-text); }
+  100% { opacity: 1; color: var(--text-muted); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guest-release.is-done #portalHint { animation: none; }
+}
 .guest-banner {
   justify-self: center;
   width: 100%;

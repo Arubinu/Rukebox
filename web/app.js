@@ -8610,18 +8610,35 @@ async function refreshPortalBanner() {
   if (!result.ok || !result.data) return false;
   const d = result.data;
   const btn = document.getElementById("portalReleaseBtn");
+  const hint = document.getElementById("portalHint");
 
   // "released" is also what the server answers to a device that was never held
   // (a computer on the home network): only a device on the hotspot has anything
-  // to finish, and only it should be told that it is done.
+  // to finish, and only it should be told that it is done. Recomputed rather
+  // than written once - the page outlives the Wi-Fi it was opened on, and the
+  // sentence belongs to the hotspot, not to the tab.
   const onAp = !!d.on_ap;
   const held = portalHolds(d);
   btn.hidden = !held;
-  if (onAp && d.released) {
-    document.getElementById("portalHint").textContent = t("guest.joined");
-  }
+  const done = onAp && d.released ? t("guest.joined") : "";
+  if (done && hint.textContent !== done) showPortalDone();
+  hint.textContent = done;
   return held;
 }
+
+/* Discreet, and once: the sentence appears where the button was, and a device
+   that has just joined needs to be told that it went through. */
+function showPortalDone() {
+  const block = document.getElementById("guestRelease");
+  block.classList.remove("is-done");
+  void block.offsetWidth;   // a second release restarts it instead of nothing
+  block.classList.add("is-done");
+}
+
+/* The banner follows the network the page is on, not the one it was opened on:
+   a phone that switches to its owner's Wi-Fi would otherwise keep the sentence
+   for good. refreshEvery also re-runs it the moment the tab comes back. */
+refreshEvery(refreshPortalBanner, 30000);
 
 /* The window the interface is shown in belongs to the phone: a captive-portal
    window is the operating system's own, and no page can close it. Two things
@@ -8669,6 +8686,7 @@ document.getElementById("portalReleaseBtn").addEventListener("click", async (e) 
   if (result.ok) {
     btn.hidden = true;
     hint.textContent = t("guest.joined");
+    showPortalDone();
     leaveCaptiveWindow();
   } else {
     if (tab) tab.close();
