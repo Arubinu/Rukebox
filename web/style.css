@@ -1616,16 +1616,48 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
 .btn-small[data-cost]::after { top: -7px; right: -7px; background: var(--surface); border: 1px solid var(--border); }
 [data-cost][data-cost-short]::after { background: var(--danger); border-color: var(--danger); color: var(--danger-contrast); }
 .client-list li { flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.client-main { flex: 1 1 100%; min-width: 0; display: grid; gap: 2px; }
+.client-options { flex: 1 1 100%; min-width: 0; }
+/* The name line IS the summary, so the chevron lands at the right of the
+   device and the options open right under it - no row of their own saying
+   "Options" first. The row's own frame stays the li's. */
+.client-options > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.client-options > summary::-webkit-details-marker { display: none; }
+.client-options > summary::after {
+  content: "";
+  order: 99;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  flex: none;
+  background-color: var(--text-muted);
+  -webkit-mask: var(--i-chevron) center / contain no-repeat;
+  mask: var(--i-chevron) center / contain no-repeat;
+  transition: transform 0.2s ease;
+}
+.client-options[open] > summary::after { transform: rotate(90deg); }
+
+.client-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
 .client-name { font-weight: 600; }
 .client-meta { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
 .client-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; align-items: center; }
 
-/* One device's controls live in a fold of their own: in a line beside the name
-   they were four buttons wide on a phone, and the list is read for the names. */
-.client-options { flex: 1 1 100%; margin-top: 6px; }
-.client-options > summary { min-height: 44px; padding: 6px 14px; font-size: 14px; }
-.client-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* A line between the device and its first option, like the ones the options
+   draw between themselves - the name line and "No credits" would otherwise
+   read as one block. */
+.client-options > .field-row { margin-top: 0; }
+.client-options > summary + .field-row {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.client-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .client-buttons > .btn { width: 100%; }
 
 .vol-mute {

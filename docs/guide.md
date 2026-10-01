@@ -528,13 +528,13 @@ another one until it comes back. **Connected devices** (System) lists who
 is on the Wi-Fi, with their nickname (a generated one until they choose),
 and lets you disconnect or ban a device - the ban follows the device
 (cookie, browser storage, every address it used), not just one MAC. Each
-row keeps its own controls behind **Options**: **No credits** spares that
-device the guest credits (every action is free for it, the other guests
-keep paying), and **Captive portal** decides whether the phone's welcome
-page keeps holding it - **Usual** follows the general setting, **Always**
-brings the page back at every connection (the way to see it again, or to
-put it in front of someone), **Never** lets the device through without
-ever being asked.
+row opens its own controls with the chevron at its right: **No credits**
+spares that device the guest credits (every action is free for it, the
+other guests keep paying), and **Captive portal** decides whether the
+phone's welcome page keeps holding it - **Usual** follows the general
+setting, **Always** brings the page back at every connection (the way to
+see it again, or to put it in front of someone), **Never** lets the device
+through without ever being asked.
 
 **Share access** (System) shows two QR codes - one to join the Wi-Fi, one
 to open this page - with the network name, password and address written

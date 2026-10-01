@@ -6918,7 +6918,10 @@ async function banDevice(target, label) {
 
 function clientRow(c) {
   const li = document.createElement("li");
-  const main = document.createElement("div");
+  // The whole name line is the fold's summary, chevron included: the options
+  // used to sit behind an "Options" row of their own, one line per device that
+  // said nothing the chevron does not.
+  const main = document.createElement("span");
   main.className = "client-main";
   const name = document.createElement("span");
   name.className = "client-name";
@@ -6931,15 +6934,10 @@ function clientRow(c) {
   meta.textContent = bits.filter(Boolean).join(" \u00b7 ");
   main.append(name, meta);
 
-  // The four controls used to sit in a line beside the name, which is a wall of
-  // buttons on a phone. They are folded behind "Options" now - the row is read
-  // for the name - and each option is a settings row of its own.
   const fold = document.createElement("details");
-  fold.className = "subsection client-options";
+  fold.className = "client-options";
   const summary = document.createElement("summary");
-  const summaryText = document.createElement("span");
-  summaryText.textContent = t("clients.options");
-  summary.append(summaryText);
+  summary.append(main);
   fold.append(summary);
 
   const freeRow = document.createElement("div");
@@ -7027,7 +7025,7 @@ function clientRow(c) {
     fold.append(buttons);
   }
 
-  li.append(main, fold);
+  li.append(fold);
   return li;
 }
 
