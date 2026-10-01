@@ -21,15 +21,24 @@ PROBE_DOMAINS = [
     "connectivity-check.ubuntu.com",
 ]
 
+_SUCCESS_PAGE = (
+    "<HTML><HEAD><META NAME=\"viewport\" CONTENT=\"width=device-width,initial-scale=1\">"
+    "<TITLE>Success</TITLE></HEAD>"
+    "<BODY STYLE=\"margin:0;padding:32px 20px;font-family:system-ui,sans-serif;"
+    "font-size:16px;text-align:center;color:#141821\">"
+    "Success"
+    "<P STYLE=\"margin:24px 0 0\">Rukebox</P>"
+    "<P STYLE=\"margin:8px 0 0\"><A HREF=\"%s\">%s</A></P>"
+    "</BODY></HTML>\n"
+)
+
+_SUCCESS_PAGE_PLAIN = (
+    "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>\n"
+)
+
 PROBE_RESPONSES = {
-    "/hotspot-detect.html": (
-        200, "text/html",
-        "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>\n",
-    ),
-    "/library/test/success.html": (
-        200, "text/html",
-        "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>\n",
-    ),
+    "/hotspot-detect.html": (200, "text/html", _SUCCESS_PAGE),
+    "/library/test/success.html": (200, "text/html", _SUCCESS_PAGE),
     "/generate_204": (204, "text/plain", ""),
     "/gen_204": (204, "text/plain", ""),
     "/connecttest.txt": (200, "text/plain", "Microsoft Connect Test"),
@@ -48,9 +57,20 @@ def is_probe_path(path):
     return path.lower() in PROBE_RESPONSES
 
 
-def probe_response(path):
-    """(status, content_type, body) telling the OS the network is fine."""
-    return PROBE_RESPONSES[path.lower()]
+def probe_response(path, url=None):
+    """(status, content_type, body) telling the OS the network is fine.
+
+    Apple's two pages are the only ones the %s is filled in for: the word
+    Success is what their operating system reads, but the same page is also
+    what a portal window shows when the device was already let through - a
+    white page saying "Success" tells that reader nothing, so the address of
+    the interface goes under it. Android's 204 must stay empty (any body reads
+    as interception), and Windows' two files are compared word for word."""
+    response = PROBE_RESPONSES[path.lower()]
+    if "%s" not in response[2]:
+        return response
+    page = response[2] % (url, url) if url else _SUCCESS_PAGE_PLAIN
+    return response[0], response[1], page
 
 
 def redirect_url_for(remote_ip, ap_interface="uap0", web_port=80):

@@ -1000,7 +1000,8 @@ def _unknown_path(_error):
         return jsonify({"ok": False, "error": "not_found"}), 404
 
     if captive_portal.is_probe_path(request.path) and _portal_is_released(_client_ip()):
-        status, content_type, body = captive_portal.probe_response(request.path)
+        status, content_type, body = captive_portal.probe_response(
+            request.path, captive_portal.redirect_url_for(_client_ip()))
         return Response(body, status=status, mimetype=content_type,
                         headers={"Cache-Control": "no-store"})
     return redirect(captive_portal.redirect_url_for(_client_ip()) or "/", code=302)
