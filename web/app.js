@@ -8466,7 +8466,10 @@ async function refreshPortalBanner() {
    the phone validates the network and takes its window away by itself. */
 const CAPTIVE_PROBE_APPLE = "http://captive.apple.com/hotspot-detect.html";
 const CAPTIVE_PROBE_GOOGLE = "http://connectivitycheck.gstatic.com/generate_204";
-const CAPTIVE_CLOSE_MS = 1500;
+
+function applePlatform() {
+  return /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent || "");
+}
 
 function portalBrowserTab() {
   try {
@@ -8476,21 +8479,25 @@ function portalBrowserTab() {
   }
 }
 
+/* Sends the window the interface is shown in to the address its own system
+   probes, which answers "no portal here" now that the device is released, so
+   the phone validates the network and takes that window away. Done at once,
+   never on a timer: measured on an iPhone, a release at 16:21:03 was followed
+   by the portal page reloading 0.4s later and by no probe at all - the timer
+   the nudge lived on was gone with the page. assign(), not replace(), so the
+   interface stays one Back away if this is an ordinary browser tab. */
 function leaveCaptiveWindow() {
-  const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent || "");
-  setTimeout(() => {
-    // assign(), not replace(): the interface stays one Back away if this was an
-    // ordinary browser tab rather than a portal window.
-    window.location.assign(apple ? CAPTIVE_PROBE_APPLE : CAPTIVE_PROBE_GOOGLE);
-  }, CAPTIVE_CLOSE_MS);
+  window.location.assign(applePlatform() ? CAPTIVE_PROBE_APPLE : CAPTIVE_PROBE_GOOGLE);
 }
 
 document.getElementById("portalReleaseBtn").addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true;
   // Asked for HERE, while the tap still counts as the gesture a browser wants
-  // before it opens a tab: after the await below it would be refused.
-  const tab = portalBrowserTab();
+  // before it opens a tab: after the await below it would be refused. Apple is
+  // left out on purpose - its portal window has no tabs, and opening one there
+  // reloads the very page the nudge below depends on.
+  const tab = applePlatform() ? null : portalBrowserTab();
   const hint = document.getElementById("portalHint");
   const result = await apiPost("/api/portal/release");
   if (result.ok) {

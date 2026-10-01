@@ -21,24 +21,15 @@ PROBE_DOMAINS = [
     "connectivity-check.ubuntu.com",
 ]
 
-_SUCCESS_PAGE = (
-    "<HTML><HEAD><META NAME=\"viewport\" CONTENT=\"width=device-width,initial-scale=1\">"
-    "<TITLE>Success</TITLE></HEAD>"
-    "<BODY STYLE=\"margin:0;padding:32px 20px;font-family:system-ui,sans-serif;"
-    "font-size:16px;text-align:center;color:#141821\">"
-    "Success"
-    "<P STYLE=\"margin:24px 0 0\">Rukebox</P>"
-    "<P STYLE=\"margin:8px 0 0\"><A HREF=\"%s\">%s</A></P>"
-    "</BODY></HTML>\n"
-)
-
-_SUCCESS_PAGE_PLAIN = (
-    "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>\n"
-)
-
 PROBE_RESPONSES = {
-    "/hotspot-detect.html": (200, "text/html", _SUCCESS_PAGE),
-    "/library/test/success.html": (200, "text/html", _SUCCESS_PAGE),
+    "/hotspot-detect.html": (
+        200, "text/html",
+        "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>\n",
+    ),
+    "/library/test/success.html": (
+        200, "text/html",
+        "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>\n",
+    ),
     "/generate_204": (204, "text/plain", ""),
     "/gen_204": (204, "text/plain", ""),
     "/connecttest.txt": (200, "text/plain", "Microsoft Connect Test"),
@@ -57,20 +48,19 @@ def is_probe_path(path):
     return path.lower() in PROBE_RESPONSES
 
 
-def probe_response(path, url=None):
+def probe_response(path):
     """(status, content_type, body) telling the OS the network is fine.
 
-    Apple's two pages are the only ones the %s is filled in for: the word
-    Success is what their operating system reads, but the same page is also
-    what a portal window shows when the device was already let through - a
-    white page saying "Success" tells that reader nothing, so the address of
-    the interface goes under it. Android's 204 must stay empty (any body reads
-    as interception), and Windows' two files are compared word for word."""
-    response = PROBE_RESPONSES[path.lower()]
-    if "%s" not in response[2]:
-        return response
-    page = response[2] % (url, url) if url else _SUCCESS_PAGE_PLAIN
-    return response[0], response[1], page
+    Apple's page is deliberately the tiniest one that carries the word its
+    operating system reads, with nothing else on it: a richer page was tried
+    on 2026-10-01 (the address of the interface under the word, for the case
+    where a portal window lands there anyway) and reverted the same day, once
+    the real problem turned out to be that window never being sent to this
+    address at all - see the nudge in web/app.js. Do not decorate it again
+    without an iPhone to prove iOS still settles on it. Android's 204 must
+    stay empty (any body reads as interception), and Windows' two files are
+    compared word for word."""
+    return PROBE_RESPONSES[path.lower()]
 
 
 def redirect_url_for(remote_ip, ap_interface="uap0", web_port=80):
