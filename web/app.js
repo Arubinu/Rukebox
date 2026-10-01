@@ -3549,6 +3549,7 @@ document.getElementById("btnFlicPair").addEventListener("click", async (e) => {
     sticky: true,
     action: { label: t("common.cancel"), icon: "x", run: () => apiPost("/api/flic/pair/cancel") },
   });
+  let finished = false;
   for (let i = 0; i < 90; i += 1) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const s = await apiGet("/api/flic/pair/status");
@@ -3558,6 +3559,7 @@ document.getElementById("btnFlicPair").addEventListener("click", async (e) => {
     } else if (s.data.state === "found" || s.data.state === "connected") {
       hint.querySelector(".toast-detail").textContent = t("btctl.flic_pair_found");
     } else if (s.data.state === "done") {
+      finished = true;
       dismissToast(hint);
       if (s.data.result === "WizardSuccess") {
         showToast(t("btctl.flic_paired"), (s.data.address || "").toUpperCase());
@@ -3568,6 +3570,11 @@ document.getElementById("btnFlicPair").addEventListener("click", async (e) => {
     }
   }
   btn.disabled = false;
+  if (!finished) {
+    dismissToast(hint);
+    await apiPost("/api/flic/pair/cancel");
+    showToast(t("common.failed"), t("btctl.flic_pair_WizardFailedTimeout"), { error: true });
+  }
   refreshFlic();
 });
 

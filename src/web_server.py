@@ -2919,11 +2919,38 @@ def api_flic_enable():
     return jsonify({"ok": True})
 
 
-_flic_pair = {"state": "idle", "result": None, "address": None, "name": None, "client": None, "wizard": None}
+_flic_pair = {"state": "idle", "result": None, "address": None, "name": None, "client": None, "wizard": None,
+              "until": 0.0}
 _flic_pair_lock = threading.Lock()
+# A scan the wizard never reports on - the button stays in a pocket - must not
+# leave the interface saying a pairing is running until the page is reloaded.
+PAIR_SCAN_SEC = 120
+_PAIR_RUNNING = ("searching", "private", "found", "connected")
+
+
+def _pair_state():
+    """The pairing state, an overrun counted as finished. The wizard thread can
+    die with its connection to flicd, and nothing would ever report it."""
+    with _flic_pair_lock:
+        if _flic_pair["state"] in _PAIR_RUNNING and _flic_pair["until"] and time.time() > _flic_pair["until"]:
+            _flic_pair.update(state="done", result="WizardFailedTimeout", client=None, wizard=None)
+        return {k: _flic_pair[k] for k in ("state", "result", "address", "name")}
 
 
 def _flic_pair_run():
+    """Runs the SDK's scan wizard; whatever happens to it, the state ends on
+    "done"."""
+    try:
+        _flic_pair_scan()
+    except Exception:  # noqa: BLE001
+        log.exception("Flic pairing failed")
+    finally:
+        with _flic_pair_lock:
+            if _flic_pair["state"] != "done":
+                _flic_pair.update(state="done", result="flicd_not_running", client=None, wizard=None)
+
+
+def _flic_pair_scan():
     fliclib = _fliclib()
     try:
         client = fliclib.FlicClient("localhost")
@@ -2964,24 +2991,25 @@ def _flic_pair_run():
 def api_flic_pair_start():
     if not _service_is_active("flicd"):
         return jsonify({"ok": False, "error": "flicd_not_running"}), 400
+    if _pair_state()["state"] in _PAIR_RUNNING:
+        return jsonify({"ok": False, "error": "flic_pairing_running"}), 409
     with _flic_pair_lock:
-        if _flic_pair["state"] in ("searching", "private", "found", "connected"):
-            return jsonify({"ok": False, "error": "flic_pairing_running"}), 409
-        _flic_pair.update(state="searching", result=None, address=None, name=None)
+        _flic_pair.update(state="searching", result=None, address=None, name=None,
+                          until=time.time() + PAIR_SCAN_SEC)
     threading.Thread(target=_flic_pair_run, daemon=True).start()
     return jsonify({"ok": True})
 
 
 @app.route("/api/flic/pair/status")
 def api_flic_pair_status():
-    with _flic_pair_lock:
-        return jsonify({"ok": True, "data": {k: _flic_pair[k] for k in ("state", "result", "address", "name")}})
+    return jsonify({"ok": True, "data": _pair_state()})
 
 
 @app.route("/api/flic/pair/cancel", methods=["POST"])
 def api_flic_pair_cancel():
     with _flic_pair_lock:
         client, wizard = _flic_pair["client"], _flic_pair["wizard"]
+        _flic_pair.update(state="done", result="WizardCancelledByUser", client=None, wizard=None)
     if client is not None and wizard is not None:
         client.cancel_scan_wizard(wizard)
     return jsonify({"ok": True})
