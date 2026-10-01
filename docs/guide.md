@@ -891,13 +891,20 @@ already saved on a smartphone).
    be closed safely and the Pi stays reachable in an ordinary browser.
    While the portal still holds the device the interface opens on its
    **Home menu** rather than on "Now playing", and the button is part of
-   that menu: on a phone it waits on the home grid (the tile that pulses
-   beside it is the page the interface opens on), on a computer it sits
-   at the foot of the sidebar, on every page. Tapping it also hands the
+   that menu: on a phone it waits at the foot of the Home grid - the only
+   grid that offers it, since that is the menu the interface opens on -
+   and on a computer it sits at the foot of the sidebar, on every page.
+   The sentence that follows a release ("this network is now marked as
+   connected") shows wherever the device is. Tapping it also hands the
    interface to your ordinary browser and sends the portal window to the
    address your phone probes, which is what lets the phone mark the
    network as connected and take that window away by itself - if yours
    keeps it open, just close it, the network is yours already.
+   The tap is remembered **against the device itself, for 12 hours, and
+   written down**: an update, a service restart or the Pi's daily reboot
+   no longer asks a device that has already finished to finish again.
+   **Connected devices** shows it per device and offers *Show the portal
+   again* to undo it.
 5. On subsequent occasions, the phone joins this network on its own
    whenever in range — the interface is then directly reachable.
 

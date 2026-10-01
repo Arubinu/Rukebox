@@ -581,6 +581,41 @@ class WebTest(unittest.TestCase):
                             "and the device that finished keeps its release on a new address")
             ws._portal_forget(mac)
 
+    def test_a_tap_survives_a_restart_of_the_web_server(self):
+        # Reported from the AP: a device that had already finished was asked
+        # again after the Pi was updated (the service restarted) and after the
+        # daily reboot. The in-memory map dies with the process, so the tap is
+        # written down against the device as well.
+        mac = "aa:bb:cc:dd:ee:97"
+        guest = ws.app.test_client()
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=mac):
+            guest.post("/api/portal/release")
+            ws._portal_released.clear()          # what a restart leaves behind
+            self.assertTrue(guest.get("/api/portal/status").get_json()["data"]["released"],
+                            "the device is still the one that finished")
+            forgotten = ws._portal_forget(mac)
+        self.assertTrue(forgotten)
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=mac):
+            self.assertFalse(guest.get("/api/portal/status").get_json()["data"]["released"],
+                             "and forgetting it works on the written-down tap too")
+
+    def test_a_tap_older_than_twelve_hours_is_not_a_tap(self):
+        mac = "aa:bb:cc:dd:ee:96"
+        guest = ws.app.test_client()
+        box = ws._suggestion_box()
+        box.note_portal_release(mac, when=time.time() - 13 * 3600)
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=mac):
+            self.assertFalse(guest.get("/api/portal/status").get_json()["data"]["released"],
+                             "the portal asks again the next day")
+        box.note_portal_release(mac)
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=mac):
+            self.assertTrue(guest.get("/api/portal/status").get_json()["data"]["released"])
+        ws._portal_forget(mac)
+
 
 def tearDownModule():
     shutil.rmtree(TMP, ignore_errors=True)

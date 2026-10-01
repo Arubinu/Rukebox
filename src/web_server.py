@@ -987,6 +987,28 @@ def _portal_release_held(key):
         return True
 
 
+def _portal_release_remembered(mac):
+    """The tap as the device database has it: it outlives the service, which is
+    the point - an update or the daily reboot used to ask again a device that
+    had already finished."""
+    if not mac:
+        return False
+    try:
+        when = _suggestion_box().portal_released_at(mac)
+    except Exception:  # noqa: BLE001
+        log.exception("Portal: release lookup failed")
+        return False
+    if when is None or when + PORTAL_RELEASE_SECONDS < time.time():
+        return False
+    return True
+
+
+def _portal_tap_remembered(ip, mac):
+    """Whether this device still has a tap: the device database first (it
+    survives a restart), then the memory, for a device the Pi has no MAC for."""
+    return _portal_release_remembered(mac) or _portal_release_held(_release_key(ip, mac))
+
+
 def _portal_is_released(ip):
     """Released by a tap on "Finish connecting" (below), or simply not on the
     access point: the portal only ever holds devices that joined the hotspot,
@@ -1006,23 +1028,35 @@ def _portal_is_released(ip):
                 return True
         except Exception:  # noqa: BLE001
             log.exception("Portal: device lookup failed")
-    return _portal_release_held(_release_key(ip, mac))
+    return _portal_tap_remembered(ip, mac)
 
 
 def _portal_release(ip):
-    key = _release_key(ip)
+    mac = suggestions.mac_for_ip(ip)
+    if mac:
+        try:
+            _suggestion_box().note_portal_release(mac)
+        except Exception:  # noqa: BLE001
+            log.exception("Portal: could not write the tap down")
     with _portal_lock:
         now = time.time()
         for stale in [k for k, v in _portal_released.items() if v < now]:
             del _portal_released[stale]
-        _portal_released[key] = now + PORTAL_RELEASE_SECONDS
+        _portal_released[_release_key(ip, mac)] = now + PORTAL_RELEASE_SECONDS
 
 
 def _portal_forget(mac, ip=None):
     """Undoes a device's tap, so the portal holds it again. True when there
     was a tap to undo."""
+    forgotten = False
+    if mac:
+        try:
+            forgotten = _suggestion_box().forget_portal_release(mac)
+        except Exception:  # noqa: BLE001
+            log.exception("Portal: could not undo the tap")
     with _portal_lock:
-        return _portal_released.pop(_release_key(ip or "", mac), None) is not None
+        in_memory = _portal_released.pop(_release_key(ip or "", mac), None) is not None
+    return forgotten or in_memory
 
 
 @app.route("/api/portal/status")
@@ -1576,7 +1610,7 @@ def _now_clients(box, stations):
         # Whether the device itself tapped "Finish connecting" and that tap is
         # still remembered - not whether the portal holds it, which is also a
         # matter of the general rule and of this device's own choice.
-        entry["portal_released"] = _portal_release_held(_release_key(entry["ip"] or "", mac))
+        entry["portal_released"] = _portal_tap_remembered(entry["ip"] or "", mac)
         if device:
             entry.update(box.device_summary(device))
             entry["me"] = device["id"] == me["id"]
@@ -1589,7 +1623,7 @@ def _now_clients(box, stations):
             continue
         entry = {"mac": device.get("mac"), "ip": device.get("last_ip"), "on_ap": False,
                  "seen_sec": int(age)}
-        entry["portal_released"] = _portal_release_held(_release_key(entry["ip"] or "", entry["mac"]))
+        entry["portal_released"] = _portal_tap_remembered(entry["ip"] or "", entry["mac"])
         entry.update(box.device_summary(device))
         entry["me"] = device_id == me["id"]
         clients.append(entry)

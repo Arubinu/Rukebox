@@ -69,13 +69,16 @@ CREATE INDEX IF NOT EXISTS device_macs_mac ON device_macs(mac);
 -- its current name was generated (free to change at once), whether it is
 -- spared the guest credits (free_credits), and whether the owner pinned
 -- its name so the device may no longer change it itself (name_locked).
+-- portal_released_at is the last "Finish connecting" tap: it has to
+-- outlive a restart, and the Pi restarts every day.
 CREATE TABLE IF NOT EXISTS device_state (
     device_id TEXT PRIMARY KEY,
     banned_until REAL,
     portal TEXT,
     generated_name INTEGER NOT NULL DEFAULT 0,
     free_credits INTEGER NOT NULL DEFAULT 0,
-    name_locked INTEGER NOT NULL DEFAULT 0
+    name_locked INTEGER NOT NULL DEFAULT 0,
+    portal_released_at REAL
 );
 CREATE TABLE IF NOT EXISTS votes (
     suggestion_id INTEGER NOT NULL,
@@ -157,7 +160,8 @@ class SuggestionBox:
     # with real data in it, so a missing column is added here.
     _ADDED_COLUMNS = {
         "device_state": (("free_credits", "INTEGER NOT NULL DEFAULT 0"),
-                         ("name_locked", "INTEGER NOT NULL DEFAULT 0")),
+                         ("name_locked", "INTEGER NOT NULL DEFAULT 0"),
+                         ("portal_released_at", "REAL")),
         "name_changes": (("by_owner", "INTEGER NOT NULL DEFAULT 0"),),
     }
 
@@ -265,7 +269,8 @@ class SuggestionBox:
         """Caller holds the lock and commits."""
         self._db.execute("INSERT OR IGNORE INTO device_state (device_id) VALUES (?)", (device_id,))
         for key, value in fields.items():
-            assert key in ("banned_until", "portal", "generated_name", "free_credits", "name_locked")
+            assert key in ("banned_until", "portal", "generated_name", "free_credits", "name_locked",
+                           "portal_released_at")
             self._db.execute("UPDATE device_state SET %s = ? WHERE device_id = ?" % key, (value, device_id))
 
     def _state(self, device_id):
@@ -369,6 +374,35 @@ class SuggestionBox:
         with self._lock:
             self._set_state(device_id, portal=mode if mode in ("always", "never") else None)
             self._db.commit()
+
+    def note_portal_release(self, mac, device_id=None, when=None):
+        """Remembers a tap on "Finish connecting" against the device itself.
+        In memory it only lasted as long as the service, and the Pi restarts
+        every day - which asked a device that had already finished to finish
+        again."""
+        device = self.device_by_id(device_id) if device_id else None
+        if device is None:
+            device = self.ensure_device_for_mac(mac)
+        with self._lock:
+            self._set_state(device["id"], portal_released_at=time.time() if when is None else when)
+            self._db.commit()
+
+    def portal_released_at(self, mac):
+        """When this device last tapped "Finish connecting", or None."""
+        device = self.device_by_mac(mac)
+        return self._state(device["id"]).get("portal_released_at") if device else None
+
+    def forget_portal_release(self, mac):
+        """Undoes the tap, so the portal holds the device again. True when
+        there was one to undo."""
+        device = self.device_by_mac(mac)
+        if device is None:
+            return False
+        with self._lock:
+            had = self._state(device["id"]).get("portal_released_at") is not None
+            self._set_state(device["id"], portal_released_at=None)
+            self._db.commit()
+            return had
 
     def set_free_credits(self, device_id, on):
         """The owner spares this device the guest credits."""
