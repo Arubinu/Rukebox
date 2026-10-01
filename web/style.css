@@ -2188,6 +2188,8 @@ select {
 [data-state="pending"]::before { background: var(--warning) !important; opacity: 0.6; }
 [data-state="off"]::before { background: var(--border-strong) !important; }
 
+#updateVersion { justify-content: center; }
+
 .speaker-status {
   display: flex;
   flex-wrap: wrap;
