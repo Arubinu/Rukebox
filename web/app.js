@@ -474,6 +474,11 @@ let railPages = {};
    still on its way). Kept until it can be opened, or the reload of a deep link
    to the Library would land on an empty screen. */
 let pendingPage = null;
+/* The list of devices is rebuilt on every refresh, so what the owner is doing
+   in it lives here instead of in the rows: which folds are open, and the names
+   typed but not saved yet. */
+const openClientFolds = new Set();
+const clientNameDrafts = new Map();
 
 function buildPageMenus() {
   const main = document.getElementById("main");
@@ -6927,6 +6932,7 @@ async function banDevice(target, label) {
 
 function clientRow(c) {
   const li = document.createElement("li");
+  const key = c.device_id || c.mac;
   // The whole name line is the fold's summary, chevron included: the options
   // used to sit behind an "Options" row of their own, one line per device that
   // said nothing the chevron does not.
@@ -6957,6 +6963,11 @@ function clientRow(c) {
 
   const fold = document.createElement("details");
   fold.className = "client-options";
+  fold.open = openClientFolds.has(key);
+  fold.addEventListener("toggle", () => {
+    if (fold.open) openClientFolds.add(key);
+    else openClientFolds.delete(key);
+  });
   const summary = document.createElement("summary");
   summary.append(main);
   fold.append(summary);
@@ -6978,11 +6989,12 @@ function clientRow(c) {
   nameField.className = "input-with-action";
   const nameInput = document.createElement("input");
   nameInput.type = "text";
-  nameInput.className = "text-input";
+  nameInput.className = "text-input client-name-input";
   nameInput.maxLength = 24;
-  nameInput.value = c.name || "";
+  nameInput.value = clientNameDrafts.has(key) ? clientNameDrafts.get(key) : (c.name || "");
   nameInput.placeholder = clientLabel(c);
   nameInput.setAttribute("aria-label", t("clients.rename"));
+  nameInput.addEventListener("input", () => clientNameDrafts.set(key, nameInput.value));
   const nameSave = document.createElement("button");
   nameSave.type = "button";
   nameSave.className = "btn btn-small";
@@ -6999,6 +7011,7 @@ function clientRow(c) {
       return;
     }
     c.name = r.data.name;
+    clientNameDrafts.delete(key);
     showToast(t("clients.renamed", { name: r.data.name }));
     refreshClients();
   };
@@ -7179,8 +7192,15 @@ async function refreshClients() {
 }
 refreshClients();
 setInterval(() => {
-  if (document.body.dataset.tab === "system" && !document.hidden) refreshClients();
+  // A rebuild takes the field out from under the keyboard (and closes what is
+  // open), so the poll stands aside while a name is being typed.
+  if (document.body.dataset.tab === "system" && !document.hidden && !editingClientName()) refreshClients();
 }, 15000);
+
+function editingClientName() {
+  const active = document.activeElement;
+  return !!active && active.classList && active.classList.contains("client-name-input");
+}
 document.querySelectorAll('.tab-btn[data-tab="system"]').forEach((btn) => btn.addEventListener("click", refreshClients));
 rememberDevice();
 
