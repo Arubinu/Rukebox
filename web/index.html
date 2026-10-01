@@ -495,6 +495,14 @@
             </div>
             <div data-level="detail" class="field-row">
               <div class="field-text">
+                <label for="speakerVolumeLink" data-i18n="settings.speaker_volume_link">The speaker's volume is the volume</label>
+                <p class="field-desc" id="speakerVolumeLinkDesc" data-i18n="settings.speaker_volume_link_desc">One volume instead of two: the slider sets the speaker's own volume, and its buttons move the slider.</p>
+              </div>
+              <input type="checkbox" id="speakerVolumeLink" data-key="SPEAKER_VOLUME_LINK" class="switch-input" role="switch"
+                     aria-describedby="speakerVolumeLinkDesc">
+            </div>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
                 <label for="audioCompression" data-i18n="settings.audio_compression">Volume boost</label>
                 <p class="field-desc" id="audioCompressionDesc" data-i18n="settings.audio_compression_desc">Evens the loudness out when the recordings are quiet, without touching the slider.</p>
               </div>

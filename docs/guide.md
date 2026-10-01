@@ -2075,6 +2075,39 @@ If the mpv on the Pi was built without those filters, the daemon says so in
 the log (`journalctl -u rukebox-daemon`) and plays without them rather than
 staying silent.
 
+### One volume instead of two: the speaker's own
+
+The radio has a volume of its own (the slider, and what an announcement or a
+System sound asks for), and a Bluetooth speaker has a second one - the one its
+own buttons move. By default the two add up: turn the speaker down and the
+slider has that much less to work with.
+
+`speaker_volume_link` (`playback:`) makes them one volume. The slider then sets
+the speaker's own volume, the radio sends it everything it has, and a press on
+the speaker's volume buttons is read back within a couple of seconds, so the
+slider and the speaker can never drift apart. This is also the case where a
+volume set on the speaker is what `volume_mode: session` keeps.
+
+Turned off (the default) nothing changes: the slider is the radio's software
+volume, and the speaker's is a second one on top of it - which is what you want
+when the radio feeds something that has no volume buttons at all.
+
+Two things worth knowing:
+
+- the volume after a restart is `base_volume` as before, and the speaker is set
+  to it: the radio hands its volume to the speaker when it starts;
+- `volume_change: fade` glides the radio's own volume only. A linked change goes
+  to the speaker at once, because a fade would be twenty AVRCP round trips a
+  second.
+
+Choose **The speaker's volume is the volume** in the Playback settings, or by
+hand:
+
+```bash
+sudo python3 src/config_file.py set SPEAKER_VOLUME_LINK=true
+echo '{"cmd":"reload_config"}' | nc -U /tmp/rukebox_control.sock
+```
+
 ### An announcement that plays only some of the time
 
 Each announcement has two settings, **When it starts on its own** and

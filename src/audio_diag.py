@@ -146,6 +146,19 @@ def default_sink_volume(env=None):
         return None
 
 
+def set_default_sink_volume(percent, env=None):
+    """Sets the default output's own volume, in percent. Always between 0 and
+    1.0: PipeWire amplifies above it, and a speaker cannot be pushed past its
+    own maximum anyway."""
+    try:
+        value = max(0.0, min(100.0, float(percent))) / 100.0
+    except (TypeError, ValueError):
+        return False
+    result = _run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "%.2f" % value],
+                  timeout=5, env=env)
+    return result is not None and result.returncode == 0
+
+
 def mpv_properties(path):
     """What mpv says it plays and through what, {} when it is not there."""
     props = {}

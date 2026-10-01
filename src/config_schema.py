@@ -279,6 +279,16 @@ SETTINGS = [
         "Volume step",
     ),
     Setting(
+        "SPEAKER_VOLUME_LINK", "playback", "speaker_volume_link", "bool", "false",
+        "One volume instead of two: the slider sets the speaker's own\n"
+        "(hardware) volume and the radio sends it everything it has, so a\n"
+        "press on the speaker's volume buttons moves the slider, and the two\n"
+        "can never drift apart. Left off, the slider is the radio's software\n"
+        "volume and the speaker's is a second one on top of it - which is\n"
+        "what you want when the radio feeds something without volume keys.",
+        "The speaker's volume is the volume",
+    ),
+    Setting(
         "PAUSE_DURATIONS", "playback", "pause_durations", "str", "5,15,30,60",
         "The durations (minutes, comma-separated) the web interface's\n"
         "\"Timer\" offers as a timed pause: the music pauses, then starts\n"

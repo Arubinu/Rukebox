@@ -62,6 +62,10 @@ class RadioDaemon:
     # Two watch turns without a Bluetooth output, so a track change or a
     # PipeWire hiccup is not mistaken for a dead link.
     SINK_MISSING_CHECKS = 2
+    # How often the speaker's own volume is read when the two are linked: a
+    # press on its buttons is not an event anything tells us about, only a new
+    # level, and two seconds is what makes it feel like it answered.
+    SINK_POLL_SEC = 2.0
 
     def __init__(self, cfg):
         self._state_cond = threading.Condition()
@@ -121,6 +125,8 @@ class RadioDaemon:
         self._last_volume_event = 0.0
         self._volume_glide_gen = 0
         self._volume_glide_target = None
+        self._sink_level = None
+        self._sink_warned = False
 
         self._custom_announcements = announcements.load(cfg["ANNOUNCEMENTS_FILE"])
         self._announce_volumes = announcements.volumes(cfg["ANNOUNCEMENTS_FILE"])
@@ -1050,6 +1056,7 @@ class RadioDaemon:
         self._sound_volume = None
         self._current_volume = 0
         self._shown_volume = target
+        self._write_level(target)
         self.mpv.set_volume(0)
         start()
         if self.mode == "music":
@@ -1065,11 +1072,16 @@ class RadioDaemon:
     def _glide_volume(self, target, duration_sec):
         """From where the volume is to `target` over duration_sec, in its own
         thread: the control command answers at once (a slider drag sends a
-        request every 150ms), and the next request."""
+        request every 150ms), and the next request. When the speaker carries
+        the volume, only mpv glides: twenty AVRCP round trips a second are not
+        a fade, they are a stutter."""
         self._stop_volume_glide()
         gen = self._volume_glide_gen
         self._volume_glide_target = target
-        start = self._current_volume if self._current_volume is not None else target
+        linked = self._speaker_volume_linked()
+        end = self._music_gain() if linked else target
+        start = 0.0 if linked else (
+            self._current_volume if self._current_volume is not None else end)
         steps = max(1, int(duration_sec * 20))
 
         def run():
@@ -1077,8 +1089,9 @@ class RadioDaemon:
                 time.sleep(duration_sec / steps)
                 if gen != self._volume_glide_gen:
                     return
-                vol = round(start + (target - start) * i / steps, 1)
-                self._current_volume = vol
+                vol = round(start + (end - start) * i / steps, 1)
+                if not linked:
+                    self._current_volume = vol
                 self.mpv.set_volume(vol)
             if gen == self._volume_glide_gen:
                 self._volume_glide_target = None
@@ -1086,6 +1099,14 @@ class RadioDaemon:
         threading.Thread(target=run, daemon=True).start()
 
     def _fade_out_to_zero(self, duration_sec):
+        if self._speaker_volume_linked():
+            self._stop_volume_glide()
+            gain = self._music_gain()
+            steps = 20
+            for i in range(steps, -1, -1):
+                self.mpv.set_volume(round(gain * i / steps))
+                time.sleep(duration_sec / steps)
+            return
         self._stop_volume_glide()
         steps = 20
         start_volume = self._current_volume or self._target_volume()
@@ -1120,7 +1141,79 @@ class RadioDaemon:
         self._sound_volume = None
         self._current_volume = self._target_volume()
         self._shown_volume = self._current_volume
-        self.mpv.set_volume(self._current_volume)
+        self._write_level(self._current_volume)
+
+    def _speaker_volume_linked(self):
+        """Whether the speaker's own volume IS the radio's volume."""
+        return bool(self.cfg.get("SPEAKER_VOLUME_LINK"))
+
+    def _music_gain(self):
+        """What mpv is set to when the speaker carries the volume: what an
+        announcement or a System sound asks for, or everything."""
+        return self._sound_volume if self._sound_volume is not None else 100.0
+
+    def _set_sink_volume(self, vol):
+        """Hands `vol` percent to the output itself (a Bluetooth speaker's own
+        volume, over AVRCP)."""
+        percent = max(0.0, min(100.0, float(vol)))
+        if audio_diag.set_default_sink_volume(percent, env=audio_env()):
+            self._sink_level = percent
+            return True
+        if not self._sink_warned:
+            self._sink_warned = True
+            log.warning("Could not set the speaker's own volume: the radio keeps "
+                        "its software volume instead")
+        return False
+
+    def _write_level(self, vol):
+        """Puts the radio at `vol` percent. Two models: the speaker's own
+        volume is the volume, and mpv then carries only what a sound asks for -
+        or the radio's software volume is, and the speaker's is a second one on
+        top of it."""
+        if self._speaker_volume_linked() and self._set_sink_volume(vol):
+            self.mpv.set_volume(self._music_gain())
+            return
+        self.mpv.set_volume(vol)
+
+    def _volume_watch_loop(self):
+        """Follows the speaker's own volume when the two are linked."""
+        while not self._stop_event.wait(self.SINK_POLL_SEC):
+            if self.mode == "shutting_down":
+                return
+            self._follow_sink_volume()
+
+    def _follow_sink_volume(self):
+        """One watch turn: the speaker's own volume, when the link is on."""
+        if not self._speaker_volume_linked():
+            self._sink_level = None
+            return
+        if self._sink_level is None:
+            # Just linked, or just started: the volume the interface already
+            # had is the one that goes to the speaker.
+            self._set_sink_volume(self._target_volume())
+            return
+        found = audio_diag.default_sink_volume(env=audio_env())
+        if found is None:
+            return
+        percent = max(0.0, min(100.0, round(found * 100.0, 1)))
+        if abs(percent - self._sink_level) <= 1.0:
+            return
+        self._sink_level = percent
+        self._adopt_volume(percent)
+
+    def _adopt_volume(self, percent):
+        """The speaker was moved by hand (or by another program): make that the
+        volume, so the slider and the speaker cannot drift apart."""
+        log.info("Speaker volume: %.0f%% (followed)", percent)
+        self._user_volume = percent
+        self._shown_volume = percent
+        self._current_volume = percent
+        now = time.monotonic()
+        if now - self._last_volume_event > 30:
+            self._last_volume_event = now
+            self.stats.record("volume_set", label=str(round(percent)),
+                              detail={"source": "speaker", "volume": round(percent)})
+        self._bump_state()
 
     def _list_announce_files(self, directory, source_id=None):
         """Every audio file in `directory`, ordered per ANNOUNCE_ORDER_MODE."""
@@ -1618,6 +1711,7 @@ class RadioDaemon:
 
     def _start_watchdogs(self):
         threading.Thread(target=self._speaker_watch_loop, daemon=True).start()
+        threading.Thread(target=self._volume_watch_loop, daemon=True).start()
         if self.cfg["AP_WATCH_INTERVAL_SEC"] > 0:
             threading.Thread(target=self._ap_watch_loop, daemon=True).start()
 
@@ -1770,12 +1864,18 @@ class RadioDaemon:
         self._user_volume = vol
         self._shown_volume = vol
         fade = self.cfg.get("VOLUME_FADE_SEC", 0) or 0
-        if self.cfg.get("VOLUME_CHANGE") == "fade" and fade > 0 and not self._paused:
+        if self._speaker_volume_linked():
+            # The speaker's own volume answers at once; there is nothing left
+            # for a glide to do.
+            self._stop_volume_glide()
+            self._current_volume = vol
+            self._write_level(vol)
+        elif self.cfg.get("VOLUME_CHANGE") == "fade" and fade > 0 and not self._paused:
             self._glide_volume(vol, min(float(fade), 10.0))
         else:
             self._stop_volume_glide()
             self._current_volume = vol
-            self.mpv.set_volume(vol)
+            self._write_level(vol)
         self._bump_state()
         now = time.monotonic()
         if now - self._last_volume_event > 30:
@@ -1862,9 +1962,14 @@ class RadioDaemon:
         duration_sec."""
         target = self._target_volume()
         self._shown_volume = target
+        linked = self._speaker_volume_linked()
+        gain = self._music_gain() if linked else target
         if not duration_sec or duration_sec <= 0:
             self._current_volume = target
-            self.mpv.set_volume(target)
+            if linked:
+                self._write_level(target)
+            else:
+                self.mpv.set_volume(target)
             self.mpv.set_pause(False)
             self._paused = False
             return
@@ -1877,8 +1982,9 @@ class RadioDaemon:
             if self._paused or self.mode != "music":
                 return
             time.sleep(duration_sec / steps)
-            vol = round(target * i / steps)
-            self._current_volume = vol
+            vol = round(gain * i / steps)
+            if not linked:
+                self._current_volume = vol
             self.mpv.set_volume(vol)
 
     def _check_speaker_lost_too_long(self):
