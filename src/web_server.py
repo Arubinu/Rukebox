@@ -1684,6 +1684,34 @@ def api_device_portal():
     return jsonify({"ok": True})
 
 
+@app.route("/api/devices/forget", methods=["POST"])
+def api_device_forget():
+    """{device_id | mac}: the Rukebox forgets this device altogether - or
+    {unnamed: true}: every device that never took a name. Forgotten means
+    greeted as a new device if it comes back, ban included."""
+    body = request.get_json(silent=True) or {}
+    box = _suggestion_box()
+    if body.get("unnamed"):
+        # The device doing the sweeping is spared: its own row is unnamed too,
+        # and it is answered by the very request that would delete it.
+        count = box.forget_unnamed(keep=_this_device(box)["id"])
+        if count:
+            stats.record("device_forgotten", label="unnamed", detail={"devices": count})
+        return jsonify({"ok": True, "data": {"forgotten": count}})
+    if body.get("device_id"):
+        device = box.device_by_id(str(body["device_id"]))
+    elif _MAC_ARG_RE.match(str(body.get("mac") or "").lower()):
+        device = box.device_by_mac(str(body["mac"]).lower())
+    else:
+        device = None
+    if not device:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    box.forget_device(device["id"])
+    stats.record("device_forgotten", label=device.get("name") or device["id"],
+                 detail={"mac": device.get("mac")})
+    return jsonify({"ok": True, "data": {"forgotten": 1}})
+
+
 @app.route("/api/devices/seen")
 def api_devices_seen():
     """The devices the Rukebox saw this week and which are not on it now: the

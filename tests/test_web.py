@@ -535,6 +535,32 @@ class WebTest(unittest.TestCase):
         finally:
             owner.post("/api/devices/ban", json={"device_id": device["id"], "lift": True})
 
+    def test_a_device_can_be_forgotten(self):
+        # Asked for as a Delete button next to Ban on the previously-connected
+        # page, and a sweep of the devices nobody ever named.
+        named_mac, unnamed_mac = "aa:bb:cc:dd:ee:96", "aa:bb:cc:dd:ee:95"
+        owner = self.owner()
+        box = ws._suggestion_box()
+        owner.post("/api/devices/name", json={"mac": named_mac, "name": "Merle noir"})
+        named = box.device_by_mac(named_mac)
+        unnamed = box.ensure_device_for_mac(unnamed_mac, "10.42.0.95")
+
+        r = owner.post("/api/devices/forget", json={"device_id": named["id"]}).get_json()
+        self.assertEqual(r["data"]["forgotten"], 1)
+        self.assertIsNone(box.device_by_id(named["id"]), "the device is gone")
+        self.assertIsNone(box.device_by_mac(named_mac), "and its address with it")
+        self.assertEqual(owner.post("/api/devices/forget", json={"device_id": named["id"]}).status_code, 404)
+        self.assertEqual(owner.post("/api/devices/forget", json={"mac": "aa:bb:cc:dd:ee:00"}).status_code, 404)
+
+        # A ban goes with it: forgotten means the Rukebox has never met it.
+        owner.post("/api/devices/ban", json={"device_id": unnamed["id"], "minutes": 60})
+        sweep = owner.post("/api/devices/forget", json={"unnamed": True}).get_json()["data"]
+        self.assertGreaterEqual(sweep["forgotten"], 1)
+        self.assertIsNone(box.device_by_id(unnamed["id"]))
+        self.assertIsNone(box.ban_until(unnamed["id"]))
+        self.assertEqual(owner.post("/api/devices/forget", json={"unnamed": True}).get_json()["data"]["forgotten"],
+                         0, "nothing left to sweep")
+
     def test_a_remembered_tap_follows_the_device_not_its_address(self):
         # The tap used to be keyed by address: a device that came back on
         # another one was held again while the address it left behind let the

@@ -480,6 +480,17 @@ let pendingPage = null;
 const openClientFolds = new Set();
 const clientNameDrafts = new Map();
 
+/* Where the rail's list of pages is long, these are the sets it falls into: a
+   page named here opens a group and carries the thin line that separates it
+   from the one before. Only the rail (a wide screen) draws it - the phone's
+   grid of tiles is already a grid. Edit this list, not the markup. */
+const RAIL_GROUP_STARTS = {
+  home: ["player", "likes", "suggest"],
+  settings: ["settings", "announcements"],
+  system: ["system", "accesspoint", "clients", "homewifi", "update"],
+  stats: ["overview", "sessions"],
+};
+
 function buildPageMenus() {
   const main = document.getElementById("main");
   const tabbar = document.querySelector(".tabbar");
@@ -522,6 +533,7 @@ function buildPageMenus() {
       const entry = document.createElement("button");
       entry.type = "button";
       entry.className = "rail-page";
+      if ((RAIL_GROUP_STARTS[tab] || []).includes(page)) entry.classList.add("is-group-start");
       entry.dataset.tab = tab;
       entry.dataset.page = page;
       entry.addEventListener("click", () => setActiveView(tab, page));
@@ -6269,7 +6281,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "audio_restart", "bluetooth_pair", "config_exported", "config_imported", "config_reloaded",
   "counters_reset", "music_upload", "playback_pause", "portal_released", "stats_rows_deleted",
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
-  "device_renamed", "device_name_locked", "portal_reset",
+  "device_renamed", "device_name_locked", "portal_reset", "device_forgotten",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
@@ -6978,7 +6990,20 @@ async function banDevice(target, label) {
   refreshClients();
 }
 
-function clientRow(c) {
+/* Forgetting is the deepest thing this page does - the device comes back as a
+   stranger, ban included - so it always asks first. */
+async function forgetDevice(target, label) {
+  if (!await showConfirm(t("clients.forget_body", { name: label }), t("clients.forget"))) return;
+  const r = await apiPost("/api/devices/forget", target);
+  if (!r.ok) {
+    showToolError(t("common.failed"), r);
+    return;
+  }
+  showToast(t("clients.forgotten", { name: label }));
+  reloadClientLists();
+}
+
+function clientRow(c, options) {
   const li = document.createElement("li");
   const key = c.device_id || c.mac;
   // On the Rukebox's own access point, or seen talking to us from somewhere
@@ -7216,8 +7241,10 @@ function clientRow(c) {
   if (!c.me) {
     // Disconnecting takes the access point's own station list: a device that
     // reaches us over its owner's network is on nobody's radio of ours.
+    // Ban and Forget share a line where Disconnect is not there.
     const buttons = document.createElement("div");
-    buttons.className = onAp ? "client-buttons" : "client-buttons is-single";
+    const onALine = onAp || !!(options && options.forget);
+    buttons.className = onALine ? "client-buttons" : "client-buttons is-single";
     if (onAp) {
       const kick = document.createElement("button");
       kick.type = "button";
@@ -7238,6 +7265,18 @@ function clientRow(c) {
     ban.textContent = t("clients.ban");
     ban.addEventListener("click", () => banDevice(c.device_id ? { device_id: c.device_id } : { mac: c.mac }, clientLabel(c)));
     buttons.append(ban);
+    // Previous devices can also be forgotten outright, one at a time - the
+    // page it is on is the one that collects what nobody claims.
+    if (options && options.forget) {
+      const forget = document.createElement("button");
+      forget.type = "button";
+      forget.className = "btn btn-small btn-danger-outline";
+      forget.dataset.icon = "trash";
+      forget.textContent = t("clients.forget");
+      forget.addEventListener("click", () => forgetDevice(
+        c.device_id ? { device_id: c.device_id } : { mac: c.mac }, clientLabel(c)));
+      buttons.append(forget);
+    }
     fold.append(buttons);
   }
 
@@ -7311,7 +7350,7 @@ async function refreshClients() {
 
 function renderClients() {
   const matches = nowDevices.filter((d) => matchesSearch(d, searchNeedle("clientSearch")));
-  document.getElementById("clientList").replaceChildren(...matches.map(clientRow));
+  document.getElementById("clientList").replaceChildren(...matches.map((d) => clientRow(d)));
   document.getElementById("clientsSummary").textContent = searchSummary("clientSearch", matches,
     nowDevices.length ? t("clients.count", { n: nowDevices.length })
       : t(nowReadable ? "clients.none" : "clients.unreadable"));
@@ -7338,12 +7377,33 @@ function renderPrevious() {
   const needle = searchNeedle("previousSearch");
   const matches = previousDevices.filter((d) => matchesSearch(d, needle));
   const shown = needle ? matches : matches.slice(0, previousShown);
-  document.getElementById("previousList").replaceChildren(...shown.map(clientRow));
+  document.getElementById("previousList").replaceChildren(...shown.map((d) => clientRow(d, { forget: true })));
   document.getElementById("previousSummary").textContent = !previousLoaded ? ""
     : searchSummary("previousSearch", matches, previousDevices.length
       ? t("clients.previous_count", { n: previousDevices.length }) : t("clients.previous_none"));
   document.getElementById("previousMore").hidden = !!needle || shown.length >= matches.length;
+  // Offered only when there is something to sweep: the devices nobody named.
+  const unnamed = previousDevices.filter((d) => !d.name).length;
+  const sweep = document.getElementById("previousForgetUnnamed");
+  sweep.hidden = !unnamed;
+  sweep.dataset.count = String(unnamed);
 }
+
+document.getElementById("previousForgetUnnamed").addEventListener("click", async () => {
+  const sweep = document.getElementById("previousForgetUnnamed");
+  const count = Number(sweep.dataset.count || 0);
+  if (!count) return;
+  if (!await showConfirm(t("clients.forget_unnamed_body", { n: count }), t("clients.forget_unnamed"))) return;
+  sweep.disabled = true;
+  const r = await apiPost("/api/devices/forget", { unnamed: true });
+  sweep.disabled = false;
+  if (!r.ok) {
+    showToolError(t("common.failed"), r);
+    return;
+  }
+  showToast(t("clients.forgotten_many", { n: r.data.forgotten }));
+  refreshPrevious();
+});
 
 async function refreshBanned() {
   const r = await apiGet("/api/devices/banned");

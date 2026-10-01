@@ -300,6 +300,36 @@ class SuggestionBox:
         created, _ = self.resolve_device(None, mac, ip)
         return self.device_by_id(created["id"])
 
+    def forget_device(self, device_id):
+        """Forgets a device: its state, its addresses, the names it reserved and
+        the history of them. What it suggested stays - that is music, not a
+        device - and a ban goes with the rest: forgotten means the Rukebox has
+        never met it, so it is greeted as a new device if it comes back."""
+        with self._lock:
+            self._forget(device_id)
+            self._db.commit()
+
+    def _forget(self, device_id):
+        """Caller holds the lock and commits."""
+        self._db.execute("DELETE FROM device_state WHERE device_id = ?", (device_id,))
+        self._db.execute("DELETE FROM device_macs WHERE device_id = ?", (device_id,))
+        self._db.execute("DELETE FROM names WHERE device_id = ?", (device_id,))
+        self._db.execute("DELETE FROM name_changes WHERE device_id = ?", (device_id,))
+        self._db.execute("DELETE FROM devices WHERE id = ?", (device_id,))
+
+    def forget_unnamed(self, keep=None):
+        """Forgets every device that never took a name - a passer-by, a phone
+        that only ever checked for a portal. `keep` spares one of them, the
+        device doing the sweeping. Answers how many."""
+        with self._lock:
+            ids = [row["id"] for row in self._db.execute(
+                "SELECT id FROM devices WHERE name IS NULL OR name = ''").fetchall()]
+            ids = [device_id for device_id in ids if device_id != keep]
+            for device_id in ids:
+                self._forget(device_id)
+            self._db.commit()
+            return len(ids)
+
     def ban_until(self, device_id):
         """None (not banned), -1 (for good) or the time it ends."""
         until = self._state(device_id).get("banned_until")

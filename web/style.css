@@ -749,6 +749,14 @@ code {
     margin: -2px 0 6px 6px;
   }
   .rail-pages[hidden] { display: none; }
+  /* A pause between the sets of pages (the devices, the network, the
+     machine...), made of space alone: a hairline there read as a second frame.
+     The list is long enough to need the break. */
+  .rail-page.is-group-start {
+    margin-top: 8px;
+    padding-top: 10px;
+  }
+  .rail-page:first-child.is-group-start { margin-top: 0; }
   .rail-page {
     display: block;
     width: 100%;
@@ -970,6 +978,12 @@ body[data-access="guest"] .view-bar { display: none; }
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+  /* align-content defaults to stretch, and #main is now exactly as tall as the
+     window: the rows would share the free space and every card would sit in a
+     box taller than itself - a gap before the next card, sized differently on
+     each page. The grid menu centres itself on purpose (below); a page starts
+     at the top. */
+  align-content: start;
 }
 
 .card {
@@ -2586,6 +2600,10 @@ select {
 /* "Show more" belongs to the list above it, on a line of its own: full width,
    and clear of the last row's border instead of sharing it. */
 #previousMore { width: 100%; margin-top: 14px; }
+
+/* The sweep of the devices nobody named sits under the paging button, quieter
+   than it: it is a rare housekeeping move, not a step of the page. */
+.previous-forget { width: 100%; margin-top: 8px; }
 
 [data-fade="top"] {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px);

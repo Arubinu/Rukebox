@@ -553,12 +553,18 @@ first, with **Show more**; the dates are precise to the second at first and
 then loosen ("3 h ago", "yesterday at 21:14"), the way a site dates what it
 saw. The same controls are there, which is the point: a device that has
 just gone can still be named, spared the credits, or sent back to the
-portal before it returns. **Banned** keeps the bans on their own page, with
-**Lift** to undo one and the date it was last seen - a banned device
-appears in neither of the other two lists, and a banned device that opens
-the interface anyway is told it is not allowed here. All three pages have
-the same search box (name, address or MAC), which filters what is on the
-page as you type and says how many it found.
+portal before it returns. It is also the page that lets a device go: a
+**Delete** button next to **Ban** forgets that one device outright, and
+**Delete the unnamed ones** sweeps away everyone who never took a name (a
+phone that only checked for the portal, a passer-by). Forgetting is the
+deepest thing here - the Rukebox loses the device's name, its credits, its
+portal choice and its ban, so it is greeted as a complete stranger if it
+comes back - which is why it always asks first. **Banned** keeps the bans
+on their own page, with **Lift** to undo one and the date it was last seen
+- a banned device appears in neither of the other two lists, and a banned
+device that opens the interface anyway is told it is not allowed here. All
+three pages have the same search box (name, address or MAC), which filters
+what is on the page as you type and says how many it found.
 
 **Share access** (System) shows two QR codes - one to join the Wi-Fi, one
 to open this page - with the network name, password and address written
