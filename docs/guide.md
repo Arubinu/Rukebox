@@ -895,7 +895,9 @@ already saved on a smartphone).
    grid that offers it, since that is the menu the interface opens on -
    and on a computer it sits at the foot of the sidebar, on every page.
    The sentence that follows a release ("this network is now marked as
-   connected") shows wherever the device is. Tapping it also hands the
+   connected") is a confirmation, not a banner: it shows **once, for ten
+   seconds**, in the tab that arrives after the tap, and a refresh does not
+   bring it back. Tapping it also hands the
    interface to your ordinary browser and sends the portal window to the
    address your phone probes, which is what lets the phone mark the
    network as connected and take that window away by itself - if yours

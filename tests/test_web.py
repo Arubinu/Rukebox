@@ -581,6 +581,22 @@ class WebTest(unittest.TestCase):
                             "and the device that finished keeps its release on a new address")
             ws._portal_forget(mac)
 
+    def test_the_status_dates_the_tap(self):
+        # The page confirms a tap once and briefly, so it needs to know which
+        # tap it is looking at.
+        mac = "aa:bb:cc:dd:ee:95"
+        guest = ws.app.test_client()
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=mac):
+            before = time.time()
+            self.assertIsNone(guest.get("/api/portal/status").get_json()["data"]["released_at"])
+            guest.post("/api/portal/release")
+            status = guest.get("/api/portal/status").get_json()["data"]
+        self.assertTrue(status["released"])
+        self.assertGreaterEqual(status["released_at"], before)
+        self.assertLessEqual(status["released_at"], time.time())
+        ws._portal_forget(mac)
+
     def test_a_tap_survives_a_restart_of_the_web_server(self):
         # Reported from the AP: a device that had already finished was asked
         # again after the Pi was updated (the service restarted) and after the

@@ -1009,6 +1009,26 @@ def _portal_tap_remembered(ip, mac):
     return _portal_release_remembered(mac) or _portal_release_held(_release_key(ip, mac))
 
 
+def _portal_release_time(ip):
+    """When this device tapped "Finish connecting", or None. The page confirms
+    a tap once and briefly, and this date is what tells a tap made now from one
+    made this morning."""
+    mac = suggestions.mac_for_ip(ip)
+    if mac:
+        try:
+            when = _suggestion_box().portal_released_at(mac)
+        except Exception:  # noqa: BLE001
+            log.exception("Portal: release time lookup failed")
+            when = None
+        if when is not None and when + PORTAL_RELEASE_SECONDS >= time.time():
+            return when
+    with _portal_lock:
+        expiry = _portal_released.get(_release_key(ip, mac))
+    if expiry and expiry >= time.time():
+        return expiry - PORTAL_RELEASE_SECONDS
+    return None
+
+
 def _portal_is_released(ip):
     """Released by a tap on "Finish connecting" (below), or simply not on the
     access point: the portal only ever holds devices that joined the hotspot,
@@ -1070,6 +1090,7 @@ def api_portal_status():
         "mode": c.get("CAPTIVE_PORTAL_MODE", "release"),
         "on_ap": captive_portal.is_ap_client(_client_ip(), c.get("AP_INTERFACE", "uap0")),
         "released": _portal_is_released(_client_ip()),
+        "released_at": _portal_release_time(_client_ip()),
         "guest_mode": bool(c.get("GUEST_MODE_ENABLED")),
         "auth_required": bool(c.get("WEB_PASSWORD_HASH")),
         "authenticated": _is_authenticated(),

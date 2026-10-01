@@ -8716,12 +8716,35 @@ function placePortalButton() {
   if (btn.parentElement !== wanted) wanted.appendChild(btn);
 }
 
+/* A tap is confirmed once, and briefly. The sentence says the network is usable
+   now, which is news for a few seconds - not a banner to leave standing, as the
+   owner reported ("le message reste, même après avoir cliqué et rafraîchi").
+   The tap's own date is what makes it once: a refresh finds it announced. */
+const PORTAL_ANNOUNCE_SEC = 120;      // a tap still worth confirming
+const PORTAL_SENTENCE_MS = 10000;     // and how long the confirmation stays
+const PORTAL_ANNOUNCED_KEY = "portalAnnounced";
+let portalSentenceTimer = null;
+
+function clearPortalSentence() {
+  clearTimeout(portalSentenceTimer);
+  portalSentenceTimer = null;
+  const hint = document.getElementById("portalHint");
+  if (hint.textContent) hint.textContent = "";
+}
+
+function announcePortal() {
+  const hint = document.getElementById("portalHint");
+  hint.textContent = t("guest.joined");
+  showPortalDone();
+  clearTimeout(portalSentenceTimer);
+  portalSentenceTimer = setTimeout(clearPortalSentence, PORTAL_SENTENCE_MS);
+}
+
 async function refreshPortalBanner() {
   const result = await apiGet("/api/portal/status");
   if (!result.ok || !result.data) return false;
   const d = result.data;
   const btn = document.getElementById("portalReleaseBtn");
-  const hint = document.getElementById("portalHint");
   placePortalButton();
 
   // "released" is also what the server answers to a device that was never held
@@ -8732,9 +8755,18 @@ async function refreshPortalBanner() {
   const onAp = !!d.on_ap;
   const held = portalHolds(d);
   btn.hidden = !held;
-  const done = onAp && d.released ? t("guest.joined") : "";
-  if (done && hint.textContent !== done) showPortalDone();
-  hint.textContent = done;
+  const tap = onAp && d.released ? d.released_at : null;
+  if (!tap) {
+    clearPortalSentence();
+    return held;
+  }
+  // The date is the whole memory: a tap is announced once, and a later tap has
+  // a later date, so nothing has to be cleaned up here.
+  if (localStorage.getItem(PORTAL_ANNOUNCED_KEY) !== String(tap)
+      && Date.now() / 1000 - tap < PORTAL_ANNOUNCE_SEC) {
+    localStorage.setItem(PORTAL_ANNOUNCED_KEY, String(tap));
+    announcePortal();
+  }
   return held;
 }
 
@@ -8797,8 +8829,7 @@ document.getElementById("portalReleaseBtn").addEventListener("click", async (e) 
   const result = await apiPost("/api/portal/release");
   if (result.ok) {
     btn.hidden = true;
-    hint.textContent = t("guest.joined");
-    showPortalDone();
+    announcePortal();
     leaveCaptiveWindow();
   } else {
     if (tab) tab.close();
