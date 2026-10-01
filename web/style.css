@@ -658,6 +658,16 @@ code {
 }
 .page-tile-icon::before { width: 23px; height: 23px; }
 
+/* The tile of the page the interface opens on ("Lecture en cours") carries a
+   soft ring, a discreet mark of where it starts - asked for as a "pouls
+   discret", and permanent. A ring rather than a colour, so a reduced-motion
+   reader keeps a static mark of it (see the media block at the end). */
+.page-tile.is-attention .page-tile-icon { animation: tile-attention 2.6s ease-out infinite; }
+@keyframes tile-attention {
+  0% { box-shadow: 0 0 0 0 var(--accent-ring); }
+  70%, 100% { box-shadow: 0 0 0 10px transparent; }
+}
+
 /* The way back sits on the logo, which darkens so the arrow reads - and only
    while a page is open. */
 .brand-back {
@@ -3484,6 +3494,17 @@ body[data-access="guest"] .guest-release:has(#portalHint:not(:empty)) {
   align-items: stretch;
   gap: 6px;
 }
+/* The button belongs to the menu, not to a page. Where that menu is the grid -
+   a phone, and the guest at any width - it waits on the Home grid, where a
+   device the portal holds lands, and on nothing else. Where the rail exists its
+   foot carries it instead, on every page: see the 640px block below. */
+@media (max-width: 639.98px) {
+  body[data-page]:not([data-page=""]) .guest-release,
+  body[data-tab]:not([data-tab="home"]) .guest-release { display: none !important; }
+}
+body[data-access="guest"][data-page]:not([data-page=""]) .guest-release,
+body[data-access="guest"][data-tab]:not([data-tab="home"]) .guest-release { display: none !important; }
+
 .guest-release #portalHint { margin: 0; text-align: center; }
 .guest-release #portalHint:empty { display: none; }
 .guest-banner {
@@ -3531,6 +3552,19 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   .topbar { margin: 0 -28px; padding-left: 28px; padding-right: 28px; }
 
   .grid, .guest-banner { max-width: var(--content-w); margin-left: auto; margin-right: auto; }
+
+  /* The sidebar is the menu here, so that is where the button goes: pinned to
+     its foot, on every page and in every area. Guests have no sidebar - theirs
+     stays in the grid, which IS their menu (see the guest block above). */
+  body:not([data-access="guest"]) .guest-release:has(#portalReleaseBtn:not([hidden])),
+  body:not([data-access="guest"]) .guest-release:has(#portalHint:not(:empty)) {
+    position: fixed;
+    left: 10px;
+    bottom: 18px;
+    z-index: 41;
+    width: calc(var(--rail-w) - 20px);
+    justify-items: stretch;
+  }
 
   .tabbar {
     top: 0;
@@ -3643,16 +3677,12 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   .nav-transfer.failed .nt-bar > span { background: var(--danger); }
   .nt-line { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* The sidebar is fixed, so this is where the button leaves the column to sit
-     at its foot. Guests have no sidebar: theirs stays in the column. */
+  /* The sidebar is wider from here: the same button keeps its foot, wider. */
   body:not([data-access="guest"]) .guest-release:has(#portalReleaseBtn:not([hidden])),
   body:not([data-access="guest"]) .guest-release:has(#portalHint:not(:empty)) {
-    position: fixed;
     left: 16px;
     bottom: 22px;
-    z-index: 41;
     width: calc(var(--sidebar-w) - 32px);
-    justify-items: stretch;
   }
 
   .grid { margin-top: 8px; gap: 20px; }
@@ -3697,6 +3727,8 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
     scroll-behavior: auto !important;
   }
   .dot.ok::after { display: none; }
+  /* The pulse above is the cue; without motion, a still ring says the same. */
+  .page-tile.is-attention .page-tile-icon { box-shadow: 0 0 0 3px var(--accent-soft); }
 
   .boot-eq > i { animation: none !important; }
   .boot-eq > i:nth-child(1) { transform: scaleY(0.45); }

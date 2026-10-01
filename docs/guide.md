@@ -830,6 +830,15 @@ already saved on a smartphone).
    treating the Wi-Fi as "not really connected" and drops it after a few
    minutes, closing the portal window with it. Afterwards the window can
    be closed safely and the Pi stays reachable in an ordinary browser.
+   While the portal still holds the device the interface opens on its
+   **Home menu** rather than on "Now playing", and the button is part of
+   that menu: on a phone it waits on the home grid (the tile that pulses
+   beside it is the page the interface opens on), on a computer it sits
+   at the foot of the sidebar, on every page. Tapping it also hands the
+   interface to your ordinary browser and sends the portal window to the
+   address your phone probes, which is what lets the phone mark the
+   network as connected and take that window away by itself - if yours
+   keeps it open, just close it, the network is yours already.
 5. On subsequent occasions, the phone joins this network on its own
    whenever in range — the interface is then directly reachable.
 

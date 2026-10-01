@@ -13,12 +13,20 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
   location.reload();
 });
 
+/* The portal holds a device that joined the access point and has not been let
+   through yet: the only one with a step left to take, and the only one worth
+   offering "Finish connecting" to. */
+function portalHolds(data) {
+  return !!data.on_ap && !!data.enabled &&
+         ["release", "new_only"].includes(data.mode) && !data.released;
+}
+
 async function offerPortalReleaseOnLogin() {
   const btn = document.getElementById("loginPortalRelease");
   try {
     const res = await fetch("/api/portal/status");
     const data = (await res.json()).data || {};
-    btn.hidden = !(data.on_ap && data.enabled && ["release", "new_only"].includes(data.mode) && !data.released);
+    btn.hidden = !portalHolds(data);
   } catch (e) {
     btn.hidden = true;
   }
@@ -309,7 +317,7 @@ async function boot() {
       }
     }
     try {
-      initApp();
+      await initApp();
 
       await waitForCards();
     } finally {
@@ -327,7 +335,7 @@ document.getElementById("bootRetry").addEventListener("click", () => {
 
 boot();
 
-function initApp() {
+async function initApp() {
 const THEME_KEY = "rukebox_theme_choice";
 
 function systemPrefersDark() {
@@ -528,6 +536,8 @@ function refreshPageMenus() {
       const key = card ? titleKeyOf(card) : null;
       tile.querySelector(".page-tile-title").textContent = key ? t(key) : "";
       tile.hidden = !pageIsAvailable(card);
+      tile.classList.toggle("is-attention",
+                            !!card && card.dataset.page === DEFAULT_VIEW.page);
     });
     fillPageGrid(pageGrids[tab]);
     if (railPages[tab]) {
@@ -717,8 +727,11 @@ buildPageMenus();
 document.querySelectorAll("#main > .card[data-tab]").forEach((card) => {
   cardsObserver.observe(card, { attributes: true, attributeFilter: ["hidden"] });
 });
+/* An arrival with no # shows the player - unless the portal still holds the
+   device, which lands on the Home menu instead (see the end of initApp). */
 const startView = viewFromHash() || DEFAULT_VIEW;
-setActiveView(startView.tab, startView.page, { replace: !window.location.hash, scroll: false });
+const arrivedWithoutHash = !window.location.hash;
+setActiveView(startView.tab, startView.page, { replace: arrivedWithoutHash, scroll: false });
 
 const VIEW_KEY = "rukebox_view";
 
@@ -8285,7 +8298,7 @@ initHelpToggles();
 
 async function refreshPortalBanner() {
   const result = await apiGet("/api/portal/status");
-  if (!result.ok || !result.data) return;
+  if (!result.ok || !result.data) return false;
   const d = result.data;
   const btn = document.getElementById("portalReleaseBtn");
 
@@ -8293,21 +8306,56 @@ async function refreshPortalBanner() {
   // (a computer on the home network): only a device on the hotspot has anything
   // to finish, and only it should be told that it is done.
   const onAp = !!d.on_ap;
-  btn.hidden = !(onAp && d.enabled && ["release", "new_only"].includes(d.mode) && !d.released);
+  const held = portalHolds(d);
+  btn.hidden = !held;
   if (onAp && d.released) {
     document.getElementById("portalHint").textContent = t("guest.joined");
   }
+  return held;
+}
+
+/* The window the interface is shown in belongs to the phone: a captive-portal
+   window is the operating system's own, and no page can close it. Two things
+   ARE possible, and the release does both. Hand the interface to the real
+   browser - which a portal window sometimes refuses, hence the guarded
+   window.open(). And then send the captive window to the address its own system
+   probes: our server answers "no portal here" once the device is released, so
+   the phone validates the network and takes its window away by itself. */
+const CAPTIVE_PROBE_APPLE = "http://captive.apple.com/hotspot-detect.html";
+const CAPTIVE_PROBE_GOOGLE = "http://connectivitycheck.gstatic.com/generate_204";
+const CAPTIVE_CLOSE_MS = 1500;
+
+function portalBrowserTab() {
+  try {
+    return window.open(window.location.origin + "/", "_blank");
+  } catch (error) {
+    return null;
+  }
+}
+
+function leaveCaptiveWindow() {
+  const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent || "");
+  setTimeout(() => {
+    // assign(), not replace(): the interface stays one Back away if this was an
+    // ordinary browser tab rather than a portal window.
+    window.location.assign(apple ? CAPTIVE_PROBE_APPLE : CAPTIVE_PROBE_GOOGLE);
+  }, CAPTIVE_CLOSE_MS);
 }
 
 document.getElementById("portalReleaseBtn").addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true;
+  // Asked for HERE, while the tap still counts as the gesture a browser wants
+  // before it opens a tab: after the await below it would be refused.
+  const tab = portalBrowserTab();
   const hint = document.getElementById("portalHint");
   const result = await apiPost("/api/portal/release");
   if (result.ok) {
     btn.hidden = true;
     hint.textContent = t("guest.joined");
+    leaveCaptiveWindow();
   } else {
+    if (tab) tab.close();
     hint.textContent = t("common.failed_prefix", { error: errorLabel(result.error) });
   }
   btn.disabled = false;
@@ -8316,8 +8364,6 @@ document.getElementById("portalReleaseBtn").addEventListener("click", async (e) 
 document.getElementById("guestLoginBtn").addEventListener("click", () => {
   showLoginOverlay();
 });
-
-refreshPortalBanner();
 
 const SCROLL_FADE_SELECTOR = ".device-list, .folder-list, .session-list, .event-list";
 
@@ -8335,4 +8381,14 @@ document.querySelectorAll(SCROLL_FADE_SELECTOR).forEach((el) => {
   if (window.ResizeObserver) new ResizeObserver(update).observe(el);
   update();
 });
+
+/* A device the portal still holds has one step left before the page is really
+   its own, and that step is on the Home menu: it lands there instead of on the
+   player, and the player's tile carries the ring that says where to go next.
+   Waited on, so the landing is in place when the boot overlay lifts rather than
+   a player page swapped out from under the reader. */
+const portalHoldsDevice = await refreshPortalBanner();
+if (portalHoldsDevice && arrivedWithoutHash && !railMode()) {
+  setActiveView(DEFAULT_VIEW.tab, null, { replace: true, scroll: false });
+}
 } // end of initApp()
