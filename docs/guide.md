@@ -549,15 +549,16 @@ address it happened to have.
 
 Two more pages go with it. **Previously connected** is everyone the
 Rukebox has seen this week and which is not on it right now, most recent
-first, with a search box (name, address or MAC) and **Show more**; the
-dates are precise to the second at first and then loosen ("3 h ago",
-"yesterday at 21:14"), the way a site dates what it saw. The same controls
-are there, which is the point: a device that has just gone can still be
-named, spared the credits, or sent back to the portal before it returns.
-**Banned** keeps the bans on their own page, with **Lift** to undo one and
-the date it was last seen - a banned device appears in neither of the
-other two lists, and a banned device that opens the interface anyway is
-told it is not allowed here.
+first, with **Show more**; the dates are precise to the second at first and
+then loosen ("3 h ago", "yesterday at 21:14"), the way a site dates what it
+saw. The same controls are there, which is the point: a device that has
+just gone can still be named, spared the credits, or sent back to the
+portal before it returns. **Banned** keeps the bans on their own page, with
+**Lift** to undo one and the date it was last seen - a banned device
+appears in neither of the other two lists, and a banned device that opens
+the interface anyway is told it is not allowed here. All three pages have
+the same search box (name, address or MAC), which filters what is on the
+page as you type and says how many it found.
 
 **Share access** (System) shows two QR codes - one to join the Wi-Fi, one
 to open this page - with the network name, password and address written

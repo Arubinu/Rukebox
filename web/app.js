@@ -7243,20 +7243,45 @@ function bannedRow(b) {
 
 const PREVIOUS_FIRST_PAGE = 8;
 const PREVIOUS_STEP = 20;
+let nowDevices = [];
+let nowReadable = true;
 let previousDevices = [];
 let previousShown = PREVIOUS_FIRST_PAGE;
 let previousLoaded = false;
+let bannedDevices = [];
 let bannedLoaded = false;
+
+/* One search box per list, all of them looking at the same three things: the
+   name, the address it is known by, and the MACs - a banned device has
+   several, and searching one of them has to find it. */
+function searchNeedle(id) {
+  return document.getElementById(id).value.trim().toLowerCase();
+}
+
+function matchesSearch(device, needle) {
+  return !needle || [device.name, device.ip, device.mac].concat(device.macs || [])
+    .some((value) => String(value || "").toLowerCase().includes(needle));
+}
+
+function searchSummary(id, matches, plain) {
+  if (!searchNeedle(id)) return plain;
+  return matches.length ? t("clients.search_found", { n: matches.length }) : t("clients.search_none");
+}
 
 async function refreshClients() {
   const r = await apiGet("/api/wifi/clients");
   if (!r.ok || !r.data) return;
-  const d = r.data;
-  const clients = d.clients || [];
-  document.getElementById("clientsSummary").textContent = clients.length
-    ? t("clients.count", { n: clients.length })
-    : t(d.readable ? "clients.none" : "clients.unreadable");
-  document.getElementById("clientList").replaceChildren(...clients.map(clientRow));
+  nowDevices = r.data.clients || [];
+  nowReadable = r.data.readable !== false;
+  renderClients();
+}
+
+function renderClients() {
+  const matches = nowDevices.filter((d) => matchesSearch(d, searchNeedle("clientSearch")));
+  document.getElementById("clientList").replaceChildren(...matches.map(clientRow));
+  document.getElementById("clientsSummary").textContent = searchSummary("clientSearch", matches,
+    nowDevices.length ? t("clients.count", { n: nowDevices.length })
+      : t(nowReadable ? "clients.none" : "clients.unreadable"));
 }
 
 /* Any of the three lists can be acted on, so an action taken in one refreshes
@@ -7276,36 +7301,35 @@ async function refreshPrevious() {
   renderPrevious();
 }
 
-function previousMatches() {
-  const needle = document.getElementById("previousSearch").value.trim().toLowerCase();
-  if (!needle) return previousDevices;
-  return previousDevices.filter((d) => [d.name, d.mac, d.ip].concat(d.macs || [])
-    .some((value) => String(value || "").toLowerCase().includes(needle)));
-}
-
 function renderPrevious() {
-  const searching = !!document.getElementById("previousSearch").value.trim();
-  const matches = previousMatches();
-  const shown = searching ? matches : matches.slice(0, previousShown);
+  const needle = searchNeedle("previousSearch");
+  const matches = previousDevices.filter((d) => matchesSearch(d, needle));
+  const shown = needle ? matches : matches.slice(0, previousShown);
   document.getElementById("previousList").replaceChildren(...shown.map(clientRow));
   document.getElementById("previousSummary").textContent = !previousLoaded ? ""
-    : (!previousDevices.length ? t("clients.previous_none")
-      : (!matches.length ? t("clients.search_none")
-        : t("clients.previous_count", { n: matches.length })));
-  document.getElementById("previousMore").hidden = searching || shown.length >= matches.length;
+    : searchSummary("previousSearch", matches, previousDevices.length
+      ? t("clients.previous_count", { n: previousDevices.length }) : t("clients.previous_none"));
+  document.getElementById("previousMore").hidden = !!needle || shown.length >= matches.length;
 }
 
 async function refreshBanned() {
   const r = await apiGet("/api/devices/banned");
   if (!r.ok || !r.data) return;
-  const banned = r.data.banned || [];
+  bannedDevices = r.data.banned || [];
   bannedLoaded = true;
-  document.getElementById("bannedSummary").textContent = banned.length
-    ? t("clients.banned_count", { n: banned.length }) : t("clients.banned_none");
-  document.getElementById("bannedList").replaceChildren(...banned.map(bannedRow));
+  renderBanned();
 }
 
+function renderBanned() {
+  const matches = bannedDevices.filter((d) => matchesSearch(d, searchNeedle("bannedSearch")));
+  document.getElementById("bannedList").replaceChildren(...matches.map(bannedRow));
+  document.getElementById("bannedSummary").textContent = searchSummary("bannedSearch", matches,
+    bannedDevices.length ? t("clients.banned_count", { n: bannedDevices.length }) : t("clients.banned_none"));
+}
+
+document.getElementById("clientSearch").addEventListener("input", renderClients);
 document.getElementById("previousSearch").addEventListener("input", renderPrevious);
+document.getElementById("bannedSearch").addEventListener("input", renderBanned);
 document.getElementById("previousMore").addEventListener("click", () => {
   previousShown += PREVIOUS_STEP;
   renderPrevious();

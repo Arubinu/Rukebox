@@ -1501,6 +1501,11 @@
         <section class="card" id="wifiClientsCard" data-page="clients" data-tab="system" aria-labelledby="clientsTitle">
           <h2 data-icon="monitor-smartphone" id="clientsTitle"><span data-i18n="clients.title">Connected devices</span></h2>
           <p class="hint" id="clientsSummary"></p>
+          <div class="library-search">
+            <label for="clientSearch" class="sr-only" data-i18n="clients.search_label">Search a device</label>
+            <input type="search" id="clientSearch" class="text-input" autocomplete="off" enterkeyhint="search"
+                   data-i18n-placeholder="clients.search_placeholder" placeholder="Name, address…">
+          </div>
           <ul class="device-list client-list" id="clientList"></ul>
         </section>
 
@@ -1520,6 +1525,11 @@
         <section class="card" id="bannedClientsCard" data-page="banned" data-tab="system" aria-labelledby="bannedTitle">
           <h2 data-icon="ban" id="bannedTitle"><span data-i18n="clients.banned">Banned</span></h2>
           <p class="hint" id="bannedSummary"></p>
+          <div class="library-search">
+            <label for="bannedSearch" class="sr-only" data-i18n="clients.search_label">Search a device</label>
+            <input type="search" id="bannedSearch" class="text-input" autocomplete="off" enterkeyhint="search"
+                   data-i18n-placeholder="clients.search_placeholder" placeholder="Name, address…">
+          </div>
           <ul class="device-list client-list" id="bannedList"></ul>
         </section>
 
