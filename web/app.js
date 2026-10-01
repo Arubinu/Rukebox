@@ -588,6 +588,23 @@ function fillPageGrid(grid) {
   });
 }
 
+/* The page scrolls inside itself, not as a document (see the shell note in
+   style.css): opening a page has to send that scroller home. */
+function scrollAppTop() {
+  const main = document.getElementById("main");
+  if (main) main.scrollTop = 0;
+}
+
+/* The shell scrolls under a fixed topbar, so the scroller's top padding is the
+   bar's own height - measured, because it carries the safe-area inset. */
+function measureTopbar() {
+  const bar = document.querySelector(".topbar");
+  if (bar) document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px");
+}
+measureTopbar();
+window.addEventListener("resize", measureTopbar);
+if (window.ResizeObserver) new ResizeObserver(measureTopbar).observe(document.querySelector(".topbar"));
+
 function setActiveView(tab, page, options) {
   const opts = options || {};
   if (!areaCards(tab).length) tab = DEFAULT_VIEW.tab;
@@ -659,7 +676,7 @@ function setActiveView(tab, page, options) {
       else window.location.hash = hash;
     }
   }
-  if (opts.scroll !== false) window.scrollTo({ top: 0, behavior: "auto" });
+  if (opts.scroll !== false) scrollAppTop();
 }
 
 /* The old name, kept for the callers that only ever meant "go to this area". */

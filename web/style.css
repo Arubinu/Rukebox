@@ -300,18 +300,21 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  scroll-padding-top: 88px;
+  height: 100%;
 }
 
+/* The page is an application shell: it is the height of the screen and the
+   SCROLLER is #main, never the document. Reported from Arc as the bottom of a
+   page flickering between the tab bar sitting low and riding up over the
+   content while the browser's own bar came back. A document that scrolls
+   feeds the browser's bar straight back into the layout - hide the bar, the
+   document is exactly the visible height, nothing is scrollable any more, the
+   bar returns, the document grows, and round it goes. svh never moves, and a
+   document that cannot scroll cannot take part in that at all. */
 body {
   margin: 0;
-  /* svh, never vh/dvh: those follow the browser's own bar as it hides on
-     scroll, so a page that is barely taller than the screen stops being
-     scrollable the moment the bar goes - the browser brings the bar back, the
-     page grows again, and the two flicker against each other at the bottom
-     (seen in Arc). svh is the height with the bar shown: it never moves. */
-  min-height: 100vh;
-  min-height: 100svh;
+  height: 100%;
+  overflow: hidden;
   font-family: var(--font);
   font-size: 15px;
   line-height: 1.5;
@@ -378,19 +381,54 @@ code {
 ::view-transition-new(root) { z-index: 2; }
 
 .app {
-  padding: 0 16px calc(var(--tabbar-h) + 28px + env(safe-area-inset-bottom));
+  position: relative;
+  height: 100%;
+}
+
+/* The one scroll container. It sits STRICTLY between the two bars - the fixed
+   topbar's measured height above, the tab bar below - so no part of the
+   content is ever hidden under a bar: there is no strip that appears or
+   disappears when the browser's own bar moves. It still spans the full width,
+   so its scrollbar is the window's, at the right edge.
+   The gutters are PADDING here: a scroll container keeps its scrollbar outside
+   its padding, which is what leaves the bar on the window edge while the cards
+   are inset - and the rail can be stepped around asymmetrically, which
+   centring alone cannot do. */
+#main {
+  position: absolute;
+  top: var(--topbar-h, 68px);
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: var(--main-gap, 16px) 16px 16px;
+}
+
+/* Reading width, centred in what the padding leaves. width: 100% is not
+   decoration: auto margins cancel the stretch a grid or flex item would
+   otherwise get, and without it the card shrinks to its content. */
+#main > .card,
+#main > .page-grid,
+#main > .guest-banner,
+#main > .guest-release {
+  width: 100%;
+  max-width: var(--content-w);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .topbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 30;
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-areas: "brand status controls";
   align-items: center;
   column-gap: 12px;
-  margin: 0 -16px;
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   -webkit-backdrop-filter: saturate(1.4) blur(14px);
@@ -743,7 +781,7 @@ code {
    its face. The player keeps the gradient panel it shows its track on - that is
    inside the card, not the card itself. */
 @media (max-width: 639.98px) {
-  body[data-page]:not([data-page=""]) .grid { margin-top: 4px; }
+  body[data-page]:not([data-page=""]) #main { --main-gap: 4px; }
   body[data-page]:not([data-page=""]) .card[data-tab]:not(.tab-hidden) {
     border: 0;
     border-radius: 0;
@@ -758,14 +796,14 @@ code {
 body[data-page]:not([data-page=""]) .guest-banner { display: none !important; }
 
 /* The grid is a menu: on a phone it sits in the middle of the screen, where a
-   thumb reaches it, rather than under the title. */
-body[data-page=""] .app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  min-height: 100svh;
+   thumb reaches it, rather than under the title. "safe" centre, so a grid
+   taller than the screen still scrolls from its first row instead of hanging
+   out of reach above the top. */
+body[data-page=""] .grid {
+  flex: 1 1 auto;
+  align-content: center;
+  align-content: safe center;
 }
-body[data-page=""] .grid { flex: 1 1 auto; align-content: center; }
 
 .audio-detected { margin: 4px 0 8px; }
 .hint.audio-detected.warning { color: var(--warning-text); font-weight: 600; }
@@ -913,7 +951,6 @@ body[data-access="guest"] .view-bar { display: none; }
 
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
-  margin-top: 16px;
   align-items: start;
 }
 
@@ -3614,18 +3651,17 @@ body[data-access="guest"] #btnLongPress,
 body[data-access="guest"] .player-extras,
 body[data-access="guest"] .np-timers,
 body[data-access="guest"] .player-footer { display: none !important; }
-body[data-access="guest"] .app { padding-bottom: 32px; }
+body[data-access="guest"] #main { bottom: 0; padding-bottom: 32px; }
 
 body:not([data-access="guest"]) #btnStart { display: none !important; }
 
 @media (min-width: 640px) {
-  .app {
-    padding: 0 28px 40px calc(var(--rail-w) + 28px);
-  }
-  body[data-access="guest"] .app { padding-left: 28px; }
-  .topbar { margin: 0 -28px; padding-left: 28px; padding-right: 28px; }
-
-  .grid, .guest-banner { max-width: var(--content-w); margin-left: auto; margin-right: auto; }
+  /* The menu is a rail down the side here, not a bar at the foot. */
+  #main { bottom: 0; padding-left: calc(var(--rail-w) + 28px); padding-right: 28px; }
+  /* A guest has no rail: nothing to step around. */
+  body[data-access="guest"] #main { padding-left: 28px; }
+  .topbar { padding-left: calc(var(--rail-w) + 28px); padding-right: 28px; }
+  body[data-access="guest"] .topbar { padding-left: 28px; }
 
   /* The sidebar is the menu here, so that is where the button goes: pinned to
      its foot, on every page and in every area. Guests have no sidebar - theirs
@@ -3680,14 +3716,14 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
 }
 
 @media (min-width: 1024px) {
-  .app { padding-left: calc(var(--sidebar-w) + 40px); padding-right: 40px; }
-  body[data-access="guest"] .app { padding-left: 40px; }
+  #main { padding-left: calc(var(--sidebar-w) + 40px); padding-right: 40px; }
+  body[data-access="guest"] #main { padding-left: 40px; }
   .topbar {
     grid-template-columns: 1fr auto auto;
     grid-template-areas: ". status controls";
-    margin: 0 -40px;
-    padding: calc(18px + env(safe-area-inset-top)) 40px 16px;
+    padding: calc(18px + env(safe-area-inset-top)) 40px 16px calc(var(--sidebar-w) + 40px);
   }
+  body[data-access="guest"] .topbar { padding-left: 40px; }
   .topbar .brand { display: none; }
   body[data-access="guest"] .topbar .brand { display: flex; }
   body[data-access="guest"] .topbar {
@@ -3759,7 +3795,8 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
     width: calc(var(--sidebar-w) - 32px);
   }
 
-  .grid { margin-top: 8px; gap: 20px; }
+  .grid { gap: 20px; }
+  #main { --main-gap: 8px; }
 
   .player-grid {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
@@ -3775,8 +3812,8 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
 }
 
 @media (max-width: 380px) {
-  .app { padding-left: 12px; padding-right: 12px; }
-  .topbar { margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
+  #main { padding-left: 12px; padding-right: 12px; }
+  .topbar { padding-left: 12px; padding-right: 12px; }
   .card { padding: 16px; }
   .pin-header { grid-template-columns: 1fr; }
   .pin-right { flex-direction: row; }
