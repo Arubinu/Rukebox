@@ -804,14 +804,37 @@ code {
 body[data-page]:not([data-page=""]) .guest-banner { display: none !important; }
 
 /* The grid is a menu: on a phone it sits in the middle of the screen, where a
-   thumb reaches it, rather than under the title. "safe" centre, so a grid
-   taller than the screen still scrolls from its first row instead of hanging
-   out of reach above the top. */
-body[data-page=""] .grid {
-  flex: 1 1 auto;
-  align-content: center;
-  align-content: safe center;
+   thumb reaches it, rather than under the title. Centred by auto margins, not
+   by align-content: a centred grid taller than the screen is laid out around
+   the middle, which puts its first row out of reach above and lets its last row
+   run under the view bar at the bottom. Auto margins take the free space when
+   there is some and give way when there is none. */
+body[data-page=""] #main {
+  display: flex;
+  flex-direction: column;
+  /* The base rule's align-items: start is what keeps a card off the ceiling in
+     page mode; in this column it would also stop every item from filling the
+     width - the view bar came out shrink-to-fit. */
+  align-items: stretch;
+  /* The banner, the grid and the view bar are three blocks, not one. */
+  row-gap: 12px;
 }
+/* A flex item shrinks by default and the grid is the tall one: on a band too
+   short for both it was the grid that gave way, its last row clipped by its own
+   overflow: hidden and unreachable by any scroll - the bar then sat over the
+   tiles. Nothing here shrinks: the band's content overflows it instead, #main
+   scrolls, and the two read one after the other. */
+body[data-page=""] #main > .page-grid,
+body[data-page=""] #main > .view-bar { flex: none; }
+
+/* Wherever the grid is the menu, it is centred in the room the band leaves -
+   the view bar, where an area has one, sits at the foot below that gap, which is
+   what keeps it just above the tab bar without stealing the centring from the
+   grid. The grid alone on a page (Home, the guest's menu) is centred in the band
+   itself. A grid too tall for the room gives the auto margins nothing to take,
+   they resolve to zero, and the two read one after the other with the page
+   scrolling - which is the "critical height" case. */
+body[data-page=""] #main > .page-grid { margin-block: auto; }
 
 .audio-detected { margin: 4px 0 8px; }
 .hint.audio-detected.warning { color: var(--warning-text); font-weight: 600; }
