@@ -6221,7 +6221,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "audio_restart", "bluetooth_pair", "config_exported", "config_imported", "config_reloaded",
   "counters_reset", "music_upload", "playback_pause", "portal_released", "stats_rows_deleted",
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
-  "device_renamed", "device_name_locked",
+  "device_renamed", "device_name_locked", "portal_reset",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
@@ -7121,6 +7121,42 @@ function clientRow(c) {
   });
   portalRow.append(portalText, portal);
   fold.append(portalRow);
+
+  // The tap that let this device in can be forgotten here, and the portal
+  // holds it again at its next connection: the first-connection behaviour,
+  // restored on one device without touching the others.
+  const againRow = document.createElement("div");
+  againRow.className = "field-row";
+  const againText = document.createElement("div");
+  againText.className = "field-text";
+  const againLabel = document.createElement("span");
+  againLabel.className = "field-label";
+  againLabel.textContent = t("clients.portal_again");
+  const againDesc = document.createElement("p");
+  againDesc.className = "field-desc";
+  againDesc.textContent = t(c.portal_released ? "clients.portal_again_hint" : "clients.portal_again_none");
+  againText.append(againLabel, againDesc);
+  const again = document.createElement("button");
+  again.type = "button";
+  again.className = "btn btn-small";
+  again.textContent = t("clients.portal_again_action");
+  again.disabled = !c.portal_released;
+  again.addEventListener("click", async () => {
+    again.disabled = true;
+    const r = await apiPost("/api/devices/portal_release",
+      c.device_id ? { device_id: c.device_id } : { mac: c.mac });
+    if (!r.ok) {
+      again.disabled = false;
+      showToolError(t("common.failed"), r);
+      return;
+    }
+    c.portal_released = false;
+    againDesc.textContent = t("clients.portal_again_none");
+    showToast(t("clients.portal_again_done", { name: clientLabel(c) }));
+    refreshClients();
+  });
+  againRow.append(againText, again);
+  fold.append(againRow);
 
   if (!c.me) {
     const buttons = document.createElement("div");

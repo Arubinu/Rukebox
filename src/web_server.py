@@ -927,6 +927,26 @@ def _client_ip():
     return request.remote_addr or "unknown"
 
 
+def _release_key(ip, mac=None):
+    """A tap is remembered against the device, not the address it happened to
+    have: keyed by address, an entry left behind would let the next device
+    the DHCP hands that address to through the portal without asking."""
+    if mac is None:
+        mac = suggestions.mac_for_ip(ip)
+    return mac or "ip:" + str(ip)
+
+
+def _portal_release_held(key):
+    with _portal_lock:
+        expiry = _portal_released.get(key)
+        if expiry is None:
+            return False
+        if expiry < time.time():
+            del _portal_released[key]
+            return False
+        return True
+
+
 def _portal_is_released(ip):
     """Released by a tap on "Finish connecting" (below), or simply not on the
     access point: the portal only ever holds devices that joined the hotspot,
@@ -946,22 +966,23 @@ def _portal_is_released(ip):
                 return True
         except Exception:  # noqa: BLE001
             log.exception("Portal: device lookup failed")
-    with _portal_lock:
-        expiry = _portal_released.get(ip)
-        if expiry is None:
-            return False
-        if expiry < time.time():
-            del _portal_released[ip]
-            return False
-        return True
+    return _portal_release_held(_release_key(ip, mac))
 
 
 def _portal_release(ip):
+    key = _release_key(ip)
     with _portal_lock:
         now = time.time()
         for stale in [k for k, v in _portal_released.items() if v < now]:
             del _portal_released[stale]
-        _portal_released[ip] = now + PORTAL_RELEASE_SECONDS
+        _portal_released[key] = now + PORTAL_RELEASE_SECONDS
+
+
+def _portal_forget(mac, ip=None):
+    """Undoes a device's tap, so the portal holds it again. True when there
+    was a tap to undo."""
+    with _portal_lock:
+        return _portal_released.pop(_release_key(ip or "", mac), None) is not None
 
 
 @app.route("/api/portal/status")
@@ -1484,7 +1505,12 @@ def api_wifi_clients():
     clients = []
     for mac, info in sorted((stations or {}).items(), key=lambda kv: -(kv[1].get("connected_sec") or 0)):
         device = box.device_by_mac(mac)
-        entry = {"mac": mac, "ip": _ip_for_mac(mac), **info}
+        ip = _ip_for_mac(mac)
+        entry = {"mac": mac, "ip": ip, **info}
+        # Whether the device itself tapped "Finish connecting" and that tap is
+        # still remembered - not whether the portal holds it, which is also a
+        # matter of the general rule and of this device's own choice.
+        entry["portal_released"] = _portal_release_held(_release_key(ip or "", mac))
         if device:
             entry.update(box.device_summary(device))
             entry["me"] = device["id"] == me["id"]
@@ -1571,6 +1597,28 @@ def api_device_portal():
         return jsonify({"ok": False, "error": "invalid_value"}), 400
     box.set_portal(device["id"], None if mode == "auto" else mode)
     return jsonify({"ok": True})
+
+
+@app.route("/api/devices/portal_release", methods=["POST"])
+def api_device_portal_release():
+    """{device_id | mac}: forgets this device's tap on "Finish connecting", so
+    the portal holds it again at its next connection."""
+    body = request.get_json(silent=True) or {}
+    box = _suggestion_box()
+    if body.get("device_id"):
+        device = box.device_by_id(str(body["device_id"]))
+    elif _MAC_ARG_RE.match(str(body.get("mac") or "").lower()):
+        mac = str(body["mac"]).lower()
+        device = box.ensure_device_for_mac(mac, _ip_for_mac(mac))
+    else:
+        device = None
+    if not device:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    mac = device.get("mac") or ""
+    forgotten = _portal_forget(mac, _ip_for_mac(mac))
+    stats.record("portal_reset", label=device.get("name") or device["id"],
+                 detail={"mac": mac, "forgotten": forgotten})
+    return jsonify({"ok": True, "data": {"forgotten": forgotten}})
 
 
 @app.route("/api/devices/free_credits", methods=["POST"])

@@ -533,10 +533,15 @@ the device and, once **Name locked** is on, stops it from changing that
 name itself (a small padlock then shows beside it in the list);
 **No credits** spares that device the guest credits (every action is free
 for it, the other guests keep paying), and **Captive portal** decides
-whether the phone's welcome page keeps holding it - **Usual** follows the
-general setting, **Always** brings the page back at every connection (the
-way to see it again, or to put it in front of someone), **Never** lets the
-device through without ever being asked.
+whether the phone's welcome page keeps holding it - **General setting**
+follows the welcome-page rule of the Security card, **Always** brings the
+page back at every connection (the way to see it again, or to put it in
+front of someone), **Never** lets the device through without ever being
+asked. **Show the portal again** is the other half of that page: a device
+that tapped "Finish connecting" is let in until the tap is forgotten, and
+this button forgets it, so the portal holds the device again at its next
+connection. The tap is remembered against the device, not against the
+address it happened to have.
 
 **Share access** (System) shows two QR codes - one to join the Wi-Fi, one
 to open this page - with the network name, password and address written

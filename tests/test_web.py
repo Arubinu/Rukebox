@@ -459,6 +459,57 @@ class WebTest(unittest.TestCase):
         guest = ws.app.test_client()
         self.assertEqual(guest.get("/api/backup").status_code, 401)
 
+    def test_a_device_can_be_put_back_on_the_portal(self):
+        # Asked for as putting "the first-connection behaviour" back on a
+        # device that finished the connection: the tap is remembered against
+        # the device, and the owner forgets it from Connected devices - which
+        # is what makes the portal hold it again.
+        mac = "aa:bb:cc:dd:ee:99"
+        guest = ws.app.test_client()
+        owner = self.owner()
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=mac), \
+                unittest.mock.patch.object(ws, "_stations", return_value={mac: {"signal": -55}}):
+            self.assertFalse(guest.get("/api/portal/status").get_json()["data"]["released"],
+                             "the portal holds a device that has not finished")
+            guest.post("/api/portal/release")
+            self.assertTrue(guest.get("/api/portal/status").get_json()["data"]["released"])
+            entry = owner.get("/api/wifi/clients").get_json()["data"]["clients"][0]
+            self.assertTrue(entry["portal_released"], "the page can offer to forget it")
+
+            self.assertEqual(guest.post("/api/devices/portal_release", json={"mac": mac}).status_code, 401,
+                             "forgetting a tap is the owner's")
+            r = owner.post("/api/devices/portal_release", json={"mac": mac}).get_json()
+            self.assertTrue(r["data"]["forgotten"], "there was a tap to forget")
+            self.assertFalse(guest.get("/api/portal/status").get_json()["data"]["released"],
+                             "the portal holds it again")
+            entry = owner.get("/api/wifi/clients").get_json()["data"]["clients"][0]
+            self.assertFalse(entry["portal_released"], "and the button says there is nothing to forget")
+
+            again = owner.post("/api/devices/portal_release", json={"mac": mac}).get_json()
+            self.assertFalse(again["data"]["forgotten"])
+            self.assertEqual(owner.post("/api/devices/portal_release", json={"mac": "nope"}).status_code, 404)
+
+    def test_a_remembered_tap_follows_the_device_not_its_address(self):
+        # The tap used to be keyed by address: a device that came back on
+        # another one was held again while the address it left behind let the
+        # next device through without asking.
+        mac = "aa:bb:cc:dd:ee:98"
+        guest = ws.app.test_client()
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=mac):
+            guest.post("/api/portal/release")
+            self.assertTrue(guest.get("/api/portal/status").get_json()["data"]["released"])
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=None):
+            self.assertFalse(guest.get("/api/portal/status").get_json()["data"]["released"],
+                             "another device on the same address is asked to finish")
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value=mac):
+            self.assertTrue(guest.get("/api/portal/status").get_json()["data"]["released"],
+                            "and the device that finished keeps its release on a new address")
+            ws._portal_forget(mac)
+
 
 def tearDownModule():
     shutil.rmtree(TMP, ignore_errors=True)
