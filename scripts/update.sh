@@ -252,7 +252,13 @@ if [ "$SOURCE_KIND" = "release" ]; then
         api="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
     fi
     step "Looking up the release on github.com/$GITHUB_REPO"
-    release_json="$(curl -fsSL --max-time 30 -H 'Accept: application/vnd.github+json' \
+    # A reset connection is not a transient error for curl: without
+    # --retry-all-errors a dropped Wi-Fi gives up at the first byte.
+    CURL_RETRY=(--retry 5 --retry-delay 3 --retry-connrefused)
+    if curl --help all 2>/dev/null | grep -q -- '--retry-all-errors'; then
+        CURL_RETRY+=(--retry-all-errors)
+    fi
+    release_json="$(curl -fsSL "${CURL_RETRY[@]}" --max-time 30 -H 'Accept: application/vnd.github+json' \
         -H 'User-Agent: Rukebox-updater' "$api")" \
         || fail "no release found (no network, or nothing published on github.com/$GITHUB_REPO yet)."
     RELEASE_TAG="$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')" \
@@ -260,9 +266,9 @@ if [ "$SOURCE_KIND" = "release" ]; then
     printf '%s' "$RELEASE_TAG" | grep -Eq '^[A-Za-z0-9_.-]+$' || fail "unexpected release tag: $RELEASE_TAG"
     step "Downloading $RELEASE_TAG"
     RELEASE_DIR="$(mktemp -d /tmp/rukebox-release-XXXXXX)"
-    curl -fsSL --max-time 600 -H 'User-Agent: Rukebox-updater' -o "$RELEASE_DIR/release.tar.gz" \
+    curl -fsSL "${CURL_RETRY[@]}" --max-time 600 -H 'User-Agent: Rukebox-updater' -o "$RELEASE_DIR/release.tar.gz" \
         "https://codeload.github.com/$GITHUB_REPO/tar.gz/refs/tags/$RELEASE_TAG" \
-        || fail "download of $RELEASE_TAG failed."
+        || fail "download of $RELEASE_TAG failed (a dropped Wi-Fi link? pause the music and try again)."
     mkdir -p "$RELEASE_DIR/tree"
     tar xzf "$RELEASE_DIR/release.tar.gz" -C "$RELEASE_DIR/tree" --strip-components=1 \
         || fail "the $RELEASE_TAG archive could not be extracted."
