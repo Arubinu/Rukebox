@@ -1664,6 +1664,9 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
   border-top: 1px solid var(--border);
 }
 .client-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+/* One button where the other has two: a device off the access point cannot be
+   disconnected from it, and half an empty line reads as a missing button. */
+.client-buttons.is-single { grid-template-columns: 1fr; }
 .client-buttons > .btn { width: 100%; }
 
 .vol-mute {

@@ -1502,8 +1502,25 @@
           <h2 data-icon="monitor-smartphone" id="clientsTitle"><span data-i18n="clients.title">Connected devices</span></h2>
           <p class="hint" id="clientsSummary"></p>
           <ul class="device-list client-list" id="clientList"></ul>
-          <h3 class="health-sub" id="bannedTitle" data-i18n="clients.banned" hidden>Banned</h3>
-          <ul class="device-list client-list" id="bannedList" hidden></ul>
+        </section>
+
+        <section class="card" id="previousClientsCard" data-page="previous" data-tab="system"
+                 aria-labelledby="previousTitle">
+          <h2 data-icon="history" id="previousTitle"><span data-i18n="clients.previous_title">Previously connected</span></h2>
+          <p class="hint" id="previousSummary"></p>
+          <div class="library-search">
+            <label for="previousSearch" class="sr-only" data-i18n="clients.search_label">Search a device</label>
+            <input type="search" id="previousSearch" class="text-input" autocomplete="off" enterkeyhint="search"
+                   data-i18n-placeholder="clients.search_placeholder" placeholder="Name, address…">
+          </div>
+          <ul class="device-list client-list" id="previousList"></ul>
+          <button type="button" class="btn" id="previousMore" data-i18n="clients.more" hidden>Show more</button>
+        </section>
+
+        <section class="card" id="bannedClientsCard" data-page="banned" data-tab="system" aria-labelledby="bannedTitle">
+          <h2 data-icon="ban" id="bannedTitle"><span data-i18n="clients.banned">Banned</span></h2>
+          <p class="hint" id="bannedSummary"></p>
+          <ul class="device-list client-list" id="bannedList"></ul>
         </section>
 
         <section class="card" data-level="detail" id="homeWifiCard" data-page="homewifi" data-tab="system" aria-labelledby="wifiTitle" hidden>

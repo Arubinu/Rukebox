@@ -418,6 +418,46 @@ def _station_command(*args):
     return None
 
 
+# How long after its last request a device still counts as connected, and how
+# far back "previously connected" looks. The page polls every 15s, so two
+# minutes is four missed polls - a device that left, not one that is idle.
+SEEN_CONNECTED_SEC = 120
+PREVIOUS_DAYS = 7
+PREVIOUS_MAX = 200
+_seen_devices = {}
+_seen_lock = threading.Lock()
+
+
+def _stamp_seen(device_id):
+    """A request IS the sign of life: a device on somebody else's network never
+    shows up in `iw`, and talking to us is the only way to see it."""
+    if not device_id:
+        return
+    with _seen_lock:
+        _seen_devices[device_id] = time.monotonic()
+
+
+def _recently_seen():
+    """{device_id: seconds ago}, the stale entries dropped while we are here."""
+    now = time.monotonic()
+    with _seen_lock:
+        stale = [d for d, at in _seen_devices.items() if now - at > SEEN_CONNECTED_SEC]
+        for device_id in stale:
+            del _seen_devices[device_id]
+        return {d: max(0.0, now - at) for d, at in _seen_devices.items()}
+
+
+@app.before_request
+def _note_activity():
+    if not request.path.startswith("/api/") or request.path.startswith(_AUTH_EXEMPT_PREFIX):
+        return None
+    try:
+        _stamp_seen(_this_device(_suggestion_box())["id"])
+    except Exception:  # noqa: BLE001
+        log.exception("Could not note the device behind this request")
+    return None
+
+
 def _stations():
     """The access point's stations: {mac: {connected_sec, inactive_ms,
     signal}}."""
@@ -1021,6 +1061,11 @@ def _unknown_path(_error):
     if request.path.startswith("/api/"):
         return jsonify({"ok": False, "error": "not_found"}), 404
 
+    if captive_portal.is_probe_path(request.path):
+        # A device checking for a portal has just joined: that probe is the one
+        # sign of life from a device that never opens a page, and the station
+        # list is only read while somebody is looking at the page.
+        _seen_on_the_network(_suggestion_box(), suggestions.mac_for_ip(_client_ip()), _client_ip())
     if captive_portal.is_probe_path(request.path) and _portal_is_released(_client_ip()):
         status, content_type, body = captive_portal.probe_response(request.path)
         return Response(body, status=status, mimetype=content_type,
@@ -1496,29 +1541,69 @@ def api_audio_fallback():
     return jsonify(result), (200 if result.get("ok") else 400)
 
 
-@app.route("/api/wifi/clients")
-def api_wifi_clients():
-    """Who is on the access point right now."""
-    box = _suggestion_box()
-    stations = _stations()
+def _seen_on_the_network(box, mac, ip=None):
+    """A device is "seen" from either side: associated to the access point, or
+    talking to the interface. Only the second one is a request, and only the
+    first one is visible to `iw`."""
+    if not mac:
+        return
+    try:
+        box.ensure_device_for_mac(mac, ip)
+    except Exception:  # noqa: BLE001
+        log.exception("Could not note the device seen on the network")
+
+
+def _now_clients(box, stations):
+    """Who is on the Rukebox now: the access point's stations, plus every
+    device that talked to the interface a moment ago - a device on the owner's
+    own network joins nothing of ours, so a request is all there is to see.
+    Banned devices are nobody's business here: they have a page of their own."""
+    banned = box.banned_devices()
+    banned_ids = {b["device_id"] for b in banned}
+    banned_macs = {mac for b in banned for mac in b["macs"]}
     me = _this_device(box)
-    clients = []
+    clients, on_ap = [], set()
     for mac, info in sorted((stations or {}).items(), key=lambda kv: -(kv[1].get("connected_sec") or 0)):
-        device = box.device_by_mac(mac)
+        on_ap.add(mac)
         ip = _ip_for_mac(mac)
-        entry = {"mac": mac, "ip": ip, **info}
+        _seen_on_the_network(box, mac, ip)
+        if mac in banned_macs:
+            continue
+        device = box.device_by_mac(mac)
+        if device and device["id"] in banned_ids:
+            continue
+        entry = {"mac": mac, "ip": ip, "on_ap": True, **info}
         # Whether the device itself tapped "Finish connecting" and that tap is
         # still remembered - not whether the portal holds it, which is also a
         # matter of the general rule and of this device's own choice.
-        entry["portal_released"] = _portal_release_held(_release_key(ip or "", mac))
+        entry["portal_released"] = _portal_release_held(_release_key(entry["ip"] or "", mac))
         if device:
             entry.update(box.device_summary(device))
             entry["me"] = device["id"] == me["id"]
         clients.append(entry)
+    for device_id, age in sorted(_recently_seen().items(), key=lambda kv: kv[1]):
+        if device_id in banned_ids:
+            continue
+        device = box.device_by_id(device_id)
+        if not device or (device.get("mac") or "").lower() in on_ap:
+            continue
+        entry = {"mac": device.get("mac"), "ip": device.get("last_ip"), "on_ap": False,
+                 "seen_sec": int(age)}
+        entry["portal_released"] = _portal_release_held(_release_key(entry["ip"] or "", entry["mac"]))
+        entry.update(box.device_summary(device))
+        entry["me"] = device_id == me["id"]
+        clients.append(entry)
+    return clients
+
+
+@app.route("/api/wifi/clients")
+def api_wifi_clients():
+    """Who is on the Rukebox right now."""
+    box = _suggestion_box()
+    stations = _stations()
     return jsonify({"ok": True, "data": {
         "readable": stations is not None,
-        "clients": clients,
-        "banned": box.banned_devices(),
+        "clients": _now_clients(box, stations),
     }})
 
 
@@ -1597,6 +1682,25 @@ def api_device_portal():
         return jsonify({"ok": False, "error": "invalid_value"}), 400
     box.set_portal(device["id"], None if mode == "auto" else mode)
     return jsonify({"ok": True})
+
+
+@app.route("/api/devices/seen")
+def api_devices_seen():
+    """The devices the Rukebox saw this week and which are not on it now: the
+    other half of Connected devices, where a device that left can still be
+    named, spared the credits, or sent back to the portal."""
+    box = _suggestion_box()
+    here = {c.get("device_id") for c in _now_clients(box, _stations())}
+    since = time.time() - PREVIOUS_DAYS * 86400
+    devices = [d for d in box.seen_devices(since, PREVIOUS_MAX)
+               if d["device_id"] not in here and d.get("banned_until") is None]
+    return jsonify({"ok": True, "data": {"devices": devices}})
+
+
+@app.route("/api/devices/banned")
+def api_devices_banned():
+    """The banned devices, which are in neither of the other two lists."""
+    return jsonify({"ok": True, "data": {"banned": _suggestion_box().banned_devices()}})
 
 
 @app.route("/api/devices/portal_release", methods=["POST"])

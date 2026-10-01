@@ -377,6 +377,25 @@ class SuggestionBox:
             "last_seen": device.get("last_seen"),
         }
 
+    def seen_devices(self, since, limit=200):
+        """The devices seen at or after `since`, most recent first, with what
+        the page is allowed to show about them."""
+        rows = self._db.execute(
+            "SELECT * FROM devices WHERE last_seen IS NOT NULL AND last_seen >= ?"
+            " ORDER BY last_seen DESC LIMIT ?", (since, limit)).fetchall()
+        out = []
+        for row in rows:
+            entry = self.device_summary(dict(row))
+            entry["mac"] = row["mac"]
+            entry["ip"] = row["last_ip"]
+            macs = [m["mac"] for m in self._db.execute(
+                "SELECT mac FROM device_macs WHERE device_id = ?", (row["id"],)).fetchall()]
+            if row["mac"] and row["mac"] not in macs:
+                macs.append(row["mac"])
+            entry["macs"] = macs
+            out.append(entry)
+        return out
+
     def people(self):
         """Everyone who ever took a name, one entry per device: its current
         name, every name it went by (oldest first, with the date it took

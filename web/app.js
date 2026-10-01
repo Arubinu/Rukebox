@@ -6189,6 +6189,21 @@ function formatTimeOnly(epochSeconds) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+/* Precise in the first minutes, then coarser, the way a site dates what it has
+   seen: the exact second stops meaning anything long before the day does. */
+function formatAgo(seconds) {
+  const s = Math.max(0, Math.round(Number(seconds) || 0));
+  if (s < 10) return t("clients.ago_now");
+  if (s < 60) return t("clients.ago_seconds", { n: s });
+  const minutes = Math.round(s / 60);
+  if (minutes < 60) return t("clients.ago_minutes", { n: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("clients.ago_hours", { n: hours });
+  const days = Math.floor(hours / 24);
+  if (days === 1) return t("clients.ago_yesterday", { time: formatTimeOnly(Date.now() / 1000 - s) });
+  return t("clients.ago_days", { n: days });
+}
+
 function formatBytes(n) {
   const v = Number(n) || 0;
   if (v < 1024) return v + " B";
@@ -6933,6 +6948,9 @@ async function banDevice(target, label) {
 function clientRow(c) {
   const li = document.createElement("li");
   const key = c.device_id || c.mac;
+  // On the Rukebox's own access point, or seen talking to us from somewhere
+  // else. The second case is the whole reason this list is not just `iw`.
+  const onAp = c.on_ap === true;
   // The whole name line is the fold's summary, chevron included: the options
   // used to sit behind an "Options" row of their own, one line per device that
   // said nothing the chevron does not.
@@ -6956,8 +6974,12 @@ function clientRow(c) {
   const meta = document.createElement("span");
   meta.className = "client-meta";
   const bits = [c.ip || null, c.mac];
+  if (c.on_ap === false && c.seen_sec != null) bits.push(t("clients.via_home"));
   if (c.connected_sec != null) bits.push(t("clients.since", { t: formatUptime(c.connected_sec) }));
   if (c.signal != null) bits.push(c.signal + " dBm");
+  const seenAgo = c.seen_sec != null ? c.seen_sec
+    : (c.connected_sec == null && c.last_seen ? Math.max(0, Date.now() / 1000 - c.last_seen) : null);
+  if (seenAgo != null) bits.push(t("clients.seen", { ago: formatAgo(seenAgo) }));
   meta.textContent = bits.filter(Boolean).join(" \u00b7 ");
   main.append(nameLine, meta);
 
@@ -7013,7 +7035,7 @@ function clientRow(c) {
     c.name = r.data.name;
     clientNameDrafts.delete(key);
     showToast(t("clients.renamed", { name: r.data.name }));
-    refreshClients();
+    reloadClientLists();
   };
   nameSave.addEventListener("click", renameDevice);
   nameInput.addEventListener("keydown", (event) => {
@@ -7055,7 +7077,7 @@ function clientRow(c) {
     c.name_locked = on;
     lock.setAttribute("aria-pressed", on ? "true" : "false");
     lock.textContent = t(on ? "common.disable" : "common.enable");
-    refreshClients();
+    reloadClientLists();
   });
   lockRow.append(lockText, lock);
   fold.append(lockRow);
@@ -7103,7 +7125,7 @@ function clientRow(c) {
   portalLabel.textContent = t("clients.portal");
   const portalDesc = document.createElement("p");
   portalDesc.className = "field-desc";
-  portalDesc.textContent = t("clients.portal_hint");
+  portalDesc.textContent = t(onAp ? "clients.portal_hint" : "clients.portal_hint_home");
   portalText.append(portalLabel, portalDesc);
   const portal = document.createElement("select");
   portal.setAttribute("aria-label", t("clients.portal"));
@@ -7153,31 +7175,36 @@ function clientRow(c) {
     c.portal_released = false;
     againDesc.textContent = t("clients.portal_again_none");
     showToast(t("clients.portal_again_done", { name: clientLabel(c) }));
-    refreshClients();
+    reloadClientLists();
   });
   againRow.append(againText, again);
   fold.append(againRow);
 
   if (!c.me) {
+    // Disconnecting takes the access point's own station list: a device that
+    // reaches us over its owner's network is on nobody's radio of ours.
     const buttons = document.createElement("div");
-    buttons.className = "client-buttons";
-    const kick = document.createElement("button");
-    kick.type = "button";
-    kick.className = "btn btn-small";
-    kick.dataset.icon = "unlink";
-    kick.textContent = t("clients.disconnect");
-    kick.addEventListener("click", async () => {
-      const r = await apiPost("/api/wifi/clients/disconnect", { mac: c.mac });
-      if (!r.ok) showToolError(t("common.failed"), r);
-      setTimeout(refreshClients, 1500);
-    });
+    buttons.className = onAp ? "client-buttons" : "client-buttons is-single";
+    if (onAp) {
+      const kick = document.createElement("button");
+      kick.type = "button";
+      kick.className = "btn btn-small";
+      kick.dataset.icon = "unlink";
+      kick.textContent = t("clients.disconnect");
+      kick.addEventListener("click", async () => {
+        const r = await apiPost("/api/wifi/clients/disconnect", { mac: c.mac });
+        if (!r.ok) showToolError(t("common.failed"), r);
+        setTimeout(refreshClients, 1500);
+      });
+      buttons.append(kick);
+    }
     const ban = document.createElement("button");
     ban.type = "button";
     ban.className = "btn btn-small btn-danger-outline";
     ban.dataset.icon = "ban";
     ban.textContent = t("clients.ban");
     ban.addEventListener("click", () => banDevice(c.device_id ? { device_id: c.device_id } : { mac: c.mac }, clientLabel(c)));
-    buttons.append(kick, ban);
+    buttons.append(ban);
     fold.append(buttons);
   }
 
@@ -7195,7 +7222,8 @@ function bannedRow(b) {
   const meta = document.createElement("span");
   meta.className = "client-meta";
   meta.textContent = (b.until === -1 ? t("clients.ban_forever")
-    : t("clients.until", { time: formatDateTime(b.until) })) + " \u00b7 " + b.macs.join(", ");
+    : t("clients.until", { time: formatDateTime(b.until) })) + " \u00b7 " + b.macs.join(", ")
+    + (b.last_seen ? " \u00b7 " + t("clients.seen", { ago: formatAgo(Date.now() / 1000 - b.last_seen) }) : "");
   main.append(name, meta);
   const lift = document.createElement("button");
   lift.type = "button";
@@ -7204,7 +7232,7 @@ function bannedRow(b) {
   lift.addEventListener("click", async () => {
     const r = await apiPost("/api/devices/ban", { device_id: b.device_id, lift: true });
     if (!r.ok) showToolError(t("common.failed"), r);
-    refreshClients();
+    reloadClientLists();
   });
   const actions = document.createElement("div");
   actions.className = "client-actions";
@@ -7213,19 +7241,75 @@ function bannedRow(b) {
   return li;
 }
 
+const PREVIOUS_FIRST_PAGE = 8;
+const PREVIOUS_STEP = 20;
+let previousDevices = [];
+let previousShown = PREVIOUS_FIRST_PAGE;
+let previousLoaded = false;
+let bannedLoaded = false;
+
 async function refreshClients() {
   const r = await apiGet("/api/wifi/clients");
   if (!r.ok || !r.data) return;
   const d = r.data;
-  document.getElementById("clientsSummary").textContent = !d.readable ? t("clients.unreadable")
-    : (d.clients.length ? t("clients.count", { n: d.clients.length }) : t("clients.none"));
-  document.getElementById("clientList").replaceChildren(...d.clients.map(clientRow));
-  const banned = d.banned || [];
-  document.getElementById("bannedTitle").hidden = !banned.length;
-  const list = document.getElementById("bannedList");
-  list.hidden = !banned.length;
-  list.replaceChildren(...banned.map(bannedRow));
+  const clients = d.clients || [];
+  document.getElementById("clientsSummary").textContent = clients.length
+    ? t("clients.count", { n: clients.length })
+    : t(d.readable ? "clients.none" : "clients.unreadable");
+  document.getElementById("clientList").replaceChildren(...clients.map(clientRow));
 }
+
+/* Any of the three lists can be acted on, so an action taken in one refreshes
+   the ones the page has already loaded - a banned device leaves the other two. */
+function reloadClientLists() {
+  refreshClients();
+  if (previousLoaded) refreshPrevious();
+  if (bannedLoaded) refreshBanned();
+}
+
+async function refreshPrevious() {
+  const r = await apiGet("/api/devices/seen");
+  if (!r.ok || !r.data) return;
+  previousDevices = r.data.devices || [];
+  previousShown = PREVIOUS_FIRST_PAGE;
+  previousLoaded = true;
+  renderPrevious();
+}
+
+function previousMatches() {
+  const needle = document.getElementById("previousSearch").value.trim().toLowerCase();
+  if (!needle) return previousDevices;
+  return previousDevices.filter((d) => [d.name, d.mac, d.ip].concat(d.macs || [])
+    .some((value) => String(value || "").toLowerCase().includes(needle)));
+}
+
+function renderPrevious() {
+  const searching = !!document.getElementById("previousSearch").value.trim();
+  const matches = previousMatches();
+  const shown = searching ? matches : matches.slice(0, previousShown);
+  document.getElementById("previousList").replaceChildren(...shown.map(clientRow));
+  document.getElementById("previousSummary").textContent = !previousLoaded ? ""
+    : (!previousDevices.length ? t("clients.previous_none")
+      : (!matches.length ? t("clients.search_none")
+        : t("clients.previous_count", { n: matches.length })));
+  document.getElementById("previousMore").hidden = searching || shown.length >= matches.length;
+}
+
+async function refreshBanned() {
+  const r = await apiGet("/api/devices/banned");
+  if (!r.ok || !r.data) return;
+  const banned = r.data.banned || [];
+  bannedLoaded = true;
+  document.getElementById("bannedSummary").textContent = banned.length
+    ? t("clients.banned_count", { n: banned.length }) : t("clients.banned_none");
+  document.getElementById("bannedList").replaceChildren(...banned.map(bannedRow));
+}
+
+document.getElementById("previousSearch").addEventListener("input", renderPrevious);
+document.getElementById("previousMore").addEventListener("click", () => {
+  previousShown += PREVIOUS_STEP;
+  renderPrevious();
+});
 refreshClients();
 setInterval(() => {
   // A rebuild takes the field out from under the keyboard (and closes what is
@@ -7460,6 +7544,8 @@ document.addEventListener("page-shown", (event) => {
   }
   if (page === "likes") refreshLikes();
   if (page === "duplicates") refreshDuplicates();
+  if (page === "previous") refreshPrevious();
+  if (page === "banned") refreshBanned();
 });
 
 refreshStats();
@@ -8597,4 +8683,11 @@ const portalHoldsDevice = await refreshPortalBanner();
 if (portalHoldsDevice && arrivedWithoutHash && !railMode()) {
   setActiveView(DEFAULT_VIEW.tab, null, { replace: true, scroll: false });
 }
+
+/* The arrival page was opened before the page-shown listener above existed, so
+   it gets its one announcement here - a page that reads its data only when it
+   is looked at would otherwise stay empty until the reader navigated away. */
+document.dispatchEvent(new CustomEvent("page-shown", {
+  detail: { tab: document.body.dataset.tab || null, page: document.body.dataset.page || null },
+}));
 } // end of initApp()

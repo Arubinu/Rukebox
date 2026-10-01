@@ -490,6 +490,51 @@ class WebTest(unittest.TestCase):
             self.assertFalse(again["data"]["forgotten"])
             self.assertEqual(owner.post("/api/devices/portal_release", json={"mac": "nope"}).status_code, 404)
 
+    def test_a_device_off_the_access_point_is_still_connected(self):
+        # Some devices never join the access point: they reach the interface
+        # over their owner's own network, where `iw` cannot see them and a
+        # request is the only sign of life there is.
+        guest = ws.app.test_client()
+        with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=False), \
+                unittest.mock.patch.object(ws, "_stations", return_value={}):
+            guest.get("/api/portal/status")
+            owner = self.owner()
+            clients = owner.get("/api/wifi/clients").get_json()["data"]["clients"]
+        self.assertTrue(clients, "the device that just asked is connected")
+        self.assertTrue(all(not c["on_ap"] for c in clients), "and not through the access point")
+        self.assertTrue(all(isinstance(c["seen_sec"], int) for c in clients))
+        self.assertFalse(any(c.get("connected_sec") for c in clients))
+
+    def test_a_device_that_left_can_still_be_acted_on(self):
+        # The other half of the page: a device that went away can still be
+        # named, spared the credits or sent back to the portal. A ban is the
+        # one thing that takes it out of both lists.
+        mac = "aa:bb:cc:dd:ee:97"
+        owner = self.owner()
+        owner.post("/api/devices/name", json={"mac": mac, "name": "Merle ivoire"})
+        device = ws._suggestion_box().device_by_mac(mac)
+        ws._seen_devices.clear()
+        with unittest.mock.patch.object(ws, "_stations", return_value={}):
+            devices = owner.get("/api/devices/seen").get_json()["data"]["devices"]
+        entry = [d for d in devices if d["device_id"] == device["id"]]
+        self.assertTrue(entry, "it is still there to be acted on")
+        self.assertEqual(entry[0]["name"], "Merle ivoire")
+        self.assertEqual(entry[0]["macs"], [mac])
+        self.assertTrue(entry[0]["last_seen"], "with the date it was last seen")
+
+        owner.post("/api/devices/ban", json={"device_id": device["id"], "minutes": 60})
+        try:
+            with unittest.mock.patch.object(ws, "_stations", return_value={}):
+                devices = owner.get("/api/devices/seen").get_json()["data"]["devices"]
+                banned = owner.get("/api/devices/banned").get_json()["data"]["banned"]
+                clients = owner.get("/api/wifi/clients").get_json()["data"]["clients"]
+            self.assertFalse([d for d in devices if d["device_id"] == device["id"]],
+                             "a banned device is in neither of the other two lists")
+            self.assertFalse([c for c in clients if c.get("device_id") == device["id"]])
+            self.assertEqual([b["device_id"] for b in banned], [device["id"]])
+        finally:
+            owner.post("/api/devices/ban", json={"device_id": device["id"], "lift": True})
+
     def test_a_remembered_tap_follows_the_device_not_its_address(self):
         # The tap used to be keyed by address: a device that came back on
         # another one was held again while the address it left behind let the

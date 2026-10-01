@@ -525,12 +525,16 @@ can put a song of **Recently played** or the **Library** up next, then
 start one of **Up next** at once (two prices, which add up), and when the planned audio
 output is gone (speaker off, card unplugged) anyone may send the sound to
 another one until it comes back. **Connected devices** (System) lists who
-is on the Wi-Fi, with their nickname (a generated one until they choose),
-and lets you disconnect or ban a device - the ban follows the device
-(cookie, browser storage, every address it used), not just one MAC. Each
-row opens its own controls with the chevron at its right: **Name** names
-the device and, once **Name locked** is on, stops it from changing that
-name itself (a small padlock then shows beside it in the list);
+is on the Rukebox now, with their nickname (a generated one until they
+choose). It is not only the access point's own clients: a device that
+reaches the interface over the owner's home network never joins the
+access point, and the Pi cannot see the clients of somebody else's router
+either, so a request within the last two minutes counts as being there
+too - those rows say **personal network** and how long ago they were seen,
+and they cannot be disconnected, since they are on nobody's radio of ours.
+Each row opens its own controls with the chevron at its right: **Name**
+names the device and, once **Name locked** is on, stops it from changing
+that name itself (a small padlock then shows beside it in the list);
 **No credits** spares that device the guest credits (every action is free
 for it, the other guests keep paying), and **Captive portal** decides
 whether the phone's welcome page keeps holding it - **General setting**
@@ -542,6 +546,18 @@ that tapped "Finish connecting" is let in until the tap is forgotten, and
 this button forgets it, so the portal holds the device again at its next
 connection. The tap is remembered against the device, not against the
 address it happened to have.
+
+Two more pages go with it. **Previously connected** is everyone the
+Rukebox has seen this week and which is not on it right now, most recent
+first, with a search box (name, address or MAC) and **Show more**; the
+dates are precise to the second at first and then loosen ("3 h ago",
+"yesterday at 21:14"), the way a site dates what it saw. The same controls
+are there, which is the point: a device that has just gone can still be
+named, spared the credits, or sent back to the portal before it returns.
+**Banned** keeps the bans on their own page, with **Lift** to undo one and
+the date it was last seen - a banned device appears in neither of the
+other two lists, and a banned device that opens the interface anyway is
+told it is not allowed here.
 
 **Share access** (System) shows two QR codes - one to join the Wi-Fi, one
 to open this page - with the network name, password and address written
