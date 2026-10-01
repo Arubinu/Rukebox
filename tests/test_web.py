@@ -205,6 +205,35 @@ class WebTest(unittest.TestCase):
         owner.post("/api/devices/free_credits", json={"device_id": device["id"], "on": False})
         self.assertEqual(guest.post("/api/action/next_track").status_code, 429)
 
+    def test_a_device_name_is_the_owners_to_pin(self):
+        guest = ws.app.test_client()
+        token = guest.get("/api/device").get_json()["data"]["token"]
+        box = ws._suggestion_box()
+        device = box.resolve_device(token, None, "127.0.0.1")[0]
+        owner = self.owner()
+
+        named = owner.post("/api/devices/name", json={"device_id": device["id"], "name": "Koala rose"})
+        self.assertEqual(named.status_code, 200)
+        self.assertEqual(named.get_json()["data"]["name"], "Koala rose")
+        self.assertEqual(guest.get("/api/suggestions").get_json()["data"]["me"]["name"], "Koala rose")
+
+        self.assertEqual(owner.post("/api/devices/name_locked",
+                                    json={"device_id": device["id"], "on": True}).status_code, 200)
+        self.assertTrue(guest.get("/api/suggestions").get_json()["data"]["me"]["locked"],
+                        "the device is told, so the page does not offer a change it would refuse")
+        self.assertEqual(guest.post("/api/suggestions/name", json={"name": "Koala bleu"})
+                         .get_json()["error"], "name_locked")
+        self.assertEqual(guest.get("/api/suggestions").get_json()["data"]["me"]["name"], "Koala rose")
+
+        self.assertEqual(owner.post("/api/devices/name",
+                                    json={"device_id": device["id"], "name": "Koala bleu"}).status_code, 200,
+                         "the owner renames it anyway")
+        self.assertEqual(guest.get("/api/suggestions").get_json()["data"]["me"]["name"], "Koala bleu")
+
+        owner.post("/api/devices/name_locked", json={"device_id": device["id"], "on": False})
+        self.assertFalse(guest.get("/api/suggestions").get_json()["data"]["me"]["locked"])
+        self.assertEqual(guest.post("/api/suggestions/name", json={"name": "Koala vert"}).status_code, 200)
+
     def test_an_announcements_volume_is_the_owners(self):
         guest = ws.app.test_client()
         self.assertEqual(guest.get("/api/announcement_volumes").status_code, 401)

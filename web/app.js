@@ -4573,9 +4573,12 @@ async function refreshSuggestions() {
 
 function renderSuggestMe() {
   const name = suggestState.me && suggestState.me.name;
-  const editing = !name || suggestRenaming;
+  const locked = !!(suggestState.me && suggestState.me.locked);
+  const editing = !name || (suggestRenaming && !locked);
   document.getElementById("suggestMeLine").hidden = editing;
   document.getElementById("suggestMeName").textContent = name || "";
+  document.getElementById("suggestRenameBtn").hidden = locked;
+  document.getElementById("suggestNameLocked").hidden = !(locked && name);
   document.getElementById("suggestNameForm").hidden = !editing;
   document.getElementById("suggestNameCancel").hidden = !name;
 
@@ -4747,7 +4750,12 @@ function minutesLeft(seconds) {
 }
 
 document.getElementById("suggestRenameBtn").addEventListener("click", () => {
-  const wait = suggestState && suggestState.me ? suggestState.me.rename_wait : 0;
+  const me = suggestState && suggestState.me ? suggestState.me : {};
+  if (me.locked) {
+    showToast(t("common.failed"), t("suggest.name_locked"), { error: true });
+    return;
+  }
+  const wait = me.rename_wait || 0;
   if (wait > 0) {
     showToast(t("common.failed"), t("suggest.rename_wait", { min: minutesLeft(wait) }), { error: true });
     return;
@@ -6208,6 +6216,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "audio_restart", "bluetooth_pair", "config_exported", "config_imported", "config_reloaded",
   "counters_reset", "music_upload", "playback_pause", "portal_released", "stats_rows_deleted",
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
+  "device_renamed", "device_name_locked",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
@@ -6926,19 +6935,117 @@ function clientRow(c) {
   const name = document.createElement("span");
   name.className = "client-name";
   name.textContent = clientLabel(c) + (c.me ? " (" + t("clients.me") + ")" : "");
+  const nameLine = document.createElement("span");
+  nameLine.className = "client-name-line";
+  nameLine.append(name);
+  if (c.name_locked) {
+    // Visible without opening the fold: the device may no longer rename itself.
+    const glyph = document.createElement("span");
+    glyph.className = "client-lock";
+    glyph.dataset.icon = "lock";
+    glyph.title = t("clients.name_locked");
+    glyph.setAttribute("aria-hidden", "true");
+    nameLine.append(glyph);
+  }
   const meta = document.createElement("span");
   meta.className = "client-meta";
   const bits = [c.ip || null, c.mac];
   if (c.connected_sec != null) bits.push(t("clients.since", { t: formatUptime(c.connected_sec) }));
   if (c.signal != null) bits.push(c.signal + " dBm");
   meta.textContent = bits.filter(Boolean).join(" \u00b7 ");
-  main.append(name, meta);
+  main.append(nameLine, meta);
 
   const fold = document.createElement("details");
   fold.className = "client-options";
   const summary = document.createElement("summary");
   summary.append(main);
   fold.append(summary);
+
+  // The owner names the device here; the lock below is what stops the device
+  // from renaming itself later.
+  const nameRow = document.createElement("div");
+  nameRow.className = "field-row";
+  const nameText = document.createElement("div");
+  nameText.className = "field-text";
+  const nameLabel = document.createElement("span");
+  nameLabel.className = "field-label";
+  nameLabel.textContent = t("clients.rename");
+  const nameDesc = document.createElement("p");
+  nameDesc.className = "field-desc";
+  nameDesc.textContent = t("clients.rename_hint");
+  nameText.append(nameLabel, nameDesc);
+  const nameField = document.createElement("div");
+  nameField.className = "input-with-action";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.className = "text-input";
+  nameInput.maxLength = 24;
+  nameInput.value = c.name || "";
+  nameInput.placeholder = clientLabel(c);
+  nameInput.setAttribute("aria-label", t("clients.rename"));
+  const nameSave = document.createElement("button");
+  nameSave.type = "button";
+  nameSave.className = "btn btn-small";
+  nameSave.textContent = t("clients.rename_action");
+  const renameDevice = async () => {
+    const value = nameInput.value.trim();
+    if (!value) return;
+    nameSave.disabled = true;
+    const r = await apiPost("/api/devices/name", Object.assign(
+      c.device_id ? { device_id: c.device_id } : { mac: c.mac }, { name: value }));
+    nameSave.disabled = false;
+    if (!r.ok) {
+      showError(r.error);
+      return;
+    }
+    c.name = r.data.name;
+    showToast(t("clients.renamed", { name: r.data.name }));
+    refreshClients();
+  };
+  nameSave.addEventListener("click", renameDevice);
+  nameInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      renameDevice();
+    }
+  });
+  nameField.append(nameInput, nameSave);
+  nameRow.append(nameText, nameField);
+  fold.append(nameRow);
+
+  const lockRow = document.createElement("div");
+  lockRow.className = "field-row";
+  const lockText = document.createElement("div");
+  lockText.className = "field-text";
+  const lockLabel = document.createElement("span");
+  lockLabel.className = "field-label";
+  lockLabel.textContent = t("clients.name_locked");
+  const lockDesc = document.createElement("p");
+  lockDesc.className = "field-desc";
+  lockDesc.textContent = t("clients.name_locked_hint");
+  lockText.append(lockLabel, lockDesc);
+  const lock = document.createElement("button");
+  lock.type = "button";
+  lock.className = "btn btn-small client-locked";
+  lock.textContent = t(c.name_locked ? "common.disable" : "common.enable");
+  lock.setAttribute("aria-pressed", c.name_locked ? "true" : "false");
+  lock.addEventListener("click", async () => {
+    const on = lock.getAttribute("aria-pressed") !== "true";
+    lock.disabled = true;
+    const r = await apiPost("/api/devices/name_locked", Object.assign(
+      c.device_id ? { device_id: c.device_id } : { mac: c.mac }, { on }));
+    lock.disabled = false;
+    if (!r.ok) {
+      showError(r.error);
+      return;
+    }
+    c.name_locked = on;
+    lock.setAttribute("aria-pressed", on ? "true" : "false");
+    lock.textContent = t(on ? "common.disable" : "common.enable");
+    refreshClients();
+  });
+  lockRow.append(lockText, lock);
+  fold.append(lockRow);
 
   const freeRow = document.createElement("div");
   freeRow.className = "field-row";

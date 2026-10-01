@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS name_changes (
     new_name TEXT,
     at REAL,
     mac TEXT,
-    ip TEXT
+    ip TEXT,
+    by_owner INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS suggestions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,14 +66,16 @@ CREATE TABLE IF NOT EXISTS device_macs (
 CREATE INDEX IF NOT EXISTS device_macs_mac ON device_macs(mac);
 -- What the owner decided about a device: banned until (-1 = for good),
 -- its captive portal (always / never; none = the general rule), whether
--- its current name was generated (free to change at once), and whether
--- it is spared the guest credits (free_credits).
+-- its current name was generated (free to change at once), whether it is
+-- spared the guest credits (free_credits), and whether the owner pinned
+-- its name so the device may no longer change it itself (name_locked).
 CREATE TABLE IF NOT EXISTS device_state (
     device_id TEXT PRIMARY KEY,
     banned_until REAL,
     portal TEXT,
     generated_name INTEGER NOT NULL DEFAULT 0,
-    free_credits INTEGER NOT NULL DEFAULT 0
+    free_credits INTEGER NOT NULL DEFAULT 0,
+    name_locked INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS votes (
     suggestion_id INTEGER NOT NULL,
@@ -146,7 +149,25 @@ class SuggestionBox:
         except sqlite3.DatabaseError:
             pass
         self._db.executescript(SCHEMA)
+        self._ensure_columns()
         self._db.commit()
+
+    # Columns that arrived after the first installs. CREATE TABLE IF NOT EXISTS
+    # does not touch a table that already exists, and the owner's Pi has one
+    # with real data in it, so a missing column is added here.
+    _ADDED_COLUMNS = {
+        "device_state": (("free_credits", "INTEGER NOT NULL DEFAULT 0"),
+                         ("name_locked", "INTEGER NOT NULL DEFAULT 0")),
+        "name_changes": (("by_owner", "INTEGER NOT NULL DEFAULT 0"),),
+    }
+
+    def _ensure_columns(self):
+        """Adds the columns an older database does not have yet."""
+        for table, columns in self._ADDED_COLUMNS.items():
+            have = {row[1] for row in self._db.execute("PRAGMA table_info(%s)" % table)}
+            for name, kind in columns:
+                if name not in have:
+                    self._db.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, name, kind))
 
     def resolve_device(self, token, mac, ip, alt_token=None):
         """The device behind this request, as a dict, plus the token the
@@ -188,16 +209,22 @@ class SuggestionBox:
             return {"id": row["id"], "mac": mac or row["mac"], "name": row["name"], "ip": ip}, issue
 
     def rename_wait(self, device, interval_sec):
-        """Seconds before this device may change its name again."""
+        """Seconds before this device may change its name again. The owner's
+        own renames do not count: the interval is there to stop a phone from
+        flapping, not to make the owner's naming wait."""
         if not device.get("name") or interval_sec <= 0 or self.is_generated(device["id"]):
             return 0
-        row = self._db.execute("SELECT MAX(at) FROM name_changes WHERE device_id = ?", (device["id"],)).fetchone()
+        row = self._db.execute("SELECT MAX(at) FROM name_changes WHERE device_id = ? AND by_owner = 0",
+                               (device["id"],)).fetchone()
         last = row[0] or 0
         return max(0, int(round(last + interval_sec - time.time())))
 
-    def set_name(self, device, name, interval_sec=0, generated=False):
+    def set_name(self, device, name, interval_sec=0, generated=False, by_owner=False):
         """Takes a name for a device; interval_sec is the minimum time between
-        two changes."""
+        two changes. by_owner is the owner naming it from the interface, which
+        the lock does not stop."""
+        if not by_owner and self.name_locked(device["id"]):
+            raise SuggestionError("name_locked")
         display = _clean(name, NAME_MAX)
         key = name_key(display)
         if len(key) < NAME_KEY_MIN:
@@ -222,8 +249,10 @@ class SuggestionBox:
                 self._db.execute("UPDATE names SET display = ? WHERE key = ?", (display, key))
             self._db.execute("UPDATE devices SET name = ? WHERE id = ?", (display, device["id"]))
             self._db.execute(
-                "INSERT INTO name_changes (device_id, old_name, new_name, at, mac, ip) VALUES (?, ?, ?, ?, ?, ?)",
-                (device["id"], device.get("name"), display, now, device.get("mac"), device.get("ip")))
+                "INSERT INTO name_changes (device_id, old_name, new_name, at, mac, ip, by_owner)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (device["id"], device.get("name"), display, now, device.get("mac"), device.get("ip"),
+                 1 if by_owner else 0))
             if was_generated and device.get("name") and name_key(device["name"]) != key:
                 self._db.execute("DELETE FROM names WHERE key = ? AND device_id = ?",
                                  (name_key(device["name"]), device["id"]))
@@ -236,7 +265,7 @@ class SuggestionBox:
         """Caller holds the lock and commits."""
         self._db.execute("INSERT OR IGNORE INTO device_state (device_id) VALUES (?)", (device_id,))
         for key, value in fields.items():
-            assert key in ("banned_until", "portal", "generated_name", "free_credits")
+            assert key in ("banned_until", "portal", "generated_name", "free_credits", "name_locked")
             self._db.execute("UPDATE device_state SET %s = ? WHERE device_id = ?" % key, (value, device_id))
 
     def _state(self, device_id):
@@ -320,6 +349,15 @@ class SuggestionBox:
     def has_free_credits(self, device_id):
         return bool(self._state(device_id).get("free_credits"))
 
+    def set_name_locked(self, device_id, on):
+        """The owner pins this device's name: it may no longer change it."""
+        with self._lock:
+            self._set_state(device_id, name_locked=1 if on else 0)
+            self._db.commit()
+
+    def name_locked(self, device_id):
+        return bool(self._state(device_id).get("name_locked"))
+
     def portal_for_mac(self, mac):
         device = self.device_by_mac(mac) if mac else None
         return self._state(device["id"]).get("portal") if device else None
@@ -334,6 +372,7 @@ class SuggestionBox:
             "banned_until": self.ban_until(device["id"]),
             "portal": state.get("portal"),
             "free_credits": bool(state.get("free_credits")),
+            "name_locked": bool(state.get("name_locked")),
             "first_seen": device.get("first_seen"),
             "last_seen": device.get("last_seen"),
         }

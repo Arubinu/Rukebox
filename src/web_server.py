@@ -635,7 +635,8 @@ def api_suggestions():
     owner = _is_owner()
     interval = _rename_interval_sec()
     return _suggestion_call(lambda box, dev: {
-        "me": {"name": dev["name"], "rename_wait": box.rename_wait(dev, interval)},
+        "me": {"name": dev["name"], "rename_wait": box.rename_wait(dev, interval),
+               "locked": box.name_locked(dev["id"])},
         "owner": owner,
         "text_max": suggestions.TEXT_MAX,
         "items": _with_library_matches(box.list(dev, admin=owner)),
@@ -1590,6 +1591,52 @@ def api_device_free_credits():
     on = bool(body.get("on"))
     box.set_free_credits(device["id"], on)
     stats.record("device_free_credits", label=device.get("name") or device["id"], detail={"on": on})
+    return jsonify({"ok": True})
+
+
+@app.route("/api/devices/name", methods=["POST"])
+def api_device_name():
+    """{device_id | mac, name}: the owner names this device. The device's own
+    rename is the other door, `/api/suggestions/name`, with its interval and
+    its lock - this one is the owner's, so neither applies."""
+    body = request.get_json(silent=True) or {}
+    box = _suggestion_box()
+    if body.get("device_id"):
+        device = box.device_by_id(str(body["device_id"]))
+    elif _MAC_ARG_RE.match(str(body.get("mac") or "").lower()):
+        mac = str(body["mac"]).lower()
+        device = box.ensure_device_for_mac(mac, _ip_for_mac(mac))
+    else:
+        device = None
+    if not device:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    was = device.get("name")
+    try:
+        name = box.set_name(device, body.get("name"), interval_sec=0, by_owner=True)
+    except suggestions.SuggestionError as e:
+        return jsonify({"ok": False, "error": e.code}), 400
+    stats.record("device_renamed", label=name, detail={"from": was})
+    return jsonify({"ok": True, "data": {"name": name}})
+
+
+@app.route("/api/devices/name_locked", methods=["POST"])
+def api_device_name_locked():
+    """{device_id | mac, on: bool}: pins this device's name, so the device may
+    no longer change it itself."""
+    body = request.get_json(silent=True) or {}
+    box = _suggestion_box()
+    if body.get("device_id"):
+        device = box.device_by_id(str(body["device_id"]))
+    elif _MAC_ARG_RE.match(str(body.get("mac") or "").lower()):
+        mac = str(body["mac"]).lower()
+        device = box.ensure_device_for_mac(mac, _ip_for_mac(mac))
+    else:
+        device = None
+    if not device:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    on = bool(body.get("on"))
+    box.set_name_locked(device["id"], on)
+    stats.record("device_name_locked", label=device.get("name") or device["id"], detail={"on": on})
     return jsonify({"ok": True})
 
 
