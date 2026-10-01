@@ -139,6 +139,7 @@
   --i-stop: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22black%22 stroke=%22black%22 stroke-width=%221.5%22 stroke-linejoin=%22round%22%3E%3Crect x=%225%22 y=%225%22 width=%2214%22 height=%2214%22 rx=%222%22/%3E%3C/svg%3E");
   --i-link: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7%22/%3E%3Cpath d=%22M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7%22/%3E%3C/svg%3E");
   --i-unlink: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m18.8 13.7 1.7-1.7a5 5 0 0 0-7-7l-1.7 1.7M5.2 10.3 3.5 12a5 5 0 0 0 7 7l1.7-1.7M8 2v3M2 8h3M16 22v-3M22 16h-3%22/%3E%3C/svg%3E");
+  --i-ban: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22m4.9 4.9 14.2 14.2%22/%3E%3C/svg%3E");
   --i-folder: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z%22/%3E%3C/svg%3E");
   --i-file: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z%22/%3E%3Cpath d=%22M14 2v6h6%22/%3E%3C/svg%3E");
   --i-upload: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4%22/%3E%3Cpath d=%22m17 8-5-5-5 5M12 3v12%22/%3E%3C/svg%3E");
@@ -223,6 +224,7 @@
 [data-icon="stop"] { --icon: var(--i-stop); }
 [data-icon="link"] { --icon: var(--i-link); }
 [data-icon="unlink"] { --icon: var(--i-unlink); }
+[data-icon="ban"] { --icon: var(--i-ban); }
 [data-icon="folder"] { --icon: var(--i-folder); }
 [data-icon="file"] { --icon: var(--i-file); }
 [data-icon="upload"] { --icon: var(--i-upload); }
@@ -1614,11 +1616,17 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
 .btn-small[data-cost]::after { top: -7px; right: -7px; background: var(--surface); border: 1px solid var(--border); }
 [data-cost][data-cost-short]::after { background: var(--danger); border-color: var(--danger); color: var(--danger-contrast); }
 .client-list li { flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.client-main { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+.client-main { flex: 1 1 100%; min-width: 0; display: grid; gap: 2px; }
 .client-name { font-weight: 600; }
 .client-meta { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
 .client-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; align-items: center; }
-.client-actions select { min-height: 36px; font-size: 14px; }
+
+/* One device's controls live in a fold of their own: in a line beside the name
+   they were four buttons wide on a phone, and the list is read for the names. */
+.client-options { flex: 1 1 100%; margin-top: 6px; }
+.client-options > summary { min-height: 44px; padding: 6px 14px; font-size: 14px; }
+.client-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.client-buttons > .btn { width: 100%; }
 
 .vol-mute {
   flex: none;
@@ -1649,7 +1657,6 @@ body[data-access="guest"] .vol-mute { pointer-events: none; }
 
 .backup-size { margin-left: auto; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
-.client-free[aria-pressed="false"]::before { display: none; }
 .client-free[aria-pressed="true"] { background: var(--success-soft); border-color: var(--success-text); color: var(--success-text); }
 
 .np-timers {

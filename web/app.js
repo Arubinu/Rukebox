@@ -6930,8 +6930,63 @@ function clientRow(c) {
   if (c.signal != null) bits.push(c.signal + " dBm");
   meta.textContent = bits.filter(Boolean).join(" \u00b7 ");
   main.append(name, meta);
-  const actions = document.createElement("div");
-  actions.className = "client-actions";
+
+  // The four controls used to sit in a line beside the name, which is a wall of
+  // buttons on a phone. They are folded behind "Options" now - the row is read
+  // for the name - and each option is a settings row of its own.
+  const fold = document.createElement("details");
+  fold.className = "subsection client-options";
+  const summary = document.createElement("summary");
+  const summaryText = document.createElement("span");
+  summaryText.textContent = t("clients.options");
+  summary.append(summaryText);
+  fold.append(summary);
+
+  const freeRow = document.createElement("div");
+  freeRow.className = "field-row";
+  const freeText = document.createElement("div");
+  freeText.className = "field-text";
+  const freeLabel = document.createElement("span");
+  freeLabel.className = "field-label";
+  freeLabel.textContent = t("clients.free_credits");
+  const freeDesc = document.createElement("p");
+  freeDesc.className = "field-desc";
+  freeDesc.textContent = t("clients.free_credits_hint");
+  freeText.append(freeLabel, freeDesc);
+  const free = document.createElement("button");
+  free.type = "button";
+  free.className = "btn btn-small client-free";
+  free.textContent = t(c.free_credits ? "common.disable" : "common.enable");
+  free.setAttribute("aria-pressed", c.free_credits ? "true" : "false");
+  free.addEventListener("click", async () => {
+    const on = free.getAttribute("aria-pressed") !== "true";
+    free.disabled = true;
+    const r = await apiPost("/api/devices/free_credits", Object.assign(
+      c.device_id ? { device_id: c.device_id } : { mac: c.mac }, { on }));
+    free.disabled = false;
+    if (!r.ok) {
+      showToolError(t("common.failed"), r);
+      return;
+    }
+    c.free_credits = on;
+    free.setAttribute("aria-pressed", on ? "true" : "false");
+    free.textContent = t(on ? "common.disable" : "common.enable");
+    showToast(t(on ? "clients.free_on" : "clients.free_off", { name: clientLabel(c) }));
+  });
+  freeRow.append(freeText, free);
+  fold.append(freeRow);
+
+  const portalRow = document.createElement("div");
+  portalRow.className = "field-row";
+  const portalText = document.createElement("div");
+  portalText.className = "field-text";
+  const portalLabel = document.createElement("span");
+  portalLabel.className = "field-label";
+  portalLabel.textContent = t("clients.portal");
+  const portalDesc = document.createElement("p");
+  portalDesc.className = "field-desc";
+  portalDesc.textContent = t("clients.portal_hint");
+  portalText.append(portalLabel, portalDesc);
   const portal = document.createElement("select");
   portal.setAttribute("aria-label", t("clients.portal"));
   [["auto", "clients.portal_auto"], ["always", "clients.portal_always"], ["never", "clients.portal_never"]].forEach(([v, k]) => {
@@ -6946,31 +7001,12 @@ function clientRow(c) {
       : { mac: c.mac, mode: portal.value });
     if (!r.ok) showToolError(t("common.failed"), r);
   });
-  actions.append(portal);
+  portalRow.append(portalText, portal);
+  fold.append(portalRow);
 
-  const free = document.createElement("button");
-  free.type = "button";
-  free.className = "btn btn-small client-free";
-  free.dataset.icon = "check";
-  free.textContent = t("clients.free_credits");
-  free.title = t("clients.free_credits_hint");
-  free.setAttribute("aria-pressed", c.free_credits ? "true" : "false");
-  free.addEventListener("click", async () => {
-    const on = free.getAttribute("aria-pressed") !== "true";
-    free.disabled = true;
-    const r = await apiPost("/api/devices/free_credits", Object.assign(
-      c.device_id ? { device_id: c.device_id } : { mac: c.mac }, { on }));
-    free.disabled = false;
-    if (!r.ok) {
-      showToolError(t("common.failed"), r);
-      return;
-    }
-    free.setAttribute("aria-pressed", on ? "true" : "false");
-    c.free_credits = on;
-    showToast(t(on ? "clients.free_on" : "clients.free_off", { name: clientLabel(c) }));
-  });
-  actions.append(free);
   if (!c.me) {
+    const buttons = document.createElement("div");
+    buttons.className = "client-buttons";
     const kick = document.createElement("button");
     kick.type = "button";
     kick.className = "btn btn-small";
@@ -6984,12 +7020,14 @@ function clientRow(c) {
     const ban = document.createElement("button");
     ban.type = "button";
     ban.className = "btn btn-small btn-danger-outline";
-    ban.dataset.icon = "x";
+    ban.dataset.icon = "ban";
     ban.textContent = t("clients.ban");
     ban.addEventListener("click", () => banDevice(c.device_id ? { device_id: c.device_id } : { mac: c.mac }, clientLabel(c)));
-    actions.append(kick, ban);
+    buttons.append(kick, ban);
+    fold.append(buttons);
   }
-  li.append(main, actions);
+
+  li.append(main, fold);
   return li;
 }
 
