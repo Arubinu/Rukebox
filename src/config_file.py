@@ -175,8 +175,6 @@ def _strip_inline_comment(rest):
 def write_values(updates, path=None, env_path=None):
     """Saves settings, preserving comments, ordering and every line that is not
     being changed."""
-    # Line-based on purpose: re-dumping the parsed YAML would drop every
-    # comment of the file.
     unknown = [k for k in updates if k not in DEFAULTS]
     if unknown:
         raise ValueError("Unknown configuration key(s): %s" % sorted(unknown))
@@ -411,9 +409,7 @@ def ensure_file(yaml_path=None, env_path=None):
     added = merge_missing(yaml_path, env_path)
     write_env_file(yaml_path, env_path)
     secure_file(yaml_path, os.path.dirname(yaml_path) or ".")
-    # The announcement list is a file of its own, and the setup page's answers
-    # create the YAML before this runs: without the seeding here, the sounds it
-    # uploaded would belong to no announcement and stay invisible.
+    # The setup page creates the YAML first: without this seeding its sounds belong to nothing.
     seed_announcements(yaml_path, env_path)
     return ("updated", len(added)) if added else ("unchanged", 0)
 

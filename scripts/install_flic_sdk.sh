@@ -1,5 +1,4 @@
 #!/bin/bash
-# Downloads the Flic SDK into /opt/fliclib-linux-hci (installed as rukebox-flic-sdk).
 set -euo pipefail
 
 DEST="${RUKEBOX_FLIC_SDK_DIR:-/opt/fliclib-linux-hci}"

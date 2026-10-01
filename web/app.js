@@ -13,9 +13,6 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
   location.reload();
 });
 
-/* The portal holds a device that joined the access point and has not been let
-   through yet: the only one with a step left to take, and the only one worth
-   offering "Finish connecting" to. */
 function portalHolds(data) {
   return !!data.on_ap && !!data.enabled &&
          ["release", "new_only"].includes(data.mode) && !data.released;
@@ -129,11 +126,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
 let guestMode = false;
 
-// The guest-allowed paths, to refuse a call before sending it - so this has
-// to stay in step with web_server.py's _GUEST_PATHS, path for path (a test
-// compares the two: a path the server allows and this list forgets is a
-// button that shows its price and does nothing). "/api/auth/" is not in the
-// server's set: it is the exempt prefix, handled below.
+// Guest-allowed paths: keep in step with web_server.py's _GUEST_PATHS (a test compares them).
 const GUEST_API_PATHS = [
   "/api/status",
   "/api/status/wait",
@@ -220,8 +213,6 @@ function bootMessage(key, showRetry, subKey) {
   const message = document.getElementById("bootMessage");
   message.dataset.i18n = key;
   message.textContent = t(key);
-  /* The second line is a statement of its own, not a tail on the first: what
-     happened, then what the page is doing about it. */
   const sub = document.getElementById("bootSubMessage");
   sub.hidden = !subKey;
   if (subKey) {
@@ -424,12 +415,7 @@ if (window.matchMedia) {
 
 applyTheme(localStorage.getItem(THEME_KEY) || "system");
 
-/* An area of the tab bar holds pages, and a page IS a card. Two menus for the
-   same pages: the tiles of a grid, where the tab bar has no room for a rail
-   (a phone, and the guest access, which has no tab bar at all), and the pages
-   listed under their area in the rail on a wide screen. The URL says where we
-   are (#area/page), so the back button of the browser works and a page can be
-   linked to; arriving with no # at all shows the player. */
+/* A page IS a card: the URL is #area/page, so Back works and a page can be linked to. */
 const DEFAULT_VIEW = { tab: "home", page: "player" };
 const RAIL_QUERY = "(min-width: 640px)";
 const railQuery = window.matchMedia ? window.matchMedia(RAIL_QUERY) : null;
@@ -446,8 +432,6 @@ function cardOfPage(tab, page) {
   return areaCards(tab).find((card) => card.dataset.page === page) || null;
 }
 
-/* A card is a page only when it has something to show: the data decides (an
-   empty card hides itself) and the simple view leaves the detail pages out. */
 function pageIsAvailable(card) {
   if (!card || card.hasAttribute("hidden")) return false;
   return !(card.dataset.level === "detail" && currentView() === "simple");
@@ -462,28 +446,18 @@ function titleKeyOf(card) {
   return span ? span.dataset.i18n : null;
 }
 
-/* The area whose menu you go back to: its own, or Home's when it has a single
-   page (Stats), where a one-tile grid would say nothing. */
 function gridTabOf(tab) {
   return availablePages(tab).length > 1 ? tab : DEFAULT_VIEW.tab;
 }
 
 let pageGrids = {};
 let railPages = {};
-/* A page the URL asked for whose card has nothing to show YET (its data is
-   still on its way). Kept until it can be opened, or the reload of a deep link
-   to the Library would land on an empty screen. */
+/* A page asked for before its card has data is kept until it can be opened. */
 let pendingPage = null;
-/* The list of devices is rebuilt on every refresh, so what the owner is doing
-   in it lives here instead of in the rows: which folds are open, and the names
-   typed but not saved yet. */
+/* The device list is rebuilt on every refresh, so folds and drafts live here. */
 const openClientFolds = new Set();
 const clientNameDrafts = new Map();
 
-/* Where the rail's list of pages is long, these are the sets it falls into: a
-   page named here opens a group and carries the thin line that separates it
-   from the one before. Only the rail (a wide screen) draws it - the phone's
-   grid of tiles is already a grid. Edit this list, not the markup. */
 const RAIL_GROUP_STARTS = {
   home: ["player", "likes", "suggest"],
   settings: ["settings", "announcements"],
@@ -542,9 +516,6 @@ function buildPageMenus() {
   });
 }
 
-/* The labels and the availability are read from the cards on every repaint:
-   a card that gets something to show becomes a tile, one that empties loses
-   its tile, and a language change relabels both menus. */
 function refreshPageMenus() {
   Object.keys(pageGrids).forEach((tab) => {
     pageGrids[tab].setAttribute("aria-label", t("tab." + tab));
@@ -572,11 +543,7 @@ function refreshPageMenus() {
   });
 }
 
-/* The grid draws its separators with its own background showing through 1px
-   gaps, so a last row that is not full would end in a grey block. Empty cells
-   fill it up, and the lines simply carry on to the edge. Only a grid that is
-   on screen is measured: it costs a style recalculation, and a hidden one -
-   or one in a test without a layout engine - needs no fillers. */
+/* Empty cells fill the last row: the separators are the grid's own background showing through. */
 function fillPageGrid(grid) {
   if (grid.hidden || !grid.offsetParent) return;
   let columns = 0;
@@ -600,15 +567,12 @@ function fillPageGrid(grid) {
   });
 }
 
-/* The page scrolls inside itself, not as a document (see the shell note in
-   style.css): opening a page has to send that scroller home. */
 function scrollAppTop() {
   const main = document.getElementById("main");
   if (main) main.scrollTop = 0;
 }
 
-/* The shell scrolls under a fixed topbar, so the scroller's top padding is the
-   bar's own height - measured, because it carries the safe-area inset. */
+/* The top padding is the bar's own height, which carries the safe-area inset. */
 function measureTopbar() {
   const bar = document.querySelector(".topbar");
   if (bar) document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px");
@@ -622,15 +586,13 @@ function setActiveView(tab, page, options) {
   if (!areaCards(tab).length) tab = DEFAULT_VIEW.tab;
   const available = availablePages(tab);
   if (page != null && !available.some((card) => card.dataset.page === page)) {
-    // Ask for a page the data has not filled in yet: remember it, and open it
-    // the moment it appears (see the observer below).
+    // Kept until the card appears (see the observer below).
     pendingPage = cardOfPage(tab, page) ? page : null;
     page = null;
   } else if (page != null) {
     pendingPage = null;
   }
-  // Where the rail is, its pages are the menu: open a page rather than a grid
-  // nobody would see. A one-page area always opens its page.
+  // Where the rail is, its pages ARE the menu: open a page rather than a grid.
   if (page == null && available.length && (available.length === 1 || railMode())) {
     page = available[0].dataset.page;
   }
@@ -639,8 +601,6 @@ function setActiveView(tab, page, options) {
   document.body.dataset.tab = tab;
   document.documentElement.dataset.tab = tab;
   document.body.dataset.page = page || "";
-  // Every card, not just this area's: a card of another area must not stay
-  // visible behind this page.
   document.querySelectorAll(".card[data-tab]").forEach((card) => {
     const on = card.dataset.tab === tab && page !== null && card.dataset.page === page;
     card.classList.toggle("tab-hidden", !on);
@@ -663,8 +623,6 @@ function setActiveView(tab, page, options) {
   const backTab = gridTabOf(tab);
   const back = document.getElementById("pageBack");
   if (back) {
-    // The logo becomes the way back, arrow on top of a darkened logo, and only
-    // while a page is open.
     back.disabled = page === null;
     back.classList.toggle("is-back", page !== null);
     back.setAttribute("aria-label", t("nav.back_to", { name: t("tab." + backTab) }));
@@ -692,7 +650,6 @@ function setActiveView(tab, page, options) {
   if (opts.scroll !== false) scrollAppTop();
 }
 
-/* The old name, kept for the callers that only ever meant "go to this area". */
 function setActiveTab(tab) {
   if (currentView() === "simple" && tab === "stats") tab = DEFAULT_VIEW.tab;
   setActiveView(tab, null);
@@ -721,9 +678,7 @@ document.getElementById("pageBack").addEventListener("click", () => {
   setActiveView(gridTabOf(document.body.dataset.tab), null);
 });
 
-/* Turning the phone on its side, or the window getting wide, moves the menu
-   from the grid to the rail: a grid that is no longer shown must hand over to
-   a page, or the screen would be empty. */
+/* A grid that is no longer shown must hand over to a page, or the screen stays empty. */
 if (railQuery && railQuery.addEventListener) {
   railQuery.addEventListener("change", () => {
     const tab = document.body.dataset.tab || DEFAULT_VIEW.tab;
@@ -741,9 +696,6 @@ window.LANG_CHANGE_LISTENERS.push(() => {
                 { hash: false, scroll: false });
 });
 
-/* A card appears or disappears as its data arrives (the Library hides itself
-   until it has tracks, and so on). The menus - and a page waiting for its card
-   - follow at that moment instead of at the next click. */
 const cardsObserver = new MutationObserver(() => {
   const tab = document.body.dataset.tab || DEFAULT_VIEW.tab;
   if (pendingPage) {
@@ -762,8 +714,7 @@ buildPageMenus();
 document.querySelectorAll("#main > .card[data-tab]").forEach((card) => {
   cardsObserver.observe(card, { attributes: true, attributeFilter: ["hidden"] });
 });
-/* An arrival with no # shows the player - unless the portal still holds the
-   device, which lands on the Home menu instead (see the end of initApp). */
+/* An arrival with no # shows the player - unless the portal still holds the device. */
 const startView = viewFromHash() || DEFAULT_VIEW;
 const arrivedWithoutHash = !window.location.hash;
 setActiveView(startView.tab, startView.page, { replace: arrivedWithoutHash, scroll: false });
@@ -790,7 +741,6 @@ function setViewMode(view) {
   paintViewBar();
   const tab = document.body.dataset.tab || DEFAULT_VIEW.tab;
   const open = document.body.dataset.page ? cardOfPage(tab, document.body.dataset.page) : null;
-  // The simple view takes the detail pages away: an open one has to close.
   if (document.body.dataset.page && !pageIsAvailable(open)) setActiveView(tab, null, { hash: false });
   else refreshPageMenus();
 }
@@ -814,7 +764,7 @@ renderRecentStats(null);
 function handleUnauthorized(res) {
   if (res.status !== 401) return false;
 
-  // A guest legitimately gets 401s: reloading would loop forever.
+  // A guest legitimately gets 401s here: reloading would loop forever.
   if (!guestMode) location.reload();
   return true;
 }
@@ -932,8 +882,6 @@ function setGoingDown(kind, askedAt) {
     overlayForConnection = false;
     connectionFailures = 0;
     hideBootOverlay();
-    /* The services have just come back with the new version: reload, so the
-       page is the new one too rather than a mix of old cached files. */
     if (wasUpdating && !updateSeenDone) {
       updateSeenDone = true;
       setTimeout(() => window.location.reload(), BOOT_FADE_MS + 100);
@@ -990,8 +938,7 @@ function openModal({ title, body, bodyNode, confirm, choices, actions, modalClas
     bodyBox.hidden = !body && !bodyNode;
 
     document.getElementById("modalCancel").hidden = !confirm;
-    // A dialog whose content carries its own ways out (Timer…, the duration
-    // list) shows the close cross and nothing else.
+    // A dialog whose content carries its own ways out shows the close cross and nothing else.
     const actionsBox = document.querySelector("#modalOverlay .modal-actions");
     actionsBox.hidden = actions === false;
 
@@ -1012,8 +959,6 @@ function openModal({ title, body, bodyNode, confirm, choices, actions, modalClas
 
     const overlay = document.getElementById("modalOverlay");
     overlay.hidden = false;
-    // Not the red cross of a confirm (Enter there must confirm), and not one of
-    // the list's own remove buttons either: the close cross is neutral ground.
     const target = choices ? box.firstChild
       : actions === false ? document.getElementById("modalClose")
         : document.getElementById("modalOk");
@@ -1039,8 +984,6 @@ function dismissToast(toast) {
 }
 
 const HAPTICS_KEY = "rukebox_haptics";
-// A phone's vibrator does not render a tick much shorter than this as
-// something felt; the Test button in the settings uses the same value.
 const HAPTIC_TAP_MS = 30;
 function hapticsOn() {
   try {
@@ -1214,10 +1157,6 @@ function renderClockSync() {
 }
 window.LANG_CHANGE_LISTENERS.push(renderClockSync);
 
-/* Nothing periodic runs while the page is in the background: nobody is looking
-   at it, and this Pi is a Pi Zero - measured on 2026-09-30, an open but
-   untouched page still asked it for about fifty requests a minute. Coming back
-   runs every registered refresh once, so nothing is ever left stale. */
 const ON_SHOW_REFRESHES = [];
 function refreshEvery(callback, ms) {
   ON_SHOW_REFRESHES.push(callback);
@@ -1335,8 +1274,7 @@ async function refreshStatus() {
     refreshAnnounceVolumeNotes();
   }
 
-  // A guest has "Start music" while nothing plays and the pause button the rest
-  // of the time: one button in that slot either way.
+  // A guest has one button in that slot either way.
   const guest = document.body.dataset.access === "guest";
   document.getElementById("btnStart").hidden = d.mode !== "idle" && d.mode !== "stopped";
   document.getElementById("btnPause").hidden = guest && (d.mode === "idle" || d.mode === "stopped");
@@ -1363,8 +1301,7 @@ async function refreshStatus() {
   badge.classList.toggle("connected", d.speaker_connected);
   document.getElementById("speakerMacDisplay").textContent = d.speaker_mac || "—";
 
-  // Connected, the button takes the link back instead of doing nothing: a
-  // speaker that stayed "connected" while silent is cured by exactly that.
+  // Connected, the button takes the link back: that is what cures a silent speaker.
   const connectBtn = document.getElementById("btnSpeakerConnect");
   const connectKey = d.speaker_connected === true ? "speaker.reconnect" : "speaker.connect";
   connectBtn.dataset.i18n = connectKey;
@@ -1636,8 +1573,6 @@ function applyNotices(d) {
     if (!d.speaker_mac) add("warn", "bluetooth", "notice.no_speaker");
     else if (d.speaker_connected === false) add("warn", "bluetooth", "notice.speaker_off");
   }
-  // Connected, but on the other radio: the sound follows the controller the
-  // speaker is on, whatever the settings say.
   if (d.speaker_connected && d.speaker_controller && d.speaker_expected &&
       d.speaker_controller !== d.speaker_expected) {
     add("warn", "bluetooth", "notice.speaker_other_controller", {
@@ -1676,11 +1611,7 @@ let playerStatus = null;
 let timerEnds = { resume: null, sleep: null };
 let timerTick = null;
 
-/* "Previous" does one of two things, and the daemon is the one who decides:
-   restart the song from the top once it has played a few seconds, or go back
-   to the one before. The button says which, using the same threshold the
-   daemon uses (previous_restart_sec), and the progress tick re-reads it so the
-   label flips at the right second without waiting for a status. */
+/* Previous follows the daemon's own threshold (previous_restart_sec) without waiting for a status. */
 let previousAction = null;
 
 function paintPrevious() {
@@ -1752,8 +1683,6 @@ document.getElementById("btnLoop").addEventListener("click", async () => {
   refreshStatus();
 });
 
-/* Timer…: two families of choice, each under the symbol that names it (a pause
-   bar, a moon), with the legend that says what the two symbols mean. */
 function timerSymbol(name, small) {
   const mark = document.createElement("span");
   mark.className = "timer-symbol" + (small ? " timer-symbol-small" : "");
@@ -1787,9 +1716,7 @@ function timerChoiceBody(groups, intro) {
     wrap.appendChild(box);
   });
 
-  // The legend: each symbol once more, next to what it does. Drawn with the
-  // same icons as above - the unicode glyphs for a pause bar and a moon are
-  // missing from a good many phone fonts.
+  // Drawn icons, not the unicode pause/moon: many phone fonts have no glyph.
   const legend = document.createElement("div");
   legend.className = "timer-legend";
   [["pause", t("timer.legend_pause")], ["moon", t("timer.legend_sleep")]].forEach(([icon, text]) => {
@@ -2238,15 +2165,9 @@ btClockMac.addEventListener("input", () => {
 
 const btClockEnabled = document.getElementById("btClockEnabled");
 
-// The forms send only the fields changed since they were loaded, so a stale
-// tab cannot overwrite a setting changed elsewhere.
+// Only the changed fields are sent, so a stale tab cannot overwrite a setting.
 let settingsBaseline = {};
 
-/* PAUSE_DURATIONS and SLEEP_DURATIONS are lists of minutes. The row holds the
-   field that adds one (a whole number, nothing else can be typed there) and
-   two buttons: + adds, the list opens the dialog where one is removed. The
-   container carries `data-key` and its `value` is the setting's own form
-   ("5,15,30,60"), which is all the settings code below reads. */
 const DURATION_MAX_MIN = 600;
 
 function durationValues(el) {
@@ -2281,9 +2202,7 @@ function addDuration(el) {
   input.focus();
 }
 
-// The list of what the setting offers, each with its own remove button: the
-// row itself stays the height of every other row, and this is where the
-// values can be read.
+// The row stays the height of its neighbours; this is where the values can be read.
 function durationList(el) {
   const values = durationValues(el);
   const list = document.createElement("div");
@@ -2302,13 +2221,11 @@ function durationList(el) {
     label.textContent = t("settings.duration_min", { n: value });
     const off = document.createElement("button");
     off.type = "button";
-    // A trash bin, in red: a plain cross there reads as another way out of the
-    // dialog, next to the modal's own close cross.
+    // A trash bin, in red: a cross would read as another way out of the dialog.
     off.className = "btn btn-icon duration-row-x btn-danger-outline";
     off.dataset.icon = "trash";
     off.title = t("settings.duration_remove", { n: value });
     off.setAttribute("aria-label", off.title);
-    // One choice has to stay: an empty list leaves Timer… with nothing to offer.
     off.disabled = values.length < 2;
     off.addEventListener("click", () => {
       const kept = durationValues(el);
@@ -2360,8 +2277,7 @@ function durationField(el) {
   list.setAttribute("aria-label", list.title);
   list.addEventListener("click", () => openDurationList(el));
 
-  // `change` fires on leaving the field, so a number typed and then left there
-  // is taken into account before the form's own Save is read.
+  // `change` fires on leaving the field, so a value typed then left is read before Save.
   input.addEventListener("change", () => addDuration(el));
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -2374,10 +2290,7 @@ function durationField(el) {
 
 document.querySelectorAll(".duration-field").forEach(durationField);
 
-/* Which Bluetooth codecs the Pi offers the speaker: one checkbox per codec
-   PipeWire knows, in a dialog - eight names in the row itself wrapped and made
-   it twice as tall as its neighbours. The container's `value` stays the
-   setting's own form ("sbc_xq,sbc"), which is what the settings code reads. */
+/* One checkbox per codec: in a dialog - the eight names in the row wrapped and doubled its height. */
 const BT_CODEC_LABELS = {
   ldac: "LDAC", aptx_hd: "aptX HD", aptx: "aptX", aac: "AAC",
   sbc_xq: "SBC-XQ", sbc: "SBC", faststream: "FastStream", opus: "Opus",
@@ -2412,8 +2325,6 @@ function codecList(el) {
     box.type = "checkbox";
     box.value = codec;
     box.checked = chosen.includes(codec);
-    // One codec has to stay: offering none leaves the speaker with nothing to
-    // negotiate, which is how it ends up on the telephone-quality profile.
     box.disabled = chosen.length < 2 && box.checked;
     if (box.disabled) label.classList.add("is-disabled");
     const text = document.createElement("span");
@@ -2458,8 +2369,6 @@ function collectFieldValue(el) {
   return el.value;
 }
 
-// A time field holds two settings ("HH:MM"): the hour in data-key, the minutes
-// in data-key-minute.
 function timeFieldParts(el) {
   const parts = String(el.value || "").split(":");
   const hour = Number(parts[0]);
@@ -2486,10 +2395,7 @@ function setFieldValue(el, rawValue) {
   if (el.type === "checkbox") {
     el.checked = String(rawValue).toLowerCase() === "true";
   } else {
-    // A <select> whose options do not hold the stored value would show nothing
-    // and then hand back "" on the next save - silently changing a setting
-    // somebody set by hand, or one whose list has since moved on. The value
-    // keeps an option of its own instead.
+    // Options that do not hold the stored value come back empty on the next save; keep one.
     if (el.tagName === "SELECT"
         && !Array.from(el.options).some((one) => one.value === String(rawValue))) {
       const kept = document.createElement("option");
@@ -2601,7 +2507,6 @@ document.getElementById("updateAllowWeb").addEventListener("change", async (e) =
   }
   settingsBaseline.UPDATE_ALLOW_WEB = value;
   showToast(t(value === "true" ? "update.allow_web_on" : "update.allow_web_off"));
-  // The Install button follows the setting: offered at once, gone at once.
   checkRelease(false);
 });
 
@@ -2680,8 +2585,6 @@ SETTINGS_FORMS.forEach((form) => {
         action: { label: t("settings.restart_now"), icon: "restart", run: restartDaemon },
       });
     } else if ("BT_AUDIO_CODECS" in updates) {
-      // The codecs are read when the Bluetooth monitor starts: say which of
-      // the two happened rather than a bare "saved".
       showToast(t("alert.settings_applied"),
         t(d.audio_reloaded === false ? "alert.audio_later" : "alert.audio_reloaded"));
     } else if (d.applied_live === false) {
@@ -2880,9 +2783,7 @@ function defaultAnnounceVolume() {
 }
 
 function announceVolumeWarning(entry, music) {
-  /* A source left far above the music is what "the music never arrived" sounds
-     like: measured 40 dB apart on the Pi, the music at 19 and a jingle at 100
-     (2026-09-29). Four times is about 12 dB - past that the music is covered. */
+  /* 4x the music is about 12 dB: past that the music is covered. */
   if (!entry.on || entry.volume === null || !music) return "";
   if (entry.volume < music * 4) return "";
   return t("annvol.louder", { music: Math.round(music) });
@@ -2900,8 +2801,6 @@ function refreshAnnounceVolumeNotes() {
 let volumeControlSeq = 0;
 
 function volumeField(labelKey, control, describedBy) {
-  /* One line: what it is on the left, the field on the right - the shape
-     every settings row already has. */
   const row = document.createElement("div");
   row.className = "field-row";
   const text = document.createElement("div");
@@ -2919,9 +2818,6 @@ function volumeField(labelKey, control, describedBy) {
 }
 
 function volumeControl(key, options) {
-  /* A source's own volume, on two lines: the switch, then the volume as a
-     number field like "Base volume". Off means it plays at the volume of the
-     music, which is what every announcement always did. */
   const opts = options || {};
   const current = announceVolume(key);
   const uid = "annvol" + (++volumeControlSeq);
@@ -2958,8 +2854,7 @@ function volumeControl(key, options) {
   const note = document.createElement("p");
   note.className = "hint ann-volume-note";
   note.dataset.key = key;
-  // Written here rather than left to refreshAnnounceVolumeNotes(): the holder
-  // is not in the page yet when this runs, so that sweep cannot see this note.
+  // Painted here, not left to refreshAnnounceVolumeNotes(): the holder is not in the page yet.
   const paintNote = () => {
     const text = announceVolumeWarning(announceVolume(key), defaultAnnounceVolume());
     note.textContent = text;
@@ -2987,9 +2882,7 @@ function volumeControl(key, options) {
 }
 
 async function refreshAnnouncements() {
-  // Both requests in flight together, and the list is emptied only once the
-  // answer is in hand: clearing it before the second fetch is what made the
-  // card blink empty every 20 seconds.
+  // The list is emptied only once the answer is in: clearing it first made the card blink.
   const [result] = await Promise.all([apiGet("/api/announcements"),
                                       refreshAnnouncementVolumes()]);
   const list = document.getElementById("announcementList");
@@ -3232,11 +3125,7 @@ async function refreshRecent() {
 refreshRecent();
 refreshEvery(refreshRecent, 60000);
 
-/* ------------------------------------------------------------------
-   Liked tracks: the heart on the cover, and the list it builds. The keys are
-   kept here so the heart answers without asking the server again on every
-   status, and the list is refetched whenever it is shown.
-   ------------------------------------------------------------------ */
+/* Liked tracks: the heart on the cover and its list. */
 let likedKeys = new Set();
 let likedTracks = [];
 
@@ -3356,12 +3245,7 @@ window.LANG_CHANGE_LISTENERS.push(() => {
   paintLikeButton();
 });
 
-/* ------------------------------------------------------------------
-   Duplicate tracks: the same song catalogued more than once, grouped by
-   title and artist, with the copies that are the very same file marked.
-   Read from the catalogue on demand - it costs no disk access - and a
-   copy can be kept out of what the radio chooses by itself.
-   ------------------------------------------------------------------ */
+/* Duplicate tracks: the same song catalogued more than once, grouped by title and artist. */
 let duplicateGroups = [];
 let duplicatesAsked = false;
 
@@ -3413,8 +3297,6 @@ function duplicateKeepButton(copy, group) {
         { key: copy.key, hidden: false, path: copy.path });
       if (!asked.ok) failed = asked;
     } else {
-      // Keeping one copy only puts the others aside: the newest takes the
-      // place of the rest, which is what "the same song, twice" means here.
       for (const other of group.tracks) {
         if (other.key === copy.key) continue;
         const asked = await apiPost("/api/library/hide",
@@ -3451,8 +3333,6 @@ function renderDuplicates() {
   list.replaceChildren(...duplicateGroups.map((group) => {
     const li = document.createElement("li");
     li.className = "duplicate-group";
-    // Folded by default, like every other row in this app: a page of groups is
-    // read by its titles, and the copies are what one group at a time is for.
     const fold = document.createElement("details");
     fold.className = "duplicate-fold";
     fold.open = openDuplicateGroups.has(duplicateKey(group));
@@ -3508,16 +3388,9 @@ window.LANG_CHANGE_LISTENERS.push(() => {
   if (duplicatesAsked) renderDuplicates();
 });
 
-// Run once at startup, like the hearts: a page is a card, so a card still
-// hidden has no tile in the menu - and the page could never be opened to run
-// the very check that would have revealed it.
+// Run once at startup: a card still hidden has no tile, so its data would never arrive.
 refreshDuplicates();
 
-// ------------------------------------------------------------------
-// Bluetooth controllers and the Flic button (Bluetooth card): which
-// controller the speaker uses, which one flicd takes, the Flic software,
-// pairing a button and forgetting one.
-// ------------------------------------------------------------------
 let btControllersData = null;
 let btControllersDirty = false;
 
@@ -3597,11 +3470,8 @@ async function refreshFlic() {
   flicState = d;
   const line = document.getElementById("flicStatusLine");
   let text;
-  // One controller, and the speaker needs it: no Flic button here.
   const blocked = !d.usable;
-  // On hold: it is on, and the radio stops it rather than share the only
-  // controller with the speaker. Shown on and dimmed, never disabled -
-  // turning it off here is the one thing left to do, and it is final.
+  // On hold: on, but the radio stopped it to keep the only controller for the speaker.
   const held = !!d.held;
   if (held) text = t("btctl.flic_blocked_on");
   else if (blocked) text = t("btctl.flic_" + (d.unusable_reason || "single_controller"));
@@ -3955,7 +3825,7 @@ refreshEvery(() => {
   if (!libraryAsked()) refreshLibrary(false);
 }, 30000);
 
-/* ---------- Music lists: everything, or one list at a time ---------- */
+/* ---------- Music lists ---------- */
 
 const listsCard = document.getElementById("listsCard");
 const listsList = document.getElementById("listsList");
@@ -3976,8 +3846,6 @@ const libraryGenrePlay = document.getElementById("libraryGenrePlay");
 let listsData = { lists: [], active: null };
 let listsGenres = [];
 let listsSeq = 0;
-// The card shows one thing at a time: the lists, or the page of one list. No
-// list holds a scroll area of its own - the page scrolls, and nothing else.
 let detailListId = null;
 let detailSignature = "";
 let editingListId = null;
@@ -4013,15 +3881,13 @@ function listActionButton(icon, key, onClick, variant) {
 }
 
 function foldText(text) {
-  // The genre search compares the way the library does: no accents, no case.
   return String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 const GENRE_OPTIONS_MAX = 8;
 
 function pickedGenres(host) {
-  // What is ticked IS what the pills above the list show, so the search can
-  // be changed or emptied without losing the choice.
+  // The pills above ARE the selection: the search can be changed or emptied without losing it.
   return Array.from(host.querySelectorAll(".genre-pill")).map((pill) => pill.dataset.genre);
 }
 
@@ -4060,9 +3926,7 @@ function paintGenreOptions(host) {
     options.replaceChildren(none);
     return;
   }
-  // A short list, never a box of its own: the search narrows it, and the page
-  // keeps the only scroll. A genre already ticked can be taken back from its
-  // pill above whatever is shown here.
+  // A short list: the search narrows it, and the page keeps the only scroll.
   const shown = matching.slice(0, GENRE_OPTIONS_MAX);
   const rows = shown.map((genre) => {
     const label = document.createElement("label");
@@ -4122,8 +3986,7 @@ function clearGenrePicker(host) {
 }
 
 function paintGenrePlay() {
-  // Looked up here rather than kept in a const: this runs from the library
-  // card, which is set up before the Lists card below.
+  // Looked up here, not in a const: this runs before the Lists card below is set up.
   const actions = document.getElementById("libraryGenreActions");
   if (actions) {
     actions.hidden = !libraryGenre.value || document.body.dataset.access === "guest";
@@ -4174,9 +4037,6 @@ async function addToManualList(item) {
   refreshLists();
 }
 
-/* One button for the two things a track can collect: a heart (a like, shown
-   filled while it is liked) and a plus (a place in a manual list). The two
-   answers are the dialog's, which is what the drawn symbol says. */
 async function addOrLike(item, button) {
   const name = item.title || item.name || "";
   const liked = !!(item.key && likedKeys.has(item.key));
@@ -4198,7 +4058,7 @@ async function addOrLike(item, button) {
   }
   showToast(t(r.data.liked ? "likes.added" : "likes.removed", { title: name }));
   await refreshLikes();
-  // The list is not refetched just for this: the button carries the state.
+  // No refetch for this: the button carries the state.
   if (button) button.classList.toggle("is-liked", !!r.data.liked);
 }
 
@@ -4359,8 +4219,7 @@ function renderDetailHeader(item) {
 }
 
 function renderDetail(item) {
-  // Rebuilt only when something it shows changed: the tracks are fetched
-  // again on every rebuild, and the 20s refresh must not do that for nothing.
+  // Rebuilt only on a change: every rebuild refetches the tracks, and the 20s refresh must not.
   const signature = [item.id, item.name, item.count, item.kind,
                      (item.genres || []).join(","), item.id === listsData.active,
                      editingListId === item.id].join("|");
@@ -4408,8 +4267,7 @@ function renderDetail(item) {
     parts.push(fields);
   }
 
-  // Both kinds show what they hold; only a manual one can be given a cross
-  // (a genre list's tracks are the library's, not the list's).
+  // Only a manual list's tracks can be given a cross.
   const tracks = document.createElement("ol");
   tracks.className = "device-list recent-list list-tracks";
   parts.push(tracks);
@@ -4451,7 +4309,6 @@ function closeList() {
 document.getElementById("listsBack").addEventListener("click", closeList);
 
 async function refreshLists() {
-  // Never while a name is being typed: it would throw the typing away.
   if (document.body.dataset.access === "guest" || editingListId) return;
   const seq = ++listsSeq;
   const results = await Promise.all([apiGet("/api/lists"), apiGet("/api/library/facets")]);
@@ -4475,8 +4332,6 @@ async function refreshLists() {
 }
 
 function paintCreateGenres() {
-  // Rebuilt when the library gained a genre, but the ticks are kept: the
-  // pills are the selection.
   genrePicker(listsGenresBox, pickedGenres(listsGenresBox));
 }
 
@@ -4516,7 +4371,6 @@ document.getElementById("listsCreate").addEventListener("click", async () => {
   clearGenrePicker(listsGenresBox);
   listsNewBox.open = false;
   showToast(t("lists.created", { name: r.data.name }), tracksLabel(r.data.count));
-  // The new list has to be in the catalogue before its page can be shown.
   await refreshLists();
   openList(r.data.id);
 });
@@ -4540,10 +4394,7 @@ hapticsToggle.addEventListener("change", () => {
   if (hapticsToggle.checked) haptic(HAPTIC_TAP_MS);
 });
 
-// "Vibrate on touch" is a setting you cannot see working, and a phone can
-// refuse the vibration without telling the page: this one asks the browser
-// directly (the switch above does not matter here) and writes down what it
-// answered, so "nothing happens" can be told apart from "the page never asked".
+// The Test button asks the browser directly and writes down what it answered.
 document.getElementById("hapticsTest").addEventListener("click", () => {
   const line = document.getElementById("hapticsResult");
   if (typeof navigator.vibrate !== "function") {
@@ -5221,7 +5072,6 @@ function openAnnounceFiles(source) {
     trackOrderSourceSelect.value = source;
     loadTrackOrder();
   }
-  // The files card is its own page now, wherever the call comes from.
   goToCard("settings", "trackOrderTitle");
 }
 
@@ -5268,7 +5118,6 @@ let systemSoundTarget = null;
 let openSystemSoundKey = null;
 
 function setSystemSoundOpen(key) {
-  /* One row at a time, like the announcements: the card stays short. */
   openSystemSoundKey = key;
   document.querySelectorAll("#systemSoundsList .sys-item").forEach((li) => {
     const open = li.dataset.key === key;
@@ -5285,8 +5134,6 @@ async function refreshSystemSounds() {
   await refreshAnnouncementVolumes();
   list.innerHTML = "";
   result.data.forEach((item) => {
-    // Folded like an announcement row: the title and its state stay visible,
-    // the volume and the buttons are one click away.
     const li = document.createElement("li");
     li.className = "ann-item sys-item";
     li.dataset.key = item.key;
@@ -5564,8 +5411,6 @@ function deviceUtcString(now) {
 }
 
 function clockWriteDetail(result) {
-  // The server answers whether the RTC module was written too: without one,
-  // the Pi loses the time as soon as it is unplugged.
   const written = result.data && result.data.written_to_rtc;
   return [result.data && result.data.system_time, t(written ? "clock.rtc_written" : "clock.rtc_none")]
     .filter(Boolean).join(" · ");
@@ -6134,8 +5979,6 @@ async function refreshHomeWifi() {
   statusBox.dataset.state = result.data.active ? "ok" : "off";
   document.getElementById("homeWifiAuto").checked = !!result.data.autoconnect;
 
-  // This page is reached through that very network: say so, and warn before
-  // switching it off (which closes the page).
   homeWifiClientHere = !!result.data.client_here;
   document.getElementById("homeWifiHere").hidden = !homeWifiClientHere;
 }
@@ -6238,8 +6081,6 @@ function formatTimeOnly(epochSeconds) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-/* Precise in the first minutes, then coarser, the way a site dates what it has
-   seen: the exact second stops meaning anything long before the day does. */
 function formatAgo(seconds) {
   const s = Math.max(0, Math.round(Number(seconds) || 0));
   if (s < 10) return t("clients.ago_now");
@@ -6994,8 +6835,6 @@ async function banDevice(target, label) {
   refreshClients();
 }
 
-/* Forgetting is the deepest thing this page does - the device comes back as a
-   stranger, ban included - so it always asks first. */
 async function forgetDevice(target, label) {
   if (!await showConfirm(t("clients.forget_body", { name: label }), t("clients.forget"))) return;
   const r = await apiPost("/api/devices/forget", target);
@@ -7013,9 +6852,6 @@ function clientRow(c, options) {
   // On the Rukebox's own access point, or seen talking to us from somewhere
   // else. The second case is the whole reason this list is not just `iw`.
   const onAp = c.on_ap === true;
-  // The whole name line is the fold's summary, chevron included: the options
-  // used to sit behind an "Options" row of their own, one line per device that
-  // said nothing the chevron does not.
   const main = document.createElement("span");
   main.className = "client-main";
   const name = document.createElement("span");
@@ -7056,8 +6892,6 @@ function clientRow(c, options) {
   summary.append(main);
   fold.append(summary);
 
-  // The owner names the device here; the lock below is what stops the device
-  // from renaming itself later.
   const nameRow = document.createElement("div");
   nameRow.className = "field-row";
   const nameText = document.createElement("div");
@@ -7206,9 +7040,6 @@ function clientRow(c, options) {
   portalRow.append(portalText, portal);
   fold.append(portalRow);
 
-  // The tap that let this device in can be forgotten here, and the portal
-  // holds it again at its next connection: the first-connection behaviour,
-  // restored on one device without touching the others.
   const againRow = document.createElement("div");
   againRow.className = "field-row";
   const againText = document.createElement("div");
@@ -7243,9 +7074,8 @@ function clientRow(c, options) {
   fold.append(againRow);
 
   if (!c.me) {
-    // Disconnecting takes the access point's own station list: a device that
-    // reaches us over its owner's network is on nobody's radio of ours.
-    // Ban and Forget share a line where Disconnect is not there.
+    // Disconnect is the access point's own list, so it is gone off the hotspot: Ban and
+    // Forget share the line where it is absent.
     const buttons = document.createElement("div");
     const onALine = onAp || !!(options && options.forget);
     buttons.className = onALine ? "client-buttons" : "client-buttons is-single";
@@ -7269,8 +7099,6 @@ function clientRow(c, options) {
     ban.textContent = t("clients.ban");
     ban.addEventListener("click", () => banDevice(c.device_id ? { device_id: c.device_id } : { mac: c.mac }, clientLabel(c)));
     buttons.append(ban);
-    // Previous devices can also be forgotten outright, one at a time - the
-    // page it is on is the one that collects what nobody claims.
     if (options && options.forget) {
       const forget = document.createElement("button");
       forget.type = "button";
@@ -7327,9 +7155,7 @@ let previousLoaded = false;
 let bannedDevices = [];
 let bannedLoaded = false;
 
-/* One search box per list, all of them looking at the same three things: the
-   name, the address it is known by, and the MACs - a banned device has
-   several, and searching one of them has to find it. */
+/* One search box per list: it matches the name, the address and every MAC of the device. */
 function searchNeedle(id) {
   return document.getElementById(id).value.trim().toLowerCase();
 }
@@ -7360,8 +7186,7 @@ function renderClients() {
       : t(nowReadable ? "clients.none" : "clients.unreadable"));
 }
 
-/* Any of the three lists can be acted on, so an action taken in one refreshes
-   the ones the page has already loaded - a banned device leaves the other two. */
+/* An action in one list refreshes the others the page has already loaded. */
 function reloadClientLists() {
   refreshClients();
   if (previousLoaded) refreshPrevious();
@@ -7386,7 +7211,6 @@ function renderPrevious() {
     : searchSummary("previousSearch", matches, previousDevices.length
       ? t("clients.previous_count", { n: previousDevices.length }) : t("clients.previous_none"));
   document.getElementById("previousMore").hidden = !!needle || shown.length >= matches.length;
-  // Offered only when there is something to sweep: the devices nobody named.
   const unnamed = previousDevices.filter((d) => !d.name).length;
   const sweep = document.getElementById("previousForgetUnnamed");
   sweep.hidden = !unnamed;
@@ -7433,8 +7257,7 @@ document.getElementById("previousMore").addEventListener("click", () => {
 });
 refreshClients();
 setInterval(() => {
-  // A rebuild takes the field out from under the keyboard (and closes what is
-  // open), so the poll stands aside while a name is being typed.
+  // A rebuild would take the field out from under the keyboard, so the poll stands aside.
   if (document.body.dataset.tab === "system" && !document.hidden && !editingClientName()) refreshClients();
 }, 15000);
 
@@ -7568,8 +7391,6 @@ setInterval(() => {
 }, 15000);
 document.querySelectorAll('.tab-btn[data-tab="system"]').forEach((btn) => btn.addEventListener("click", refreshHealth));
 
-// The report is what the radio can see of its own audio path, measured over a
-// few seconds: it is meant to be copied into a message, hence the one button.
 document.getElementById("btnAudioDiag").addEventListener("click", async () => {
   const btn = document.getElementById("btnAudioDiag");
   btn.disabled = true;
@@ -7580,8 +7401,6 @@ document.getElementById("btnAudioDiag").addEventListener("click", async () => {
     return;
   }
   const text = (result.data && result.data.report) || "";
-  // A report is read line by line: it gets a wider dialog and a fixed-width
-  // font when the screen has the room.
   const report = document.createElement("pre");
   report.className = "diag-text";
   report.textContent = text;
@@ -7656,8 +7475,7 @@ document.getElementById("btnStatsReset").addEventListener("click", async () => {
   showToast(t("stats.reset_done"));
 });
 
-/* A page that reads its data only when it is looked at (the event log) hears
-   about it here, instead of from a folded box being opened. */
+/* A page that reads its data only when it is shown hears about it here. */
 document.addEventListener("page-shown", (event) => {
   const page = event.detail && event.detail.page;
   if (page === "events" && document.getElementById("eventList").children.length === 0) {
@@ -7764,9 +7582,7 @@ async function refreshUpdate() {
       }
       refreshStats();
     }
-    // The end marker is written by the command that launched the updater, so a
-    // run that died halfway leaves none: say so instead of letting the page
-    // believe an update is still going on for ever.
+    // No end marker means the run died halfway: say so instead of waiting for ever.
     if (d.interrupted && !updateNotStartedShown) {
       hint.textContent = t("update.interrupted");
     }
@@ -7812,8 +7628,6 @@ async function checkRelease(force) {
     const r = result.data;
     const when = r.published_at ? new Date(r.published_at).toLocaleDateString() : "";
     if (!r.newer) {
-      // Nothing to report: the toast is the whole answer to a manual check, and
-      // the line stays empty (.hint:empty hides it) as it was on page load.
       status.textContent = "";
       if (force) showToast(t("update.release_current", { tag: r.tag }));
     } else if (!r.allowed) {
@@ -8180,8 +7994,7 @@ async function runMusicSync() {
       sentBytes += item.file.size;
       streak = 0;
     } else if (musicStopRequested) {
-      // Stopped on purpose while this file was in flight: it goes back to the
-      // list, and it is not an error - the run simply ends here.
+      // Stopped on purpose while this file was in flight: back to the list, not an error.
       remaining.push(item);
       break;
     } else {
@@ -8220,9 +8033,6 @@ async function runMusicSync() {
   pendingMusicFiles = remaining.length ? musicSelectedFiles.slice() : [];
   await refreshMusicLibrary();
   if (!musicQueue.length) {
-    // Nothing left to send: the card goes back to rest, like the sidebar box
-    // that has just faded - it used to keep "sending 42 / 42" for good. A
-    // partial failure is handled by buildMusicPlan(), which does the same.
     document.getElementById("musicPlanBox").hidden = true;
     document.getElementById("musicProgressLine").textContent = "";
     document.getElementById("musicProgressBar").style.width = "0%";
@@ -8702,10 +8512,6 @@ function initHelpToggles() {
 
 initHelpToggles();
 
-/* "Finish connecting" belongs to the menu, and on the Home grid the menu's foot
-   is where every other area shows "Show all options": one or the other there,
-   never both. The sentence that follows a release stays at the top of the grid
-   - asked for as the button alone, and only on Home. */
 function placePortalButton() {
   const btn = document.getElementById("portalReleaseBtn");
   const foot = document.getElementById("portalFoot");
@@ -8716,10 +8522,6 @@ function placePortalButton() {
   if (btn.parentElement !== wanted) wanted.appendChild(btn);
 }
 
-/* A tap is confirmed once, and briefly. The sentence says the network is usable
-   now, which is news for a few seconds - not a banner to leave standing, as the
-   owner reported ("le message reste, même après avoir cliqué et rafraîchi").
-   The tap's own date is what makes it once: a refresh finds it announced. */
 const PORTAL_ANNOUNCE_SEC = 120;      // a tap still worth confirming
 const PORTAL_SENTENCE_MS = 10000;     // and how long the confirmation stays
 const PORTAL_ANNOUNCED_KEY = "portalAnnounced";
@@ -8747,11 +8549,7 @@ async function refreshPortalBanner() {
   const btn = document.getElementById("portalReleaseBtn");
   placePortalButton();
 
-  // "released" is also what the server answers to a device that was never held
-  // (a computer on the home network): only a device on the hotspot has anything
-  // to finish, and only it should be told that it is done. Recomputed rather
-  // than written once - the page outlives the Wi-Fi it was opened on, and the
-  // sentence belongs to the hotspot, not to the tab.
+  // Only a device on the hotspot has anything to finish, so say it was done.
   const onAp = !!d.on_ap;
   const held = portalHolds(d);
   btn.hidden = !held;
@@ -8760,8 +8558,6 @@ async function refreshPortalBanner() {
     clearPortalSentence();
     return held;
   }
-  // The date is the whole memory: a tap is announced once, and a later tap has
-  // a later date, so nothing has to be cleaned up here.
   if (localStorage.getItem(PORTAL_ANNOUNCED_KEY) !== String(tap)
       && Date.now() / 1000 - tap < PORTAL_ANNOUNCE_SEC) {
     localStorage.setItem(PORTAL_ANNOUNCED_KEY, String(tap));
@@ -8770,8 +8566,7 @@ async function refreshPortalBanner() {
   return held;
 }
 
-/* Discreet, and once: the sentence appears where the button was, and a device
-   that has just joined needs to be told that it went through. */
+/* The sentence appears where the button was. void offsetWidth restarts it. */
 function showPortalDone() {
   const block = document.getElementById("guestRelease");
   block.classList.remove("is-done");
@@ -8779,18 +8574,11 @@ function showPortalDone() {
   block.classList.add("is-done");
 }
 
-/* The banner follows the network the page is on, not the one it was opened on:
-   a phone that switches to its owner's Wi-Fi would otherwise keep the sentence
-   for good. refreshEvery also re-runs it the moment the tab comes back. */
+/* Redone while the page is up: a phone that changes Wi-Fi would keep the sentence for good. */
 refreshEvery(refreshPortalBanner, 30000);
 
-/* The window the interface is shown in belongs to the phone: a captive-portal
-   window is the operating system's own, and no page can close it. Two things
-   ARE possible, and the release does both. Hand the interface to the real
-   browser - which a portal window sometimes refuses, hence the guarded
-   window.open(). And then send the captive window to the address its own system
-   probes: our server answers "no portal here" once the device is released, so
-   the phone validates the network and takes its window away by itself. */
+/* A captive window cannot be closed by a page: the release hands the interface over and
+   sends that window to the address its own system probes, which now answers "no portal". */
 const CAPTIVE_PROBE_APPLE = "http://captive.apple.com/hotspot-detect.html";
 const CAPTIVE_PROBE_GOOGLE = "http://connectivitycheck.gstatic.com/generate_204";
 
@@ -8806,13 +8594,7 @@ function portalBrowserTab() {
   }
 }
 
-/* Sends the window the interface is shown in to the address its own system
-   probes, which answers "no portal here" now that the device is released, so
-   the phone validates the network and takes that window away. Done at once,
-   never on a timer: measured on an iPhone, a release at 16:21:03 was followed
-   by the portal page reloading 0.4s later and by no probe at all - the timer
-   the nudge lived on was gone with the page. assign(), not replace(), so the
-   interface stays one Back away if this is an ordinary browser tab. */
+/* Done at once, never on a timer: the page reloads as soon as this runs. assign(), not replace(). */
 function leaveCaptiveWindow() {
   window.location.assign(applePlatform() ? CAPTIVE_PROBE_APPLE : CAPTIVE_PROBE_GOOGLE);
 }
@@ -8820,10 +8602,7 @@ function leaveCaptiveWindow() {
 document.getElementById("portalReleaseBtn").addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true;
-  // Asked for HERE, while the tap still counts as the gesture a browser wants
-  // before it opens a tab: after the await below it would be refused. Apple is
-  // left out on purpose - its portal window has no tabs, and opening one there
-  // reloads the very page the nudge below depends on.
+  // Requested BEFORE the await: after it, a browser no longer counts the tap as a gesture.
   const tab = applePlatform() ? null : portalBrowserTab();
   const hint = document.getElementById("portalHint");
   const result = await apiPost("/api/portal/release");
@@ -8859,19 +8638,11 @@ document.querySelectorAll(SCROLL_FADE_SELECTOR).forEach((el) => {
   update();
 });
 
-/* A device the portal still holds has one step left before the page is really
-   its own, and that step is on the Home menu: it lands there instead of on the
-   player, and the player's tile carries the ring that says where to go next.
-   Waited on, so the landing is in place when the boot overlay lifts rather than
-   a player page swapped out from under the reader. */
 const portalHoldsDevice = await refreshPortalBanner();
 if (portalHoldsDevice && arrivedWithoutHash && !railMode()) {
   setActiveView(DEFAULT_VIEW.tab, null, { replace: true, scroll: false });
 }
 
-/* The arrival page was opened before the page-shown listener above existed, so
-   it gets its one announcement here - a page that reads its data only when it
-   is looked at would otherwise stay empty until the reader navigated away. */
 document.dispatchEvent(new CustomEvent("page-shown", {
   detail: { tab: document.body.dataset.tab || null, page: document.body.dataset.page || null },
 }));

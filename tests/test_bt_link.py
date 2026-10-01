@@ -91,8 +91,7 @@ class LocateTest(PatchTest):
                          "the other controller is not asked when the first one says yes")
 
     def test_connected_elsewhere_is_still_connected(self):
-        # The reported case: paired and connected on the built-in, unknown to
-        # the dongle the settings name.
+        # Paired on the built-in controller, unknown to the dongle the settings name.
         self.patch(Fake({DONGLE: ABSENT, BUILTIN: CONNECTED}))
         state = bt_link.locate(SPEAKER, DONGLE)
         self.assertEqual((state["connected"], state["controller"], state["expected"]),

@@ -19,11 +19,7 @@ import control_client
 
 log = logging.getLogger("audio_diag")
 
-# The bitpool the encoder and the speaker agreed on is exposed nowhere
-# (PipeWire says "sbc", or "sbc_xq" for its high-bitpool variant), so the only
-# way to see which quality a link is really running at is to measure what the
-# radio sends per second and read the A2DP table backwards: at 48 kHz joint
-# stereo, bitpool 35 is 229 kbit/s, 53 is 328, and 76 (SBC-XQ) is 452.
+# The bitpool the encoder agreed on is exposed nowhere: read it back from the measured bitrate.
 SBC_KBPS_BY_BITPOOL = ((452, 76), (328, 53), (229, 35))
 
 MEASURE_SECONDS = 6

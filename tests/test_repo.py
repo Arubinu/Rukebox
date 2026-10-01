@@ -131,10 +131,7 @@ class FilesTest(unittest.TestCase):
 
 class GuestPathsTest(unittest.TestCase):
     def test_the_two_guest_lists_agree(self):
-        # app.js refuses a guest call before sending it, from its own copy of
-        # the list. A path the server allows and that copy forgets is a button
-        # that shows its price and does nothing - which is what happened to
-        # pause and skip a sound, added to the server and not to the page.
+        # A path the server allows and app.js forgets is a button that does nothing.
         source = _path.read("src", "web_server.py")
         start = source.index("_GUEST_PATHS = frozenset({")
         server = set(re.findall(r'"(/api/[^"]*)"', source[start:source.index("})", start)]))

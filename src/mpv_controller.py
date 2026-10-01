@@ -11,11 +11,7 @@ import time
 
 log = logging.getLogger("mpv")
 
-# Loudness filters, named as libavfilter spells them (every mpv since 0.25
-# takes those names directly): acompressor tames the peaks, a fixed gain
-# brings the quiet parts up, and alimiter keeps the result below full scale.
-# That is what makes a quiet recording audible on a small speaker without
-# clipping the loud ones - measured with ffmpeg on tones at -1/-18/-38 dBFS.
+# acompressor, then a fixed gain, then alimiter: quiet music audible, loud music not clipping.
 COMPRESSION_FILTERS = {
     "soft": ("acompressor=threshold=0.125:ratio=2.5:attack=20:release=400:makeup=1"
              ":knee=6:link=average,volume=5dB,alimiter=limit=0.95:level=false"),
@@ -145,8 +141,7 @@ class MPVController:
         chain = str(chain or "")
         if not chain:
             return self._set_af("")
-        # Every mpv since 0.25 accepts libavfilter names directly; the lavfi
-        # wrapper is the fallback for an older one, or a name clash.
+        # The lavfi wrapper is the fallback for an mpv older than 0.25, or a name clash.
         return self._set_af(chain) or self._set_af("lavfi=[%s]" % chain)
 
     def _set_af(self, value):

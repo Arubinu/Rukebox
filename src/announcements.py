@@ -18,8 +18,7 @@ def _slugify(name):
 
 
 def _is_absolute_path(folder):
-    # Not os.path.isabs(): its answer for "/x" differs between Python builds
-    # on Windows, where this also runs in tests.
+    # Not os.path.isabs(): its answer for "/x" differs between Python builds on Windows.
     return folder.startswith("/") or bool(re.match(r"^[A-Za-z]:[\\/]", folder))
 
 

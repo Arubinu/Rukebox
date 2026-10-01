@@ -21,11 +21,9 @@ import track_media
 BRACKETS = re.compile(r"[\(\[\{][^\)\]\}]*[\)\]\}]")
 FEAT = re.compile(r"\b(?:feat|featuring|ft|avec)\b.*$", re.IGNORECASE)
 LEADING_TRACK = re.compile(r"^\s*\d{1,3}\s*[-._)]\s*")
-# Two copies of one file, re-tagged, can differ by the last frame: a second is
-# generous and still cannot make two different recordings look alike.
+# Re-tagged copies of one file can differ by the last frame, so a second of tolerance.
 SAME_FILE_SEC = 1.0
-# Short files (jingles, samples) are not worth reporting, and comparing a
-# hundred of them costs nothing but noise.
+# Jingles and samples are too short to be worth reporting.
 MIN_SIZE = 200 * 1024
 MAX_GROUPS = 400
 
@@ -109,8 +107,6 @@ def groups(db_path, hidden=()):
                 and abs(other["duration"] - one["duration"]) <= SAME_FILE_SEC
                 for other in group["tracks"])
         group["same_file"] = any(one["same_file"] for one in group["tracks"])
-        # What the copies hold that one of them would hold alone - the only
-        # number that says whether the check was worth running.
         group["reclaimable"] = sum(one["size"] for one in group["tracks"]) - max(
             one["size"] for one in group["tracks"])
         out.append(group)
@@ -165,8 +161,7 @@ def main(argv=None):
     if not os.path.exists(path):
         print("no library database at %s" % path)
         return 1
-    # Track names hold anything, and a terminal on a C locale cannot print it:
-    # a report is not worth a traceback.
+    # A C-locale terminal cannot print every track name: replace rather than raise.
     try:
         sys.stdout.reconfigure(errors="replace")
     except (AttributeError, OSError):

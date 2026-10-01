@@ -124,10 +124,7 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(announcements.volumes(self.path), {})
 
     def test_writers_at_once_do_not_lose_the_announcements(self):
-        # The reported bug: "Jouer" answered "Cette annonce n'existe plus". Two
-        # saves sharing one temporary file can publish a document that is two
-        # JSON documents glued together, and the reader then sees nothing -
-        # measured on the Pi with the volume switch, which saves on every flip.
+        # Two saves sharing one temporary file can publish two JSON documents glued together.
         announcements.save_all(self.path, [
             {"id": "morning", "name": "Matin", "folder": self.folder, "hour": 7,
              "minute": 0, "trigger": "time", "delay_min": 30, "repeat_times": 1,
@@ -141,11 +138,7 @@ class StoreTest(unittest.TestCase):
 
         def hammer(key):
             for value in range(40):
-                # Windows refuses the rename while another thread has the file
-                # open for reading (no FILE_SHARE_DELETE), so a shared read here
-                # can answer "access denied" - a property of the test machine,
-                # not a lost announcement. On the Pi (Linux) the rename always
-                # goes through; what is asserted below is the document.
+                # Windows refuses the rename while a reader holds the file open (no FILE_SHARE_DELETE); the Pi does not.
                 for attempt in range(20):
                     try:
                         announcements.set_volume(self.path, key, {"on": True, "volume": value})
@@ -172,8 +165,6 @@ class StoreTest(unittest.TestCase):
                          ["morning", "doubleclick"])
 
     def test_a_file_we_cannot_read_is_never_replaced(self):
-        # An unreadable file must not be answered with "empty" and then
-        # overwritten with an empty list: that is how announcements are lost.
         with open(self.path, "w", encoding="utf-8") as f:
             f.write('{"items": [{"id": "morning"}]\n{"half": "a second document"}')
         with self.assertRaises(ValueError) as caught:
@@ -304,7 +295,6 @@ class DaemonVolumeTest(unittest.TestCase):
         item = self.announcement(volume=20)
         self.daemon._announcements()  # as the first command would
         self.assertEqual([i["id"] for i in self.daemon._custom_announcements], [item["id"]])
-        # A save the daemon was never told about (a hand edit, a lost message).
         time.sleep(0.02)
         announcements.set_volume(self.path, "meme", {"on": True, "volume": 33})
         self.daemon._announcements()

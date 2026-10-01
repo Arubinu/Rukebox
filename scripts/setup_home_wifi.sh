@@ -26,8 +26,7 @@ if [ -z "$CONN_NAME" ]; then
     exit 1
 fi
 
-# powersave 2 = off: the radio is shared with Bluetooth audio, and its power
-# save wake-ups make the sound stutter.
+# powersave 2 = off: the radio is shared with Bluetooth audio and its wake-ups make the sound stutter.
 nmcli connection modify "$CONN_NAME" connection.autoconnect yes \
     connection.interface-name wlan0 802-11-wireless.powersave 2
 

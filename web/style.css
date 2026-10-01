@@ -107,9 +107,6 @@
 :root {
   --i-home: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 10.5 12 3l9 7.5%22/%3E%3Cpath d=%22M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5%22/%3E%3C/svg%3E");
   --i-music: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 18V5l12-2v13%22/%3E%3Ccircle cx=%226%22 cy=%2218%22 r=%223%22/%3E%3Ccircle cx=%2218%22 cy=%2216%22 r=%223%22/%3E%3C/svg%3E");
-  /* The catalogue, as books on a shelf: the note belongs to what is playing
-     (the cover placeholder uses it too), and two pages of one area never share
-     a drawing - the menus show them side by side. */
   --i-library: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m16 6 4 14%22/%3E%3Cpath d=%22M12 6v14%22/%3E%3Cpath d=%22M8 8v12%22/%3E%3Cpath d=%22M4 4v16%22/%3E%3C/svg%3E");
   --i-sliders: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6%22/%3E%3C/svg%3E");
   --i-speaker: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11 5 6 9H2v6h4l5 4z%22/%3E%3Cpath d=%22M15.5 8.5a5 5 0 0 1 0 7%22/%3E%3Cpath d=%22M19 5a10 10 0 0 1 0 14%22/%3E%3C/svg%3E");
@@ -159,8 +156,6 @@
   --i-clock: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22M12 6v6l4 2%22/%3E%3C/svg%3E");
   --i-shield: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3C/svg%3E");
   --i-wifi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M5 12.5a11 11 0 0 1 14 0M1.4 9a16 16 0 0 1 21.2 0M8.5 16a6 6 0 0 1 7 0M12 20h.01%22/%3E%3C/svg%3E");
-  /* The devices on the network, as against the network itself: the arcs are
-     the Wi-Fi card's, this one is what is attached to it. */
   --i-monitor-smartphone: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8%22/%3E%3Cpath d=%22M10 19v-3.96 3.15%22/%3E%3Cpath d=%22M7 19h5%22/%3E%3Crect width=%226%22 height=%2210%22 x=%2216%22 y=%2212%22 rx=%222%22/%3E%3C/svg%3E");
   --i-antenna: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%222%22/%3E%3Cpath d=%22M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2%22/%3E%3C/svg%3E");
   --i-bell: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9%22/%3E%3Cpath d=%22M13.7 21a2 2 0 0 1-3.4 0%22/%3E%3C/svg%3E");
@@ -188,9 +183,7 @@
   --i-package: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z%22/%3E%3Cpath d=%22m3.3 7 8.7 5 8.7-5M12 22V12%22/%3E%3C/svg%3E");
   --i-heart: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z%22/%3E%3C/svg%3E");
   --i-heart-filled: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22black%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z%22/%3E%3C/svg%3E");
-  /* A heart and a plus side by side: one button, two answers - like it, or
-     put it in a list. Drawn rather than written "+/<3": a phone font may have
-     no glyph for either. */
+  /* Drawn, not written "+/<3": a phone font may have no glyph for either. */
   --i-plus-heart: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg transform=%22translate(0.2 3.5) scale(0.6)%22 stroke-width=%223.4%22%3E%3Cpath d=%22M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z%22/%3E%3C/g%3E%3Cpath d=%22M19 10v6M16 13h6%22/%3E%3C/svg%3E");
 }
 
@@ -301,23 +294,13 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   height: 100%;
-  /* No pull-to-refresh on the page itself. The document cannot scroll, so a
-     downward drag at the top is the browser's own gesture, and the
-     captive-portal window - which has no title bar to catch it - armed it at
-     the first swipe of a grid. Asked for as: what the browser does when the
-     gesture starts on its chrome. Safari ignores this (WebKit 275947), so an
-     iPhone keeps the bubble. */
+  /* Safari ignores overscroll-behavior (WebKit 275947), so an iPhone keeps
+     the refresh bubble. */
   overscroll-behavior-y: contain;
 }
 
-/* The page is an application shell: it is the height of the screen and the
-   SCROLLER is #main, never the document. Reported from Arc as the bottom of a
-   page flickering between the tab bar sitting low and riding up over the
-   content while the browser's own bar came back. A document that scrolls
-   feeds the browser's bar straight back into the layout - hide the bar, the
-   document is exactly the visible height, nothing is scrollable any more, the
-   bar returns, the document grows, and round it goes. svh never moves, and a
-   document that cannot scroll cannot take part in that at all. */
+/* svh, never vh/dvh: a scrolling document feeds the browser's bar back
+   into the layout and flickers. */
 body {
   margin: 0;
   height: 100%;
@@ -392,15 +375,8 @@ code {
   height: 100%;
 }
 
-/* The one scroll container. It sits STRICTLY between the two bars - the fixed
-   topbar's measured height above, the tab bar below - so no part of the
-   content is ever hidden under a bar: there is no strip that appears or
-   disappears when the browser's own bar moves. It still spans the full width,
-   so its scrollbar is the window's, at the right edge.
-   The gutters are PADDING here: a scroll container keeps its scrollbar outside
-   its padding, which is what leaves the bar on the window edge while the cards
-   are inset - and the rail can be stepped around asymmetrically, which
-   centring alone cannot do. */
+/* The one scroll container, strictly between the two bars. Gutters are
+   padding, so the scrollbar stays at the window edge while the cards are inset. */
 #main {
   position: absolute;
   top: var(--topbar-h, 68px);
@@ -412,9 +388,8 @@ code {
   padding: var(--main-gap, 16px) 16px 16px;
 }
 
-/* Reading width, centred in what the padding leaves. width: 100% is not
-   decoration: auto margins cancel the stretch a grid or flex item would
-   otherwise get, and without it the card shrinks to its content. */
+/* width: 100%: auto margins cancel the stretch, without it the card shrinks
+   to its content. */
 #main > .card,
 #main > .page-grid,
 #main > .guest-banner,
@@ -658,13 +633,6 @@ code {
 :root[data-tab="system"] .card[data-tab]:not([data-tab="system"]),
 :root[data-tab="stats"] .card[data-tab]:not([data-tab="stats"]) { display: none; }
 
-/* One area, several pages. Where the tab bar has no room for a rail - a phone,
-   and the guest access, which has no tab bar at all - an area opens on a grid
-   of pages, and the logo above carries the arrow back. Where the rail exists
-   it lists the same pages instead, and the grid steps aside (see the 640px
-   block). No outer frame: the cells are separated by the 1px gaps showing the
-   grid's own background through, and the empty cells of a last row are filled
-   so the lines reach the edge instead of ending in a grey block. */
 .page-grid {
   grid-column: 1 / -1;
   display: grid;
@@ -714,18 +682,12 @@ code {
 }
 .page-tile-icon::before { width: 23px; height: 23px; }
 
-/* The tile of the page the interface opens on ("Lecture en cours") carries a
-   soft ring, a discreet mark of where it starts - asked for as a "pouls
-   discret", and permanent. A ring rather than a colour, so a reduced-motion
-   reader keeps a static mark of it (see the media block at the end). */
 .page-tile.is-attention .page-tile-icon { animation: tile-attention 2.6s ease-out infinite; }
 @keyframes tile-attention {
   0% { box-shadow: 0 0 0 0 var(--accent-ring); }
   70%, 100% { box-shadow: 0 0 0 10px transparent; }
 }
 
-/* The way back sits on the logo, which darkens so the arrow reads - and only
-   while a page is open. */
 .brand-back {
   position: relative;
   display: inline-flex;
@@ -745,8 +707,6 @@ code {
 .brand-back-icon::before { width: 20px; height: 20px; }
 .brand-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 50%; }
 
-/* The pages under their area in the rail: the same list as the grid, one click
-   away instead of two. Hidden on a phone, where the rail is a bottom bar. */
 .rail-pages { display: none; }
 
 @media (min-width: 640px) {
@@ -757,9 +717,6 @@ code {
     margin: -2px 0 6px 6px;
   }
   .rail-pages[hidden] { display: none; }
-  /* A pause between the sets of pages (the devices, the network, the
-     machine...), made of space alone: a hairline there read as a second frame.
-     The list is long enough to need the break. */
   .rail-page.is-group-start {
     margin-top: 8px;
     padding-top: 10px;
@@ -784,18 +741,10 @@ code {
   .rail-page.active { color: var(--accent); border-left-color: var(--accent); font-weight: 650; }
   .rail-page:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-  /* The rail is the menu here, so the small-screen map steps aside - except
-     for a guest, whose only menu IS that map. */
+  /* The rail replaces the grid, except for a guest, whose only menu is the grid. */
   body:not([data-access="guest"]) .page-grid { display: none; }
 }
 
-/* A card is a page now. On a phone - where the width is what the content needs
-   and a 20px frame is 10% of it - the page IS the box, the player included: the
-   frame, the shadow and the padding step aside, and the content starts right
-   under the bar instead of after the gap the several-cards-a-page layout wanted.
-   From 640px the room is there, the rail is beside the page, and the card keeps
-   its face. The player keeps the gradient panel it shows its track on - that is
-   inside the card, not the card itself. */
 @media (max-width: 639.98px) {
   body[data-page]:not([data-page=""]) #main { --main-gap: 4px; }
   body[data-page]:not([data-page=""]) .card[data-tab]:not(.tab-hidden) {
@@ -807,41 +756,23 @@ code {
   }
 }
 
-/* "Restricted access" belongs to the menu, not to the pages: a guest reads it
-   on the grid, and once a page is open the page has the room. */
 body[data-page]:not([data-page=""]) .guest-banner { display: none !important; }
 
-/* The grid is a menu: on a phone it sits in the middle of the screen, where a
-   thumb reaches it, rather than under the title. Centred by auto margins, not
-   by align-content: a centred grid taller than the screen is laid out around
-   the middle, which puts its first row out of reach above and lets its last row
-   run under the view bar at the bottom. Auto margins take the free space when
-   there is some and give way when there is none. */
+/* Centred by auto margins, not align-content: a centred grid taller than the
+   screen puts its first row out of reach above. */
 body[data-page=""] #main {
   display: flex;
   flex-direction: column;
-  /* The base rule's align-items: start is what keeps a card off the ceiling in
-     page mode; in this column it would also stop every item from filling the
-     width - the view bar came out shrink-to-fit. */
+  /* stretch: the base rule's align-items: start would leave every item
+     shrink-to-fit here. */
   align-items: stretch;
-  /* The banner, the grid and the view bar are three blocks, not one. */
   row-gap: 12px;
 }
-/* A flex item shrinks by default and the grid is the tall one: on a band too
-   short for both it was the grid that gave way, its last row clipped by its own
-   overflow: hidden and unreachable by any scroll - the bar then sat over the
-   tiles. Nothing here shrinks: the band's content overflows it instead, #main
-   scrolls, and the two read one after the other. */
+/* flex: none: a shrinking grid loses its last row to its own overflow: hidden,
+   with no scroll to reach it. */
 body[data-page=""] #main > .page-grid,
 body[data-page=""] #main > .view-bar { flex: none; }
 
-/* Wherever the grid is the menu, it is centred in the room the band leaves -
-   the view bar, where an area has one, sits at the foot below that gap, which is
-   what keeps it just above the tab bar without stealing the centring from the
-   grid. The grid alone on a page (Home, the guest's menu) is centred in the band
-   itself. A grid too tall for the room gives the auto margins nothing to take,
-   they resolve to zero, and the two read one after the other with the page
-   scrolling - which is the "critical height" case. */
 body[data-page=""] #main > .page-grid { margin-block: auto; }
 
 .audio-detected { margin: 4px 0 8px; }
@@ -856,10 +787,6 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 .recent-list li.is-current .recent-when { color: var(--accent); font-weight: 600; }
 #recentEmpty { text-align: center; }
 
-/* Duplicate tracks: one card per song, its copies folded away until the row is
-   opened, each copy with what it weighs - the size, the length and the bitrate
-   are what the choice is made on, and the ones a check set aside are struck
-   through. Folded because a page of groups is read by its titles first. */
 .device-list li.duplicate-group { display: block; padding: 0; overflow: hidden; }
 .duplicate-fold { display: block; }
 .duplicate-head {
@@ -873,7 +800,6 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 }
 .duplicate-head::-webkit-details-marker { display: none; }
 .duplicate-head strong { flex: 1 1 auto; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
-/* The chevron of every foldable row in this app, at the right of the line. */
 .duplicate-head::after {
   content: "";
   flex: none;
@@ -904,10 +830,7 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 .duplicate-copy.is-hidden { opacity: 0.6; }
 .duplicate-copy.is-hidden .recent-title { text-decoration: line-through; }
 
-/* The second button of a copy: the height of the play button it sits beside,
-   and in a narrow card - a phone - the same square. The words are what does
-   not fit there, so they are clipped rather than removed: they stay the
-   accessible name, as the queue button before them already did. */
+/* Clipped, not removed, on a phone: the words stay the accessible name. */
 .btn-small.duplicate-keep { min-height: var(--tap); }
 .btn-small.duplicate-keep::before { width: 20px; height: 20px; }
 @container card (max-width: 520px) {
@@ -922,8 +845,6 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
   }
 }
 
-/* The library's like-or-list button: the heart in it is filled in red once the
-   track is liked, so one glyph tells both answers. */
 .library-add.is-liked { color: var(--danger); border-color: var(--danger); }
 
 .suggest-me-line { margin: 4px 0 12px; color: var(--text-muted); text-align: center; }
@@ -1009,11 +930,8 @@ body[data-access="guest"] .view-bar { display: none; }
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-  /* align-content defaults to stretch, and #main is now exactly as tall as the
-     window: the rows would share the free space and every card would sit in a
-     box taller than itself - a gap before the next card, sized differently on
-     each page. The grid menu centres itself on purpose (below); a page starts
-     at the top. */
+  /* start: the default stretch shares the free space and gives every card a box
+     taller than itself. */
   align-content: start;
 }
 
@@ -1256,9 +1174,7 @@ body[data-access="guest"] .view-bar { display: none; }
 }
 .np-info { flex: 1; min-width: 0; }
 
-/* The heart sits on the cover's own top-right corner with no frame and no
-   background of its own - just the glyph, kept readable over any artwork by a
-   drop shadow. It is about the song showing, not about the transport. */
+/* The glyph alone, no frame: a drop shadow keeps it readable over any artwork. */
 .np-cover-box { position: relative; flex: none; }
 .np-like {
   position: absolute;
@@ -1728,9 +1644,6 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
 [data-cost][data-cost-short]::after { background: var(--danger); border-color: var(--danger); color: var(--danger-contrast); }
 .client-list li { flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .client-options { flex: 1 1 100%; min-width: 0; }
-/* The name line IS the summary, so the chevron lands at the right of the
-   device and the options open right under it - no row of their own saying
-   "Options" first. The row's own frame stays the li's. */
 .client-options > summary {
   display: flex;
   align-items: center;
@@ -1763,17 +1676,12 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
 .client-meta { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
 .client-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; align-items: center; }
 
-/* A line between the device and its first option, like the ones the options
-   draw between themselves - the name line and "No credits" would otherwise
-   read as one block. */
 .client-options > .field-row { margin-top: 0; }
 .client-options > summary + .field-row {
   margin-top: 8px;
   border-top: 1px solid var(--border);
 }
 .client-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-/* One button where the other has two: a device off the access point cannot be
-   disconnected from it, and half an empty line reads as a missing button. */
 .client-buttons.is-single { grid-template-columns: 1fr; }
 .client-buttons > .btn { width: 100%; }
 
@@ -1961,13 +1869,8 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
   color: var(--text-muted);
 }
 
-/* A card IS the container (`.card`, at the top of this file: `container: card /
-   inline-size`), so these three blocks measure the card, not the screen - which
-   is the point: a card is narrow both on a phone and in a narrow grid track.
-   They do apply; measured in Edge, a 420px card gets the 100%-width field rows
-   and the 44px library button, a 600px one does not. Note the query measures
-   the CONTENT box and .card carries 20px of padding, so the 520 below switches
-   at a 560px card and the 380 at a 420px one. */
+/* These container queries measure the card's CONTENT box, not the screen:
+   520 switches at a 560px card. */
 @container card (max-width: 520px) {
   .field-row > .text-input,
   .field-row > .input-with-action {
@@ -2002,8 +1905,6 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
   .field-row > .time-input,
   .field-row > .pin-field { margin-inline: auto; }
 
-  /* The codec answer and its description do not fit side by side on a phone,
-     so it takes the full width under the label, as a text input does. */
   .field-row > .codec-field { flex: 1 1 100%; }
   .codec-open { max-width: 100%; }
 
@@ -2257,8 +2158,6 @@ select {
 
 .hint.warning { color: var(--danger); font-weight: 600; }
 
-/* The one line that warns the page is about to cut its own lifeline: centred,
-   above the switch it is about. */
 #homeWifiHere { text-align: center; }
 
 .haptics-test { margin-top: 8px; }
@@ -2431,16 +2330,12 @@ select {
 .ann-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; }
 .ann-delete { flex: none; }
 
-/* One announcement source's own volume: the switch on one line, the volume
-   as a number field on the next. */
 .ann-volume { flex: 1 1 100%; min-width: 0; }
 .ann-volume.is-inline { margin-top: 6px; }
 .ann-volume > .field-row:first-child { border-top: 0; }
 .ann-volume:not(.is-on) .ann-volume-value { opacity: 0.5; }
 .device-list .ann-volume .field-row { min-height: 40px; padding: 2px 0; }
 
-/* A System sound is folded like an announcement row and reuses its shape: the
-   title and its state stay visible, the volume and the buttons wait inside. */
 .sys-item .ann-body > .device-actions { margin-top: 6px; }
 
 .device-list li.ann-item.is-off {
@@ -2458,15 +2353,12 @@ select {
   .ann-actions .btn { flex-direction: column; gap: 4px; min-height: 58px; font-size: 13px; }
 }
 
-/* Music lists: the announcements' accordion, plus what a list holds and the
-   genre picker of the create/edit form. */
 .lists-now { text-align: center; }
 .device-list li.ann-item.is-playing { border-color: var(--accent); background: var(--accent-soft); }
 .ann-item.is-playing .ann-name { color: var(--accent); }
 .ann-actions.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .list-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-/* No box of its own: a list's tracks flow with the page, so one scroll does
-   everything (a nested scroll stole the drag meant for the lists). */
+/* No nested scroll: it steals the drag meant for the page. */
 .list-tracks { margin-top: 12px; }
 .list-detail-head {
   display: flex;
@@ -2475,8 +2367,6 @@ select {
   margin-bottom: 12px;
 }
 .list-detail-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-/* A note inside the box ("no track yet", "…and 30 more"): a row like the
-   others, so opening an empty list never looks like nothing happened. */
 .device-list li.list-note {
   display: block;
   color: var(--text-muted);
@@ -2485,9 +2375,6 @@ select {
   line-height: 1.5;
 }
 
-/* Genre picker: search on top, the chosen genres as pills, then only the
-   matching genres - a library can hold hundreds, so the list is bounded and
-   never the whole catalogue at once. */
 .genre-picker { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .genre-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .genre-pills:empty { display: none; }
@@ -2516,8 +2403,7 @@ select {
 .genre-options {
   display: flex;
   flex-direction: column;
-  /* No scroll of its own either: the search narrows the list, and the page
-     keeps the only scroll (see GENRE_OPTIONS_MAX in app.js). */
+  /* No nested scroll: the page keeps the only one. */
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
@@ -2545,10 +2431,8 @@ select {
 }
 .genre-none { padding: 10px; }
 
-/* A duration setting (the minutes Timer… offers): the field that adds one and
-   the two buttons beside it stay on the right of the option, on one line, so
-   the row keeps the height of every other row. The values themselves are in
-   the modal the list button opens. */
+/* flex: none so the row stays one line, the height of every other row; the
+   values live in the modal. */
 .duration-field {
   display: flex;
   align-items: center;
@@ -2571,10 +2455,8 @@ select {
 .duration-row:last-child { border-bottom: 0; }
 .btn.btn-icon.duration-row-x { width: 38px; min-height: 38px; flex: none; }
 
-/* The codecs the Pi can offer: the row is too narrow for eight names (they
-   wrapped and made it twice as tall as its neighbours), so it shows the answer
-   and opens the list in a dialog - one tickable row per codec, like the
-   duration list. */
+/* The row shows the answer and opens the list in a dialog: eight names do not
+   fit on it. */
 .codec-field { flex: 0 1 auto; min-width: 0; margin-left: auto; }
 .codec-open {
   justify-content: flex-start;
@@ -2629,12 +2511,8 @@ select {
 }
 .device-list:empty { display: none; }
 
-/* "Show more" belongs to the list above it, on a line of its own: full width,
-   and clear of the last row's border instead of sharing it. */
 #previousMore { width: 100%; margin-top: 14px; }
 
-/* The sweep of the devices nobody named sits under the paging button, quieter
-   than it: it is a rare housekeeping move, not a step of the page. */
 .previous-forget { width: 100%; margin-top: 8px; }
 
 [data-fade="top"] {
@@ -3287,9 +3165,6 @@ select {
   font-size: 15px;
   line-height: 1.5;
 }
-/* What the page is doing about it, on its own line: the two are separate
-   statements, and a reader looking for "is it still trying?" should not have
-   to find it at the end of a sentence. */
 .boot-submessage {
   margin: 2px 0 0;
   max-width: 320px;
@@ -3365,11 +3240,8 @@ select {
 .modal-wide { max-width: 600px; }
 .modal-title { font-size: 19px; font-weight: 750; letter-spacing: -0.01em; padding-right: 44px; }
 
-/* The way out of a dialog that carries no Cancel button. */
 .modal-close { position: absolute; top: 14px; right: 14px; }
 
-/* The audio diagnostic is a report: wider where the screen allows, and in the
-   fixed-width font it was written in. */
 .modal-report { max-width: 780px; }
 .diag-text {
   margin: 0;
@@ -3380,8 +3252,6 @@ select {
   overflow-wrap: anywhere;
 }
 
-/* Timer…: the two families of choice side by side, each under its symbol, with
-   the legend that says what the symbols mean underneath both. */
 .timer-groups {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3663,27 +3533,13 @@ body[data-access="guest"] .guest-release:has(#portalHint:not(:empty)) {
   align-items: stretch;
   gap: 6px;
 }
-/* The button belongs to the menu, not to a page. Where that menu is the grid -
-   a phone, and the guest at any width - it waits at the TOP of every grid, in
-   every area, and on no page: a page opens on its own title. Where the rail
-   exists its foot carries it instead, on every page: see the 640px block. */
 .guest-release { order: -1; }
 
-/* The Flic switch while the radio holds the button: shown on, dimmed. Never
-   `disabled` - turning it off for good is the one thing that can still be done
-   from here, and the owner's decision to make. */
+/* Never 'disabled': turning it off for good is still possible from here. */
 .field-row.is-held .switch-input { opacity: 0.55; }
 
-/* "Finish connecting" is offered on the Home grid only - it belongs to the
-   menu the interface opens on, and to the page that has just joined. The
-   sentence that follows a release still shows wherever the device is. */
 body[data-page=""]:not([data-tab="home"]) #portalReleaseBtn { display: none; }
 
-/* The one slot at the foot of the band, above the menu bar. On the Home grid
-   "Finish connecting" waits there, exactly where every other area shows "Show
-   all options" - the view bar is hidden on Home, so the two are never wanted at
-   once, and the sentence that follows a release stays at the top of the grid.
-   Nothing here without a button to show. */
 .band-foot { display: none; }
 .band-foot:has(#portalReleaseBtn:not([hidden])) {
   display: flex;
@@ -3694,13 +3550,10 @@ body[data-page=""]:not([data-tab="home"]) #portalReleaseBtn { display: none; }
 }
 body[data-access="guest"][data-page]:not([data-page=""]) .guest-release { display: none !important; }
 
-/* Two lines, broken where the sentence breaks rather than wherever the edge
-   falls: the string carries its own line break. */
+/* The string carries its own line break. */
 .guest-release #portalHint { margin: 0; text-align: center; white-space: pre-line; }
 
 .guest-release #portalHint:empty { display: none; }
-/* Discreet, and once: the sentence appears where the button was, and a device
-   that has just joined needs to be told that it went through. */
 .guest-release.is-done #portalHint { animation: guest-done 2.4s ease-out 1; }
 @keyframes guest-done {
   0% { opacity: 0; transform: translateY(-4px); }
@@ -3749,16 +3602,11 @@ body[data-access="guest"] #main { bottom: 0; padding-bottom: 32px; }
 body:not([data-access="guest"]) #btnStart { display: none !important; }
 
 @media (min-width: 640px) {
-  /* The menu is a rail down the side here, not a bar at the foot. */
   #main { bottom: 0; padding-left: calc(var(--rail-w) + 28px); padding-right: 28px; }
-  /* A guest has no rail: nothing to step around. */
   body[data-access="guest"] #main { padding-left: 28px; }
   .topbar { padding-left: calc(var(--rail-w) + 28px); padding-right: 28px; }
   body[data-access="guest"] .topbar { padding-left: 28px; }
 
-  /* The sidebar is the menu here, so that is where the button goes: pinned to
-     its foot, on every page and in every area. Guests have no sidebar - theirs
-     stays in the grid, which IS their menu (see the guest block above). */
   body:not([data-access="guest"]) .guest-release:has(#portalReleaseBtn:not([hidden])),
   body:not([data-access="guest"]) .guest-release:has(#portalHint:not(:empty)) {
     position: fixed;
@@ -3880,7 +3728,6 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   .nav-transfer.failed .nt-bar > span { background: var(--danger); }
   .nt-line { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* The sidebar is wider from here: the same button keeps its foot, wider. */
   body:not([data-access="guest"]) .guest-release:has(#portalReleaseBtn:not([hidden])),
   body:not([data-access="guest"]) .guest-release:has(#portalHint:not(:empty)) {
     left: 16px;
@@ -3931,7 +3778,7 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
     scroll-behavior: auto !important;
   }
   .dot.ok::after { display: none; }
-  /* The pulse above is the cue; without motion, a still ring says the same. */
+  /* The pulse is the cue; without motion, a still ring says the same. */
   .page-tile.is-attention .page-tile-icon { box-shadow: 0 0 0 3px var(--accent-soft); }
 
   .boot-eq > i { animation: none !important; }

@@ -59,8 +59,7 @@
         <h1 id="loginTitle" data-i18n="login.title">Rukebox</h1>
         <p class="hint" data-i18n="login.subtitle">This interface is password-protected.</p>
         <label class="sr-only" for="loginPassword" data-i18n="login.password_placeholder">Password</label>
-        <!-- Not shown: there is one account, but a user name is what browser
-             password managers file a password under. -->
+        <!-- Not shown: browser password managers file a password under a user name, so this field gives them one. -->
         <input type="text" id="loginUsername" name="username" class="sr-only" value="rukebox"
                autocomplete="username" tabindex="-1" aria-hidden="true">
         <input type="password" id="loginPassword" name="password" class="text-input" autocomplete="current-password"

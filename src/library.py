@@ -29,8 +29,7 @@ CREATE INDEX IF NOT EXISTS tracks_artist ON tracks(artist);
 
 PROBE_TIMEOUT_SEC = 20
 _LEADING_NUMBER = re.compile(r"^\s*\d{1,3}\s*[-._)]\s*")
-# A genre tag often holds several at once ("Alternative Metal;Kawaii Metal"),
-# and the same list is also written with commas or slashes.
+# A genre tag can hold several genres at once.
 _GENRE_SEPARATORS = re.compile(r"[;,/|]")
 
 
@@ -196,8 +195,6 @@ class Library:
                 clauses.append(column + " = ?")
                 args.append(value)
         if genre:
-            # A tag can hold several genres, so the one asked for has to be
-            # found inside them: the raw values it hides in are listed first.
             raw = self._raw_genres(genre)
             if not raw:
                 return {"items": [], "total": 0}

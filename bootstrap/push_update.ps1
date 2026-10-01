@@ -50,10 +50,6 @@ $Archive = Join-Path $env:TEMP "rukebox-update-${Stamp}.tar.gz"
 $ApplyLocal = Join-Path $env:TEMP "rukebox-apply-${Stamp}.sh"
 
 Write-Host "== Packing ${ProjectRoot} =="
-# What an update can install is src/, scripts/, web/, config/, systemd/ and
-# assets/sounds/ (see src/version.py): everything else here is the repository
-# itself - the docs, the icon sources, the card-setup build, the tests - and
-# sending it made every push carry ~23 MB that the Pi never looks at.
 $tarArgs = @(
     "-czf", $Archive,
     "-C", $ProjectRoot,
@@ -189,17 +185,8 @@ if (-not $Yes) {
     }
 }
 
-# Bluetooth audio from the USB dongle desensitises the Pi's own Wi-Fi
-# receiver: measured 2026-09-30, this archive uploads at ~590 KB/s with the
-# music paused and at ~3 KB/s while it plays, because the access point drops
-# the Pi to 1 Mbit/s with 20-40% of the large packets lost. Pausing for the
-# transfer is what turns a six-minute push back into seconds, so the radio is
-# quieted here - and only a pause this script asked for is undone.
-#
-# The rate does not come back instantly (measured: 1.0 -> 13.0 MBit/s after
-# 10s of silence, 19.5 after a minute), so a transfer started in that window
-# crawls. Rather than guess a delay, time a small probe upload - the only
-# measure that matters - and wait for it.
+# USB Bluetooth audio desensitises the Pi's own Wi-Fi: pause the music or the upload crawls.
+# Wait for a small probe upload rather than guessing: the rate takes a minute to come back.
 $RadioScript = @'
 import sys
 sys.path.insert(0, "/opt/rukebox/src")
@@ -216,17 +203,11 @@ if action == "resume" and data.get("paused"):
     print("resumed" if ok else "failed")
 '@
 
-# ssh and scp say perfectly ordinary things on stderr ("Connection closed" on a
-# lost link is the usual one), and PowerShell 5.1 turns that into a TERMINATING
-# error under $ErrorActionPreference = "Stop" - which is how a failed transfer
-# once ended with the music still paused and no message saying why. Everything
-# below checks $LASTEXITCODE itself, so stderr is only ever data here.
+# PowerShell 5.1 turns ssh/scp stderr into a terminating error under "Stop": everything below checks $LASTEXITCODE.
 $ErrorActionPreference = "Continue"
 
 function Invoke-RadioQuiet([string]$Action) {
-    # Three tries each way: these run on the very link the music is ruining,
-    # and a lost answer used to leave the music paused for good (the transfer
-    # failed, the resume's ssh timed out too, and nothing else brings it back).
+    # Every ssh here is retried: a lost answer would leave the music paused for good.
     for ($attempt = 1; $attempt -le 3; $attempt++) {
         try {
             $out = ($RadioScript -replace "`r`n", "`n") | & ssh.exe @SshOpts $Target "python3 - $Action" 2>&1
@@ -251,7 +232,6 @@ $RemoteArchive = "/tmp/rukebox-update-${Stamp}.tar.gz"
 $RemoteApply = "/tmp/rukebox-apply-${Stamp}.sh"
 
 if ($Quieted) {
-    # 32 KB: instant on a recovered link, ~10s while it is still at 1 Mbit/s.
     $Probe = Join-Path $env:TEMP "rukebox-probe-${Stamp}.bin"
     [System.IO.File]::WriteAllBytes($Probe, (New-Object byte[] 32768))
     for ($attempt = 1; $attempt -le 5; $attempt++) {
@@ -270,8 +250,7 @@ Write-Host "== Sending (${SizeKb} KB) =="
 & scp.exe @ScpOpts $Archive "${Target}:${RemoteArchive}"
 $scpExit = $LASTEXITCODE
 if ($scpExit -ne 0) {
-    # One retry: a transfer that dies mid-way is usually the link dropping for
-    # a moment, and the file is only ~1 MB.
+    # One retry: a transfer that dies mid-way is usually the link dropping for a moment.
     Write-Host "   transfer interrupted, trying once more ..."
     Start-Sleep -Seconds 3
     & scp.exe @ScpOpts $Archive "${Target}:${RemoteArchive}"
@@ -288,10 +267,7 @@ if ($scpExit -ne 0) {
 $ExtraArgs = ""
 if ($NoRestart) { $ExtraArgs = " --no-restart" }
 
-# What git says of this tree ("v1.2.0-5-g5622dcf": five commits past v1.2.0),
-# recorded on the Pi so its Update card can tell "ahead of v1.2.0" from
-# "v1.2.0" - without it a pushed tree has no release at all and the card offers
-# the last published release as newer, which it is not.
+# Stamped on the Pi so the Update card can tell "ahead of v1.2.0" from "v1.2.0".
 $Describe = ""
 $git = Get-Command git.exe -ErrorAction SilentlyContinue
 if (-not $git) { $git = Get-Command git -ErrorAction SilentlyContinue }
@@ -341,9 +317,7 @@ Write-Host "== Updating on the Pi =="
 & ssh.exe -t @SshOpts $Target "sh ${RemoteApply}"
 $updateExit = $LASTEXITCODE
 
-# The update restarts the daemon, which comes back playing on its own - so
-# this only does something when it did not run (--no-restart), and never
-# starts music on a radio that was not playing to begin with.
+# Only when the update did not run: it restarts the daemon, which comes back playing on its own.
 if ($Quieted) { Invoke-RadioQuiet "resume" | Out-Null }
 
 Remove-Item $Archive, $ApplyLocal -Force -ErrorAction SilentlyContinue

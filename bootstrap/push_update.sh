@@ -71,10 +71,6 @@ cleanup() { rm -f "$ARCHIVE"; }
 trap cleanup EXIT
 
 echo "== Packing $PROJECT_ROOT =="
-# What an update can install is src/, scripts/, web/, config/, systemd/ and
-# assets/sounds/ (see src/version.py): everything else here is the repository
-# itself - the docs, the icon sources, the card-setup build, the tests - and
-# sending it made every push carry ~23 MB that the Pi never looks at.
 tar czf "$ARCHIVE" -C "$PROJECT_ROOT" \
     --exclude='.git' \
     --exclude='__pycache__' \
@@ -114,9 +110,6 @@ if [ "$DRY_RUN" = "1" ]; then
     exit 0
 fi
 
-# --- Reach the Pi -----------------------------------------------------
-# Returns 0 if $1 (a user@host target) answers SSH, printing a hint first
-# if a non-interactive probe suggests a password/passphrase is needed.
 try_reach() {
     if ! ssh "${SSH_OPTS[@]}" -o BatchMode=yes "$1" true 2>/dev/null; then
         echo "   (interactive authentication)"
@@ -131,9 +124,7 @@ REACHED=0
 if try_reach "$TARGET"; then
     REACHED=1
 elif [ "$HOST_EXPLICIT" != "1" ] && [ "$HOST" != "rukebox.local" ]; then
-    # Default target is the fixed USB address, which only works over the
-    # cable - fall back to the mDNS hostname so this also works unplugged,
-    # on the same Wi-Fi network, without having to pass --host by hand.
+    # The USB address only answers over the cable; mDNS also works unplugged.
     FALLBACK_TARGET="$USER_NAME@rukebox.local"
     echo "   $TARGET not reachable, trying $FALLBACK_TARGET (mDNS) ..."
     if try_reach "$FALLBACK_TARGET"; then
@@ -183,21 +174,9 @@ if [ "$ASSUME_YES" != "1" ]; then
     [[ "$confirm" =~ ^[nN] ]] && { echo "Cancelled."; exit 0; }
 fi
 
-# --- Send and apply ---------------------------------------------------
-# Bluetooth audio from the USB dongle desensitises the Pi's own Wi-Fi
-# receiver: measured 2026-09-30, the archive uploads at ~590 KB/s with the
-# music paused and at ~3 KB/s while it plays, because the access point drops
-# the Pi to 1 Mbit/s with 20-40% of the large packets lost. Pausing for the
-# transfer is what turns a six-minute push back into seconds, so the radio is
-# quieted here - and only a pause this script asked for is undone.
-#
-# The rate does not come back instantly (measured: 1.0 -> 13.0 MBit/s after
-# 10s of silence, 19.5 after a minute), so a transfer started in that window
-# crawls. Rather than guess a delay, time a small probe upload - the only
-# measure that matters - and wait for it.
-# Three tries each way: these run on the very link the music is ruining, and a
-# lost answer used to leave the music paused for good (the transfer failed, the
-# resume's ssh timed out too, and nothing else brings it back).
+# USB Bluetooth audio desensitises the Pi's own Wi-Fi: pause the music or the upload crawls.
+# Wait for a small probe upload rather than guessing: the rate takes a minute to come back.
+# Every ssh here is retried: a lost answer would leave the music paused for good.
 radio_quiet() {
     local attempt
     attempt=1
@@ -241,7 +220,6 @@ REMOTE_ARCHIVE="$REMOTE_TMP/rukebox-update-$STAMP.tar.gz"
 REMOTE_APPLY="$REMOTE_TMP/rukebox-apply-$STAMP.sh"
 
 if [ "$PAUSED_BY_US" = "1" ]; then
-    # 32 KB: instant on a recovered link, ~10s while it is still at 1 Mbit/s.
     PROBE="$(mktemp -t rukebox-probe-XXXXXX)"
     head -c 32768 /dev/urandom > "$PROBE"
     attempt=1
@@ -262,8 +240,7 @@ fi
 echo ""
 echo "== Sending ($SIZE) =="
 if ! scp "${SCP_OPTS[@]}" "$ARCHIVE" "$TARGET:$REMOTE_ARCHIVE"; then
-    # One retry: a transfer that dies mid-way is usually the link dropping for
-    # a moment, and the file is only ~1 MB.
+    # One retry: a transfer that dies mid-way is usually the link dropping for a moment.
     echo "   transfer interrupted, trying once more ..."
     sleep 3
     if ! scp "${SCP_OPTS[@]}" "$ARCHIVE" "$TARGET:$REMOTE_ARCHIVE"; then
@@ -278,10 +255,7 @@ fi
 
 echo ""
 echo "== Updating on the Pi =="
-# What git says of this tree ("v1.2.0-5-g5622dcf": five commits past v1.2.0),
-# recorded on the Pi so its Update card can tell "ahead of v1.2.0" from
-# "v1.2.0" - without it a pushed tree has no release at all and the card offers
-# the last published release as newer, which it is not.
+# Stamped on the Pi so the Update card can tell "ahead of v1.2.0" from "v1.2.0".
 RELEASE_STAMP=""
 if command -v git >/dev/null 2>&1; then
     DESCRIBED="$(git -C "$PROJECT_ROOT" describe --tags --always --dirty 2>/dev/null || true)"
@@ -294,15 +268,8 @@ if [ -n "$RELEASE_STAMP" ]; then
     echo "   stamping: $RELEASE_STAMP"
     EXTRA_UPDATE_ARGS="$EXTRA_UPDATE_ARGS --release-tag $RELEASE_STAMP"
 fi
-# The steps to run on the Pi are sent as their own little script rather
-# than squeezed into the ssh command line: quoting a multi-line command
-# through a local shell, ssh, and the remote shell is exactly the kind of
-# thing that breaks differently on every platform. It also keeps this
-# script and push_update.ps1 doing literally the same thing.
-#
-# The updater used is the one from the ARCHIVE, not the copy already
-# installed, so a new version is free to change the update procedure
-# itself.
+# Sent as its own script: a multi-line command quoted through three shells breaks per platform.
+# Run the updater from the archive, so a new version can change the update procedure itself.
 APPLY_LOCAL="$(mktemp -t rukebox-apply-XXXXXX)"
 cleanup() { rm -f "$ARCHIVE" "$APPLY_LOCAL"; }
 cat > "$APPLY_LOCAL" <<APPLY
@@ -333,9 +300,7 @@ if ! ssh -t "${SSH_OPTS[@]}" "$TARGET" "sh $REMOTE_APPLY"; then
     exit 1
 fi
 
-# The update restarts the daemon, which comes back playing on its own - so
-# this only does something when it did not run (--no-restart), and never
-# starts music on a radio that was not playing to begin with.
+# Only when the update did not run: it restarts the daemon, which comes back playing on its own.
 [ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
 
 echo ""

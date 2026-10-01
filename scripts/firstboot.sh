@@ -229,10 +229,7 @@ if ! is_done files; then
     status 5 install.step_files
     if [ -d "$BOOT_DIR/rukebox-media" ]; then
         run mkdir -p "$AUDIO_DIR"
-        # This image mounts the boot partition with iocharset=ascii, which turns
-        # every accented file name into "?". FAT keeps long names as UTF-16, so
-        # a UTF-8 mount reads them properly - and vfat ignores a plain remount,
-        # the partition has to be mounted again from scratch.
+        # iocharset=ascii turns accented names into "?"; vfat ignores a plain remount, so mount it again.
         BOOT_DEV="$(findmnt -no SOURCE --target "$BOOT_DIR" 2>/dev/null || true)"
         if [ "$DRYRUN" != "1" ] && [ -n "$BOOT_DEV" ] && mountpoint -q "$BOOT_DIR"; then
             /sbin/modprobe nls_utf8 2>/dev/null || modprobe nls_utf8 2>/dev/null || true

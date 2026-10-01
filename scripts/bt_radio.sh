@@ -1,6 +1,5 @@
 #!/bin/bash
-# Clears the Bluetooth radio's soft block (BlueZ cannot: a blocked switch makes
-# "power on" fail). Some images come up blocked; run this as root.
+# BlueZ cannot clear a soft block, and a blocked switch makes "power on" fail.
 
 set -u
 

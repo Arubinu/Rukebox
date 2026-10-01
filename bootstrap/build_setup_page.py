@@ -15,8 +15,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 import version as project_version  # noqa: E402
 
-# The page has to ship exactly what version.py hashes, or the release's
-# declared hash would not be the one an installation records.
+# Must match what version.py hashes, or the release's declared hash is not what an installation records.
 PAYLOAD_DIRS = project_version.VERSIONED_DIRS
 SKIP_DIRS = {"__pycache__", "graphify-out", ".git", "node_modules"}
 

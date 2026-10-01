@@ -155,9 +155,7 @@ class SuggestionBox:
         self._ensure_columns()
         self._db.commit()
 
-    # Columns that arrived after the first installs. CREATE TABLE IF NOT EXISTS
-    # does not touch a table that already exists, and the owner's Pi has one
-    # with real data in it, so a missing column is added here.
+    # CREATE TABLE IF NOT EXISTS never adds a column to a table that already exists.
     _ADDED_COLUMNS = {
         "device_state": (("free_credits", "INTEGER NOT NULL DEFAULT 0"),
                          ("name_locked", "INTEGER NOT NULL DEFAULT 0"),

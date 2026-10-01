@@ -7,10 +7,7 @@ import re
 import subprocess
 import time
 
-# Exactly what a release page ships, and therefore what an installation
-# records. bootstrap/, the docs and the icon assets are never installed, so
-# hashing them made the same code look like two different versions depending
-# on how it was installed (page against release archive).
+# Only what a release installs: hashing bootstrap/ and the docs made one build look like two.
 VERSIONED_DIRS = ("src", "scripts", "web", "config", "systemd", os.path.join("assets", "sounds"))
 
 IGNORED_DIR_NAMES = {"__pycache__", ".git", ".idea", ".vscode", "node_modules", "graphify-out"}
@@ -128,8 +125,7 @@ def is_newer(candidate, installed):
         return True
     released, here = tag_parts(candidate), tag_parts(installed)
     if not released or not here:
-        # A bare commit hash is not a version: a named release is still worth
-        # offering, since there is nothing to order it against.
+        # A bare commit hash is not a version: a named release is still worth offering.
         return True
     if released[:3] != here[:3]:
         return released[:3] > here[:3]

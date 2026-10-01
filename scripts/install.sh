@@ -88,7 +88,7 @@ else
 fi
 
 echo "== Taking Imager's settings off the boot partition =="
-# Already applied, and readable from any computer: the Wi-Fi password is in clear.
+# Already applied, and the Wi-Fi password sits there in clear.
 BOOT_DIR="/boot/firmware"
 [ -d "$BOOT_DIR" ] || BOOT_DIR="/boot"
 for leftover in user-data meta-data network-config; do
@@ -106,18 +106,13 @@ fi
 
 echo "== Installing system packages =="
 apt-get update
-# PipeWire and WirePlumber are the audio server everything plays through: mpv's
-# pipewire device, pw-dump for the outputs, wireplumber for Bluetooth audio.
-# rtkit gives the server realtime priority, so a busy moment does not make the
-# sound stutter.
+# rtkit gives the audio server realtime priority, so a busy moment does not make the sound stutter.
 apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit \
     pipewire pipewire-bin wireplumber pipewire-audio
-# WirePlumber's Bluetooth monitor waits for an "active" seat, which a headless Pi
-# never has: the drop-in lets it run, so speakers register for A2DP.
+# WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/wireplumber-bluez.conf" \
     /etc/wireplumber/wireplumber.conf.d/10-rukebox-bluez.conf
-# PipeWire asks rtkit for realtime priority, which a lingering "manager" session
-# never gets: these limits let it take the priority itself.
+# A lingering "manager" session never gets rtkit priority: these limits let PipeWire take it itself.
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/rt-limits.conf" \
     /etc/systemd/system/user@.service.d/10-rukebox-rt.conf
 systemctl daemon-reload
@@ -167,8 +162,7 @@ case "$action" in
     *)             echo ">> /etc/rukebox/rukebox.yaml already present, left untouched." ;;
 esac
 
-# The Bluetooth codecs the Pi offers are a setting; PipeWire reads them from a
-# WirePlumber drop-in generated from the file (see src/bt_codec.py).
+# WirePlumber reads the offered codecs from a drop-in generated from the config.
 python3 "$PROJECT_ROOT/src/bt_codec.py" write >/dev/null 2>&1 \
     || echo "WARNING: could not write the Bluetooth codec drop-in." >&2
 

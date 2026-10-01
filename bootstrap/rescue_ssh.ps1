@@ -47,8 +47,7 @@ function Normalize-Path([string]$p) {
 }
 
 if (-not $Path) {
-    # @(): a single candidate would otherwise come back as a string, and
-    # $candidates[0] would then be its first letter.
+    # @(): a single candidate would come back as a string, and $candidates[0] its first letter.
     $candidates = @(Find-BootPartitions)
     if ($candidates.Count -eq 0) {
         Write-Host "No SD card boot partition found (a partition with config.txt and cmdline.txt)." -ForegroundColor Red

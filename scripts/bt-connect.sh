@@ -4,31 +4,17 @@ set -u
 CONFIG_FILE="/etc/rukebox/rukebox.env"
 
 CHECK_SECONDS=3
-# How often the connected branch comes round to look at the controller's byte
-# counter. Every pass costs one bluetoothctl and one hciconfig, and this gap is
-# what delayed a repair by up to 30s: measured on the owner's Pi, 2026-09-30,
-# five dead links in three hours, each one leaving the speaker silent for
-# 65-95s. 9s instead of 30s costs a Pi Zero nothing worth counting.
+# The gap between byte-counter reads is the delay before a silent link is noticed.
 CONNECTED_TICKS=3
 SLOW_TICKS=20
 BACKOFF_TICKS=(1 2 3 5 10 20)
 CALL_TIMEOUT=10
-# A connect on a jammed controller blocks until bluetoothd gives up, which is
-# longer than a plain query: 10s used to kill the attempt before it could
-# either succeed or say why (measured: 1s when healthy, over 10s when jammed).
+# A connect on a jammed controller blocks past CALL_TIMEOUT: killed early, it never says why.
 CONNECT_TIMEOUT=30
 REPAIR_AFTER_FAILURES=3
-# Seconds, not ticks: the loop's own pace changes with the branch it is in (3s
-# while it fails, CONNECTED_TICKS x CHECK_SECONDS while connected), so a repair
-# counted in ticks was either five minutes or fifty, depending on the fault.
+# Seconds, not ticks: the loop's pace changes with the branch it is in.
 REPAIR_SECONDS=300
-# A link that is up but carries no audio at all: the controller's own byte
-# counter must move while the radio is playing (a silence is still bytes). That
-# long with nothing on the air, and the daemon swearing it is playing, is the
-# fault measured on 2026-09-29 - see the connected branch below. 15s and not 45:
-# the counter carries ~26 KB/s of SBC frames, so 15s of nothing means the link
-# is already dead, and the repair itself (down, up, bluetoothd restart,
-# reconnect) adds another ~20s on top.
+# The controller's byte counter must move while the radio plays: frozen this long means the link is dead.
 SILENT_SECONDS=15
 SILENT_MIN_BYTES=2000
 
@@ -54,10 +40,7 @@ adapter_index() {
     esac
 }
 
-# The controller to work on: the configured one, or BlueZ's default - which is
-# the one it connects the speaker through when no adapter is named (the usual
-# case, and the one where an empty SPEAKER_BT_ADAPTER left the count below at
-# zero, so the repair never ran).
+# The configured controller, or BlueZ's default - the one it connects the speaker through.
 controller_index() {
     local index address
     index="$(adapter_index)"
@@ -74,8 +57,7 @@ controller_index() {
 }
 
 # btmgmt hangs with stdin on /dev/null (what systemd gives): it needs a pipe.
-# Always aimed at the speaker's controller: the default one may belong to
-# flicd.
+# Aimed at the speaker's controller: the default one may belong to flicd.
 btmgmt_cmd() {
     local index
     index="$(adapter_index)"
@@ -90,9 +72,7 @@ ensure_connectable() {
     local settings
     settings=$(btmgmt_cmd info 2>/dev/null | sed -n 's/.*current settings: //p')
     if [ -z "$settings" ]; then
-        # No settings line at all: the controller did not answer. Saying
-        # "not connectable" here would send us turning a setting on that is
-        # not the problem - the radio needs repairing instead (see below).
+        # An empty answer is not "not connectable": the controller needs repairing instead.
         echo "The Bluetooth controller did not answer btmgmt."
         return 1
     fi
@@ -103,18 +83,8 @@ ensure_connectable() {
     btmgmt_cmd connectable on >/dev/null 2>&1 || true
 }
 
-# The kernel logs one "tx timeout" line for every HCI command the controller
-# never answered. A radio whose queue is jammed by a half-open connection - a
-# link that was killed, then a `command 0x041f tx timeout` every twenty
-# seconds for ever - still answers btmgmt, still says "UP RUNNING", and
-# refuses every new operation with org.bluez.Error.InProgress or
-# br-connection-busy. Nothing but a reset clears it, so that is what the
-# count below is for. Measured on the owner's Pi, twice in one day.
-#
-# Only the CONTROLLER's own failures count: "link tx timeout" (the speaker
-# stopped answering) is a speaker that is off or out of range, and resetting
-# the radio for that would be pointless - measured side by side on that Pi:
-# 67 "command ... tx timeout" against 4 "link tx timeout".
+# A jammed controller still answers btmgmt and refuses every operation; only a reset clears it.
+# Only its own timeouts count: "link tx timeout" is a speaker that is off or out of range.
 hci_stuck_marks() {
     local index
     index="$(controller_index)"
@@ -126,9 +96,7 @@ hci_stuck_marks() {
         "hci${index}: command .* tx timeout|hci${index}: Opcode .* failed: -110" || true
 }
 
-# The sequence that brought the radio back by hand, twice: bluetoothd stopped,
-# the controller taken down and up, bluetoothd restarted. A plain down/up
-# leaves it DOWN, and btmgmt then answers "Cannot allocate memory (12)".
+# A plain hciconfig down/up leaves the controller DOWN: bluetoothd must be stopped around it.
 repair_controller() {
     local index name
     index="$(controller_index)"
@@ -158,9 +126,7 @@ is_connected() {
         | grep -q "Connected: yes"
 }
 
-# What the controller says it put on the air, since it was powered on. It grows
-# whenever anything streams - a silence is still SBC frames - so a counter that
-# does not move means nothing is streaming at all.
+# Grows whenever anything streams - a silence is still SBC frames - so a frozen counter means silence.
 hci_tx_bytes() {
     local index
     index="$(controller_index)"
@@ -169,9 +135,7 @@ hci_tx_bytes() {
         | sed -n 's/.*TX bytes:\([0-9]*\).*/\1/p' | head -1
 }
 
-# True only when the radio believes it is playing something: a frozen counter
-# while the music is paused and the keep-alive sound is off is what was asked
-# for, not a fault. The control socket answers without any authentication.
+# A frozen counter while paused is not a fault: only repair when the daemon says it is playing.
 radio_is_playing() {
     python3 - "${CONTROL_SOCKET:-/tmp/rukebox_control.sock}" <<'PY' 2>/dev/null
 import json
@@ -192,10 +156,7 @@ print("yes" if busy and not state.get("paused") else "no")
 PY
 }
 
-# The controller's own answer when its queue is jammed - nothing is connected,
-# yet it refuses every attempt. Measured on the owner's Pi, both strings, in the
-# very state `hci_stuck_marks` counts. `br-connection-refused` is NOT one of
-# them: that one means the speaker is connected elsewhere (a phone).
+# The jam's own answers; br-connection-refused is not one of them - that is the speaker on a phone.
 CONNECT_OUT=""
 connect_refused() {
     case "$CONNECT_OUT" in
@@ -221,8 +182,6 @@ connected=0
 warned_unconfigured=0
 warned_calm=0
 connect_reported=0
-# The kernel's timeout count as it was when the radio last worked. Any growth
-# since then means the controller jammed in between - see the repair below.
 healthy_marks=0
 last_repair_time=-$((REPAIR_SECONDS * 2))
 healthy_marks=$(hci_stuck_marks)
@@ -257,11 +216,7 @@ while :; do
         healthy_marks=$(hci_stuck_marks)
         next_attempt=$((tick + 1))
 
-        # Everything says connected, the speaker's own transport says "active",
-        # and yet not a byte reaches it: measured 2026-09-29 20:34, a full-scale
-        # tone played into the sink while the controller's counter did not move
-        # once, and the radio was silent however loud it was set. Nothing but a
-        # fresh link clears that, so it is repaired like a jammed radio.
+        # Connected, with a byte counter that never moves: nothing but a fresh link clears it.
         now=$(date +%s)
         now_tx=$(hci_tx_bytes)
         if [ -z "$now_tx" ] || [ -z "$last_tx" ] || [ "$now_tx" -lt "$last_tx" ]; then
@@ -306,8 +261,7 @@ while :; do
         fi
         next_attempt=$((tick + BACKOFF_TICKS[failures - 1]))
 
-        # Why the attempt failed, once per burst: a wedged radio otherwise
-        # leaves nothing at all in the journal to go on.
+        # Once per burst: a wedged radio otherwise leaves nothing in the journal to go on.
         if [ "$connect_reported" -eq 0 ] && [ -n "$CONNECT_OUT" ]; then
             case "$CONNECT_OUT" in
                 *"Connection successful"*) ;;
@@ -319,17 +273,8 @@ while :; do
             esac
         fi
 
-        # Connections that keep failing are not a speaker problem any more: the
-        # radio is jammed (see hci_stuck_marks above). Either the controller
-        # says so itself - which is what connect_refused matches - or the kernel
-        # has timed out at least once since the radio last worked. Reset it, at
-        # most every REPAIR_SECONDS.
-        #
-        # The count is compared with the level recorded while the radio worked,
-        # not with its previous reading: a jam whose timeouts STOP coming (the
-        # kernel gives up its own retries) is still a jam, and waiting for the
-        # count to grow left the speaker off the air for good - measured on the
-        # owner's Pi, 20:12, where 97 -> 102 then nothing, and no repair.
+        # Failing connects mean a jammed radio, not a speaker problem: reset it, at most every REPAIR_SECONDS.
+        # The count is read against the level from when the radio worked: a jam whose timeouts stop is still a jam.
         marks=$(hci_stuck_marks)
         if [ $(( $(date +%s) - last_repair_time )) -ge "$REPAIR_SECONDS" ] \
                 && { connect_refused \

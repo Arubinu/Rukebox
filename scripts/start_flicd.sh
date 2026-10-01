@@ -11,8 +11,7 @@ hci_for_address() {
         /BD Address:/ { if (toupper($3) == mac) print dev }' | head -1
 }
 
-# A controller given by its address: its hciN name can change between boots
-# (a USB dongle may come up before the built-in chip).
+# An address is given because hciN can change between boots (a dongle may come up before the chip).
 if [[ "$HCI_DEVICE" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
     ADDRESS="$HCI_DEVICE"
     HCI_DEVICE=""

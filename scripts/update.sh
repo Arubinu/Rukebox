@@ -1,8 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Runs from a copy: this file is replaced during the update, and bash reads
-# scripts lazily.
+# Runs from a copy: this file is replaced during the update and bash reads scripts lazily.
 if [ "${RUKEBOX_UPDATE_REEXEC:-}" != "1" ]; then
     _self="$(readlink -f "${BASH_SOURCE[0]}")"
     _copy="$(mktemp /tmp/rukebox-update-XXXXXX.sh)"
@@ -41,13 +40,8 @@ say()  { [ "$QUIET" = "1" ] || echo "$@"; }
 step() { [ "$QUIET" = "1" ] || echo "== $* =="; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
 
-# While this runs, the web page says "update in progress" instead of looking
-# like a Pi that has died: it reads this flag through /api/status (see
-# web_server.py's UPDATE_FLAG). The services go down a few seconds after it is
-# written, so the page has time to notice; the EXIT trap below takes it away
-# again, whichever way this script ends, and the web server ignores (and
-# removes) one older than fifteen minutes so a script killed with -9 cannot
-# leave the page stuck on it.
+# The web page reads this to say "update in progress" instead of looking like a dead Pi.
+# It carries a timestamp: the web server ignores one older than fifteen minutes.
 UPDATING_FLAG="$STATE_DIR/updating"
 mark_updating() { mkdir -p "$STATE_DIR"; date +%s > "$UPDATING_FLAG" 2>/dev/null || true; }
 clear_updating() { rm -f "$UPDATING_FLAG" 2>/dev/null || true; }
@@ -389,8 +383,7 @@ else
 fi
 chown -R "$RUKEBOX_USER:$RUKEBOX_USER" "$(dirname "$CONFIG_FILE")"
 
-# The Bluetooth codecs the Pi offers are a setting, and PipeWire reads them
-# from a WirePlumber drop-in of its own (see src/bt_codec.py).
+# WirePlumber reads the offered codecs from a drop-in generated from the config.
 if [ -f "$INSTALL_DIR/src/bt_codec.py" ]; then
     if python3 "$INSTALL_DIR/src/bt_codec.py" write >/dev/null 2>&1; then
         say "   Bluetooth codec drop-in written"
@@ -417,7 +410,7 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
     systemctl enable rukebox-act-led.service 2>/dev/null || true
     systemctl enable --now rukebox-bt-radio.service 2>/dev/null || true
-    # WirePlumber's Bluetooth monitor waits for an "active" seat (see install.sh).
+    # WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
     if [ -f "$SOURCE_DIR/config/wireplumber-bluez.conf" ]; then
         install -D -m 644 -o root -g root "$SOURCE_DIR/config/wireplumber-bluez.conf" \
             /etc/wireplumber/wireplumber.conf.d/10-rukebox-bluez.conf 2>/dev/null || true

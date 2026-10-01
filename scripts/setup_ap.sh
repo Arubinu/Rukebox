@@ -28,8 +28,7 @@ if systemctl is-active --quiet NetworkManager; then
     CONN_NAME="rukebox-ap"
     nmcli connection delete "$CONN_NAME" > /dev/null 2>&1 || true
 
-    # Created, then activated explicitly: "nmcli device wifi hotspot" fails on
-    # brcmfmac (raspberrypi/linux#7247).
+    # Created then activated explicitly: "nmcli device wifi hotspot" fails on brcmfmac.
     nmcli connection add type wifi ifname uap0 con-name "$CONN_NAME" \
         autoconnect yes ssid "$SSID" -- \
         802-11-wireless.mode ap ipv4.method shared ipv6.method ignore \

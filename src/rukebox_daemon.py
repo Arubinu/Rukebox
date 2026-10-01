@@ -59,12 +59,9 @@ def announcement_target(msg):
 
 
 class RadioDaemon:
-    # Two watch turns without a Bluetooth output, so a track change or a
-    # PipeWire hiccup is not mistaken for a dead link.
+    # Two watch turns, so a track change or a PipeWire hiccup is not a dead link.
     SINK_MISSING_CHECKS = 2
-    # How often the speaker's own volume is read when the two are linked: a
-    # press on its buttons is not an event anything tells us about, only a new
-    # level, and two seconds is what makes it feel like it answered.
+    # A press on the speaker is only visible as a new level; 2s makes it feel answered.
     SINK_POLL_SEC = 2.0
 
     def __init__(self, cfg):
@@ -335,8 +332,7 @@ class RadioDaemon:
             self._clock_ready.set()
             return
 
-        # Measured before `date -s`: the statistics use it to correct the
-        # timestamps recorded while the clock was wrong.
+        # Measured before `date -s`: the statistics correct the wrong-clock timestamps with it.
         offset = dt.timestamp() - time.time()
         formatted = dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
         result = subprocess.run(
@@ -810,8 +806,7 @@ class RadioDaemon:
         self._play_kind = kind
         self._play_path = path
         self.mpv.loadfile(path)
-        # An announcement or a System sound with a volume of its own: the music
-        # is never touched here (its own fade-in sets the volume).
+        # A sound with a volume of its own: the music keeps its fade-in volume.
         if self._sound_volume is not None and kind != "music":
             self.mpv.set_volume(self._sound_volume)
         self.mpv.set_pause(False)
@@ -864,8 +859,7 @@ class RadioDaemon:
             name, error, self._consecutive_play_errors,
         )
         if self._consecutive_play_errors == 1 and "output" in error:
-            # "audio output initialization failed" says the path, not where it
-            # broke: say what the path was made of, once per burst.
+            # "audio output initialization failed" does not say which part broke: dump the path once.
             try:
                 log.warning("Audio path at the failure:\n%s", audio_diag.report(
                     cfg=self.cfg, status=self._build_status(), measure=0))
@@ -1126,8 +1120,7 @@ class RadioDaemon:
     def _target_volume(self):
         """The volume to come back to after a fade, a track change, or at
         startup."""
-        # _user_volume is what the person chose; _current_volume is where a
-        # fade currently is. Only this method reads both.
+        # _user_volume is the level chosen, _current_volume where the fade is.
         if self.cfg["VOLUME_MODE"] == "session" and self._user_volume is not None:
             return self._user_volume
         return self.cfg["BASE_VOLUME"]
@@ -1189,8 +1182,7 @@ class RadioDaemon:
             self._sink_level = None
             return
         if self._sink_level is None:
-            # Just linked, or just started: the volume the interface already
-            # had is the one that goes to the speaker.
+            # Just linked or just started: the interface's own volume goes to the speaker.
             self._set_sink_volume(self._target_volume())
             return
         found = audio_diag.default_sink_volume(env=audio_env())
@@ -1648,8 +1640,7 @@ class RadioDaemon:
             return
 
         reason = msg.get("reason", "eof")
-        # "loadfile ... replace" ends the outgoing file with one of these:
-        # advancing on them would skip the file just requested.
+        # "loadfile replace" ends the outgoing file with these: advancing would skip the new one.
         if reason in ("stop", "quit", "redirect"):
             return
 
@@ -1716,8 +1707,7 @@ class RadioDaemon:
         if self.cfg["AP_WATCH_INTERVAL_SEC"] > 0:
             threading.Thread(target=self._ap_watch_loop, daemon=True).start()
 
-    # The Flic button and the speaker share the Bluetooth radio, and flicd takes
-    # a controller for itself (HCI user channel).
+    # flicd takes a controller for itself, so the Flic button competes with the speaker.
     FLIC_UNITS = ("flicd.service", "flic-bridge.service")
     FLIC_FLAG = "flic_held"
 
@@ -1797,11 +1787,7 @@ class RadioDaemon:
                 self._move_speaker_to_its_controller(state)
             connected = state["connected"]
 
-            # BlueZ keeps saying "connected" while a wedged dongle carries
-            # nothing at all, and the music then plays into PipeWire's Dummy
-            # Output: the sink being gone is the only visible proof, and two
-            # checks in a row are needed so a track change cannot be mistaken
-            # for it.
+            # BlueZ still says "connected" while a wedged dongle carries nothing: no sink is the proof.
             silent = False
             if connected and self.mode == "music" and not self._wired_output():
                 if audio_diag.bluetooth_sink_missing(env=audio_env()):
@@ -1917,8 +1903,7 @@ class RadioDaemon:
         self._shown_volume = vol
         fade = self.cfg.get("VOLUME_FADE_SEC", 0) or 0
         if self._speaker_volume_linked():
-            # The speaker's own volume answers at once; there is nothing left
-            # for a glide to do.
+            # The speaker answers at once: there is nothing for a glide to do.
             self._stop_volume_glide()
             self._current_volume = vol
             self._write_level(vol)
@@ -2505,8 +2490,7 @@ class RadioDaemon:
             if cmd == "rescan_music":
                 from config_and_scan import force_rescan
                 force_rescan(self.cfg["MUSIC_CACHE_FILE"])
-                # Read the list back now: waiting for the next track would leave
-                # the interface showing the old count (and "no track found").
+                # Read the list back now, or the interface shows the old count until the next track.
                 self._get_music_list()
                 log.info("Music rescanned: %d tracks", self._track_count)
                 self.stats.record("music_rescan", detail={"source": source})

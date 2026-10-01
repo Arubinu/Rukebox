@@ -26,7 +26,7 @@
 .wz-choice span { display: flex; flex-direction: column; gap: 2px; }
 .wz-choice small { color: var(--text-muted); }
 .wz-col { flex-direction: column; align-items: stretch; }
-/* In a column, the row's flex sizes become heights: 10rem of label, 19rem of input. */
+/* In a column the row's flex sizes become heights, so neither may flex. */
 .wz-col > label, .wz-col > .field-label { flex: none; }
 .wz-col .text-input, .wz-col input[type="file"] { flex: none; width: 100%; }
 textarea.text-input { resize: vertical; font: 13px ui-monospace, monospace; }

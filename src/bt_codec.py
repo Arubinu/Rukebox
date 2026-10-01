@@ -16,8 +16,7 @@ import sys
 
 log = logging.getLogger("bt_codec")
 
-# The order PipeWire tries them in, best first - also the order the list is
-# written in, so the file reads like a preference.
+# PipeWire tries them in this order, best first.
 CODECS = ("ldac", "aptx_hd", "aptx", "aac", "sbc_xq", "sbc", "faststream", "opus")
 
 DROP_IN = "/etc/wireplumber/wireplumber.conf.d/20-rukebox-codecs.conf"

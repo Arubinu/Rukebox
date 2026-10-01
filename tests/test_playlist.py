@@ -19,16 +19,14 @@ class PlaylistTest(unittest.TestCase):
         self.assertLess(order.index("/music/A/2 a.mp3"), order.index("/music/A/10 a.mp3"))
 
     def test_random_albums_never_repeats_an_artist(self):
-        # random_albums spreads each artist (sub-folder): never two of the
-        # same one in a row, whenever that is arithmetically possible.
+        # Spreads each artist (sub-folder) whenever that is arithmetically possible.
         for _ in range(50):
             order = playlist.order_files(FILES, ROOT, "random_albums")
             keys = [playlist.group_key(p, ROOT) for p in order]
             self.assertFalse(any(a == b for a, b in zip(keys, keys[1:])), order)
 
     def test_a_hand_made_order_is_kept(self):
-        # What a manual music list relies on: "ordered" means the order the
-        # list was built in, not the file names.
+        # "ordered" is the order the list was built in, not the file names.
         order = playlist.order_files(FILES, ROOT, "ordered", ["1 c.mp3", "2 b.mp3"])
         self.assertEqual(order[:2], ["/music/C/1 c.mp3", "/music/B/2 b.mp3"])
         self.assertEqual(sorted(order), sorted(FILES), "every file is still there")

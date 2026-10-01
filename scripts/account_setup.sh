@@ -1,17 +1,13 @@
 #!/bin/bash
-# Sets up the "pi" account: firstrun.sh calls it best effort, then
-# rukebox-account.service calls it again once the image has created the account.
-#
 # ACCOUNT_MANAGE=yes sets the password (locked when only a key is given), =key
 # adds the key and keeps Imager's password, =no leaves the account to Imager.
-# Every step is best effort: it must never block the installation.
 
 set -u
 
 ENV_FILE="${RUKEBOX_ACCOUNT_ENV:-/etc/rukebox/account-setup.env}"
 BOOT_DIR="${RUKEBOX_BOOT_DIR:-/boot/firmware}"
 [ -d "$BOOT_DIR" ] || BOOT_DIR="/boot"
-# The card is the fallback: firstrun.sh moves its copy to the rootfs.
+# The card's copy is the fallback: firstrun.sh moves it to the rootfs.
 CARD_ENV="$BOOT_DIR/rukebox-account.env"
 [ -f "$ENV_FILE" ] || [ ! -f "$CARD_ENV" ] || ENV_FILE="$CARD_ENV"
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
@@ -21,7 +17,7 @@ MANAGE="${ACCOUNT_MANAGE:-no}"
 WAIT="${ACCOUNT_WAIT_SEC:-120}"
 EXTRA_GROUPS="sudo,audio,bluetooth,netdev,dialout,plugdev,video,render"
 # Not GROUPS: bash ignores assignments to its own GROUPS array.
-# Fixed placeholder: userconf-pi wants a valid hash, the real password is set below.
+# userconf-pi wants a valid hash; the real password is set below.
 PLACEHOLDER_HASH='$6$raspberryradiose$sIhB.tiKCeajySW5V7Cxf.HEcDgTxmNScaWIf4ZvLug1ICXRdWe7Gy47YOpnYJUmaIrDqg/BpmQzMFeI5QKmp1'
 
 LOG="/var/log/rukebox-account.log"
@@ -54,7 +50,7 @@ if [ -z "$(uid_of "$USERNAME")" ] && [ "$MANAGE" != "no" ] && [ -x /usr/lib/user
 fi
 
 if [ -z "$(uid_of "$USERNAME")" ] && [ "$MANAGE" != "no" ]; then
-    # Same by hand, without userconf-pi - not useradd: the image's first user is the account.
+    # Not useradd: the image's first user is the account, so rename it.
     FIRST="$(getent passwd 1000 | cut -d: -f1)"
     if [ -n "$FIRST" ] && [ "$FIRST" != "$USERNAME" ]; then
         echo "renaming the image's first user $FIRST to $USERNAME"
@@ -68,7 +64,7 @@ if [ -z "$(uid_of "$USERNAME")" ]; then
     exit 0
 fi
 
-# It would hang the boot waiting for a console; it has nothing left to do.
+# Left running it would hang the boot waiting for a console.
 systemctl disable --now userconfig.service >/dev/null 2>&1 || true
 
 GROUP="$(id -gn "$USERNAME" 2>/dev/null)"
@@ -77,7 +73,7 @@ HOME_DIR="$(getent passwd "$USERNAME" | cut -d: -f6)"
 WANT_HOME="${ACCOUNT_HOME:-/home/$USERNAME}"
 [ -n "$HOME_DIR" ] || HOME_DIR="$WANT_HOME"
 
-# The units, the sudoers file and sshd all expect the account's home here.
+# The units, the sudoers file and sshd all expect the home here.
 if [ "$HOME_DIR" != "$WANT_HOME" ]; then
     echo "the account's home is $HOME_DIR: moving it to $WANT_HOME"
     [ -d "$HOME_DIR" ] && [ ! -e "$WANT_HOME" ] && mv "$HOME_DIR" "$WANT_HOME" 2>/dev/null
@@ -126,12 +122,11 @@ reachable() {
     return 1
 }
 
-# Nobody could log in; the card's log is the only place that can say so.
 if ! reachable; then
     echo "WARNING: no SSH key and no password: nobody can log in as $USERNAME."
 fi
 
-# rukebox-firstboot.service starts from this copy, which the hook boot cannot make.
+# rukebox-firstboot.service needs this copy, which the hook boot cannot make.
 if [ -d "$BOOT_DIR/rukebox" ]; then
     rm -rf "$HOME_DIR/rukebox"
     cp -r "$BOOT_DIR/rukebox" "$HOME_DIR/rukebox" || fail "could not copy the project"

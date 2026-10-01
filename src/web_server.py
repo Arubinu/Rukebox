@@ -77,8 +77,7 @@ def _config_signature():
 
 
 def cfg():
-    # The file, never the environment: rukebox.env is frozen at service
-    # start and would hide every setting saved since.
+    # The file, never the environment: rukebox.env is frozen at service start.
     signature = _config_signature()
     with _cfg_lock:
         if _cfg_cache["signature"] == signature and _cfg_cache["values"] is not None:
@@ -146,8 +145,7 @@ def _mark_authenticated():
 _AUTH_EXEMPT_PREFIX = "/api/auth/"
 
 
-# Everything a visitor may do without the password when guest mode is on.
-# Exact paths only; long_press (power off) must never be here.
+# Paths a guest may call without the password; long_press (power off) never.
 _GUEST_PATHS = frozenset({
     "/api/status",
     "/api/status/wait",
@@ -418,9 +416,7 @@ def _station_command(*args):
     return None
 
 
-# How long after its last request a device still counts as connected, and how
-# far back "previously connected" looks. The page polls every 15s, so two
-# minutes is four missed polls - a device that left, not one that is idle.
+# The page polls every 15s: two minutes is four missed polls, a device that left.
 SEEN_CONNECTED_SEC = 120
 PREVIOUS_DAYS = 7
 PREVIOUS_MAX = 200
@@ -809,9 +805,7 @@ def _transfer_limit():
         return None
     status = control("get_status")
     data = (status.get("data") or {}) if status.get("ok") else {}
-    # Only silence is left out: music and announcements are capped, and so is
-    # nothing else - the keep-alive chime plays in idle/stopped, where a slowed
-    # down transfer would be slowed down for nobody.
+    # Music and announcements are capped; the keep-alive chime in idle is not worth slowing.
     if not data.get("speaker_connected") or data.get("paused"):
         return None
     if data.get("mode") in (None, "idle", "stopped"):
@@ -1117,9 +1111,7 @@ def _unknown_path(_error):
         return jsonify({"ok": False, "error": "not_found"}), 404
 
     if captive_portal.is_probe_path(request.path):
-        # A device checking for a portal has just joined: that probe is the one
-        # sign of life from a device that never opens a page, and the station
-        # list is only read while somebody is looking at the page.
+        # The portal probe is the only sign of life from a device that never opens a page.
         _seen_on_the_network(_suggestion_box(), suggestions.mac_for_ip(_client_ip()), _client_ip())
     if captive_portal.is_probe_path(request.path) and _portal_is_released(_client_ip()):
         status, content_type, body = captive_portal.probe_response(request.path)
@@ -1570,8 +1562,7 @@ def _output_fallback_state():
     if planned == "bluetooth":
         mac = c.get("SPEAKER_MAC", "")
         link = _status_probe(("speaker", mac), lambda: _speaker_link(mac))
-        # The speaker counts as there wherever it is connected; a controller
-        # that did not answer is not proof that it is gone.
+        # A controller that did not answer is not proof that the speaker is gone.
         missing = not (mac and link["connected"])
     else:
         missing = planned not in kinds
@@ -1628,9 +1619,7 @@ def _now_clients(box, stations):
         if device and device["id"] in banned_ids:
             continue
         entry = {"mac": mac, "ip": ip, "on_ap": True, **info}
-        # Whether the device itself tapped "Finish connecting" and that tap is
-        # still remembered - not whether the portal holds it, which is also a
-        # matter of the general rule and of this device's own choice.
+        # The device's own "Finish connecting" tap, not whether the portal still holds it.
         entry["portal_released"] = _portal_tap_remembered(entry["ip"] or "", mac)
         if device:
             entry.update(box.device_summary(device))
@@ -1747,8 +1736,7 @@ def api_device_forget():
     body = request.get_json(silent=True) or {}
     box = _suggestion_box()
     if body.get("unnamed"):
-        # The device doing the sweeping is spared: its own row is unnamed too,
-        # and it is answered by the very request that would delete it.
+        # The sweeping device is spared: its own row is unnamed too.
         count = box.forget_unnamed(keep=_this_device(box)["id"])
         if count:
             stats.record("device_forgotten", label="unnamed", detail={"devices": count})
@@ -1874,10 +1862,7 @@ def api_device_name_locked():
     return jsonify({"ok": True})
 
 
-# Written by scripts/update.sh for as long as an update is running, so the page
-# can say "update in progress" instead of looking like a Pi that has died while
-# the services are stopped. One left behind by a killed updater is ignored and
-# removed rather than keeping the page on that screen for ever.
+# Written by scripts/update.sh; a flag left behind by a killed updater is ignored and removed.
 UPDATE_FLAG_MAX_AGE_SEC = 900
 
 
@@ -2521,9 +2506,7 @@ def api_set_settings():
             log.warning("Could not restart bt-connect")
     audio_reloaded = False
     if "BT_AUDIO_CODECS" in body:
-        # The codecs live in a WirePlumber drop-in of their own, and the monitor
-        # reads them when it starts: write it, then restart the user service
-        # (a few seconds of silence, and the speaker reconnects by itself).
+        # WirePlumber reads the drop-in when it starts: write it, then restart the user service.
         try:
             bt_codec.write(codecs=bt_codec.parse(body.get("BT_AUDIO_CODECS")))
             audio_reloaded = bt_codec.restart_wireplumber(env=_user_session_env())
@@ -2729,11 +2712,7 @@ def _bt_script(commands, timeout=15, agent=False):
         return subprocess.CompletedProcess(command, 1, out, "timed out")
 
 
-# ----------------------------------------------------------------------
-# Bluetooth controllers (built-in chip, USB dongle) and the Flic button.
-# The speaker uses one controller through BlueZ; flicd takes another one
-# for itself (HCI user channel), so the two must differ.
-# ----------------------------------------------------------------------
+# flicd takes a controller for itself (HCI user channel), so the two must differ.
 FLIC_SDK_DIR = "/opt/fliclib-linux-hci"
 _MAC_RE = re.compile(r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 # BlueZ lists a device it has no name for under its own address, dashes and all.
@@ -2802,7 +2781,7 @@ def api_bt_controllers():
     speaker = _resolve_controller(c.get("SPEAKER_BT_ADAPTER"), controllers)
     flic = _resolve_controller(c.get("FLIC_HCI_DEVICE") or "hci0", controllers)
     if speaker is None and controllers:
-        # "Automatic": BlueZ's default, i.e. the first one flicd does not hold.
+        # "Automatic": the first controller flicd does not hold.
         free = [x for x in controllers if not (_flic_enabled() and x is flic)]
         speaker = (free or controllers)[0]
     return jsonify({"ok": True, "data": {
@@ -2886,8 +2865,7 @@ def api_flic_status():
         "usable": usable,
         "unusable_reason": reason,
         "enabled": enabled,
-        # Wanted, but the radio cannot let it run: the daemon stops it and
-        # starts it again by itself once a controller is free.
+        # Wanted, but the radio cannot let it run: the daemon restarts it when a controller frees.
         "held": bool(enabled and not usable),
         "active": active,
         "bridge": _service_is_active("flic-bridge"),
@@ -3379,10 +3357,7 @@ def api_bt_pair():
         stats.record("bluetooth_pair", label=mac, detail={"ok": False, "reason": "not_found"})
         return jsonify({"ok": False, "error": "bt_not_found"})
 
-    # The scan runs in the SAME session as the pairing: BlueZ drops a device it
-    # has only ever seen as soon as discovery stops, and `pair` then answers a
-    # flat "not available" - measured on the Pi, where pairing the speaker on
-    # the dongle failed every time until the scan was kept on.
+    # The scan must run in the same session: BlueZ drops a device discovery has only ever seen.
     text, verdict = _bt_await(["scan on", PAIR_SCAN_WAIT, f"pair {mac}"], _BT_PAIR_VERDICTS,
                               timeout=40, agent=True)
     _bt_info_cache.pop(mac, None)
@@ -3411,9 +3386,7 @@ def api_bt_connect():
         return jsonify({"ok": False, "error": "bt_not_found"})
 
     if body.get("reconnect"):
-        # Taking the link back is a disconnect first: a speaker that stayed
-        # "connected" while silent is cured by nothing less, and a plain
-        # connect on a link BlueZ believes is up does nothing at all.
+        # Disconnect first: a plain connect does nothing on a link BlueZ believes is up.
         _bt_script([f"disconnect {mac}"], timeout=10)
         time.sleep(1.5)
 
@@ -3752,8 +3725,7 @@ def api_wifi_status():
         "ok": True,
         "data": {"configured": True, "conn_name": conn_name, "active": active, "ip_address": ip_address,
                  "autoconnect": auto == "yes",
-                 # Cutting the network the page is reached through closes it: the
-                 # page warns before doing that.
+                 # Cutting the network this page is reached through closes it.
                  "client_here": bool(ip_address) and _same_network(request.remote_addr, ip_address)},
     })
 
@@ -3791,9 +3763,7 @@ def api_wifi_toggle():
     if result.returncode != 0:
         return jsonify({"ok": False, "error": "wifi_toggle_failed",
                         "detail": (result.stderr or result.stdout).strip()[-300:]}), 500
-    # The intent, for scripts/home-wifi-connect.sh: it takes the connection
-    # back when NetworkManager gave up on it, and leaves it alone when it was
-    # switched off here on purpose.
+    # Read by scripts/home-wifi-connect.sh, which leaves it alone when switched off here on purpose.
     update_config_file({"HOME_WIFI_ENABLED": action == "up"})
     stats.record("home_wifi_toggle", label=action, detail={"conn_name": conn_name})
     return jsonify({"ok": True})
@@ -4217,8 +4187,7 @@ def api_library_hide():
             artist=str(body.get("artist") or known.get("artist") or ""))
     except ValueError as error:
         return jsonify({"ok": False, "error": str(error)}), 400
-    # The queue follows at once: the current track finishes, and the next one
-    # cannot be a copy that was just put aside.
+    # The queue must not keep a copy that was just hidden.
     control("reload_hidden")
     stats.record("track_hidden" if hidden else "track_shown",
                  label=str(known.get("title") or key), detail={"key": key})
@@ -5012,10 +4981,7 @@ def api_update_status():
         if os.path.exists(UPDATE_LOG):
             with open(UPDATE_LOG, "r", encoding="utf-8", errors="replace") as f:
                 log_tail = "".join(f.readlines()[-40:])
-            # The end marker is written by the shell that launched the updater,
-            # after it returns - so a run that was killed halfway leaves none,
-            # and the log alone would say "in progress" for ever. The process is
-            # the other half of the answer.
+            # A killed update leaves no end marker, so the process is the other half of the answer.
             done = "__RUKEBOX_UPDATE_DONE__" in log_tail
             running = not done and _updater_alive()
             interrupted = not done and not running and bool(log_tail.strip())
@@ -5043,9 +5009,7 @@ def api_update_status():
 RELEASE_CACHE_SEC = 600
 _release_cache = {"at": 0.0, "repo": None, "result": None}
 _GITHUB_REPO_RE = re.compile(r"^(?!\.+/)[A-Za-z0-9_.-]+/(?!\.+$)[A-Za-z0-9_.-]+$")
-# A release can declare the tree hash it installs, as a "tree-hash: <hash>" line
-# or a shields.io badge carrying it, truncated. Any prefix long enough to tell
-# two builds apart is accepted.
+# A release declares its tree hash as a "tree-hash: <hash>" line or a shields.io badge.
 _TREE_HASH_RE = re.compile(r"(?:tree-hash:\s*|badge/[^\s)\"']*?)([0-9a-f]{8,64})", re.IGNORECASE)
 
 

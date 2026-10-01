@@ -1,14 +1,6 @@
 #!/bin/bash
-# Keeps the personal Wi-Fi connected, the way bt-connect.sh keeps the speaker
-# connected.
-#
-# Why it exists: NetworkManager does NOT come back from a connection that
-# failed for missing secrets. A single lost packet during the WPA handshake
-# makes it ask for the key again, and a headless Pi has no agent to answer -
-# measured on the owner's Pi: `failed (reason 'no-secrets')` at 19:08:50, then
-# nothing at all until the connection was brought up by hand twenty minutes
-# later, `connection.autoconnect-retries` being NetworkManager's default
-# (four tries) rather than "for ever".
+# NetworkManager does not come back from a connection that failed for missing secrets,
+# and a headless Pi has no agent to answer the key prompt.
 set -u
 
 CONFIG_FILE="/etc/rukebox/rukebox.env"
@@ -28,10 +20,7 @@ reload_config() {
         . "$CONFIG_FILE"
     fi
     CONN="${HOME_WIFI_CONN_NAME:-}"
-    # Both switches have to agree, or the watchdog would undo one of them: the
-    # first one ("Connection active") is the intent it enforces, the second
-    # ("Connect at startup") says whether this connection is allowed to come up
-    # on its own at all.
+    # Both must agree: this enforces "Connection active", autoconnect allows it up at all.
     case "${HOME_WIFI_ENABLED:-true}" in
         1|true|True|yes|on) WANTED=1 ;;
         *) WANTED=0 ;;
@@ -87,8 +76,7 @@ while :; do
     if [ "$up" -eq 1 ]; then
         echo "Personal Wi-Fi: '$CONN' went down, taking it back."
         up=0
-        # Straight away, not after the rest of the "it was up" window: this
-        # connection is how the page and SSH are reached from the house.
+        # Retried at once: this connection is how the page and SSH are reached from the house.
         next_attempt=$tick
         failures=0
     fi

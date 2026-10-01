@@ -25,8 +25,7 @@ except ImportError:
 
 TMP = tempfile.mkdtemp()
 if flask:
-    # Read by web_server at import time (load_config lets the environment
-    # win): nothing of the real installation is opened for writing.
+    # Read by web_server at import time; nothing of the real installation is opened for writing.
     os.environ["STATS_DB_FILE"] = os.path.join(TMP, "stats.db")
     import web_auth
     import web_server as ws
@@ -138,11 +137,7 @@ class WebTest(unittest.TestCase):
         self.assertEqual(guest.get("/api/queue").status_code, 200)
 
     def test_an_update_that_died_halfway_is_not_still_running(self):
-        # The end marker is appended by the shell that launched the updater,
-        # after it returns, so a run killed halfway leaves none - and the log
-        # alone then says "in progress" for ever, with the Install button
-        # disabled. Measured on the owner's Pi: the interface showed "Mise à
-        # jour en cours…" long after the updater had been killed.
+        # The shell appends the end marker after the updater returns, so a killed run leaves none.
         log = os.path.join(self.dir, "update.log")
         original = ws.UPDATE_LOG
         ws.UPDATE_LOG = log
@@ -174,20 +169,14 @@ class WebTest(unittest.TestCase):
             ws.UPDATE_LOG = original
 
     def test_the_page_says_an_update_is_running(self):
-        # scripts/update.sh writes this flag for as long as it runs, and
-        # /api/status carries it: the page then shows "update in progress"
-        # instead of looking like a Pi that has died, which is what happens
-        # while update.sh has the services stopped. Asked for as "remets la
-        # page, comme pour la RPi est eteinte mais pour dire qu'une mise a jour
-        # est en cours".
+        # Tells the page a service-stopping update is running instead of looking like a dead Pi.
         flag = os.path.join(self.dir, "updating")
         state = {"STATE_DIR": self.dir}
         self.assertFalse(ws.update_in_progress(state))
         with open(flag, "w", encoding="utf-8") as fh:
             fh.write("1790779000\n")
         self.assertTrue(ws.update_in_progress(state))
-        # An old flag is an updater that died, not an update in progress: it
-        # must not keep the page on that screen for ever.
+        # An old flag is an updater that died: it must not hold the page there for ever.
         old = time.time() - ws.UPDATE_FLAG_MAX_AGE_SEC - 60
         os.utime(flag, (old, old))
         self.assertFalse(ws.update_in_progress(state))
@@ -261,9 +250,7 @@ class WebTest(unittest.TestCase):
                          {"on": True, "volume": 20}, "a refused value changed nothing")
 
     def test_pairing_keeps_the_scan_running(self):
-        # Measured on the Pi: BlueZ drops a device it has only seen the moment
-        # discovery stops, and `pair` then answers "not available" - so the
-        # scan has to be started in the pairing session itself.
+        # BlueZ drops a device seen only once discovery stops, so the scan starts inside the pairing session.
         seen = {}
         original = (ws._bt_device_info, ws._bt_discover, ws._bt_await,
                     ws._bt_wait_flag, ws._bt_script)
@@ -322,8 +309,7 @@ class WebTest(unittest.TestCase):
             ws.subprocess.run = original
 
     def test_the_wifi_card_knows_when_it_is_its_own_lifeline(self):
-        # Cutting the network the page arrived through closes the page: the
-        # card has to know, to warn before doing it.
+        # Cutting the network the page arrived through closes the page.
         data = self.wifi_card()
         self.assertTrue(data["active"])
         self.assertTrue(data["client_here"], "the page is reached through it")
@@ -336,8 +322,7 @@ class WebTest(unittest.TestCase):
         self.assertFalse(ws._same_network(None, "192.168.42.12/24"))
 
     def test_turning_the_personal_wifi_off_is_remembered(self):
-        # The watchdog (scripts/home-wifi-connect.sh) reads this back: without
-        # it, it would take the connection up again behind the user's back.
+        # Read back by scripts/home-wifi-connect.sh, which would otherwise reconnect behind the user's back.
         written = []
         original = (ws.subprocess.run, ws.update_config_file)
         ws.subprocess.run = lambda args, **kw: types.SimpleNamespace(
@@ -388,7 +373,6 @@ class WebTest(unittest.TestCase):
                          [("a", False)])
         self.assertEqual(contents["missing"], 0)
 
-        # The active switch goes through the daemon, and comes back in the list.
         active = owner.post("/api/lists/active", json={"id": list_id, "start": True}).get_json()
         self.assertTrue(active["ok"], active)
         self.assertEqual(active["data"]["active"], list_id)
@@ -397,7 +381,6 @@ class WebTest(unittest.TestCase):
                       [(cmd, kw.get("id")) for cmd, kw in self.calls])
         self.assertEqual(owner.post("/api/lists/active", json={"id": "nope"}).status_code, 404)
 
-        # The genre shortcut reuses the list that already matches.
         made = owner.post("/api/lists/from_genres", json={"genres": ["Jazz"]}).get_json()
         self.assertTrue(made["ok"], made)
         again = owner.post("/api/lists/from_genres", json={"genres": ["jazz"]}).get_json()
@@ -428,8 +411,6 @@ class WebTest(unittest.TestCase):
             ws._status_probes.clear()
 
     def test_the_speaker_status_says_where_it_is(self):
-        # The reported bug: connected on the built-in controller while the
-        # settings name the USB dongle read as "disconnected".
         dongle, builtin = "00:A7:50:72:14:C4", "B8:27:EB:62:82:CB"
         data = self.status_of(
             {"connected": True, "controller": builtin, "expected": dongle,
@@ -460,10 +441,6 @@ class WebTest(unittest.TestCase):
         self.assertEqual(guest.get("/api/backup").status_code, 401)
 
     def test_a_device_can_be_put_back_on_the_portal(self):
-        # Asked for as putting "the first-connection behaviour" back on a
-        # device that finished the connection: the tap is remembered against
-        # the device, and the owner forgets it from Connected devices - which
-        # is what makes the portal hold it again.
         mac = "aa:bb:cc:dd:ee:99"
         guest = ws.app.test_client()
         owner = self.owner()
@@ -491,9 +468,7 @@ class WebTest(unittest.TestCase):
             self.assertEqual(owner.post("/api/devices/portal_release", json={"mac": "nope"}).status_code, 404)
 
     def test_a_device_off_the_access_point_is_still_connected(self):
-        # Some devices never join the access point: they reach the interface
-        # over their owner's own network, where `iw` cannot see them and a
-        # request is the only sign of life there is.
+        # Devices on the owner's own network are invisible to `iw`: a request is the only sign of life.
         guest = ws.app.test_client()
         with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=False), \
                 unittest.mock.patch.object(ws, "_stations", return_value={}):
@@ -506,9 +481,7 @@ class WebTest(unittest.TestCase):
         self.assertFalse(any(c.get("connected_sec") for c in clients))
 
     def test_a_device_that_left_can_still_be_acted_on(self):
-        # The other half of the page: a device that went away can still be
-        # named, spared the credits or sent back to the portal. A ban is the
-        # one thing that takes it out of both lists.
+        # A ban is the one thing that takes a device out of both lists.
         mac = "aa:bb:cc:dd:ee:97"
         owner = self.owner()
         owner.post("/api/devices/name", json={"mac": mac, "name": "Merle ivoire"})
@@ -536,8 +509,6 @@ class WebTest(unittest.TestCase):
             owner.post("/api/devices/ban", json={"device_id": device["id"], "lift": True})
 
     def test_a_device_can_be_forgotten(self):
-        # Asked for as a Delete button next to Ban on the previously-connected
-        # page, and a sweep of the devices nobody ever named.
         named_mac, unnamed_mac = "aa:bb:cc:dd:ee:96", "aa:bb:cc:dd:ee:95"
         owner = self.owner()
         box = ws._suggestion_box()
@@ -562,9 +533,7 @@ class WebTest(unittest.TestCase):
                          0, "nothing left to sweep")
 
     def test_a_remembered_tap_follows_the_device_not_its_address(self):
-        # The tap used to be keyed by address: a device that came back on
-        # another one was held again while the address it left behind let the
-        # next device through without asking.
+        # A device that comes back on another address would otherwise let the next one through.
         mac = "aa:bb:cc:dd:ee:98"
         guest = ws.app.test_client()
         with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
@@ -582,8 +551,7 @@ class WebTest(unittest.TestCase):
             ws._portal_forget(mac)
 
     def test_the_status_dates_the_tap(self):
-        # The page confirms a tap once and briefly, so it needs to know which
-        # tap it is looking at.
+        # The page confirms a tap once and briefly, so it needs to know which tap it is looking at.
         mac = "aa:bb:cc:dd:ee:95"
         guest = ws.app.test_client()
         with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
@@ -598,10 +566,7 @@ class WebTest(unittest.TestCase):
         ws._portal_forget(mac)
 
     def test_a_tap_survives_a_restart_of_the_web_server(self):
-        # Reported from the AP: a device that had already finished was asked
-        # again after the Pi was updated (the service restarted) and after the
-        # daily reboot. The in-memory map dies with the process, so the tap is
-        # written down against the device as well.
+        # The in-memory map dies with the process, so the tap is also written against the device.
         mac = "aa:bb:cc:dd:ee:97"
         guest = ws.app.test_client()
         with unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \

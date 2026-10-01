@@ -68,9 +68,6 @@ cleanup() { rm -f "$ARCHIVE"; }
 trap cleanup EXIT
 
 echo "== Packing $PROJECT_ROOT =="
-# Same list as push_update.sh: an install only ever needs src/, scripts/,
-# web/, config/, systemd/ and assets/sounds/, and a .venv left in the project
-# folder would otherwise add hundreds of megabytes to the archive.
 tar czf "$ARCHIVE" -C "$PROJECT_ROOT" \
     --exclude='.git' \
     --exclude='__pycache__' \

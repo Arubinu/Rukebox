@@ -44,7 +44,6 @@ class LibraryTest(unittest.TestCase):
         self.assertEqual(library.split_genres(None), [])
 
     def test_a_tag_holding_several_genres_counts_for_each(self):
-        # What the genre picker shows: one line per genre, not per tag.
         self.lib.store(self.files[0], {"genre": "Alternative Metal;Heavy Metal;Kawaii Metal"},
                        self.music)
         self.lib.store(self.files[1], {"genre": "Alternative Metal;Kawaii Metal"}, self.music)
