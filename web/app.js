@@ -3422,6 +3422,8 @@ function duplicateKeepButton(copy, group) {
   return b;
 }
 
+const openDuplicateGroups = new Set();
+
 function renderDuplicates() {
   const list = document.getElementById("duplicatesList");
   const summary = document.getElementById("duplicatesSummary");
@@ -3436,7 +3438,16 @@ function renderDuplicates() {
   list.replaceChildren(...duplicateGroups.map((group) => {
     const li = document.createElement("li");
     li.className = "duplicate-group";
-    const head = document.createElement("div");
+    // Folded by default, like every other row in this app: a page of groups is
+    // read by its titles, and the copies are what one group at a time is for.
+    const fold = document.createElement("details");
+    fold.className = "duplicate-fold";
+    fold.open = openDuplicateGroups.has(duplicateKey(group));
+    fold.addEventListener("toggle", () => {
+      if (fold.open) openDuplicateGroups.add(duplicateKey(group));
+      else openDuplicateGroups.delete(duplicateKey(group));
+    });
+    const head = document.createElement("summary");
     head.className = "duplicate-head";
     const name = document.createElement("strong");
     name.textContent = [group.artist, group.title].filter(Boolean).join(" \u2014 ");
@@ -3449,9 +3460,14 @@ function renderDuplicates() {
     const copies = document.createElement("ul");
     copies.className = "duplicate-copies";
     copies.replaceChildren(...group.tracks.map((copy) => duplicateCopy(copy, group)));
-    li.append(head, copies);
+    fold.append(head, copies);
+    li.append(fold);
     return li;
   }));
+}
+
+function duplicateKey(group) {
+  return (group.artist || "") + "\u0000" + (group.title || "");
 }
 
 function duplicatesAvailable() {

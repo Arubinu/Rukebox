@@ -817,19 +817,37 @@ body[data-page=""] .grid {
 .recent-list li.is-current .recent-when { color: var(--accent); font-weight: 600; }
 #recentEmpty { text-align: center; }
 
-/* Duplicate tracks: one card per song, its copies listed inside it, each with
-   what it weighs - the size, the length and the bitrate are what the choice is
-   made on, and the ones a check set aside are struck through. */
+/* Duplicate tracks: one card per song, its copies folded away until the row is
+   opened, each copy with what it weighs - the size, the length and the bitrate
+   are what the choice is made on, and the ones a check set aside are struck
+   through. Folded because a page of groups is read by its titles first. */
 .device-list li.duplicate-group { display: block; padding: 0; overflow: hidden; }
+.duplicate-fold { display: block; }
 .duplicate-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
 }
-.duplicate-head strong { font-size: 15px; overflow-wrap: anywhere; }
+.duplicate-head::-webkit-details-marker { display: none; }
+.duplicate-head strong { flex: 1 1 auto; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
+/* The chevron of every foldable row in this app, at the right of the line. */
+.duplicate-head::after {
+  content: "";
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background-color: var(--text-muted);
+  -webkit-mask: var(--i-chevron) center / contain no-repeat;
+  mask: var(--i-chevron) center / contain no-repeat;
+  transition: transform 0.2s ease;
+}
+.duplicate-fold[open] > .duplicate-head::after { transform: rotate(90deg); }
+.duplicate-fold[open] > .duplicate-head { border-bottom: 1px solid var(--border); }
+.duplicate-head:hover { background: var(--surface-2); }
 .duplicate-badge { flex: none; }
 .duplicate-same { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
 .duplicate-copies { list-style: none; margin: 0; padding: 0; }
@@ -2564,6 +2582,10 @@ select {
   gap: 8px;
 }
 .device-list:empty { display: none; }
+
+/* "Show more" belongs to the list above it, on a line of its own: full width,
+   and clear of the last row's border instead of sharing it. */
+#previousMore { width: 100%; margin-top: 14px; }
 
 [data-fade="top"] {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
