@@ -648,6 +648,7 @@ function setActiveView(tab, page, options) {
   Object.keys(pageGrids).forEach((key) => {
     pageGrids[key].hidden = !(key === tab && page === null);
   });
+  placePortalButton();
 
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     const on = btn.dataset.tab === tab;
@@ -8698,12 +8699,27 @@ function initHelpToggles() {
 
 initHelpToggles();
 
+/* "Finish connecting" belongs to the menu, and on the Home grid the menu's foot
+   is where every other area shows "Show all options": one or the other there,
+   never both. The sentence that follows a release stays at the top of the grid
+   - asked for as the button alone, and only on Home. */
+function placePortalButton() {
+  const btn = document.getElementById("portalReleaseBtn");
+  const foot = document.getElementById("portalFoot");
+  const top = document.getElementById("guestRelease");
+  if (!btn || !foot || !top) return;
+  const onHomeGrid = document.body.dataset.tab === "home" && !document.body.dataset.page;
+  const wanted = onHomeGrid ? foot : top;
+  if (btn.parentElement !== wanted) wanted.appendChild(btn);
+}
+
 async function refreshPortalBanner() {
   const result = await apiGet("/api/portal/status");
   if (!result.ok || !result.data) return false;
   const d = result.data;
   const btn = document.getElementById("portalReleaseBtn");
   const hint = document.getElementById("portalHint");
+  placePortalButton();
 
   // "released" is also what the server answers to a device that was never held
   // (a computer on the home network): only a device on the hotspot has anything

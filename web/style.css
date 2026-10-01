@@ -411,6 +411,7 @@ code {
 #main > .card,
 #main > .page-grid,
 #main > .guest-banner,
+#main > .band-foot,
 #main > .guest-release {
   width: 100%;
   max-width: var(--content-w);
@@ -3660,6 +3661,17 @@ body[data-access="guest"] .guest-release:has(#portalHint:not(:empty)) {
    every area, and on no page: a page opens on its own title. Where the rail
    exists its foot carries it instead, on every page: see the 640px block. */
 .guest-release { order: -1; }
+
+/* The one slot at the foot of the band, above the menu bar. On the Home grid
+   "Finish connecting" waits there, exactly where every other area shows "Show
+   all options" - the view bar is hidden on Home, so the two are never wanted at
+   once, and the sentence that follows a release stays at the top of the grid.
+   Nothing here without a button to show. */
+.band-foot { display: none; }
+.band-foot:has(#portalReleaseBtn:not([hidden])) {
+  display: flex;
+  justify-content: center;
+}
 @media (max-width: 639.98px) {
   body[data-page]:not([data-page=""]) .guest-release { display: none !important; }
 }
