@@ -305,10 +305,10 @@ elif [ -t 0 ]; then
     fi
     if [ "$reused" != "1" ]; then
         while true; do
-            read -rsp "Web interface password (Enter = none - 4 characters minimum otherwise): " WEB_PASSWORD
+            read -rsp "Web interface password (Enter = none - 8 characters minimum otherwise): " WEB_PASSWORD
             echo ""
-            { [ -z "$WEB_PASSWORD" ] || [ "${#WEB_PASSWORD}" -ge 4 ]; } && break
-            echo "Must be at least 4 characters, or empty for none." >&2
+            { [ -z "$WEB_PASSWORD" ] || [ "${#WEB_PASSWORD}" -ge 8 ]; } && break
+            echo "Must be at least 8 characters, or empty for none." >&2
         done
     fi
 fi

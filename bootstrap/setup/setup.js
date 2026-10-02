@@ -99,7 +99,7 @@
       if (!$("wzApSsid").value.trim()) return "setup.err_ap_ssid";
       const pw = $("wzApPw").value;
       if (pw && (pw.length < 8 || pw.length > 63)) return "setup.err_ap_pw";
-      if (!$("wzSameWeb").checked && $("wzWebPw").value && $("wzWebPw").value.length < 4) return "setup.err_web_pw";
+      if (!$("wzSameWeb").checked && $("wzWebPw").value && $("wzWebPw").value.length < 8) return "setup.err_web_pw";
     }
     if (step === "files" && mediaBytes() > MEDIA_BUDGET) return "setup.err_too_big";
     return null;

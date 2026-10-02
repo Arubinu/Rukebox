@@ -6,6 +6,7 @@ import os
 
 ALGORITHM = "pbkdf2_sha256"
 ITERATIONS = 260000
+MIN_PASSWORD_LENGTH = 8
 SALT_BYTES = 16
 
 

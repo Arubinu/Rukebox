@@ -336,7 +336,7 @@ def api_auth_set_password():
 
     new_password = body.get("new_password", "")
     if new_password:
-        if len(new_password) < 4:
+        if len(new_password) < web_auth.MIN_PASSWORD_LENGTH:
             return jsonify({"ok": False, "error": "password_too_short"}), 400
         new_hash = web_auth.hash_password(new_password)
     else:

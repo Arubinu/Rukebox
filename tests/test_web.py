@@ -146,6 +146,14 @@ class WebTest(unittest.TestCase):
         self.assertEqual(answer.status_code, 413)
         self.assertEqual(answer.get_json()["error"], "too_large")
 
+    def test_a_new_password_needs_eight_characters(self):
+        owner = self.owner()
+        short = owner.post("/api/auth/set_password",
+                           json={"current_password": "secret", "new_password": "1234567"})
+        self.assertEqual(short.status_code, 400)
+        self.assertEqual(short.get_json()["error"], "password_too_short")
+        self.assertEqual(self.owner().get("/api/settings").status_code, 200, "the old one still works")
+
     def test_guest_surface(self):
         guest = ws.app.test_client()
         self.assertEqual(guest.post("/api/action/long_press").status_code, 401, "a guest never powers off")
