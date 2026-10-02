@@ -1927,6 +1927,8 @@ class RadioDaemon:
         elif self.mode == "music":
             self._resume_with_fade(fade)
         else:
+            if not paused:
+                self._sink_resync = self.SINK_RESYNC_TURNS
             self.mpv.set_pause(paused)
         self._paused = paused
         if not paused and self._timer_due.get("resume"):
@@ -2052,6 +2054,8 @@ class RadioDaemon:
         target = self._target_volume()
         self._shown_volume = target
         linked = self._speaker_volume_linked()
+        # A volume changed during the pause went to an idle link, i.e. nowhere.
+        self._sink_resync = self.SINK_RESYNC_TURNS
         gain = self._music_gain() if linked else target
         if not duration_sec or duration_sec <= 0:
             self._current_volume = target

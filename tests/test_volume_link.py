@@ -172,6 +172,15 @@ class VolumeLinkTest(unittest.TestCase):
             daemon._start_music_faded(lambda: None)
             self.assertEqual(daemon._sink_resync, daemon.SINK_RESYNC_TURNS)
 
+    def test_a_resume_hands_the_volume_over_again(self):
+        daemon = self.build(linked=True)
+        with mock.patch.object(audio_diag, "set_default_sink_volume", return_value=True):
+            daemon._follow_sink_volume()
+            daemon._set_pause(True, "web")
+            self.assertEqual(daemon._sink_resync, 0)
+            daemon._set_pause(False, "web")
+        self.assertEqual(daemon._sink_resync, daemon.SINK_RESYNC_TURNS)
+
     def test_a_volume_of_zero_is_nudged_upwards(self):
         daemon = self.build(linked=True)
         with mock.patch.object(audio_diag, "set_default_sink_volume",
