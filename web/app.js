@@ -451,7 +451,8 @@ applyTheme(localStorage.getItem(THEME_KEY) || "system");
 
 /* A page IS a card: the URL is #area/page, so Back works and a page can be linked to. */
 const DEFAULT_VIEW = { tab: "home", page: "player" };
-const RAIL_QUERY = "(min-width: 640px)";
+// Below this the side menu is icons only: no room for page names, the grid stays the menu.
+const RAIL_QUERY = "(min-width: 1024px)";
 const railQuery = window.matchMedia ? window.matchMedia(RAIL_QUERY) : null;
 
 function railMode() {

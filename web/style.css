@@ -713,7 +713,7 @@ code {
 
 .rail-pages { display: none; }
 
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
   .rail-pages {
     display: flex;
     flex-direction: column;
@@ -745,7 +745,7 @@ code {
   .rail-page.active { color: var(--accent); border-left-color: var(--accent); font-weight: 650; }
   .rail-page:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-  /* The rail replaces the grid, except for a guest, whose only menu is the grid. */
+  /* The labelled side menu replaces the grid, except for a guest, whose only menu is the grid. */
   body:not([data-access="guest"]) .page-grid { display: none; }
 }
 
