@@ -126,7 +126,8 @@ def interface_network(iface, cache_seconds=30):
     """The IPv4 network on `iface`, or None."""
     now = time.monotonic()
     cached = _interface_networks.get(iface)
-    if cached and now - cached[0] < cache_seconds:
+    # "No address" is only believed for a moment: the access point may be coming up.
+    if cached and now - cached[0] < (cache_seconds if cached[1] is not None else 3):
         return cached[1]
     network = None
     try:
@@ -156,7 +157,15 @@ def is_ap_client(remote_ip, ap_interface="uap0"):
     except ValueError:
         return False
     network = interface_network(ap_interface)
+    if network is None:
+        # The access point is restarting: its devices are still its devices.
+        network = _last_ap_network.get(ap_interface)
+    else:
+        _last_ap_network[ap_interface] = network
     return bool(network and target in network)
+
+
+_last_ap_network = {}
 
 
 def _handler_class(target_url):
