@@ -2128,7 +2128,9 @@ when the radio feeds something that has no volume buttons at all.
 Two things worth knowing:
 
 - the volume after a restart is `base_volume` as before, and the speaker is set
-  to it: the radio hands its volume to the speaker when it starts;
+  to it: the radio hands its volume to the speaker when it starts, again when
+  the speaker connects, and again when the music starts (a speaker that is not
+  playing anything yet ignores the volume it is sent);
 - `volume_change: fade` glides the radio's own volume only. A linked change goes
   to the speaker at once, because a fade would be twenty AVRCP round trips a
   second.

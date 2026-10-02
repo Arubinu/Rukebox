@@ -63,6 +63,8 @@ class RadioDaemon:
     SINK_MISSING_CHECKS = 2
     # A press on the speaker is only visible as a new level; 2s makes it feel answered.
     SINK_POLL_SEC = 2.0
+    SINK_RESYNC_TURNS = 2
+    SINK_NAME_EVERY = 3
 
     def __init__(self, cfg):
         self._state_cond = threading.Condition()
@@ -123,6 +125,9 @@ class RadioDaemon:
         self._volume_glide_gen = 0
         self._volume_glide_target = None
         self._sink_level = None
+        self._sink_name = None
+        self._sink_resync = 0
+        self._sink_turn = 0
         self._sink_warned = False
         self._flic_warned = False
 
@@ -1048,6 +1053,8 @@ class RadioDaemon:
         except (TypeError, ValueError):
             fade = 0.0
         fade = min(max(fade, 0.0), 120.0)
+        # A volume handed to an idle Bluetooth link never reaches the speaker.
+        self._sink_resync = self.SINK_RESYNC_TURNS
         if fade <= 0:
             start()
             return
@@ -1185,19 +1192,44 @@ class RadioDaemon:
         """One watch turn: the speaker's own volume, when the link is on."""
         if not self._speaker_volume_linked():
             self._sink_level = None
+            self._sink_name = None
+            self._sink_resync = 0
             return
-        if self._sink_level is None:
-            # Just linked or just started: the interface's own volume goes to the speaker.
-            self._set_sink_volume(self._target_volume())
+        self._sink_turn += 1
+        percent = None
+        if self._sink_level is not None and not self._sink_resync                 and self._sink_turn % self.SINK_NAME_EVERY:
+            percent = self._read_sink_percent()
+            if percent is None or abs(percent - self._sink_level) <= 1.0:
+                return
+        name = audio_diag.default_sink(env=audio_env())[0]
+        if name and name != self._sink_name:
+            # Another output (the speaker just connected): it knows nothing of our volume.
+            self._sink_name = name
+            self._sink_resync = self.SINK_RESYNC_TURNS
+        if self._sink_level is None or self._sink_resync:
+            self._sink_resync = max(0, self._sink_resync - 1)
+            self._assert_sink_volume(self._target_volume())
             return
-        found = audio_diag.default_sink_volume(env=audio_env())
-        if found is None:
-            return
-        percent = max(0.0, min(100.0, round(found * 100.0, 1)))
-        if abs(percent - self._sink_level) <= 1.0:
+        if percent is None:
+            percent = self._read_sink_percent()
+        if percent is None or abs(percent - self._sink_level) <= 1.0:
             return
         self._sink_level = percent
         self._adopt_volume(percent)
+
+    def _read_sink_percent(self):
+        found = audio_diag.default_sink_volume(env=audio_env())
+        if found is None:
+            return None
+        return max(0.0, min(100.0, round(found * 100.0, 1)))
+
+    def _assert_sink_volume(self, vol):
+        """Hands the interface's volume to the output, whatever the output
+        believes it already has."""
+        # PipeWire sends nothing to the speaker for a value it thinks is in place.
+        vol = max(0.0, min(100.0, float(vol)))
+        audio_diag.set_default_sink_volume(vol - 1 if vol >= 1 else vol + 1, env=audio_env())
+        self._set_sink_volume(vol)
 
     def _adopt_volume(self, percent):
         """The speaker was moved by hand (or by another program): make that the
