@@ -126,6 +126,10 @@ def validate(data):
     music = data.get("list")
     music = None if music is None else str(music).strip()
 
+    announcement = str(data.get("announcement") or "").strip() or None
+    if announcement and (len(announcement) > 80 or not re.match(r"^[a-z0-9-]+$", announcement)):
+        raise ValueError("schedule_bad_announcement")
+
     return {
         "name": name,
         "enabled": bool(data.get("enabled", True)),
@@ -135,6 +139,7 @@ def validate(data):
         "stop": stop,
         "stop_action": action,
         "list": music,
+        "announcement": announcement if start else None,
         "settings": _settings(data.get("settings")),
     }
 
@@ -188,6 +193,21 @@ def delete(path, schedule_id):
         if len(remaining) == len(items):
             raise KeyError(schedule_id)
         _write(path, remaining)
+
+
+def reorder(path, order):
+    """Puts the schedules named in `order` first, in that order; the first of
+    the list wins when two weekly schedules overlap."""
+    if not isinstance(order, (list, tuple)):
+        raise ValueError("schedule_bad_order")
+    wanted = [str(one) for one in order]
+    with json_file.lock(path):
+        items = _strict(path)
+        by_id = {item["id"]: item for item in items}
+        first = [by_id[one] for one in dict.fromkeys(wanted) if one in by_id]
+        rest = [item for item in items if item["id"] not in wanted]
+        _write(path, first + rest)
+        return first + rest
 
 
 def save_all(path, items):

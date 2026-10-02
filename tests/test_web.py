@@ -344,6 +344,12 @@ class WebTest(unittest.TestCase):
         self.assertFalse(off["enabled"])
         self.assertEqual(off["stop"], "09:00", "a partial change keeps the rest")
         self.assertEqual(owner.post("/api/schedules/nope", json={"enabled": False}).status_code, 404)
+        owner.post("/api/schedules", json={"name": "Le soir", "start": "20:00"})
+        self.assertEqual(guest.post("/api/schedule_order", json={"order": ["le-soir"]}).status_code, 401)
+        ordered = owner.post("/api/schedule_order", json={"order": ["le-soir", "le-matin"]})
+        self.assertEqual([item["id"] for item in ordered.get_json()["data"]["schedules"]], ["le-soir", "le-matin"])
+        self.assertEqual(owner.post("/api/schedule_order", json={}).get_json()["error"], "schedule_bad_order")
+        self.assertEqual(owner.delete("/api/schedules/le-soir").status_code, 200)
         self.assertEqual(owner.delete("/api/schedules/le-matin").status_code, 200)
         self.assertEqual(owner.get("/api/schedules").get_json()["data"]["schedules"], [])
 

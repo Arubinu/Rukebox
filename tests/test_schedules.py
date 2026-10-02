@@ -9,6 +9,7 @@ from datetime import datetime
 from unittest import mock
 
 import _path  # noqa: F401
+import announcements
 from config_and_scan import load_config
 import music_lists
 import rukebox_daemon
@@ -40,6 +41,7 @@ class RulesTest(unittest.TestCase):
             ({"name": "A", "start": "07:00", "settings": {"WEB_PORT": "81"}}, "schedule_bad_setting"),
             ({"name": "A", "start": "07:00", "settings": {"MUSIC_DIR": "/etc"}}, "schedule_bad_setting"),
             ({"name": "A", "start": "07:00", "settings": {"BASE_VOLUME": "loud"}}, "schedule_bad_setting"),
+            ({"name": "A", "start": "07:00", "announcement": "../etc"}, "schedule_bad_announcement"),
         ):
             with self.assertRaises(ValueError, msg=str(data)) as refused:
                 schedules.validate(data)
@@ -55,6 +57,13 @@ class RulesTest(unittest.TestCase):
                                     "settings": {"BASE_VOLUME": 35, "MUSIC_LOOP": False}})
         self.assertEqual(clean["settings"], {"BASE_VOLUME": "35", "MUSIC_LOOP": "false"})
         self.assertEqual(schedules.overrides(clean), {"BASE_VOLUME": 35, "MUSIC_LOOP": False})
+
+    def test_an_opening_announcement_needs_a_start(self):
+        self.assertEqual(schedules.validate({"name": "A", "start": "07:00", "announcement": "hello"})
+                         ["announcement"], "hello")
+        self.assertIsNone(schedules.validate({"name": "A", "stop": "23:00", "announcement": "hello"})
+                          ["announcement"], "a stop alone opens nothing")
+        self.assertIsNone(schedules.validate({"name": "A", "start": "07:00"})["announcement"])
 
     def test_weekdays_no_day_at_all_and_one_date(self):
         week = make(days=[0, 1, 2, 3, 4])
@@ -113,7 +122,15 @@ class RulesTest(unittest.TestCase):
         schedules.update(path, "le-matin", {"stop": "09:00", "enabled": False})
         self.assertEqual(schedules.load(path)[0]["stop"], "09:00")
         self.assertFalse(schedules.load(path)[0]["enabled"])
+        third = schedules.add(path, {"name": "Le soir", "start": "20:00"})
+        ordered = schedules.reorder(path, [third["id"], "gone", "le-matin-2", third["id"]])
+        self.assertEqual([item["id"] for item in ordered], ["le-soir", "le-matin-2", "le-matin"],
+                         "those named first, the others after, nothing lost")
+        self.assertEqual([item["id"] for item in schedules.load(path)], ["le-soir", "le-matin-2", "le-matin"])
+        with self.assertRaises(ValueError):
+            schedules.reorder(path, "le-soir")
         schedules.delete(path, "le-matin-2")
+        schedules.delete(path, "le-soir")
         self.assertEqual(len(schedules.load(path)), 1)
         with open(path, "w") as f:
             f.write("{ not json")
@@ -257,6 +274,53 @@ class DaemonTest(unittest.TestCase):
         self.assertTrue(self.daemon.mpv.files[-1].endswith("c.mp3"))
         self.tick(at(5, 9, 0))
         self.assertIsNone(self.daemon.state.active_list())
+
+    def announce(self, **fields):
+        sounds = os.path.join(self.dir, "hello")
+        os.makedirs(sounds, exist_ok=True)
+        with open(os.path.join(sounds, "hello.mp3"), "wb") as f:
+            f.write(b"x")
+        item = dict(announcements.validate(dict({"name": "Hello", "folder": "/sounds"}, **fields)), id="hello")
+        item["folder"] = sounds
+        announcements.save_all(self.base["ANNOUNCEMENTS_FILE"], [item])
+
+    def test_a_schedule_can_open_with_an_announcement_then_the_music(self):
+        self.announce()
+        self.add(announcement="hello")
+        self.tick(at(5, 7, 0))
+        self.assertEqual(self.daemon.mode, "custom:hello")
+        self.assertTrue(self.daemon.mpv.files[-1].endswith("hello.mp3"))
+        self.daemon._after_announce_finished(self.daemon.mode)
+        self.assertEqual(self.daemon.mode, "music")
+        self.assertTrue(self.daemon.state.already_triggered_today("last_music_start"))
+
+    def test_with_the_music_already_on_the_announcement_still_plays_and_keeps_its_own_day(self):
+        self.announce(trigger="time", hour=12, minute=0)
+        self.add(announcement="hello")
+        self.daemon._start_or_restart_playback()
+        self.tick(at(5, 7, 0))
+        self.assertEqual(self.daemon.mode, "custom:hello")
+        self.assertFalse(self.daemon.state.already_triggered_today("custom_hello"),
+                         "its own time at noon is still to come")
+
+    def test_an_announcement_that_is_gone_or_off_does_not_hold_the_music_back(self):
+        self.announce(enabled=False)
+        self.add(announcement="hello")
+        self.tick(at(5, 7, 0))
+        self.assertEqual(self.daemon.mode, "music")
+        schedules.update(self.path, "morning", {"announcement": "nobody", "start": "07:05"})
+        self.daemon._go_standby("test")
+        with self.assertLogs("radio", level="WARNING"):
+            self.tick(at(5, 7, 5))
+        self.assertEqual(self.daemon.mode, "music")
+
+    def test_the_daily_cutoff_can_be_switched_off(self):
+        self.daemon.cfg.update({"CUTOFF_HOUR": 23, "CUTOFF_MINUTE": 30})
+        self.assertTrue(self.daemon._cutoff_due(at(5, 23, 30)))
+        self.daemon.cfg["CUTOFF_ENABLED"] = False
+        self.assertFalse(self.daemon._cutoff_due(at(5, 23, 30, 15)))
+        self.assertFalse(self.daemon._build_status()["cutoff_enabled"])
+        self.assertIn("CUTOFF_ENABLED", schedules.OVERRIDABLE, "an evening can do without it")
 
     def test_the_daily_cutoff_can_end_in_standby(self):
         self.daemon.cfg["SHUTDOWN_AFTER_CUTOFF"] = False

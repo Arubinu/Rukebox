@@ -441,6 +441,10 @@ SETTINGS = [
         "GPIO button long-press duration (sec)",
     ),
 
+    Setting("CUTOFF_ENABLED", "schedule", "cutoff_enabled", "bool", "true",
+            "Whether the day ends with a cutoff at all. Off, nothing stops the\n"
+            "music by itself but a schedule's own stop.",
+            "Daily cutoff"),
     Setting("CUTOFF_HOUR", "schedule", "cutoff_hour", "int", "7", "", "Cutoff hour"),
     Setting("CUTOFF_MINUTE", "schedule", "cutoff_minute", "int", "0", "", "Cutoff minute"),
     Setting(

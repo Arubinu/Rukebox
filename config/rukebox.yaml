@@ -357,6 +357,10 @@ buttons:
 # Evening cutoff (the morning announcement is a custom one)
 # ---------------------------------------------------------------
 schedule:
+  # Whether the day ends with a cutoff at all. Off, nothing stops the
+  # music by itself but a schedule's own stop.
+  cutoff_enabled: true
+
   cutoff_hour: 7
 
   cutoff_minute: 0

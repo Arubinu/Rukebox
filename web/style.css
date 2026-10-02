@@ -2014,6 +2014,40 @@ select {
 .sched-time { display: inline-flex; flex: none; align-items: center; gap: 12px; margin-left: auto; }
 .sched-time .time-input:disabled { opacity: 0.45; }
 .sched-date { flex: 0 1 12rem; }
+.sched-order { display: inline-flex; gap: 6px; }
+.sched-week { display: grid; gap: 4px; margin: 2px 0 14px; }
+.week-title { margin: 0 0 4px; font-size: 13px; font-weight: 650; color: var(--text-muted); }
+.week-row { display: grid; grid-template-columns: 3.6rem minmax(0, 1fr); align-items: center; gap: 8px; }
+.week-day { font-size: 12px; color: var(--text-muted); text-align: right; white-space: nowrap; }
+.week-row.is-today .week-day { color: var(--accent); font-weight: 650; }
+.week-track { position: relative; height: 24px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.week-seg {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  min-width: 4px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  opacity: 0.92;
+}
+.week-seg.is-dated { background: var(--success); }
+.week-seg:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.week-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; pointer-events: none; }
+.week-mark.is-cutoff { background: var(--danger); }
+.week-mark.is-stop { background: var(--warning); }
+.week-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
 .sched-settings { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .sched-settings > .field-label { margin: 0; font-weight: 650; }
 .sched-settings > .field-desc { margin: 2px 0 8px; }

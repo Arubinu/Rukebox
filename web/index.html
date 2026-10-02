@@ -452,6 +452,7 @@
           <p class="hint help-text" data-i18n="schedules.help" hidden>
             A schedule starts the music, stops it, or both, on chosen days or one date. Its settings only hold while it runs; the rest of the time, "Every day" below applies.
           </p>
+          <div class="sched-week" id="scheduleWeek" hidden></div>
           <ul class="device-list" id="scheduleList"></ul>
 
           <details class="subsection" id="scheduleFormSection">
@@ -510,6 +511,13 @@
                 <label for="schedList" data-i18n="schedules.list">Music</label>
                 <select id="schedList"></select>
               </div>
+              <div class="field-row" id="schedAnnouncementRow">
+                <div class="field-text">
+                  <label for="schedAnnouncement" data-i18n="schedules.announcement">Opens with</label>
+                  <p class="field-desc" id="schedAnnouncementDesc" data-i18n="schedules.announcement_desc">An announcement played at the start, before the music.</p>
+                </div>
+                <select id="schedAnnouncement" aria-describedby="schedAnnouncementDesc"></select>
+              </div>
               <div data-level="detail" class="sched-settings">
                 <p class="field-label" data-i18n="schedules.settings_title">Settings during this schedule</p>
                 <p class="field-desc" data-i18n="schedules.settings_desc">They replace the usual ones from the start to the stop, then the usual ones come back.</p>
@@ -532,6 +540,14 @@
               What the radio does outside any schedule: when the music starts, and the cutoff that ends the day.
             </p>
           <form id="settingsForm" class="settings-form">
+            <div class="field-row">
+              <div class="field-text">
+                <label for="cutoffEnabled" data-i18n="settings.cutoff_enabled">Daily cutoff</label>
+                <p class="field-desc" id="cutoffEnabledDesc" data-i18n="settings.cutoff_enabled_desc">Off: nothing stops the music by itself, except a schedule's own stop.</p>
+              </div>
+              <input type="checkbox" id="cutoffEnabled" data-key="CUTOFF_ENABLED" class="switch-input" role="switch"
+                     aria-describedby="cutoffEnabledDesc">
+            </div>
             <div class="field-row">
               <label for="cutoffTime" data-i18n="settings.cutoff">Cutoff</label>
               <input type="time" id="cutoffTime" class="time-input" data-key="CUTOFF_HOUR"

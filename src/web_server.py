@@ -1484,6 +1484,19 @@ def api_create_schedule():
     return jsonify({"ok": True, "data": entry})
 
 
+@app.route("/api/schedule_order", methods=["POST"])
+def api_order_schedules():
+    """{order: [id, ...]}: the first of the list wins when two overlap."""
+    body = request.get_json(silent=True) or {}
+    try:
+        items = schedules.reorder(_schedules_path(), body.get("order"))
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    notify_daemon("reload_schedules")
+    stats.record("schedule_changed", label="order", detail={"order": [item["id"] for item in items]})
+    return jsonify({"ok": True, "data": {"schedules": items}})
+
+
 @app.route("/api/schedules/<schedule_id>", methods=["POST"])
 def api_update_schedule(schedule_id):
     body = request.get_json(silent=True) or {}

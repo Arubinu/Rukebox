@@ -1592,7 +1592,8 @@ function applyNotices(d) {
   paintScheduleRunning(d.schedule ? d.schedule.id : null);
   if (d.restart_pending) add("info", "restart", "notice.restart");
   const now = piMinutes(d);
-  if (now !== null && typeof d.cutoff_hour === "number" && !["shutting_down"].includes(d.mode)) {
+  if (now !== null && d.cutoff_enabled !== false && typeof d.cutoff_hour === "number"
+      && !["shutting_down"].includes(d.mode)) {
     const cutoff = d.cutoff_hour * 60 + (d.cutoff_minute || 0);
     const inMin = (cutoff - now + 1440) % 1440;
     if (inMin > 0 && inMin <= 60) {
@@ -2470,6 +2471,7 @@ async function loadSettingsIntoForm() {
     if (key in result.data) setFieldValue(el, result.data[key]);
   });
   settingsBaseline = { ...result.data };
+  renderScheduleWeek();
 
   updateStartTimeVisibility();
   updateSpeakerFadeVisibility();
@@ -3072,7 +3074,9 @@ function announcementRow(item) {
     refreshAnnouncements();
   });
   del.classList.add("btn-danger-outline", "ann-delete");
-  manage.append(switchLabel, del);
+  const dup = button("copy", "common.duplicate", () => startDuplicateAnnouncement(item));
+  dup.classList.add("ann-duplicate");
+  manage.append(switchLabel, dup, del);
 
   body.append(actions, manage);
   li.append(head, body);
@@ -3185,13 +3189,20 @@ function scheduleRow(item) {
   body.hidden = !open;
 
   const actions = document.createElement("div");
-  actions.className = "ann-actions is-two";
+  actions.className = "ann-actions";
   const edit = document.createElement("button");
   edit.type = "button";
   edit.className = "btn sched-edit";
   edit.dataset.icon = "pencil";
   edit.textContent = t("common.edit");
   edit.addEventListener("click", () => startEditSchedule(item));
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "btn sched-copy";
+  copy.dataset.icon = "copy";
+  copy.textContent = t("common.duplicate");
+  copy.addEventListener("click", () => startEditSchedule(
+    Object.assign({}, item, { name: t("common.copy_name", { name: item.name }).slice(0, 40) }), true));
   const del = document.createElement("button");
   del.type = "button";
   del.className = "btn btn-danger-outline sched-delete";
@@ -3204,7 +3215,7 @@ function scheduleRow(item) {
     if (editingScheduleId === item.id) resetScheduleForm();
     refreshSchedules();
   });
-  actions.append(edit, del);
+  actions.append(edit, copy, del);
 
   const manage = document.createElement("div");
   manage.className = "ann-manage";
@@ -3228,14 +3239,153 @@ function scheduleRow(item) {
     }
     refreshSchedules();
   });
-  manage.append(switchLabel);
+  // The first of the list wins when two overlap, so the order is the owner's to set.
+  const order = document.createElement("span");
+  order.className = "sched-order";
+  const index = schedulesData.findIndex((one) => one.id === item.id);
+  [["arrow-up", "trackorder.move_up", -1], ["arrow-down", "trackorder.move_down", 1]].forEach(([icon, key, step]) => {
+    const arrow = document.createElement("button");
+    arrow.type = "button";
+    arrow.className = "btn btn-icon btn-small sched-move";
+    arrow.dataset.icon = icon;
+    arrow.dataset.step = String(step);
+    arrow.setAttribute("aria-label", t(key));
+    arrow.title = t(key);
+    arrow.disabled = index + step < 0 || index + step >= schedulesData.length;
+    arrow.addEventListener("click", () => moveSchedule(item.id, step));
+    order.appendChild(arrow);
+  });
+  manage.append(switchLabel, order);
 
   body.append(actions, manage);
   li.append(head, body);
   return li;
 }
 
+async function moveSchedule(id, step) {
+  const ids = schedulesData.map((one) => one.id);
+  const from = ids.indexOf(id);
+  const to = from + step;
+  if (from < 0 || to < 0 || to >= ids.length) return;
+  ids.splice(to, 0, ids.splice(from, 1)[0]);
+  const r = await apiPost("/api/schedule_order", { order: ids });
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  schedulesData = r.data.schedules;
+  renderSchedules();
+}
+
+function minutesOfDay(text) {
+  const parts = String(text || "").split(":");
+  return Number(parts[0]) * 60 + Number(parts[1]);
+}
+
+/* The coming seven days, a line each: what runs when, and where the daily cutoff falls. */
+function renderScheduleWeek() {
+  const box = document.getElementById("scheduleWeek");
+  const live = schedulesData.filter((one) => one.enabled);
+  box.hidden = !live.length;
+  if (!live.length) {
+    box.replaceChildren();
+    return;
+  }
+  const today = (playerStatus && /^\d{4}-\d\d-\d\d/.test(playerStatus.system_time || ""))
+    ? playerStatus.system_time.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const base = new Date(today + "T00:00:00Z").getTime();
+  const rows = [0, 1, 2, 3, 4, 5, 6].map(() => ({ segments: [], marks: [] }));
+  const matches = (item, date) => {
+    if (item.date) return item.date === date.toISOString().slice(0, 10);
+    const days = item.days || [];
+    return !days.length || days.includes((date.getUTCDay() + 6) % 7);
+  };
+  for (let day = -1; day < 7; day += 1) {
+    const date = new Date(base + day * 86400000);
+    live.forEach((item) => {
+      if (!matches(item, date)) return;
+      if (!item.start) {
+        if (day >= 0) rows[day].marks.push({ at: minutesOfDay(item.stop), kind: "stop", item });
+        return;
+      }
+      const begin = minutesOfDay(item.start);
+      let end = item.stop ? minutesOfDay(item.stop) : 1440;
+      if (end <= begin) end += 1440;
+      if (day >= 0) rows[day].segments.push({ from: begin, to: Math.min(end, 1440), item });
+      if (end > 1440 && day + 1 < 7) rows[day + 1].segments.push({ from: 0, to: end - 1440, item });
+    });
+  }
+  const cutoff = settingsBaseline.CUTOFF_ENABLED !== "false" && settingsBaseline.CUTOFF_HOUR !== undefined
+    ? Number(settingsBaseline.CUTOFF_HOUR) * 60 + Number(settingsBaseline.CUTOFF_MINUTE || 0) : null;
+  const dayName = new Intl.DateTimeFormat(currentLang, { weekday: "short", day: "numeric", timeZone: "UTC" });
+  const clock = (minutes) => formatHM(Math.floor(minutes / 60) % 24, minutes % 60);
+
+  const title = document.createElement("p");
+  title.className = "week-title";
+  title.textContent = t("schedules.week_title");
+  const lines = rows.map((row, day) => {
+    const line = document.createElement("div");
+    line.className = "week-row" + (day === 0 ? " is-today" : "");
+    const label = document.createElement("span");
+    label.className = "week-day";
+    label.textContent = dayName.format(new Date(base + day * 86400000));
+    const track = document.createElement("div");
+    track.className = "week-track";
+    const said = [];
+    row.segments.forEach((segment) => {
+      const bar = document.createElement("button");
+      bar.type = "button";
+      bar.className = "week-seg" + (segment.item.date ? " is-dated" : "");
+      bar.style.left = (segment.from / 14.4) + "%";
+      bar.style.width = ((segment.to - segment.from) / 14.4) + "%";
+      bar.textContent = segment.item.name;
+      const words = segment.item.name + " " + clock(segment.from) + "\u2013" + clock(segment.to);
+      bar.title = words;
+      said.push(words);
+      bar.addEventListener("click", () => {
+        setScheduleOpen(segment.item.id);
+        const target = document.querySelector('#scheduleList .ann-item[data-id="' + CSS.escape(segment.item.id) + '"]');
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      track.appendChild(bar);
+    });
+    row.marks.forEach((mark) => {
+      const tick = document.createElement("span");
+      tick.className = "week-mark is-stop";
+      tick.style.left = (mark.at / 14.4) + "%";
+      tick.title = mark.item.name + " " + clock(mark.at);
+      said.push(tick.title);
+      track.appendChild(tick);
+    });
+    if (cutoff !== null) {
+      const tick = document.createElement("span");
+      tick.className = "week-mark is-cutoff";
+      tick.style.left = (cutoff / 14.4) + "%";
+      tick.title = t("schedules.week_cutoff", { time: clock(cutoff) });
+      said.push(tick.title);
+      track.appendChild(tick);
+    }
+    track.setAttribute("role", "group");
+    track.setAttribute("aria-label", label.textContent + ": " + (said.join(", ") || t("schedules.week_nothing")));
+    line.append(label, track);
+    return line;
+  });
+  const axis = document.createElement("div");
+  axis.className = "week-row week-axis";
+  axis.setAttribute("aria-hidden", "true");
+  const scale = document.createElement("div");
+  scale.className = "week-scale";
+  ["0", "6", "12", "18", "24"].forEach((hour) => {
+    const mark = document.createElement("span");
+    mark.textContent = hour;
+    scale.appendChild(mark);
+  });
+  axis.append(document.createElement("span"), scale);
+  box.replaceChildren(title, ...lines, axis);
+}
+
 function renderSchedules() {
+  renderScheduleWeek();
   const list = document.getElementById("scheduleList");
   list.replaceChildren();
   if (!schedulesData.length) {
@@ -3286,6 +3436,7 @@ function updateScheduleForm() {
   document.getElementById("schedStart").disabled = !startOn;
   document.getElementById("schedStop").disabled = !stopOn;
   document.getElementById("schedActionRow").hidden = !stopOn;
+  document.getElementById("schedAnnouncementRow").hidden = !startOn;
 }
 ["schedWhen", "schedStartOn", "schedStopOn"].forEach((id) => {
   document.getElementById(id).addEventListener("change", updateScheduleForm);
@@ -3310,6 +3461,20 @@ function fillScheduleLists(value) {
     });
   const wanted = value === null || value === undefined ? "keep" : value === "" ? "all" : "id:" + value;
   setFieldValue(select, wanted);
+}
+
+function fillScheduleAnnouncements(value) {
+  const select = document.getElementById("schedAnnouncement");
+  select.replaceChildren();
+  [["", t("schedules.announcement_none")]]
+    .concat(customAnnouncementsCache.map((one) => [one.id, one.name]))
+    .forEach(([optionValue, label]) => {
+      const option = document.createElement("option");
+      option.value = optionValue;
+      option.textContent = label;
+      select.appendChild(option);
+    });
+  setFieldValue(select, value || "");
 }
 
 /* A schedule's setting is edited with a copy of the very control the settings pages use. */
@@ -3427,6 +3592,7 @@ function fillScheduleForm(item) {
   const settings = data.settings || {};
   document.getElementById("schedVolume").value = "BASE_VOLUME" in settings ? settings.BASE_VOLUME : "";
   fillScheduleLists(data.list);
+  fillScheduleAnnouncements(data.announcement);
   schedOverrides.replaceChildren();
   Object.keys(settings).forEach((key) => {
     if (key === "BASE_VOLUME") return;
@@ -3452,9 +3618,9 @@ function resetScheduleForm() {
   document.getElementById("scheduleFormSection").open = false;
 }
 
-function startEditSchedule(item) {
-  editingScheduleId = item.id;
-  setScheduleFormTitle(item);
+function startEditSchedule(item, asCopy) {
+  editingScheduleId = asCopy ? null : item.id;
+  setScheduleFormTitle(asCopy ? null : item);
   fillScheduleForm(item);
   const section = document.getElementById("scheduleFormSection");
   section.open = true;
@@ -3463,7 +3629,11 @@ function startEditSchedule(item) {
 
 document.getElementById("scheduleFormSection").addEventListener("toggle", (event) => {
   // The lists are only known once their own card has loaded, well after this one.
-  if (event.target.open && !editingScheduleId) fillScheduleLists(null);
+  if (!event.target.open || editingScheduleId) return;
+  // Only an untouched form: a copy being prepared has its own choices.
+  if (document.getElementById("schedName").value) return;
+  fillScheduleLists(null);
+  fillScheduleAnnouncements(null);
 });
 document.getElementById("schedCancel").addEventListener("click", resetScheduleForm);
 
@@ -3480,6 +3650,7 @@ schedForm.addEventListener("submit", async (event) => {
     stop: document.getElementById("schedStopOn").checked ? document.getElementById("schedStop").value : null,
     stop_action: document.getElementById("schedAction").value,
     list: list === "keep" ? null : list === "all" ? "" : list.slice(3),
+    announcement: document.getElementById("schedAnnouncement").value || null,
     settings: collectScheduleSettings(),
   };
   if (when === "days" && !body.days.length) {
@@ -5403,6 +5574,14 @@ function startEditAnnouncement(item) {
   document.getElementById("annName").focus({ preventScroll: true });
 }
 
+/* A copy is a new announcement on the same folder: the same sounds, at another time. */
+function startDuplicateAnnouncement(item) {
+  startEditAnnouncement(Object.assign({}, item,
+    { name: t("common.copy_name", { name: item.name }).slice(0, 80) }));
+  paintAnnFormVolume(null);
+  setAnnouncementFormMode(null);
+}
+
 function returnToAnnouncement(id) {
   document.getElementById("announcementFormSection").open = false;
   if (!id) return;
@@ -6460,8 +6639,14 @@ function updateStartTimeVisibility() {
   document.getElementById("musicStartTimeRow").hidden = select.value !== "scheduled";
 
   document.getElementById("volumeFadeRow").hidden = document.getElementById("volumeChange").value !== "fade";
+
+  const cutoff = document.getElementById("cutoffEnabled").checked;
+  ["cutoffTime", "cutoffMode", "afterCutoff"].forEach((id) => {
+    document.getElementById(id).closest(".field-row").hidden = !cutoff;
+  });
 }
 document.getElementById("volumeChange").addEventListener("change", updateStartTimeVisibility);
+document.getElementById("cutoffEnabled").addEventListener("change", updateStartTimeVisibility);
 
 document.getElementById("musicStartMode").addEventListener("change", updateStartTimeVisibility);
 

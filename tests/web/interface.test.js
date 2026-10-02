@@ -299,7 +299,7 @@ test("a schedule is saved with its days, its times and the settings it holds", a
   const made = (await until(() => page.sent("POST", "/api/schedules").length
     && page.sent("POST", "/api/schedules")))[0].body;
   assert.deepEqual(made, { name: "Le matin", days: [0, 2], date: null, start: "07:00", stop: null,
-                           stop_action: "pause", list: null,
+                           stop_action: "pause", list: null, announcement: null,
                            settings: { MUSIC_LOOP: "false", CUTOFF_HOUR: "23", CUTOFF_MINUTE: "30",
                                        BASE_VOLUME: "30" } });
 
@@ -316,6 +316,85 @@ test("a schedule is saved with its days, its times and the settings it holds", a
   assert.deepEqual(changed.settings, { BASE_VOLUME: "40" });
   assert.deepEqual(changed.days, [4, 5]);
   assert.deepEqual(page.errors, []);
+});
+
+test("schedules can be reordered and copied, and the week shows them", async (t) => {
+  const schedules = [
+    { id: "matin", name: "Le matin", enabled: true, date: null, days: [], start: "07:00", stop: "09:00",
+      stop_action: "pause", list: null, announcement: "reveil", settings: { BASE_VOLUME: "30" } },
+    { id: "nuit", name: "La nuit", enabled: true, date: null, days: [], start: "22:00", stop: "01:30",
+      stop_action: "standby", list: null, announcement: null, settings: {} },
+    { id: "off", name: "Coupee", enabled: false, date: null, days: [], start: "12:00", stop: "13:00",
+      stop_action: "pause", list: null, announcement: null, settings: {} },
+  ];
+  const page = open(t, { hash: "#settings/settings", routes: {
+    "GET /api/settings": { CUTOFF_ENABLED: "true", CUTOFF_HOUR: "23", CUTOFF_MINUTE: "30" },
+    "GET /api/announcements": [{ id: "reveil", name: "Reveil", enabled: true, trigger: "manual", hour: 7,
+                                 minute: 0, file_count: 2, folder: "/home/pi/audio/reveil" }],
+    "GET /api/schedules": { schedules, settings: ["BASE_VOLUME"] },
+    "POST /api/schedule_order": (request) => ({
+      schedules: request.body.order.map((id) => schedules.find((one) => one.id === id)) }),
+    "POST /api/schedules": (request) => Object.assign({ id: "copie" }, request.body),
+  } });
+  const week = await until(() => page.$("scheduleWeek").querySelectorAll(".week-row:not(.week-axis)").length === 7
+    && page.$("scheduleWeek").querySelector(".week-mark.is-cutoff") && page.$("scheduleWeek"));
+  const first = week.querySelector(".week-row");
+  const bars = [...first.querySelectorAll(".week-seg")].map((bar) => [bar.textContent, bar.title]);
+  assert.deepEqual(bars, [["La nuit", "La nuit 00:00\u201301:30"], ["Le matin", "Le matin 07:00\u201309:00"],
+                          ["La nuit", "La nuit 22:00\u201300:00"]],
+                   "last night's end, this morning, tonight's start - and nothing for the one switched off");
+  assert.match(first.querySelector(".week-track").getAttribute("aria-label"), /daily cutoff 23:30/);
+
+  const rows = () => [...page.$("scheduleList").querySelectorAll(".ann-item")].map((row) => row.dataset.id);
+  const second = page.$("scheduleList").querySelectorAll(".ann-item")[1];
+  assert.equal(page.$("scheduleList").querySelector('.sched-move[data-step="-1"]').disabled, true,
+               "the first one cannot go higher");
+  second.querySelector('.sched-move[data-step="-1"]').click();
+  const order = (await until(() => page.sent("POST", "/api/schedule_order").length
+    && page.sent("POST", "/api/schedule_order")))[0].body;
+  assert.deepEqual(order, { order: ["nuit", "matin", "off"] });
+  await until(() => rows()[0] === "nuit");
+
+  page.$("scheduleList").querySelector('.ann-item[data-id="matin"] .sched-copy').click();
+  assert.equal(page.$("schedName").value, "Le matin (copy)");
+  assert.equal(page.$("schedAnnouncement").value, "reveil");
+  assert.equal(page.$("schedAnnouncementRow").hidden, false);
+  page.$("scheduleForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
+  const copy = (await until(() => page.sent("POST", "/api/schedules").length
+    && page.sent("POST", "/api/schedules")))[0].body;
+  assert.equal(copy.name, "Le matin (copy)");
+  assert.equal(copy.announcement, "reveil");
+  assert.deepEqual(copy.settings, { BASE_VOLUME: "30" });
+  assert.equal(page.sent("POST", "/api/schedules/matin").length, 0, "a copy is a new schedule, not a change");
+
+  const cutoff = page.$("cutoffEnabled");
+  assert.equal(page.$("cutoffTime").closest(".field-row").hidden, false);
+  cutoff.checked = false;
+  cutoff.dispatchEvent(new page.window.Event("change", { bubbles: true }));
+  assert.equal(page.$("cutoffTime").closest(".field-row").hidden, true);
+  assert.equal(page.$("afterCutoff").closest(".field-row").hidden, true);
+  assert.deepEqual(page.errors, []);
+});
+
+test("an announcement can be copied into a new one on the same folder", async (t) => {
+  const page = open(t, { hash: "#settings/announcements", routes: {
+    "GET /api/announcements": [{ id: "reveil", name: "Reveil", enabled: true, trigger: "time", hour: 7,
+                                 minute: 15, file_count: 2, folder: "/home/pi/audio/reveil",
+                                 after_action: "pause", auto_chance: "1/2", manual_chance: "1/1",
+                                 delay_min: 30, repeat_times: 1 }],
+    "POST /api/announcements": (request) => Object.assign({ id: "reveil-copy" }, request.body),
+  } });
+  (await until(() => page.$("announcementList").querySelector(".ann-duplicate"))).click();
+  assert.equal(page.$("annName").value, "Reveil (copy)");
+  assert.equal(page.$("annFolder").value, "/home/pi/audio/reveil");
+  assert.equal(page.$("annTime").value, "07:15");
+  assert.equal(page.$("annSubmit").dataset.i18n, "common.add", "it will be added, not saved over the first");
+  page.$("announcementForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
+  const made = (await until(() => page.sent("POST", "/api/announcements").length
+    && page.sent("POST", "/api/announcements")))[0].body;
+  assert.equal(made.name, "Reveil (copy)");
+  assert.equal(made.after_action, "pause");
+  assert.equal(page.sent("POST", "/api/announcements/reveil").length, 0);
 });
 
 test("the player says which schedule runs, and which one comes next", async (t) => {

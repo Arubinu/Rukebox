@@ -1058,6 +1058,10 @@ class RadioDaemon:
     def _start_or_restart_playback(self, log_label="idle"):
         """First click from idle, or a click/API call restarting playback after
         a non-looping list finished."""
+        self._prepare_music_start(log_label)
+        self._start_music_faded(self._play_next_track)
+
+    def _prepare_music_start(self, log_label):
         log.info("Starting music (%s)", log_label)
         self.stats.record("music_started", label=log_label)
         self._music_started_mono = time.monotonic()
@@ -1068,7 +1072,6 @@ class RadioDaemon:
             tracks = self._playable_tracks()
             if tracks:
                 self._rebuild_queue(tracks)
-        self._start_music_faded(self._play_next_track)
 
     def _start_music_faded(self, start):
         """Runs `start` (which begins the first song) under START_FADE_SEC."""
@@ -1456,11 +1459,45 @@ class RadioDaemon:
 
     def _schedule_start(self, item):
         log.info("Schedule '%s': start", item["name"])
+        opening = self._schedule_announcement(item)
         if self.mode in ("idle", "stopped"):
             self.state.mark_triggered_today("last_music_start")
-            self._start_or_restart_playback(log_label="schedule")
-        elif self.mode == "music" and self._paused:
-            self._set_pause(False, "schedule")
+            if opening:
+                self._start_music_after(opening)
+            else:
+                self._start_or_restart_playback(log_label="schedule")
+        elif self.mode == "music":
+            if self._paused:
+                self._set_pause(False, "schedule")
+            if opening:
+                # Its own daily time, if it has one, stays its own: this play does not use it up.
+                self._trigger_custom_announcement(opening, mark=False)
+
+    def _schedule_announcement(self, item):
+        """The announcement a schedule opens with, or None."""
+        wanted = item.get("announcement")
+        if not wanted:
+            return None
+        found = next((one for one in self._custom_announcements if one["id"] == wanted), None)
+        if found is None:
+            log.warning("Schedule '%s' opens with an announcement that no longer exists (%s)",
+                        item["name"], wanted)
+            return None
+        return found if found.get("enabled", True) else None
+
+    def _start_music_after(self, announcement):
+        """Starts the day with an announcement: it plays first, the music follows."""
+        self._prepare_music_start("schedule")
+        self.stats.record(
+            "custom_announce_triggered", label=announcement["name"],
+            detail={"id": announcement["id"], "trigger": "schedule", "on_demand": False},
+            counters={"custom_announces": 1}, daily={"custom_announces": 1},
+        )
+        self._resume_mode = "music"
+        self._restore_base_volume()
+        source_id = "custom:%s" % announcement["id"]
+        self._play_announce_queue(source_id, self._next_announce_file(source_id, announcement["folder"]),
+                                  volume_key=source_id, after=announcement.get("after_action"))
 
     def _schedule_stop(self, item):
         action = item.get("stop_action") or "pause"
@@ -1516,7 +1553,7 @@ class RadioDaemon:
         self.state.set_pending_cutoff(True)
         self.state.mark_triggered_today("last_cutoff_trigger")
 
-    def _trigger_custom_announcement(self, item, on_demand=False):
+    def _trigger_custom_announcement(self, item, on_demand=False, mark=True):
         """A user-defined announcement type (src/announcements.py): fade out,
         play its folder in order, resume music."""
         log.info("Triggering custom announcement '%s'", item["name"])
@@ -1537,7 +1574,7 @@ class RadioDaemon:
         self._play_announce_queue(source_id, self._next_announce_file(source_id, item["folder"]),
                                   volume_key=source_id,
                                   after=None if on_demand else item.get("after_action"))
-        if not on_demand and item.get("trigger") == "time":
+        if mark and not on_demand and item.get("trigger") == "time":
             self.state.mark_triggered_today("custom_%s" % item["id"])
 
     def _record_cutoff_trigger(self, cutoff_mode):
@@ -2443,6 +2480,8 @@ class RadioDaemon:
     def _cutoff_due(self, now):
         """The cutoff minute, or one this loop was kept away from."""
         last, self._last_tick = self._last_tick, now
+        if not self.cfg.get("CUTOFF_ENABLED", True):
+            return False
         hour, minute = self.cfg["CUTOFF_HOUR"], self.cfg["CUTOFF_MINUTE"]
         if now.hour == hour and now.minute == minute:
             return True
@@ -2561,6 +2600,7 @@ class RadioDaemon:
             "has_rtc": os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc"),
             "speaker_mac": self.cfg["SPEAKER_MAC"],
             "cutoff_mode": self.cfg["CUTOFF_MODE"],
+            "cutoff_enabled": bool(self.cfg.get("CUTOFF_ENABLED", True)),
             "cutoff_hour": self.cfg["CUTOFF_HOUR"],
             "cutoff_minute": self.cfg["CUTOFF_MINUTE"],
             "stats_enabled": self.stats.enabled,
