@@ -161,6 +161,8 @@ const GUEST_API_PATHS = [
   "/api/suggestions/vote",
   "/api/suggestions/delete",
   "/api/suggestions/name",
+  "/api/devices/link_code",
+  "/api/devices/link_join",
   "/api/auth/",
 ];
 
@@ -4678,6 +4680,105 @@ document.getElementById("suggestNameCancel").addEventListener("click", () => {
   suggestRenaming = false;
   renderSuggestMe();
 });
+
+/* The device that TYPES the code takes the identity of the one that SHOWS it. */
+function linkDialogBody() {
+  const box = document.createElement("div");
+  box.className = "link-dialog";
+  const intro = document.createElement("p");
+  intro.className = "hint";
+  intro.textContent = t("link.intro");
+  box.append(intro);
+  const linked = (suggestState && suggestState.me && suggestState.me.linked) || 0;
+  if (linked) {
+    const count = document.createElement("p");
+    count.className = "hint";
+    count.textContent = t("link.count", { n: linked });
+    box.append(count);
+  }
+
+  const show = document.createElement("div");
+  show.className = "link-part";
+  const showBtn = document.createElement("button");
+  showBtn.type = "button";
+  showBtn.className = "btn";
+  showBtn.dataset.icon = "key";
+  showBtn.textContent = t("link.show_btn");
+  const code = document.createElement("output");
+  code.className = "link-code";
+  code.hidden = true;
+  const showHint = document.createElement("p");
+  showHint.className = "field-desc";
+  showHint.textContent = t("link.show_hint");
+  showHint.hidden = true;
+  showBtn.addEventListener("click", async () => {
+    showBtn.disabled = true;
+    const r = await apiPost("/api/devices/link_code");
+    showBtn.disabled = false;
+    if (!r.ok) {
+      showError(r.error);
+      return;
+    }
+    code.textContent = r.data.code.slice(0, 3) + "\u00a0" + r.data.code.slice(3);
+    code.hidden = false;
+    showHint.hidden = false;
+  });
+  show.append(showBtn, code, showHint);
+
+  const join = document.createElement("form");
+  join.className = "link-part";
+  const label = document.createElement("label");
+  label.className = "field-label";
+  label.htmlFor = "linkCodeInput";
+  label.textContent = t("link.join_label");
+  const field = document.createElement("div");
+  field.className = "input-with-action";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = "linkCodeInput";
+  input.className = "text-input link-code-input";
+  input.inputMode = "numeric";
+  input.autocomplete = "one-time-code";
+  input.maxLength = 7;
+  input.placeholder = "000\u00a0000";
+  const joinBtn = document.createElement("button");
+  joinBtn.type = "submit";
+  joinBtn.className = "btn btn-primary";
+  joinBtn.textContent = t("link.join_btn");
+  field.append(input, joinBtn);
+  const joinHint = document.createElement("p");
+  joinHint.className = "field-desc";
+  joinHint.textContent = t("link.join_hint");
+  join.append(label, field, joinHint);
+  join.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const digits = input.value.replace(/\D/g, "");
+    if (digits.length !== 6) {
+      showError("link_code_bad");
+      return;
+    }
+    joinBtn.disabled = true;
+    const r = await apiPost("/api/devices/link_join", { code: digits });
+    joinBtn.disabled = false;
+    if (!r.ok) {
+      if (r.error === "too_many_attempts") {
+        showToast(t("common.failed"), t("login.locked", { s: r.retry_after || 0 }), { error: true });
+      } else {
+        showError(r.error);
+      }
+      return;
+    }
+    closeModal(true);
+    showToast(t("link.joined", { name: r.data.name || "" }));
+    refreshSuggestions();
+  });
+
+  box.append(show, join);
+  return box;
+}
+document.getElementById("suggestLinkBtn").addEventListener("click", () => {
+  openModal({ title: t("link.title"), bodyNode: linkDialogBody(), actions: false });
+});
 document.getElementById("suggestNameForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = document.getElementById("suggestNameInput");
@@ -6142,6 +6243,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "counters_reset", "music_upload", "playback_pause", "portal_released", "stats_rows_deleted",
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "device_renamed", "device_name_locked", "portal_reset", "device_forgotten",
+  "devices_linked", "device_unlinked",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
@@ -6859,9 +6961,54 @@ async function forgetDevice(target, label) {
   reloadClientLists();
 }
 
+/* Every named device a list has shown, for the owner to link one to another. */
+const knownPeople = new Map();
+
+async function linkDevice(c) {
+  const seen = new Set([c.person || c.device_id]);
+  const choices = [];
+  Array.from(knownPeople.values())
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .forEach((other) => {
+      const person = other.person || other.device_id;
+      if (seen.has(person)) return;
+      seen.add(person);
+      choices.push({ value: other.device_id, label: other.name });
+    });
+  if (!choices.length) {
+    showToast(t("clients.link_nobody"));
+    return;
+  }
+  const to = await showChoice(t("clients.link_body", { name: clientLabel(c) }), choices, t("clients.linked"));
+  if (!to) return;
+  const r = await apiPost("/api/devices/link", Object.assign(
+    c.device_id ? { device_id: c.device_id } : { mac: c.mac }, { to }));
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  const target = knownPeople.get(to);
+  showToast(t("clients.linked_done", { name: target ? target.name : "" }));
+  reloadClientLists();
+}
+
+async function unlinkDevice(c) {
+  if (!await showConfirm(t("clients.unlink_body", { name: clientLabel(c) }), t("clients.unlink_action"))) return;
+  const r = await apiPost("/api/devices/unlink", { device_id: c.device_id });
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  showToast(t("clients.unlinked_done"));
+  reloadClientLists();
+}
+
 function clientRow(c, options) {
   const li = document.createElement("li");
   const key = c.device_id || c.mac;
+  if (c.device_id && c.name) knownPeople.set(c.device_id, { device_id: c.device_id, person: c.person, name: c.name });
+  else if (c.device_id) knownPeople.delete(c.device_id);
+  const linked = Array.isArray(c.linked) ? c.linked : [];
   // On the Rukebox's own access point, or seen talking to us from somewhere
   // else. The second case is the whole reason this list is not just `iw`.
   const onAp = c.on_ap === true;
@@ -6886,6 +7033,7 @@ function clientRow(c, options) {
   meta.className = "client-meta";
   const bits = [c.ip || null, c.mac];
   if (c.on_ap === false && c.seen_sec != null) bits.push(t("clients.via_home"));
+  if (linked.length) bits.push(t("clients.linked_badge", { n: linked.length + 1 }));
   if (c.connected_sec != null) bits.push(t("clients.since", { t: formatUptime(c.connected_sec) }));
   if (c.signal != null) bits.push(c.signal + " dBm");
   const seenAgo = c.seen_sec != null ? c.seen_sec
@@ -6990,6 +7138,38 @@ function clientRow(c, options) {
   });
   lockRow.append(lockText, lock);
   fold.append(lockRow);
+
+  const linkRow = document.createElement("div");
+  linkRow.className = "field-row";
+  const linkText = document.createElement("div");
+  linkText.className = "field-text";
+  const linkLabel = document.createElement("span");
+  linkLabel.className = "field-label";
+  linkLabel.textContent = t("clients.linked");
+  const linkDesc = document.createElement("p");
+  linkDesc.className = "field-desc";
+  linkDesc.textContent = linked.length
+    ? t("clients.linked_with", { list: linked.map((d) => d.ip || d.mac || d.device_id).join(", ") })
+    : t("clients.linked_none");
+  linkText.append(linkLabel, linkDesc);
+  const linkButtons = document.createElement("div");
+  linkButtons.className = "client-link-buttons";
+  const linkBtn = document.createElement("button");
+  linkBtn.type = "button";
+  linkBtn.className = "btn btn-small client-link";
+  linkBtn.textContent = t("clients.link_action");
+  linkBtn.addEventListener("click", () => linkDevice(c));
+  linkButtons.append(linkBtn);
+  if (linked.length) {
+    const unlinkBtn = document.createElement("button");
+    unlinkBtn.type = "button";
+    unlinkBtn.className = "btn btn-small client-unlink";
+    unlinkBtn.textContent = t("clients.unlink_action");
+    unlinkBtn.addEventListener("click", () => unlinkDevice(c));
+    linkButtons.append(unlinkBtn);
+  }
+  linkRow.append(linkText, linkButtons);
+  fold.append(linkRow);
 
   const freeRow = document.createElement("div");
   freeRow.className = "field-row";

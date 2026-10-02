@@ -178,6 +178,8 @@ _GUEST_PATHS = frozenset({
     "/api/suggestions/vote",
     "/api/suggestions/delete",
     "/api/suggestions/name",
+    "/api/devices/link_code",
+    "/api/devices/link_join",
 })
 
 
@@ -644,7 +646,7 @@ def _check_quota():
         return None
     now = time.time()
     with _quota_lock:
-        entry = _quota_entry(device["id"], s, now)
+        entry = _quota_entry(device["person"], s, now)
         if action == "volume" and now - entry["volume_at"] < QUOTA_VOLUME_BURST_SEC:
             return None
         cost = _quota_cost(entry, action, s)
@@ -652,7 +654,7 @@ def _check_quota():
             wait = int((cost - entry["tokens"]) * s["refill"]) + 1
             return jsonify({"ok": False, "error": "quota_exceeded", "retry_after": wait,
                             "detail": wait}), 429
-    g.quota_charge = (device["id"], action, cost)
+    g.quota_charge = (device["person"], action, cost)
     return None
 
 
@@ -684,7 +686,7 @@ def _quota_status():
     if box.has_free_credits(device["id"]):
         return None
     with _quota_lock:
-        entry = _quota_entry(device["id"], s, time.time())
+        entry = _quota_entry(device["person"], s, time.time())
         return {
             "tokens": int(entry["tokens"] + 1e-9),
             "max": int(s["max"]),
@@ -731,7 +733,7 @@ def api_suggestions():
     interval = _rename_interval_sec()
     return _suggestion_call(lambda box, dev: {
         "me": {"name": dev["name"], "rename_wait": box.rename_wait(dev, interval),
-               "locked": box.name_locked(dev["id"])},
+               "locked": box.name_locked(dev["id"]), "linked": len(box.linked_devices(dev["id"]))},
         "owner": owner,
         "text_max": suggestions.TEXT_MAX,
         "items": _with_library_matches(box.list(dev, admin=owner)),
@@ -1664,7 +1666,7 @@ def _now_clients(box, stations):
     own network joins nothing of ours, so a request is all there is to see.
     Banned devices are nobody's business here: they have a page of their own."""
     banned = box.banned_devices()
-    banned_ids = {b["device_id"] for b in banned}
+    banned_ids = {member for b in banned for member in b["members"]}
     banned_macs = {mac for b in banned for mac in b["macs"]}
     me = _this_device(box)
     clients, on_ap = [], set()
@@ -1751,7 +1753,7 @@ def api_device_ban():
         stats.record("device_unbanned", label=device.get("name") or device["id"])
         _bans_changed()
         return jsonify({"ok": True})
-    if device["id"] == _this_device(box)["id"]:
+    if device["person"] == _this_device(box)["person"]:
         return jsonify({"ok": False, "error": "cannot_ban_self"}), 400
     minutes = body.get("minutes")
     try:
@@ -1872,6 +1874,121 @@ def api_device_free_credits():
     on = bool(body.get("on"))
     box.set_free_credits(device["id"], on)
     stats.record("device_free_credits", label=device.get("name") or device["id"], detail={"on": on})
+    return jsonify({"ok": True})
+
+
+LINK_CODE_SECONDS = 300
+LINK_CODE_TRIES = 5
+LINK_LOCK_SECONDS = 300
+_link_codes = {}
+_link_tries = {}
+_link_lock = threading.Lock()
+
+
+def _device_in_body(box, body):
+    if body.get("device_id"):
+        return box.device_by_id(str(body["device_id"]))
+    mac = str(body.get("mac") or "").lower()
+    if _MAC_ARG_RE.match(mac):
+        return box.ensure_device_for_mac(mac, _ip_for_mac(mac))
+    return None
+
+
+def _devices_linked(box, device_id, to_id, by):
+    """Links, and gives the joined person one credit counter instead of two."""
+    was = box.person_id(device_id)
+    person = box.link(device_id, to_id)
+    with _quota_lock:
+        _quota.pop(was, None)
+    named = box.device_by_id(person) or {}
+    stats.record("devices_linked", label=named.get("name") or person, detail={"by": by})
+    return person
+
+
+@app.route("/api/devices/link_code", methods=["POST"])
+def api_device_link_code():
+    """A one-time code this device shows, for another device of the same
+    person to type: that one then takes this one's name, votes and credits."""
+    box = _suggestion_box()
+    device = _this_device(box)
+    now = time.time()
+    with _link_lock:
+        for code in [c for c, e in _link_codes.items() if e["until"] < now or e["device"] == device["id"]]:
+            del _link_codes[code]
+        code = "%06d" % secrets.randbelow(10 ** 6)
+        while code in _link_codes:
+            code = "%06d" % secrets.randbelow(10 ** 6)
+        _link_codes[code] = {"device": device["id"], "until": now + LINK_CODE_SECONDS}
+    return jsonify({"ok": True, "data": {"code": code, "expires_in": LINK_CODE_SECONDS}})
+
+
+@app.route("/api/devices/link_join", methods=["POST"])
+def api_device_link_join():
+    """{code}: links this device to the one showing that code."""
+    box = _suggestion_box()
+    device = _this_device(box)
+    code = re.sub(r"\D", "", str((request.get_json(silent=True) or {}).get("code") or ""))
+    now = time.time()
+    with _link_lock:
+        tries = _link_tries.get(device["id"])
+        if tries and tries["until"] > now:
+            return _too_many_attempts(int(tries["until"] - now) + 1)
+        entry = _link_codes.get(code)
+        if entry and entry["until"] < now:
+            del _link_codes[code]
+            entry = None
+        if entry is None:
+            tries = _link_tries.setdefault(device["id"], {"fails": 0, "until": 0})
+            tries["fails"] += 1
+            if tries["fails"] >= LINK_CODE_TRIES:
+                tries.update(fails=0, until=now + LINK_LOCK_SECONDS)
+            return jsonify({"ok": False, "error": "link_code_bad"}), 400
+        if entry["device"] == device["id"]:
+            return jsonify({"ok": False, "error": "link_same_device"}), 400
+        if box.name_locked(device["id"]) and not _is_owner():
+            return jsonify({"ok": False, "error": "name_locked"}), 400
+        del _link_codes[code]
+        _link_tries.pop(device["id"], None)
+    try:
+        person = _devices_linked(box, device["id"], entry["device"], "code")
+    except suggestions.SuggestionError as e:
+        return jsonify({"ok": False, "error": e.code}), 400
+    named = box.device_by_id(person) or {}
+    return jsonify({"ok": True, "data": {"name": named.get("name")}})
+
+
+@app.route("/api/devices/link", methods=["POST"])
+def api_device_link():
+    """{device_id | mac, to}: the owner makes this device one person with the
+    device `to`, whose name, votes, credits and ban it takes."""
+    body = request.get_json(silent=True) or {}
+    box = _suggestion_box()
+    device = _device_in_body(box, body)
+    target = box.device_by_id(str(body.get("to") or ""))
+    if not device or not target:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    try:
+        _devices_linked(box, device["id"], target["id"], "owner")
+    except suggestions.SuggestionError as e:
+        return jsonify({"ok": False, "error": e.code}), 400
+    _bans_changed()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/devices/unlink", methods=["POST"])
+def api_device_unlink():
+    """{device_id | mac}: this device leaves its person, with nothing."""
+    body = request.get_json(silent=True) or {}
+    box = _suggestion_box()
+    device = _device_in_body(box, body)
+    if not device:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    try:
+        box.unlink(device["id"])
+    except suggestions.SuggestionError as e:
+        return jsonify({"ok": False, "error": e.code}), 400
+    stats.record("device_unlinked", label=device.get("name") or device["id"])
+    _bans_changed()
     return jsonify({"ok": True})
 
 

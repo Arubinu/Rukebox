@@ -571,6 +571,19 @@ this button forgets it, so the portal holds the device again at its next
 connection. The tap is remembered against the device, not against the
 address it happened to have.
 
+**Same person** links a device to another one, for someone who uses a phone
+and a computer: the linked device takes the other's name, votes, suggestions,
+credits and ban, and from then on a rename, a vote, a credit spent or a ban on
+either one counts for both (one vote per suggestion, one credit counter). The
+captive portal stays each device's own. **Link…** picks the other device among
+the named ones; **Unlink** takes this device out, and it leaves with nothing,
+like a device seen for the first time, while the others keep the name.
+
+People can do it themselves: on the Suggestions page, **my devices** shows a
+six-digit code on one device (five minutes, one use) to type on the other
+one. The device that types the code takes the name of the one that shows it.
+Five wrong codes lock the form for five minutes, and only the owner unlinks.
+
 Two more pages go with it. **Previously connected** is everyone the
 Rukebox has seen this week and which is not on it right now, most recent
 first, with **Show more**; the dates are precise to the second at first and

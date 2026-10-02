@@ -191,3 +191,64 @@ test("changing the language translates the page and keeps the help buttons", asy
   assert.equal(page.document.querySelectorAll(".help-btn").length, helps);
   assert.ok(helps > 0);
 });
+
+test("a device shows a one-time code, and another one types it", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/suggestions": { me: { name: "Renard bleu", rename_wait: 0, locked: false, linked: 1 },
+                              owner: true, text_max: { music: 200, announcement: 500 }, items: [] },
+    "POST /api/devices/link_code": { code: "123456", expires_in: 300 },
+    "POST /api/devices/link_join": { name: "Loutre verte" },
+  } });
+  await until(() => page.$("bootOverlay").hidden && !page.$("suggestMeLine").hidden);
+  page.$("suggestLinkBtn").click();
+  const dialog = await until(() => page.document.querySelector("#modalBody .link-dialog"));
+  assert.match(dialog.textContent, /already linked to this one: 1/);
+
+  dialog.querySelector(".link-part button").click();
+  const code = dialog.querySelector(".link-code");
+  await until(() => !code.hidden);
+  assert.equal(code.textContent.replace(/\s/g, ""), "123456");
+
+  const input = page.$("linkCodeInput");
+  input.value = "654 321";
+  input.form.dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
+  const sent = (await until(() => page.sent("POST", "/api/devices/link_join").length
+    && page.sent("POST", "/api/devices/link_join")))[0];
+  assert.deepEqual(sent.body, { code: "654321" });
+  await until(() => page.$("modalOverlay").hidden);
+  assert.match(page.$("toastStack").textContent, /Loutre verte/);
+});
+
+test("the owner links a device to another person's, and may unlink it", async (t) => {
+  const page = open(t, { hash: "#network/clients", routes: {
+    "GET /api/wifi/clients": { readable: true, clients: [
+      { mac: "aa:00:00:00:00:01", ip: "10.42.0.11", on_ap: true, device_id: "d1", person: "d1",
+        name: "Renard bleu", linked: [] },
+      { mac: "aa:00:00:00:00:02", ip: "10.42.0.12", on_ap: true, device_id: "d2", person: "d2",
+        name: "Loutre verte", linked: [{ device_id: "d3", mac: "aa:00:00:00:00:03", ip: "10.42.0.13" }] },
+    ] },
+    "POST /api/devices/link": {},
+    "POST /api/devices/unlink": {},
+  } });
+  await until(() => page.$("clientList").querySelectorAll(".client-link").length === 2);
+  const rows = [...page.$("clientList").children];
+  assert.equal(rows[0].querySelector(".client-unlink"), null, "nothing to unlink on a device alone");
+  assert.match(rows[1].textContent, /10\.42\.0\.13/, "the row names what it is linked with");
+
+  rows[0].querySelector(".client-link").click();
+  const choice = await until(() => [...page.document.querySelectorAll("#modalChoices button")]
+    .find((button) => button.textContent === "Loutre verte"));
+  assert.equal(page.document.querySelectorAll("#modalChoices button").length, 1, "one choice per person");
+  choice.click();
+  const linked = (await until(() => page.sent("POST", "/api/devices/link").length
+    && page.sent("POST", "/api/devices/link")))[0];
+  assert.deepEqual(linked.body, { device_id: "d1", to: "d2" });
+
+  const unlink = await until(() => page.$("clientList").querySelector(".client-unlink"));
+  unlink.click();
+  await until(() => !page.$("modalOverlay").hidden);
+  page.$("modalOk").click();
+  const gone = (await until(() => page.sent("POST", "/api/devices/unlink").length
+    && page.sent("POST", "/api/devices/unlink")))[0];
+  assert.deepEqual(gone.body, { device_id: "d2" });
+});

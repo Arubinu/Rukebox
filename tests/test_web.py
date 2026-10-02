@@ -269,6 +269,51 @@ class WebTest(unittest.TestCase):
         self.assertFalse(guest.get("/api/suggestions").get_json()["data"]["me"]["locked"])
         self.assertEqual(guest.post("/api/suggestions/name", json={"name": "Koala vert"}).status_code, 200)
 
+    def test_two_devices_become_one_person_with_a_code(self):
+        phone, laptop = ws.app.test_client(), ws.app.test_client()
+        me = lambda client: client.get("/api/suggestions").get_json()["data"]["me"]  # noqa: E731
+        self.assertEqual(phone.post("/api/suggestions/name", json={"name": "Renard bleu"}).status_code, 200)
+        self.assertEqual(laptop.post("/api/suggestions/name", json={"name": "Loutre verte"}).status_code, 200)
+
+        code = phone.post("/api/devices/link_code").get_json()["data"]["code"]
+        self.assertRegex(code, r"^\d{6}$")
+        self.assertEqual(phone.post("/api/devices/link_join", json={"code": code}).get_json()["error"],
+                         "link_same_device")
+        wrong = "%06d" % ((int(code) + 1) % 1000000)
+        self.assertEqual(laptop.post("/api/devices/link_join", json={"code": wrong}).get_json()["error"],
+                         "link_code_bad")
+        joined = laptop.post("/api/devices/link_join", json={"code": code[:3] + " " + code[3:]})
+        self.assertEqual(joined.status_code, 200)
+        self.assertEqual(joined.get_json()["data"]["name"], "Renard bleu")
+        self.assertEqual(me(laptop)["name"], "Renard bleu")
+        self.assertEqual(me(laptop)["linked"], 1)
+        self.assertEqual(me(phone)["linked"], 1)
+
+        tablet = ws.app.test_client()
+        self.assertEqual(tablet.post("/api/devices/link_join", json={"code": code}).get_json()["error"],
+                         "link_code_bad", "a code works once")
+        for _ in range(ws.LINK_CODE_TRIES):
+            answer = tablet.post("/api/devices/link_join", json={"code": "000000"})
+        self.assertEqual(answer.status_code, 429, "guessing is cut short")
+
+        box = ws._suggestion_box()
+        device = box.resolve_device(laptop.get("/api/device").get_json()["data"]["token"], None, "127.0.0.1")[0]
+        self.assertEqual(laptop.post("/api/devices/unlink", json={"device_id": device["id"]}).status_code, 401,
+                         "leaving is the owner's to decide")
+        owner = self.owner()
+        self.assertEqual(owner.post("/api/devices/unlink", json={"device_id": device["id"]}).status_code, 200)
+        self.assertIsNone(me(laptop)["name"])
+        self.assertEqual(me(phone)["linked"], 0)
+
+        target = box.resolve_device(phone.get("/api/device").get_json()["data"]["token"], None, "127.0.0.1")[0]
+        self.assertEqual(owner.post("/api/devices/link",
+                                    json={"device_id": device["id"], "to": target["id"]}).status_code, 200)
+        self.assertEqual(me(laptop)["name"], "Renard bleu")
+        self.assertEqual(owner.post("/api/devices/link",
+                                    json={"device_id": device["id"], "to": target["id"]}).get_json()["error"],
+                         "already_linked")
+        owner.post("/api/devices/unlink", json={"device_id": device["id"]})
+
     def test_an_announcements_volume_is_the_owners(self):
         guest = ws.app.test_client()
         self.assertEqual(guest.get("/api/announcement_volumes").status_code, 401)
