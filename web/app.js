@@ -650,11 +650,6 @@ function setActiveView(tab, page, options) {
   if (opts.scroll !== false) scrollAppTop();
 }
 
-function setActiveTab(tab) {
-  if (currentView() === "simple" && tab === "stats") tab = DEFAULT_VIEW.tab;
-  setActiveView(tab, null);
-}
-
 function viewFromHash() {
   const raw = (window.location.hash || "").replace(/^#/, "");
   if (!raw) return null;
@@ -1074,7 +1069,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && modalResolve) closeModal(false);
 });
 
-let lastKnownMode = null;
 let userIsDraggingVolume = false;
 
 let volumePending = null;
@@ -1238,7 +1232,6 @@ async function refreshStatus() {
   const d = result.data;
   d.sampledAt = sampledAt;
   setGoingDown(d.going_down || (d.updating ? "update" : null), sentAt);
-  lastKnownMode = d.mode;
 
   document.getElementById("npMode").textContent = modeLabel(d.mode);
 
@@ -1306,7 +1299,6 @@ async function refreshStatus() {
   const connectKey = d.speaker_connected === true ? "speaker.reconnect" : "speaker.connect";
   connectBtn.dataset.i18n = connectKey;
   connectBtn.textContent = t(connectKey);
-  lastKnownSpeakerConnected = d.speaker_connected === true;
 
   lastKnownSpeakerMac = d.speaker_mac || "";
 
@@ -2164,7 +2156,6 @@ btClockMac.addEventListener("input", () => {
   }
 });
 
-const btClockEnabled = document.getElementById("btClockEnabled");
 
 // Only the changed fields are sent, so a stale tab cannot overwrite a setting.
 let settingsBaseline = {};
@@ -3396,7 +3387,6 @@ window.LANG_CHANGE_LISTENERS.push(() => {
 // Run once at startup: a card still hidden has no tile, so its data would never arrive.
 refreshDuplicates();
 
-let btControllersData = null;
 let btControllersDirty = false;
 
 function controllerLabel(c) {
@@ -3408,7 +3398,6 @@ async function refreshBtControllers() {
   const r = await apiGet("/api/bluetooth/controllers");
   if (!r.ok || !r.data) return;
   const d = r.data;
-  btControllersData = d;
   document.getElementById("btControllerList").replaceChildren(...d.controllers.map((c) => {
     const li = document.createElement("li");
     const main = trackMain({ title: controllerLabel(c), artist: c.address || "" });
@@ -5655,7 +5644,6 @@ let scanning = false;
 let lastScanSignature = "";
 
 let lastKnownSpeakerMac = "";
-let lastKnownSpeakerConnected = false;
 
 function showToolError(title, result) {
   if (result.error === "quota_exceeded" && result.retry_after) {
@@ -6180,7 +6168,6 @@ function clickActionLabel(action) {
   return CLICK_ACTION_KEYS.includes(action) ? t("clickaction." + action) : action;
 }
 
-let statsSummaryCache = null;
 let oldestEventId = null;
 
 function kpiTile(icon, label, value, sub, opts) {
@@ -6702,7 +6689,6 @@ async function refreshStats(force) {
     return;
   }
   hint.textContent = "";
-  statsSummaryCache = result.data;
   const totals = result.data.totals || {};
   remoteTotals.played = Number(totals.played) || 0;
   remoteTotals.errors = Number(totals.errors) || 0;

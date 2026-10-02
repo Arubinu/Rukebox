@@ -2713,7 +2713,7 @@ class RadioDaemon:
                         else:
                             with self._command_lock:
                                 response = handle_command(msg)
-                    except Exception as exc:  # noqa: BLE001
+                    except Exception:  # noqa: BLE001
                         log.exception("Error handling command %s", msg.get("cmd"))
                         response = {"ok": False, "error": "command_failed"}
                 try:

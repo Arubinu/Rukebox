@@ -24,7 +24,35 @@ def i18n_blocks():
     return blocks
 
 
+def i18n_texts():
+    """{language: [(key, text), ...]}, duplicates included."""
+    text = _path.read("web", "i18n.js")
+    starts = [(m.start(), m.group(1)) for m in re.finditer(r"\n  (\w\w): \{", text)]
+    found = {}
+    for i, (pos, lang) in enumerate(starts):
+        end = starts[i + 1][0] if i + 1 < len(starts) else len(text)
+        found[lang] = re.findall(r'\n    "([^"]+)":\s*"((?:[^"\\]|\\.)*)"', text[pos:end])
+    return found
+
+
 class TranslationsTest(unittest.TestCase):
+    def test_no_key_is_written_twice(self):
+        for lang, pairs in i18n_texts().items():
+            keys = [key for key, _text in pairs]
+            twice = sorted({key for key in keys if keys.count(key) > 1})
+            self.assertEqual(twice, [], "%s: the second one silently wins" % lang)
+
+    def test_placeholders_are_the_same_in_every_language(self):
+        texts = {lang: dict(pairs) for lang, pairs in i18n_texts().items()}
+        wrong = []
+        for key, english in texts["en"].items():
+            wanted = sorted(set(re.findall(r"\{(\w+)\}", english)))
+            for lang in LANGS[1:]:
+                got = sorted(set(re.findall(r"\{(\w+)\}", texts[lang].get(key, english))))
+                if got != wanted:
+                    wrong.append((lang, key, got, wanted))
+        self.assertEqual(wrong, [])
+
     def test_same_keys_everywhere(self):
         blocks = i18n_blocks()
         self.assertEqual(set(LANGS), set(blocks))

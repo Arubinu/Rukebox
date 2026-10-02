@@ -5,7 +5,6 @@ import http.server
 import ipaddress
 import logging
 import re
-import socket
 import subprocess
 import threading
 import time
