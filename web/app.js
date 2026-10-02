@@ -5974,6 +5974,7 @@ let homeWifiClientHere = false;
 async function refreshHomeWifi() {
   if (homeWifiToggleBusy) return;
   const result = await apiGet("/api/wifi/status");
+  if (homeWifiToggleBusy) return;
   const card = document.getElementById("homeWifiCard");
   if (!result.ok || !result.data.configured) {
     card.hidden = true;
@@ -5996,15 +5997,17 @@ async function refreshHomeWifi() {
 }
 
 document.getElementById("homeWifiAuto").addEventListener("change", async (e) => {
+  const on = e.target.checked;
   homeWifiToggleBusy = true;
-  const result = await apiPost("/api/wifi/autoconnect", { on: e.target.checked });
+  const result = await apiPost("/api/wifi/autoconnect", { on });
   homeWifiToggleBusy = false;
   if (!result.ok) {
-    e.target.checked = !e.target.checked;
+    e.target.checked = !on;
     showToolError(t("common.failed"), result);
     return;
   }
-  showToast(t(e.target.checked ? "wifi.autoconnect_on" : "wifi.autoconnect_off"));
+  e.target.checked = on;
+  showToast(t(on ? "wifi.autoconnect_on" : "wifi.autoconnect_off"));
 });
 
 refreshHomeWifi();
