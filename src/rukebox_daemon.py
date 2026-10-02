@@ -1307,18 +1307,44 @@ class RadioDaemon:
         elif mode_name == "meme":
             self._resume_after_announce()
         elif mode_name.startswith("custom:"):
+            action, self._after_action = self._after_action, None
             self._restore_base_volume()
-            self._resume_after_announce()
+            self._finish_scheduled_announcement(action)
         elif mode_name.startswith("button_announce:"):
             self._restore_base_volume()
             self._resume_after_announce()
+
+    def _finish_scheduled_announcement(self, action):
+        """What follows an announcement that started on its own: the music
+        again, then the action chosen for it."""
+        if action == "poweroff":
+            log.info("After the announcement: switching the Pi off")
+            self.mode = "shutting_down"
+            self._do_shutdown_sequence(force=True, reason="announcement")
+            return
+        if action == "standby":
+            self._go_standby("announcement", fade=False)
+            return
+        self._resume_after_announce()
+        if not action or action == "none":
+            return
+        log.info("After the announcement: %s", action)
+        if action == "pause":
+            if self.mode == "music":
+                # Not _set_pause(): its fade would let the song be heard first.
+                self.mpv.set_pause(True)
+                self._paused = True
+                self._bump_state()
+                self.stats.record("playback_pause", label="paused", detail={"source": "announcement"})
+            return
+        self._perform_direct_action(action, "announcement")
 
     def _trigger_cutoff_event_exact(self):
         log.info("Triggering the cutoff (exact mode)")
         self._record_cutoff_trigger("exact")
         self._fade_out_and_pause(self.cfg["FADE_DURATION_SEC"])
         self._restore_base_volume()
-        files = self._list_announce_files(self.cfg["CUTOFF_ANNOUNCE_DIR"], source_id="cutoff")
+        files = self._next_announce_file("cutoff", self.cfg["CUTOFF_ANNOUNCE_DIR"])
         self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
         self.state.mark_triggered_today("last_cutoff_trigger")
 
@@ -1331,7 +1357,7 @@ class RadioDaemon:
         )
         self._record_cutoff_trigger("from_idle")
         self._stop_keepalive()
-        files = self._list_announce_files(self.cfg["CUTOFF_ANNOUNCE_DIR"], source_id="cutoff")
+        files = self._next_announce_file("cutoff", self.cfg["CUTOFF_ANNOUNCE_DIR"])
         self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
         self.state.mark_triggered_today("last_cutoff_trigger")
 
@@ -1374,7 +1400,7 @@ class RadioDaemon:
     def _start_cutoff_announce_now(self):
         log.info("End of current track -> starting the cutoff announcement")
         self.state.set_pending_cutoff(False)
-        files = self._list_announce_files(self.cfg["CUTOFF_ANNOUNCE_DIR"], source_id="cutoff")
+        files = self._next_announce_file("cutoff", self.cfg["CUTOFF_ANNOUNCE_DIR"])
         self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
 
     def _do_shutdown_sequence(self, force=False, reason="cutoff"):
