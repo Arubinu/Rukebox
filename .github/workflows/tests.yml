@@ -1,0 +1,24 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install what the Pi gets from apt
+        run: pip install flask pyyaml
+      - name: Unit tests
+        run: python -m unittest discover -s tests
+      - name: JavaScript parses
+        run: |
+          for f in web/*.js bootstrap/setup/setup.js; do node --check "$f"; done
+      - name: Shell scripts parse
+        run: |
+          for f in scripts/*.sh bootstrap/*.sh; do bash -n "$f"; done
