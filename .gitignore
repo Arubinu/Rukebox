@@ -32,3 +32,9 @@ graphify-out/
 
 # Built by bootstrap/build_setup_page.py
 dist/
+
+# Local tooling and design sources
+.claude/
+assets/icons/*.af
+assets/icons/logo-qr.zip
+assets/icons/logo-qr-4x.png
