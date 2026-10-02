@@ -72,11 +72,28 @@ test("a guest never asks for what a guest may not have", async (t) => {
                       "/api/system/info", "/api/lists", "/api/likes"]) {
     assert.equal(page.sent("GET", path).length, 0, path + " is the owner's");
   }
+  assert.ok(!page.document.querySelector('.page-tile[data-page="music"]:not([hidden])'),
+            "adding music is the owner's, although its card sits on Home");
   assert.deepEqual(page.errors, []);
 });
 
+test("every area of the tab bar has pages, and every page belongs to an area of the bar", async (t) => {
+  const page = open(t);
+  await until(() => page.$("bootOverlay").hidden);
+  const areas = [...page.document.querySelectorAll(".tab-btn")].map((btn) => btn.dataset.tab);
+  assert.deepEqual(areas, ["home", "settings", "audio", "network", "system", "stats"]);
+  const cards = [...page.document.querySelectorAll(".card[data-tab][data-page]")];
+  for (const area of areas) assert.ok(cards.some((card) => card.dataset.tab === area), area + " has a page");
+  for (const card of cards) assert.ok(areas.includes(card.dataset.tab), card.dataset.page + " is in the bar");
+  const where = (name) => cards.filter((card) => card.dataset.page === name).map((card) => card.dataset.tab);
+  assert.deepEqual(where("clock"), ["system"]);
+  assert.deepEqual(where("accesspoint"), ["network"]);
+  assert.deepEqual(where("guest"), ["network"]);
+  assert.deepEqual(where("music"), ["home"]);
+});
+
 test("saving a settings card sends only what was changed", async (t) => {
-  const submit = (one) => one.$("playbackForm").dispatchEvent(
+  const submit = (one) => one.$("volumeForm").dispatchEvent(
     new one.window.Event("submit", { bubbles: true, cancelable: true }));
   const saved_by = async (one) => (await until(
     () => one.sent("POST", "/api/settings").length && one.sent("POST", "/api/settings")))[0];

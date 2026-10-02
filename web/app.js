@@ -434,6 +434,7 @@ function cardOfPage(tab, page) {
 
 function pageIsAvailable(card) {
   if (!card || card.hasAttribute("hidden")) return false;
+  if (guestMode && card.hasAttribute("data-owner")) return false;
   return !(card.dataset.level === "detail" && currentView() === "simple");
 }
 
@@ -459,9 +460,10 @@ const openClientFolds = new Set();
 const clientNameDrafts = new Map();
 
 const RAIL_GROUP_STARTS = {
-  home: ["player", "likes", "suggest"],
-  settings: ["settings", "announcements"],
-  system: ["system", "accesspoint", "clients", "homewifi", "update"],
+  home: ["player", "likes", "library", "suggest"],
+  settings: ["settings", "buttons", "announcements"],
+  network: ["accesspoint", "clients", "guest"],
+  system: ["system", "security", "update"],
   stats: ["overview", "sessions"],
 };
 
@@ -2556,7 +2558,7 @@ async function restartDaemon() {
   if (result.ok) showToast(t("alert.service_restarted")); else showError(result.error);
 }
 
-const SETTINGS_FORMS = ["settingsForm", "playbackForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
+const SETTINGS_FORMS = ["settingsForm", "playbackForm", "volumeForm", "fadesForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
   .map((id) => document.getElementById(id))
   .filter(Boolean);
 
@@ -6708,11 +6710,11 @@ async function refreshStats(force) {
 const SETUP_TARGETS = {
   storage: ["system", "healthTitle", "chip"],
   speaker: ["audio", "btTitle", "bluetooth"],
-  clock: ["audio", "clockTitle", "clock"],
-  timezone: ["audio", "clockTitle", "globe"],
-  music: ["audio", "musicTitle", "music"],
+  clock: ["system", "clockTitle", "clock"],
+  timezone: ["system", "clockTitle", "globe"],
+  music: ["home", "musicTitle", "music"],
   password: ["system", "securityTitle", "key"],
-  ap_open: ["system", "apTitle", "wifi"],
+  ap_open: ["network", "apTitle", "wifi"],
 };
 let setupHidden = [];
 
@@ -6826,7 +6828,7 @@ window.addEventListener("afterprint", () => {
   delete document.body.dataset.print;
 });
 refreshShare();
-document.querySelectorAll('.tab-btn[data-tab="system"]').forEach((btn) => btn.addEventListener("click", refreshShare));
+document.querySelectorAll('.tab-btn[data-tab="network"]').forEach((btn) => btn.addEventListener("click", refreshShare));
 window.LANG_CHANGE_LISTENERS.push(refreshShare);
 
 const BAN_CHOICES = [[60, "clients.ban_1h"], [1440, "clients.ban_1d"], [10080, "clients.ban_7d"], [null, "clients.ban_forever"]];
@@ -7269,14 +7271,14 @@ document.getElementById("previousMore").addEventListener("click", () => {
 refreshClients();
 setInterval(() => {
   // A rebuild would take the field out from under the keyboard, so the poll stands aside.
-  if (document.body.dataset.tab === "system" && !document.hidden && !editingClientName()) refreshClients();
+  if (document.body.dataset.tab === "network" && !document.hidden && !editingClientName()) refreshClients();
 }, 15000);
 
 function editingClientName() {
   const active = document.activeElement;
   return !!active && active.classList && active.classList.contains("client-name-input");
 }
-document.querySelectorAll('.tab-btn[data-tab="system"]').forEach((btn) => btn.addEventListener("click", refreshClients));
+document.querySelectorAll('.tab-btn[data-tab="network"]').forEach((btn) => btn.addEventListener("click", refreshClients));
 rememberDevice();
 
 function formatUptime(seconds) {
@@ -7919,7 +7921,7 @@ function musicProgress(done, total, label, bytes) {
 }
 
 const NAV_TRANSFER_TARGETS = {
-  music: { tab: "audio", card: "musicCard", title: "transfer.music" },
+  music: { tab: "home", card: "musicCard", title: "transfer.music" },
   announce: { tab: "settings", card: "trackOrderCard", title: "transfer.announce" },
 };
 const navTransfer = {

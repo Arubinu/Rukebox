@@ -365,7 +365,7 @@ you're choosing. The password must be **at least 8 characters**
 otherwise (WPA2's own minimum).
 
 **Change either value later from the web interface's own Access Point
-card** (System tab) — applied immediately, no service restart needed.
+card** (Network tab) — applied immediately, no service restart needed.
 Leaving the password field empty and saving **keeps the current
 password** (handy for just renaming the network); tick **"Open
 network"** to remove it instead. Changing either briefly disconnects
@@ -543,7 +543,7 @@ time source, timezone, music, passwords) with a way there; anything can
 be set aside.
 
 **Guests** (guest mode on, password set) spend credits: each action has a
-price (Security > Guest access), doubled every time the same guest
+price (Network > Guest access), doubled every time the same guest
 repeats it within a few minutes, and credits come back over time. Anyone
 can put a song of **Recently played** or the **Library** up next, then
 start one of **Up next** at once (two prices, which add up), and when the planned audio
@@ -561,8 +561,8 @@ names the device and, once **Name locked** is on, stops it from changing
 that name itself (a small padlock then shows beside it in the list);
 **No credits** spares that device the guest credits (every action is free
 for it, the other guests keep paying), and **Captive portal** decides
-whether the phone's welcome page keeps holding it - **General setting**
-follows the welcome-page rule of the Security card, **Always** brings the
+whether the phone's captive portal keeps holding it - **General setting**
+follows the rule of the Guest access page, **Always** brings the
 page back at every connection (the way to see it again, or to put it in
 front of someone), **Never** lets the device through without ever being
 asked. **Show the portal again** is the other half of that page: a device
@@ -766,7 +766,7 @@ above.
   to 0). A restart always starts from `BASE_VOLUME`.
 - **How a volume change is heard**: `VOLUME_CHANGE` (`playback.volume_change`)
   is `instant` (default) or `fade`, a glide to the new level over
-  `VOLUME_FADE_SEC` seconds (1.5 by default) - in the Playback card's
+  `VOLUME_FADE_SEC` seconds (1.5 by default) - in the Volume card's
   detailed view. A new change during a glide carries on from wherever it
   got to.
 - **Shutdown**: disconnects Bluetooth from the speaker then
@@ -1153,7 +1153,11 @@ update make it for you.
 ### Features
 
 - **Finding your way**: the bar at the bottom (a column on a wide screen)
-  holds five areas — Home, Settings, Audio, System, Stats. Each area holds
+  holds six areas — Home (listening, the library, adding music), Settings
+  (how the radio behaves: start and cutoff, playback, volume, fades, buttons,
+  announcements), Audio (where the sound goes), Network (the access point,
+  the devices on it, guest access, personal Wi-Fi), System (the Pi itself:
+  health, clock, password, updates) and Stats. Each area holds
   **pages**, one card each. On a phone, tapping an area shows its pages as a
   **grid** — a cell per page, an icon and a title, no frame around it — and
   the **logo** at the top left, darkened with an arrow on it, brings that grid
@@ -1245,7 +1249,7 @@ update make it for you.
   A device may change its name once an hour (`rename_interval_min`). The
   owner marks suggestions added or declined, deletes them, and sees
   everyone who took a name with all the names they went by. Can be turned
-  off (Security > Guest access, with the delay).
+  off (Network > Guest access, with the delay).
 - **Simple or detailed view**: the interface opens in a simple view with
   only the essential options. The box at the bottom of each section
   ("Show all options") switches to the detailed view, with everything;
@@ -2019,7 +2023,7 @@ echo '{"cmd":"rescan_music"}' | nc -U /tmp/rukebox_control.sock
 
 ### Putting music on the Pi
 
-The **Music library** card (Audio tab) copies tracks over the Wi-Fi and
+The **Add music** card (Home) copies tracks over the Wi-Fi and
 sends only what is missing. It asks the Pi what it already has, compares
 that with what you selected, and uploads the difference — so syncing the
 same folder twice sends nothing the second time, which matters when the

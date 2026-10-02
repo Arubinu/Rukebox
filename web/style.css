@@ -630,6 +630,7 @@ code {
 :root[data-tab="home"] .card[data-tab]:not([data-tab="home"]),
 :root[data-tab="settings"] .card[data-tab]:not([data-tab="settings"]),
 :root[data-tab="audio"] .card[data-tab]:not([data-tab="audio"]),
+:root[data-tab="network"] .card[data-tab]:not([data-tab="network"]),
 :root[data-tab="system"] .card[data-tab]:not([data-tab="system"]),
 :root[data-tab="stats"] .card[data-tab]:not([data-tab="stats"]) { display: none; }
 
@@ -3593,6 +3594,7 @@ body[data-access="guest"][data-page]:not([data-page=""]) .guest-release { displa
 }
 .guest-banner > .hint { text-align: center; }
 body[data-access="guest"] .card:not([data-tab="home"]):not(.guest-banner),
+body[data-access="guest"] .card[data-owner],
 body[data-access="guest"] .tabbar { display: none !important; }
 
 body[data-access="guest"] #btnLongPress,
