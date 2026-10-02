@@ -18,6 +18,35 @@ function portalHolds(data) {
          ["release", "new_only"].includes(data.mode) && !data.released;
 }
 
+/* A captive window cannot be closed by a page: once released, it is sent to the address its
+   own system probes, which now answers "no portal" - the navigation is what makes it look again. */
+const CAPTIVE_PROBE_APPLE = "http://captive.apple.com/hotspot-detect.html";
+const CAPTIVE_PROBE_GOOGLE = "http://connectivitycheck.gstatic.com/generate_204";
+
+function applePlatform(ua) {
+  return /iPhone|iPad|iPod|Macintosh/.test(ua === undefined ? navigator.userAgent || "" : ua);
+}
+
+/* Apple's portal window is a bare web view: unlike every browser there, its name has no "Safari/". */
+function appleCaptiveWindow(ua) {
+  const name = ua === undefined ? navigator.userAgent || "" : ua;
+  return applePlatform(name) && !/Safari\//.test(name);
+}
+
+/* Where the release sends this window, or null to leave it where it is: a real browser on an
+   Apple device would only land on a blank page it has to come back from. */
+function captiveExit(ua) {
+  const name = ua === undefined ? navigator.userAgent || "" : ua;
+  if (!applePlatform(name)) return CAPTIVE_PROBE_GOOGLE;
+  return appleCaptiveWindow(name) ? CAPTIVE_PROBE_APPLE : null;
+}
+
+/* Done at once, never on a timer: the page is replaced as soon as this runs. assign(), not replace(). */
+function leaveCaptiveWindow() {
+  const target = captiveExit();
+  if (target) window.location.assign(target);
+}
+
 async function offerPortalReleaseOnLogin() {
   const btn = document.getElementById("loginPortalRelease");
   try {
@@ -32,8 +61,10 @@ document.getElementById("loginPortalRelease").addEventListener("click", async ()
   const btn = document.getElementById("loginPortalRelease");
   btn.disabled = true;
   try {
-    await fetch("/api/portal/release", { method: "POST" });
+    const res = await fetch("/api/portal/release", { method: "POST" });
     btn.hidden = true;
+    // Without a navigation an iPhone never looks again, and its window stays on "Cancel".
+    if (res.ok && appleCaptiveWindow()) leaveCaptiveWindow();
   } catch (e) {  }
   btn.disabled = false;
 });
@@ -9207,26 +9238,12 @@ function showPortalDone() {
 /* Redone while the page is up: a phone that changes Wi-Fi would keep the sentence for good. */
 refreshEvery(refreshPortalBanner, 30000);
 
-/* A captive window cannot be closed by a page: the release hands the interface over and
-   sends that window to the address its own system probes, which now answers "no portal". */
-const CAPTIVE_PROBE_APPLE = "http://captive.apple.com/hotspot-detect.html";
-const CAPTIVE_PROBE_GOOGLE = "http://connectivitycheck.gstatic.com/generate_204";
-
-function applePlatform() {
-  return /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent || "");
-}
-
 function portalBrowserTab() {
   try {
     return window.open(window.location.origin + "/", "_blank");
   } catch (error) {
     return null;
   }
-}
-
-/* Done at once, never on a timer: the page reloads as soon as this runs. assign(), not replace(). */
-function leaveCaptiveWindow() {
-  window.location.assign(applePlatform() ? CAPTIVE_PROBE_APPLE : CAPTIVE_PROBE_GOOGLE);
 }
 
 document.getElementById("portalReleaseBtn").addEventListener("click", async (e) => {

@@ -1179,7 +1179,10 @@ def _unknown_path(_error):
         status, content_type, body = captive_portal.probe_response(request.path)
         return Response(body, status=status, mimetype=content_type,
                         headers={"Cache-Control": "no-store"})
-    return redirect(captive_portal.redirect_url_for(_client_ip()) or "/", code=302)
+    answer = redirect(captive_portal.redirect_url_for(_client_ip()) or "/", code=302)
+    # A portal window that kept this answer would never see the probe say "no portal".
+    answer.headers["Cache-Control"] = "no-store"
+    return answer
 
 
 def _now_playing_path():

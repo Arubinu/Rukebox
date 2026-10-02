@@ -333,3 +333,20 @@ test("the player says which schedule runs, and which one comes next", async (t) 
   await until(() => /Le matin/.test(waiting.$("npNotices").textContent));
   assert.match(waiting.$("npNotices").textContent, /Le matin, 07:00/);
 });
+
+test("only a captive window is sent to its system's probe after the release", async (t) => {
+  const page = open(t, { expose: ["captiveExit"] });
+  await until(() => page.$("bootOverlay").hidden);
+  const exit = page.window.__exposed.captiveExit;
+  const webkit = "AppleWebKit/605.1.15 (KHTML, like Gecko)";
+  const apple = "http://captive.apple.com/hotspot-detect.html";
+  assert.equal(exit("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) " + webkit + " Mobile/15E148"), apple,
+               "the iPhone's portal window");
+  assert.equal(exit("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " + webkit), apple, "the Mac's");
+  assert.equal(exit("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) " + webkit
+                    + " Version/17.5 Mobile/15E148 Safari/604.1"), null, "Safari stays on the interface");
+  assert.equal(exit("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) " + webkit
+                    + " CriOS/126.0 Mobile/15E148 Safari/604.1"), null, "so does Chrome on an iPhone");
+  assert.equal(exit("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36"),
+               "http://connectivitycheck.gstatic.com/generate_204", "Android is as before");
+});

@@ -569,8 +569,15 @@ class WebTest(unittest.TestCase):
                 unittest.mock.patch.object(ws, "_stations", return_value={mac: {"signal": -55}}):
             self.assertFalse(guest.get("/api/portal/status").get_json()["data"]["released"],
                              "the portal holds a device that has not finished")
+            held = guest.get("/hotspot-detect.html")
+            self.assertEqual(held.status_code, 302)
+            self.assertEqual(held.headers["Cache-Control"], "no-store",
+                             "or the window could replay it instead of asking again")
             guest.post("/api/portal/release")
             self.assertTrue(guest.get("/api/portal/status").get_json()["data"]["released"])
+            free = guest.get("/hotspot-detect.html")
+            self.assertEqual((free.status_code, free.get_data(as_text=True).strip()),
+                             (200, "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>"))
             entry = owner.get("/api/wifi/clients").get_json()["data"]["clients"][0]
             self.assertTrue(entry["portal_released"], "the page can offer to forget it")
 
