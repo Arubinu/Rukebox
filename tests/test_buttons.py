@@ -11,7 +11,6 @@ import struct
 import sys
 import tempfile
 import threading
-import time
 import types
 import unittest
 from unittest import mock
@@ -21,8 +20,37 @@ import control_client
 import gpio_click
 import speaker_buttons
 
-WINDOW = 0.15
-LONG = 0.4
+DEBOUNCE = 0.03
+WINDOW = 0.4
+LONG = 1.5
+
+
+class Time:
+    """The clock and the timers of a ButtonWatcher, moved by hand: a press of
+    1.5 s lasts no time at all, and never a little more on a busy machine."""
+
+    def __init__(self):
+        self.now = 1000.0
+        self.timers = []
+
+    def clock(self):
+        return self.now
+
+    def timer(self, delay, callback):
+        entry = types.SimpleNamespace(due=self.now + delay, callback=callback, live=False)
+        entry.start = lambda: setattr(entry, "live", True)
+        entry.cancel = lambda: setattr(entry, "live", False)
+        self.timers.append(entry)
+        return entry
+
+    def passes(self, seconds):
+        end = self.now + seconds
+        for entry in sorted(self.timers, key=lambda one: one.due):
+            if entry.live and entry.due <= end:
+                self.now = entry.due
+                entry.live = False
+                entry.callback()
+        self.now = end
 
 
 class GpioButtonTest(unittest.TestCase):
@@ -31,53 +59,67 @@ class GpioButtonTest(unittest.TestCase):
         patcher = mock.patch.object(gpio_click, "send_command", side_effect=self.sent.append)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.button = gpio_click.ButtonWatcher(0.0, WINDOW, LONG)
+        self.time = Time()
+        self.button = gpio_click.ButtonWatcher(DEBOUNCE, WINDOW, LONG,
+                                               timer=self.time.timer, clock=self.time.clock)
 
-    def press(self, held=0.02):
+    def press(self, held=0.1):
         self.button.on_change(True)
-        time.sleep(held)
+        self.time.passes(held)
 
-    def release(self, wait=0.02):
+    def release(self, wait=0.1):
         self.button.on_change(False)
-        time.sleep(wait)
+        self.time.passes(wait)
 
     def test_one_press_is_a_single_click_once_the_window_has_passed(self):
         self.press()
         self.release()
         self.assertEqual(self.sent, [], "a second press may still come")
-        time.sleep(WINDOW + 0.15)
+        self.time.passes(WINDOW)
         self.assertEqual(self.sent, ["single_click"])
 
     def test_two_presses_are_one_double_click(self):
         self.press()
         self.release()
         self.press()
-        self.release(WINDOW + 0.15)
+        self.release(WINDOW * 3)
         self.assertEqual(self.sent, ["double_click"])
 
+    def test_a_second_press_after_the_window_is_another_single_click(self):
+        self.press()
+        self.release(WINDOW + 0.1)
+        self.press()
+        self.release(WINDOW + 0.1)
+        self.assertEqual(self.sent, ["single_click", "single_click"])
+
     def test_a_held_press_is_a_long_press_and_its_release_is_nothing(self):
-        self.press(LONG + 0.15)
+        self.press(LONG - 0.01)
+        self.assertEqual(self.sent, [], "not yet")
+        self.time.passes(0.02)
         self.assertEqual(self.sent, ["long_press"])
-        self.release(WINDOW + 0.15)
+        self.release(WINDOW * 3)
         self.assertEqual(self.sent, ["long_press"])
 
     def test_a_click_then_a_held_press_is_only_the_long_press(self):
         # The timer of the first click must not fire in the middle of the hold.
         self.press()
         self.release()
-        self.press(LONG + WINDOW + 0.15)
-        self.release(WINDOW + 0.15)
+        self.press(LONG + WINDOW)
+        self.release(WINDOW * 3)
         self.assertEqual(self.sent, ["long_press"])
 
     def test_a_bounce_is_not_a_second_press(self):
-        button = gpio_click.ButtonWatcher(0.08, WINDOW, LONG)
-        button.on_change(True)
-        button.on_change(False)   # inside the debounce: the contact bouncing
-        button.on_change(True)    # same state as the one kept: nothing
-        time.sleep(0.1)
-        button.on_change(False)
-        time.sleep(WINDOW + 0.15)
+        self.button.on_change(True)
+        self.time.passes(DEBOUNCE / 3)
+        self.button.on_change(False)   # inside the debounce: the contact bouncing
+        self.button.on_change(True)    # the state already kept: nothing
+        self.time.passes(0.1)
+        self.release(WINDOW * 3)
         self.assertEqual(self.sent, ["single_click"])
+
+    def test_by_default_it_runs_on_the_real_clock(self):
+        button = gpio_click.ButtonWatcher(DEBOUNCE, WINDOW, LONG)
+        self.assertIs(button._timer, threading.Timer)
 
 
 DEVICES = """\

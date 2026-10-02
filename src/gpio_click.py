@@ -29,7 +29,11 @@ class ButtonWatcher:
     """Turns raw grounded/not-grounded transitions on one pin into single_click
     / double_click / long_press commands."""
 
-    def __init__(self, debounce_sec, double_click_window_sec, long_press_sec):
+    def __init__(self, debounce_sec, double_click_window_sec, long_press_sec,
+                 timer=threading.Timer, clock=time.monotonic):
+        # The timer and the clock are arguments so that a test can own the time.
+        self._timer = timer
+        self._clock = clock
         self.debounce_sec = debounce_sec
         self.double_click_window_sec = double_click_window_sec
         self.long_press_sec = long_press_sec
@@ -42,7 +46,7 @@ class ButtonWatcher:
         self._click_count = 0
 
     def on_change(self, grounded):
-        now = time.monotonic()
+        now = self._clock()
         with self._lock:
             if grounded == self._grounded:
                 return
@@ -60,7 +64,7 @@ class ButtonWatcher:
             self._double_click_timer.cancel()
             self._double_click_timer = None
         self._long_press_fired = False
-        self._long_press_timer = threading.Timer(self.long_press_sec, self._on_long_press)
+        self._long_press_timer = self._timer(self.long_press_sec, self._on_long_press)
         self._long_press_timer.daemon = True
         self._long_press_timer.start()
 
@@ -72,7 +76,7 @@ class ButtonWatcher:
             return
         self._click_count += 1
         if self._click_count == 1:
-            self._double_click_timer = threading.Timer(
+            self._double_click_timer = self._timer(
                 self.double_click_window_sec, self._on_single_click_confirmed,
             )
             self._double_click_timer.daemon = True
