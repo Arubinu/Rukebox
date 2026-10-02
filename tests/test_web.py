@@ -140,6 +140,25 @@ class WebTest(unittest.TestCase):
                              200, origin)
         self.assertEqual(owner.get("/api/auth/status", headers={"Origin": "https://evil.example"}).status_code, 200)
 
+    def test_the_api_only_answers_under_the_pis_own_names(self):
+        import socket
+        owner = self.owner()
+        own = socket.gethostname().split(".", 1)[0].lower()
+        for host in ("10.42.0.1", "10.42.0.1:8080", "localhost", "[fe80::1]:80",
+                     own + ".local", own + "-2.local", own + ".lan", own.upper()):
+            self.assertEqual(owner.get("/api/auth/status", headers={"Host": host}).status_code, 200, host)
+        for host in ("rebind.evil.example", own + ".evil.example", own + "x.local"):
+            foreign = owner.get("/api/auth/status", headers={"Host": host})
+            self.assertEqual(foreign.status_code, 403, host)
+        self.assertEqual(foreign.get_json()["error"], "bad_host")
+        self.assertNotEqual(owner.get("/generate_204", headers={"Host": "connectivitycheck.gstatic.com"}).status_code,
+                            403, "a connectivity probe is not an API call")
+        type(self).extra["WEB_EXTRA_HOSTS"] = "radio.example, other.example"
+        try:
+            self.assertEqual(owner.get("/api/auth/status", headers={"Host": "radio.example"}).status_code, 200)
+        finally:
+            del type(self).extra["WEB_EXTRA_HOSTS"]
+
     def test_a_json_body_is_bounded(self):
         owner_body = "x" * (1024 * 1024 + 10)
         answer = self.owner().post("/api/mute", data=owner_body, content_type="application/json")

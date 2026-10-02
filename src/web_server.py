@@ -2,6 +2,7 @@
 """The web interface: Flask API and static files."""
 
 import gzip
+import ipaddress
 import json
 import logging
 import mimetypes
@@ -210,8 +211,36 @@ def _same_origin():
     return bool(theirs) and bare(theirs) == bare(request.host or "")
 
 
+_LOCAL_SUFFIXES = ("", ".local", ".lan", ".home", ".home.arpa", ".internal", ".localdomain")
+
+
+def _known_host():
+    """False when the API is asked for under a name that is not this Pi's: a
+    foreign name pointed at our address is how another site reads the API."""
+    host = (request.host or "").strip().lower()
+    if not host or host.startswith("["):
+        return True
+    host = host.split(":", 1)[0]
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        pass
+    if host == "localhost":
+        return True
+    # Suffixes nobody can register: "<our name>.evil.example" must not pass.
+    own = re.escape(socket.gethostname().split(".", 1)[0].lower())
+    named = re.fullmatch(own + r"(?:-\d+)?(\..+)?", host)
+    if named and (named.group(1) or "") in _LOCAL_SUFFIXES:
+        return True
+    extra = str(cfg().get("WEB_EXTRA_HOSTS") or "").lower().replace(",", " ").split()
+    return host in extra
+
+
 @app.before_request
 def _refuse_foreign_requests():
+    if request.path.startswith("/api/") and not _known_host():
+        return jsonify({"ok": False, "error": "bad_host", "detail": request.host}), 403
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return None
     if not _same_origin():

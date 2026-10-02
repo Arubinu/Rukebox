@@ -535,6 +535,16 @@ SETTINGS = [
         "Web interface port",
     ),
     Setting(
+        "WEB_EXTRA_HOSTS", "network", "web_extra_hosts", "str", "",
+        "Other names the interface may be opened under (comma-separated).\n"
+        "Its address and its own name on a local network (rukebox,\n"
+        "rukebox.local, .lan, .home, .internal...) are always accepted; any\n"
+        "other name pointing at the Pi has to be listed here, or the interface\n"
+        "refuses it - that refusal is what stops another site from reading\n"
+        "the interface.",
+        "Other accepted host names",
+    ),
+    Setting(
         "SETUP_HIDDEN", "network", "setup_hidden", "str", "",
         "Items of the web interface's \"To finish\" card that were set aside\n"
         "(comma-separated: speaker, clock, timezone, music, password, ap_open).",

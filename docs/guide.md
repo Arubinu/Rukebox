@@ -1342,7 +1342,20 @@ during installation, or from the **Security** card (System tab)
 afterward. Leaving both fields empty and saving removes it again. The
 password is never stored in plain text (a salted PBKDF2 hash,
 `WEB_PASSWORD_HASH` in `rukebox.yaml`), and it is still exactly that: an
-extra layer, not a replacement for the access point being private.
+extra layer, not a replacement for the access point being private. A new
+password needs at least 8 characters.
+
+**Other websites cannot drive or read the interface.** A page open in the
+browser of a device on the network could otherwise make that browser talk to
+the Pi behind your back. So the interface refuses any command whose origin is
+not the Pi itself, and only answers under its own address or its own name on a
+local network (`rukebox`, `rukebox.local`, `.lan`, `.home`, `.internal`...). If
+you reach the Pi under another name of your own, list it, or the interface
+answers "this address is not one of the Rukebox's own names":
+
+```bash
+sudo python3 /opt/rukebox/src/config_file.py set WEB_EXTRA_HOSTS=radio.example
+```
 Guessing it is slowed down by the server itself: after 3 wrong passwords
 from one device (its address), each further try locks it out for 5
 seconds, then 10, 20... up to 5 minutes; the login screen counts the
@@ -2303,8 +2316,9 @@ sounds card.
 python3 -m unittest discover -s tests -v
 ```
 
-Standard library only. The web server's tests need Flask, so they are
-skipped on a computer without it; run the whole suite on the Pi against
+Standard library only. GitHub runs them on every push
+(`.github/workflows/tests.yml`). The web server's tests need Flask, so they
+are skipped on a computer without it; run the whole suite on the Pi against
 the installed code:
 
 ```bash

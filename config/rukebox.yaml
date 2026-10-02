@@ -448,6 +448,14 @@ network:
   # default): updates never rewrite a value already in this file.
   web_port: 80
 
+  # Other names the interface may be opened under (comma-separated).
+  # Its address and its own name on a local network (rukebox,
+  # rukebox.local, .lan, .home, .internal...) are always accepted; any
+  # other name pointing at the Pi has to be listed here, or the interface
+  # refuses it - that refusal is what stops another site from reading
+  # the interface.
+  web_extra_hosts: ""
+
   # Items of the web interface's "To finish" card that were set aside
   # (comma-separated: speaker, clock, timezone, music, password, ap_open).
   setup_hidden: ""
