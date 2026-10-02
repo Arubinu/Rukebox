@@ -84,5 +84,6 @@ or from your computer over the USB cable.
 - [Reference guide](docs/guide.md): installation options, every setting,
   networking, updates and troubleshooting (in English).
 - Tests: `python3 -m unittest discover -s tests`
+- Icons: [Lucide](https://lucide.dev), ISC License - see the [notice](docs/THIRD-PARTY.md).
 
 Ideas and contributions are welcome - open an issue or a pull request.

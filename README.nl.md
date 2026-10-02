@@ -89,5 +89,6 @@ heeft, of vanaf je computer via de USB-kabel.
 - [Referentiegids](docs/guide.md): installatiemogelijkheden, alle
   instellingen, netwerk, updates en probleemoplossing (in het Engels).
 - Tests: `python3 -m unittest discover -s tests`
+- Iconen: [Lucide](https://lucide.dev), ISC-licentie - zie de [vermelding](docs/THIRD-PARTY.md).
 
 Ideeën en bijdragen zijn welkom - open een issue of een pull request.

@@ -87,5 +87,6 @@ Internet, oppure dal computer tramite il cavo USB.
 - [Guida di riferimento](docs/guide.md): opzioni di installazione, tutte le
   impostazioni, rete, aggiornamenti e risoluzione dei problemi (in inglese).
 - Test: `python3 -m unittest discover -s tests`
+- Icone: [Lucide](https://lucide.dev), licenza ISC - vedi l'[avviso](docs/THIRD-PARTY.md).
 
 Idee e contributi sono benvenuti: apri una issue o una pull request.

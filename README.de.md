@@ -89,6 +89,7 @@ wenn der Pi Internet hat, oder vom Computer über das USB-Kabel.
 - [Referenzhandbuch](docs/guide.md): Installationsvarianten, alle
   Einstellungen, Netzwerk, Updates und Fehlersuche (auf Englisch).
 - Tests: `python3 -m unittest discover -s tests`
+- Icons: [Lucide](https://lucide.dev), ISC-Lizenz - siehe den [Hinweis](docs/THIRD-PARTY.md).
 
 Ideen und Beiträge sind willkommen - eröffne ein Issue oder einen Pull
 Request.
