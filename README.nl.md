@@ -10,6 +10,10 @@ speelt die jij kiest en 's avonds zichzelf uitschakelt. Geen internet,
 geen account, geen app om te installeren - een knop, de knoppen van de
 speaker of elke telefoon op de wifi van de Pi is genoeg.
 
+<p align="center"><img src="docs/screenshots/desktop.nl.webp" alt="Nu aan het spelen, op een computer" width="100%"></p>
+
+<p align="center"><img src="docs/screenshots/player.nl.webp" alt="Nu aan het spelen, op een telefoon" width="300"> &nbsp; <img src="docs/screenshots/library.nl.webp" alt="De bibliotheek, op een telefoon" width="300"></p>
+
 ## ✨ Wat het doet
 
 - **Begint wanneer jij wilt**: op een vast tijdstip, als de speaker

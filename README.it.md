@@ -10,6 +10,10 @@ ascoltare gli annunci che scegli e si spegne la sera. Niente Internet,
 nessun account, nessuna app da installare - basta un pulsante, i tasti
 della cassa o qualsiasi telefono collegato al Wi-Fi del Pi.
 
+<p align="center"><img src="docs/screenshots/desktop.it.webp" alt="In riproduzione, su computer" width="100%"></p>
+
+<p align="center"><img src="docs/screenshots/player.it.webp" alt="In riproduzione, su telefono" width="300"> &nbsp; <img src="docs/screenshots/library.it.webp" alt="La libreria, su telefono" width="300"></p>
+
 ## ✨ Cosa fa
 
 - **Parte quando vuoi**: a un'ora precisa, quando la cassa si collega,

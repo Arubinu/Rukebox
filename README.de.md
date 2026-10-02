@@ -10,6 +10,10 @@ die Ansagen spielt, die du auswählst, und sich abends ausschaltet. Kein
 Internet, kein Konto, keine App - eine Taste, die Tasten des
 Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
 
+<p align="center"><img src="docs/screenshots/desktop.de.webp" alt="Aktuelle Wiedergabe am Computer" width="100%"></p>
+
+<p align="center"><img src="docs/screenshots/player.de.webp" alt="Aktuelle Wiedergabe auf dem Handy" width="300"> &nbsp; <img src="docs/screenshots/library.de.webp" alt="Die Musikbibliothek auf dem Handy" width="300"></p>
+
 ## ✨ Was es kann
 
 - **Startet, wann du willst**: zu einer festen Uhrzeit, wenn sich der

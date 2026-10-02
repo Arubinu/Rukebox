@@ -10,6 +10,10 @@ los anuncios que elijas y se apaga por la noche. Sin Internet, sin cuenta,
 sin aplicación que instalar - basta un botón, los botones del altavoz o
 cualquier móvil conectado al Wi-Fi de la Pi.
 
+<p align="center"><img src="docs/screenshots/desktop.es.webp" alt="Reproducción en curso, en un ordenador" width="100%"></p>
+
+<p align="center"><img src="docs/screenshots/player.es.webp" alt="Reproducción en curso, en un teléfono" width="300"> &nbsp; <img src="docs/screenshots/library.es.webp" alt="La biblioteca, en un teléfono" width="300"></p>
+
 ## ✨ Qué hace
 
 - **Arranca cuando quieras**: a una hora fija, cuando se conecta el

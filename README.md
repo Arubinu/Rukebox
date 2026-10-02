@@ -10,6 +10,10 @@ announcements you choose, and switches itself off in the evening. No
 Internet, no account, no app to install - a button, the speaker's own
 buttons, or any phone through the Pi's own Wi-Fi is all it takes.
 
+<p align="center"><img src="docs/screenshots/desktop.en.webp" alt="Now playing, on a computer" width="100%"></p>
+
+<p align="center"><img src="docs/screenshots/player.en.webp" alt="Now playing, on a phone" width="300"> &nbsp; <img src="docs/screenshots/library.en.webp" alt="The music library, on a phone" width="300"></p>
+
 ## ✨ What it does
 
 - **Starts when you want**: at a set time, when the speaker connects, at

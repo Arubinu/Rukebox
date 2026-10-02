@@ -10,6 +10,10 @@ annonces que tu choisis et s'éteint le soir. Sans Internet, sans compte,
 sans application à installer - un bouton, les boutons de l'enceinte ou
 n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
 
+<p align="center"><img src="docs/screenshots/desktop.fr.webp" alt="Lecture en cours, sur ordinateur" width="100%"></p>
+
+<p align="center"><img src="docs/screenshots/player.fr.webp" alt="Lecture en cours, sur téléphone" width="300"> &nbsp; <img src="docs/screenshots/library.fr.webp" alt="La bibliothèque, sur téléphone" width="300"></p>
+
 ## ✨ Ce qu'il fait
 
 - **Démarre quand tu veux** : à une heure fixe, à la connexion de
