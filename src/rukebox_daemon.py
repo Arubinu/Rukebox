@@ -65,6 +65,7 @@ class RadioDaemon:
     SINK_POLL_SEC = 2.0
     SINK_RESYNC_TURNS = 2
     SINK_NAME_EVERY = 3
+    CUTOFF_CATCH_UP_SEC = 300
 
     def __init__(self, cfg):
         self._state_cond = threading.Condition()
@@ -129,6 +130,8 @@ class RadioDaemon:
         self._sink_resync = 0
         self._sink_turn = 0
         self._sink_warned = False
+        self._speaker_warned = None
+        self._last_tick = None
         self._flic_warned = False
 
         self._custom_announcements = announcements.load(cfg["ANNOUNCEMENTS_FILE"])
@@ -1186,7 +1189,15 @@ class RadioDaemon:
         while not self._stop_event.wait(self.SINK_POLL_SEC):
             if self.mode == "shutting_down":
                 return
-            self._follow_sink_volume()
+            self._guarded("Volume watch", self._follow_sink_volume)
+
+    def _guarded(self, name, turn):
+        """One turn of a background loop: an error costs that turn, not the loop."""
+        try:
+            return turn()
+        except Exception:  # noqa: BLE001
+            log.exception("%s: this turn failed, the next one will try again", name)
+            return None
 
     def _follow_sink_volume(self):
         """One watch turn: the speaker's own volume, when the link is on."""
@@ -1796,68 +1807,72 @@ class RadioDaemon:
     def _speaker_watch_loop(self):
         """Watches the speaker connection: statistics, pause, power-off delays."""
         wait = 3.0
-        warned = None
         while not self._stop_event.wait(wait):
             if self.mode == "shutting_down":
                 return
-            self._watch_flic()
-            interval = self._speaker_watch_interval()
-            wait = interval if interval > 0 else 30.0
-            if interval <= 0:
-                continue
-            mac = self.cfg.get("SPEAKER_MAC", "")
-            if not mac or mac == "XX:XX:XX:XX:XX:XX":
-                if warned != "no_mac":
-                    warned = "no_mac"
-                    if self._speaker_watch_needed():
-                        log.warning("No speaker configured (speaker_mac): nothing to watch, "
-                                    "the speaker-dependent settings cannot act")
-                    else:
-                        log.info("No speaker configured, connection monitoring idle")
-                self._check_speaker_absent()
-                continue
-            warned = None
-            state = self._speaker_link(mac)
-            if state["unknown"]:
-                continue  # no controller answered: not the same as "gone"
-            if state["connected"] and state["controller"] != state["expected"]:
-                self._move_speaker_to_its_controller(state)
-            connected = state["connected"]
+            wait = self._guarded("Speaker watch", self._speaker_watch_turn) or 10.0
 
-            # BlueZ still says "connected" while a wedged dongle carries nothing: no sink is the proof.
-            silent = False
-            if connected and self.mode == "music" and not self._wired_output():
-                if audio_diag.bluetooth_sink_missing(env=audio_env()):
-                    self._sink_missing_checks += 1
+    def _speaker_watch_turn(self):
+        """One turn of the watch; the seconds to wait before the next."""
+        self._watch_flic()
+        interval = self._speaker_watch_interval()
+        wait = interval if interval > 0 else 30.0
+        if interval <= 0:
+            return wait
+        mac = self.cfg.get("SPEAKER_MAC", "")
+        if not mac or mac == "XX:XX:XX:XX:XX:XX":
+            if self._speaker_warned != "no_mac":
+                self._speaker_warned = "no_mac"
+                if self._speaker_watch_needed():
+                    log.warning("No speaker configured (speaker_mac): nothing to watch, "
+                                "the speaker-dependent settings cannot act")
                 else:
-                    self._sink_missing_checks = 0
-                silent = self._sink_missing_checks >= self.SINK_MISSING_CHECKS
+                    log.info("No speaker configured, connection monitoring idle")
+            self._check_speaker_absent()
+            return wait
+        self._speaker_warned = None
+        state = self._speaker_link(mac)
+        if state["unknown"]:
+            return wait  # no controller answered: not the same as "gone"
+        if state["connected"] and state["controller"] != state["expected"]:
+            self._move_speaker_to_its_controller(state)
+        connected = state["connected"]
+
+        # BlueZ still says "connected" while a wedged dongle carries nothing: no sink is the proof.
+        silent = False
+        if connected and self.mode == "music" and not self._wired_output():
+            if audio_diag.bluetooth_sink_missing(env=audio_env()):
+                self._sink_missing_checks += 1
             else:
                 self._sink_missing_checks = 0
-            audible = connected and not silent
+            silent = self._sink_missing_checks >= self.SINK_MISSING_CHECKS
+        else:
+            self._sink_missing_checks = 0
+        audible = connected and not silent
 
-            if connected:
-                self._speaker_ever_connected = True
+        if connected:
+            self._speaker_ever_connected = True
 
-            if self._speaker_was_connected is None:
-                self._speaker_was_connected = audible
-                if audible:
-                    self._start_music_on_speaker_connect(mac)
-                else:
-                    self._speaker_lost_at = time.monotonic()
-                self._check_speaker_absent()
-                continue
-
-            if audible != self._speaker_was_connected:
-                self._speaker_was_connected = audible
-                if audible:
-                    self._on_speaker_back(mac)
-                else:
-                    self._on_speaker_lost(mac, "disconnected" if not connected else "silent")
-
-            if not audible:
-                self._check_speaker_lost_too_long()
+        if self._speaker_was_connected is None:
+            self._speaker_was_connected = audible
+            if audible:
+                self._start_music_on_speaker_connect(mac)
+            else:
+                self._speaker_lost_at = time.monotonic()
             self._check_speaker_absent()
+            return wait
+
+        if audible != self._speaker_was_connected:
+            self._speaker_was_connected = audible
+            if audible:
+                self._on_speaker_back(mac)
+            else:
+                self._on_speaker_lost(mac, "disconnected" if not connected else "silent")
+
+        if not audible:
+            self._check_speaker_lost_too_long()
+        self._check_speaker_absent()
+        return wait
 
     def _on_speaker_lost(self, mac, reason="disconnected"):
         if reason == "silent":
@@ -2143,23 +2158,26 @@ class RadioDaemon:
         hotspot used, and when?" has an answer."""
         interval = self.cfg["AP_WATCH_INTERVAL_SEC"]
         while not self._stop_event.wait(interval):
-            clients = self._ap_clients()
-            if clients is None:
-                continue
+            self._guarded("Access point watch", self._ap_watch_turn)
 
-            for mac in sorted(clients - self._ap_known_clients):
-                log.info("Admin access point: client connected (%s)", mac)
-                self.stats.record(
-                    "ap_client_connected", label=mac,
-                    counters={"ap_client_connections": 1},
-                    daily={"ap_client_connections": 1},
-                )
-                self._play_cue_sound(self.cfg["AP_CONNECT_SOUND"], "AP_CONNECT_SOUND")
-            for mac in sorted(self._ap_known_clients - clients):
-                log.info("Admin access point: client disconnected (%s)", mac)
-                self.stats.record("ap_client_disconnected", label=mac)
+    def _ap_watch_turn(self):
+        clients = self._ap_clients()
+        if clients is None:
+            return
 
-            self._ap_known_clients = clients
+        for mac in sorted(clients - self._ap_known_clients):
+            log.info("Admin access point: client connected (%s)", mac)
+            self.stats.record(
+                "ap_client_connected", label=mac,
+                counters={"ap_client_connections": 1},
+                daily={"ap_client_connections": 1},
+            )
+            self._play_cue_sound(self.cfg["AP_CONNECT_SOUND"], "AP_CONNECT_SOUND")
+        for mac in sorted(self._ap_known_clients - clients):
+            log.info("Admin access point: client disconnected (%s)", mac)
+            self.stats.record("ap_client_disconnected", label=mac)
+
+        self._ap_known_clients = clients
 
     def _scheduler_loop(self):
         log.info(
@@ -2175,57 +2193,66 @@ class RadioDaemon:
                 time.sleep(2)
                 continue
 
-            self._announcements()
-            now = datetime.now()
-
-            if (
-                self.cfg["MUSIC_START_MODE"] == "scheduled"
-                and now.hour == self.cfg["MUSIC_START_HOUR"]
-                and now.minute == self.cfg["MUSIC_START_MINUTE"]
-                and self.mode in ("idle", "stopped")
-                and not self.state.already_triggered_today("last_music_start")
-            ):
-                log.info("Scheduled music start (%02d:%02d)",
-                         self.cfg["MUSIC_START_HOUR"], self.cfg["MUSIC_START_MINUTE"])
-                self.state.mark_triggered_today("last_music_start")
-                self.stats.record("music_started", label="scheduled")
-                self._start_or_restart_playback()
-
-            if (
-                now.hour == self.cfg["CUTOFF_HOUR"]
-                and now.minute == self.cfg["CUTOFF_MINUTE"]
-                and not self.state.already_triggered_today("last_cutoff_trigger")
-            ):
-                if self.mode in ("idle", "stopped"):
-                    self._trigger_cutoff_from_idle()
-                elif self.cfg["CUTOFF_MODE"] == "exact":
-                    self._trigger_cutoff_event_exact()
-                else:
-                    self._arm_cutoff_end_of_track()
-
-            for item in self._custom_announcements:
-                if not item.get("enabled", True):
-                    continue
-                trigger = item.get("trigger", "manual")
-                if trigger in ("after_music", "after_boot"):
-                    self._check_delay_announcement(item, trigger)
-                    continue
-                if trigger != "time":
-                    continue
-                if (
-                    now.hour == item["hour"]
-                    and now.minute == item["minute"]
-                    and self.mode in ("music", "stopped")
-                    and not self.state.already_triggered_today("custom_%s" % item["id"])
-                ):
-                    if not self.state.chance_allows("auto:" + item["id"], item.get("auto_chance", "1/1")):
-                        log.info("Announcement '%s': not this time (%s)", item["name"], item.get("auto_chance"))
-                        self.state.mark_triggered_today("custom_%s" % item["id"])
-                        self.stats.record("announce_skipped", label=item["name"], detail={"chance": item.get("auto_chance")})
-                        continue
-                    self._trigger_custom_announcement(item)
-
+            self._guarded("Scheduler", self._scheduler_tick)
             time.sleep(15)
+
+    def _scheduler_tick(self):
+        self._announcements()
+        now = datetime.now()
+
+        if (
+            self.cfg["MUSIC_START_MODE"] == "scheduled"
+            and now.hour == self.cfg["MUSIC_START_HOUR"]
+            and now.minute == self.cfg["MUSIC_START_MINUTE"]
+            and self.mode in ("idle", "stopped")
+            and not self.state.already_triggered_today("last_music_start")
+        ):
+            log.info("Scheduled music start (%02d:%02d)",
+                     self.cfg["MUSIC_START_HOUR"], self.cfg["MUSIC_START_MINUTE"])
+            self.state.mark_triggered_today("last_music_start")
+            self.stats.record("music_started", label="scheduled")
+            self._start_or_restart_playback()
+
+        if self._cutoff_due(now) and not self.state.already_triggered_today("last_cutoff_trigger"):
+            if self.mode in ("idle", "stopped"):
+                self._trigger_cutoff_from_idle()
+            elif self.cfg["CUTOFF_MODE"] == "exact":
+                self._trigger_cutoff_event_exact()
+            else:
+                self._arm_cutoff_end_of_track()
+
+        for item in self._custom_announcements:
+            if not item.get("enabled", True):
+                continue
+            trigger = item.get("trigger", "manual")
+            if trigger in ("after_music", "after_boot"):
+                self._check_delay_announcement(item, trigger)
+                continue
+            if trigger != "time":
+                continue
+            if (
+                now.hour == item["hour"]
+                and now.minute == item["minute"]
+                and self.mode in ("music", "stopped")
+                and not self.state.already_triggered_today("custom_%s" % item["id"])
+            ):
+                if not self.state.chance_allows("auto:" + item["id"], item.get("auto_chance", "1/1")):
+                    log.info("Announcement '%s': not this time (%s)", item["name"], item.get("auto_chance"))
+                    self.state.mark_triggered_today("custom_%s" % item["id"])
+                    self.stats.record("announce_skipped", label=item["name"], detail={"chance": item.get("auto_chance")})
+                    continue
+                self._trigger_custom_announcement(item)
+
+    def _cutoff_due(self, now):
+        """The cutoff minute, or one this loop was kept away from."""
+        last, self._last_tick = self._last_tick, now
+        hour, minute = self.cfg["CUTOFF_HOUR"], self.cfg["CUTOFF_MINUTE"]
+        if now.hour == hour and now.minute == minute:
+            return True
+        # Only a tick held past the minute: a start after it, or a clock set forward, is not a cutoff.
+        cutoff = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        return last is not None and last < cutoff <= now \
+            and (now - last).total_seconds() <= self.CUTOFF_CATCH_UP_SEC
 
     def _boot_monotonic(self):
         """The Pi's own start on the monotonic clock."""
