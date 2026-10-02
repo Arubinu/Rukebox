@@ -194,6 +194,7 @@ const GUEST_API_PATHS = [
   "/api/suggestions/name",
   "/api/devices/link_code",
   "/api/devices/link_join",
+  "/api/devices/link_leave",
   "/api/auth/",
 ];
 
@@ -1275,6 +1276,7 @@ async function refreshStatus() {
   applySoundLine(d);
   applyTrackProgress(d);
   applyTrackMedia(d);
+  paintNavNow(d, d.track_title || fileTitle);
 
   const playingKey = d.mode === "music" ? (d.track_key || null) : null;
   if (playingKey !== recentPlayingKey) {
@@ -1863,6 +1865,36 @@ let lyricsActive = -1;
 let lyricsManualUntil = 0;
 let lyricsOpen = false;
 try { lyricsOpen = localStorage.getItem(LYRICS_OPEN_KEY) === "1"; } catch (e) {  }
+
+/* What plays, at the foot of the side menu: every page but the player's own shows it. */
+let navNowKey = null;
+function paintNavNow(d, title) {
+  const box = document.getElementById("navNow");
+  const playing = !!title && !["idle", "stopped", "shutting_down"].includes(d.mode);
+  box.hidden = !playing;
+  if (!playing) return;
+  document.getElementById("navNowTitle").textContent = title;
+  document.getElementById("navNowArtist").textContent = d.track_artist || "";
+  box.classList.toggle("is-paused", !!d.paused);
+  const said = title + (d.track_artist ? " \u2014 " + d.track_artist : "");
+  box.setAttribute("aria-label", t("nav.now_playing", { title: said }));
+  box.title = said;
+  const key = d.track_key || null;
+  if (key === navNowKey) return;
+  navNowKey = key;
+  const img = document.getElementById("navNowCover");
+  img.hidden = true;
+  if (!key) {
+    img.removeAttribute("src");
+    return;
+  }
+  img.onload = () => { if (navNowKey === key) img.hidden = false; };
+  img.onerror = () => { img.hidden = true; };
+  img.src = "/api/now/cover?k=" + encodeURIComponent(key);
+}
+document.getElementById("navNow").addEventListener("click", () => {
+  setActiveView(DEFAULT_VIEW.tab, DEFAULT_VIEW.page);
+});
 
 function applyTrackMedia(d) {
   const key = d.track_key && !["idle", "stopped"].includes(d.mode) ? d.track_key : null;
@@ -5411,6 +5443,25 @@ function linkDialogBody() {
   });
 
   box.append(show, join);
+  if (linked) {
+    const leave = document.createElement("button");
+    leave.type = "button";
+    leave.className = "btn btn-danger-outline link-leave";
+    leave.dataset.icon = "unlink";
+    leave.textContent = t("link.leave_btn");
+    leave.addEventListener("click", async () => {
+      closeModal(false);
+      if (!await showConfirm(t("link.leave_confirm"), t("link.leave_btn"))) return;
+      const r = await apiPost("/api/devices/link_leave");
+      if (!r.ok) {
+        showError(r.error);
+        return;
+      }
+      showToast(t("link.left"));
+      refreshSuggestions();
+    });
+    box.append(leave);
+  }
   return box;
 }
 document.getElementById("suggestLinkBtn").addEventListener("click", () => {

@@ -618,6 +618,7 @@
               <label for="musicResumeMode" data-i18n="settings.resume_label">On the next launch</label>
               <select id="musicResumeMode" data-key="MUSIC_RESUME_MODE">
                 <option value="same_track" data-i18n="settings.resume_same">Replay the track that was interrupted</option>
+                <option value="same_position" data-i18n="settings.resume_position">Take it up where it stopped</option>
                 <option value="next_track" data-i18n="settings.resume_next">Move on to the next track</option>
               </select>
             </div>
@@ -1972,6 +1973,13 @@
         </button>
         <button type="button" class="tab-btn" data-level="detail" data-tab="stats">
           <span class="tab-icon" data-icon="chart" aria-hidden="true"></span><span data-i18n="tab.stats">Stats</span>
+        </button>
+        <button type="button" class="nav-now" id="navNow" hidden>
+          <span class="nn-cover" data-icon="music" aria-hidden="true"><img id="navNowCover" alt="" hidden></span>
+          <span class="nn-text">
+            <span class="nn-title" id="navNowTitle"></span>
+            <span class="nn-artist" id="navNowArtist"></span>
+          </span>
         </button>
         <button type="button" class="nav-transfer" id="navTransfer" hidden>
           <span class="nt-title" id="navTransferTitle" data-icon="upload"></span>

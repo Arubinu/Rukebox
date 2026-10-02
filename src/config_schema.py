@@ -201,8 +201,12 @@ SETTINGS = [
         "MUSIC_RESUME_MODE", "playback", "resume_mode", "str", "next_track",
         "Only relevant when keep_progress is true: which track plays\n"
         "first after a restart, if the Pi was shut down mid-track.\n"
-        "  next_track -> move on, as if that track had already finished\n"
-        "  same_track -> play that same track again from the start",
+        "  next_track    -> move on, as if that track had already finished\n"
+        "  same_track    -> play that same track again from the start\n"
+        "  same_position -> play it again from where it stopped (a few\n"
+        "                   seconds earlier). Known when the radio stops it\n"
+        "                   itself - cutoff, standby, power off, a restart -\n"
+        "                   not after a power cut.",
         "On restart, resume with",
     ),
     Setting("ANNOUNCE_ORDER_MODE", "playback", "announce_order_mode", "str", "random_albums",

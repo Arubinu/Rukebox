@@ -181,6 +181,7 @@ _GUEST_PATHS = frozenset({
     "/api/suggestions/name",
     "/api/devices/link_code",
     "/api/devices/link_join",
+    "/api/devices/link_leave",
 })
 
 
@@ -2056,11 +2057,39 @@ def api_device_unlink():
     if not device:
         return jsonify({"ok": False, "error": "not_found"}), 404
     try:
-        box.unlink(device["id"])
+        _unlink_device(box, device, "owner")
     except suggestions.SuggestionError as e:
         return jsonify({"ok": False, "error": e.code}), 400
-    stats.record("device_unlinked", label=device.get("name") or device["id"])
     _bans_changed()
+    return jsonify({"ok": True})
+
+
+def _unlink_device(box, device, by):
+    """Unlinks, and leaves both sides the credits the person had: leaving
+    must never be a way to a full counter."""
+    others = [one["device_id"] for one in box.linked_devices(device["id"])]
+    was = box.person_id(device["id"])
+    box.unlink(device["id"])
+    with _quota_lock:
+        entry = _quota.get(was)
+        if entry is not None:
+            for person in {device["id"], box.person_id(others[0])}:
+                _quota[person] = dict(entry, history={k: list(v) for k, v in entry["history"].items()})
+    stats.record("device_unlinked", label=device.get("name") or device["id"], detail={"by": by})
+
+
+@app.route("/api/devices/link_leave", methods=["POST"])
+def api_device_link_leave():
+    """This device leaves its person by itself, with nothing but the credits
+    it shared."""
+    box = _suggestion_box()
+    device = _this_device(box)
+    if box.name_locked(device["id"]) and not _is_owner():
+        return jsonify({"ok": False, "error": "name_locked"}), 400
+    try:
+        _unlink_device(box, device, "device")
+    except suggestions.SuggestionError as e:
+        return jsonify({"ok": False, "error": e.code}), 400
     return jsonify({"ok": True})
 
 

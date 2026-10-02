@@ -146,8 +146,12 @@ playback:
 
   # Only relevant when keep_progress is true: which track plays
   # first after a restart, if the Pi was shut down mid-track.
-  #   next_track -> move on, as if that track had already finished
-  #   same_track -> play that same track again from the start
+  #   next_track    -> move on, as if that track had already finished
+  #   same_track    -> play that same track again from the start
+  #   same_position -> play it again from where it stopped (a few
+  #                    seconds earlier). Known when the radio stops it
+  #                    itself - cutoff, standby, power off, a restart -
+  #                    not after a power cut.
   resume_mode: "next_track"
 
   # Applied to every announcement folder (morning, cutoff,

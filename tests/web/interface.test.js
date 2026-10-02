@@ -429,3 +429,43 @@ test("only a captive window is sent to its system's probe after the release", as
   assert.equal(exit("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36"),
                "http://connectivitycheck.gstatic.com/generate_204", "Android is as before");
 });
+
+test("the side menu says what plays, and leads to the player", async (t) => {
+  const page = open(t, { hash: "#settings/playback" });
+  await until(() => !page.$("navNow").hidden);
+  assert.equal(page.$("navNowTitle").textContent, "Song");
+  assert.equal(page.$("navNowArtist").textContent, "Artist");
+  assert.match(page.$("navNow").getAttribute("aria-label"), /Song . Artist/);
+  page.$("navNow").click();
+  assert.equal(page.document.body.dataset.tab + "/" + page.document.body.dataset.page, "home/player");
+
+  const { STATUS } = require("./harness");
+  const idle = open(t, { routes: { "GET /api/status": Object.assign({}, STATUS, { mode: "idle" }) } });
+  await until(() => idle.$("bootOverlay").hidden);
+  await wait(60);
+  assert.equal(idle.$("navNow").hidden, true, "nothing plays, nothing to say");
+});
+
+test("a linked device can leave by itself, after being asked", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/suggestions": { me: { name: "Renard bleu", rename_wait: 0, locked: false, linked: 2 },
+                              owner: false, text_max: { music: 200, announcement: 500 }, items: [] },
+    "POST /api/devices/link_leave": {},
+  } });
+  await until(() => page.$("bootOverlay").hidden && !page.$("suggestMeLine").hidden);
+  page.$("suggestLinkBtn").click();
+  (await until(() => page.document.querySelector("#modalBody .link-leave"))).click();
+  await until(() => !page.$("modalOk").hidden && !page.$("modalOverlay").hidden);
+  assert.equal(page.sent("POST", "/api/devices/link_leave").length, 0, "not before the answer");
+  page.$("modalOk").click();
+  await until(() => page.sent("POST", "/api/devices/link_leave").length);
+
+  const alone = open(t, { routes: {
+    "GET /api/suggestions": { me: { name: "Renard bleu", rename_wait: 0, locked: false, linked: 0 },
+                              owner: false, text_max: { music: 200, announcement: 500 }, items: [] },
+  } });
+  await until(() => alone.$("bootOverlay").hidden && !alone.$("suggestMeLine").hidden);
+  alone.$("suggestLinkBtn").click();
+  await until(() => alone.document.querySelector("#modalBody .link-dialog"));
+  assert.equal(alone.document.querySelector("#modalBody .link-leave"), null);
+});

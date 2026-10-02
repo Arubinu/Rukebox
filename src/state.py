@@ -65,12 +65,34 @@ class RadioState:
                     all_tracks, music_dir, order_mode, custom_order)
             elif (
                 keep_progress
-                and resume_mode == "same_track"
+                and resume_mode in ("same_track", "same_position")
                 and self.data.get("last_track") in all_tracks
                 and self.data["play_queue"][0] != self.data["last_track"]
             ):
                 self.data["play_queue"].insert(0, self.data["last_track"])
             self._save()
+
+    def set_resume_point(self, path, seconds):
+        """Where a song was when it was cut short."""
+        with self._lock:
+            self.data["resume_point"] = {"path": path, "seconds": round(float(seconds), 1)}
+            self._save()
+
+    def resume_point(self):
+        """(path, seconds) of the song that was cut short, or None."""
+        point = self.data.get("resume_point")
+        if not isinstance(point, dict) or not point.get("path"):
+            return None
+        try:
+            return point["path"], float(point.get("seconds") or 0)
+        except (TypeError, ValueError):
+            return None
+
+    def clear_resume_point(self):
+        with self._lock:
+            if self.data.get("resume_point"):
+                self.data["resume_point"] = None
+                self._save()
 
     def pop_next_track_or_none(self):
         """Pops and returns the next track, or None if the queue is currently

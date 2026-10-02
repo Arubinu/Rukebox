@@ -314,6 +314,38 @@ class DaemonTest(unittest.TestCase):
             self.tick(at(5, 7, 5))
         self.assertEqual(self.daemon.mode, "music")
 
+    def test_a_song_cut_short_is_taken_up_where_it_stopped(self):
+        self.daemon.cfg["MUSIC_RESUME_MODE"] = "same_position"
+        self.daemon._start_or_restart_playback()
+        song = self.daemon._last_music_track
+        self.daemon._position = 95.0
+        self.daemon._go_standby("test")
+        self.assertEqual(self.daemon.state.resume_point(), (song, 95.0))
+        self.daemon._start_or_restart_playback()
+        self.assertEqual(self.daemon._last_music_track, song)
+        self.assertEqual(self.daemon._pending_seek, 92.0, "a few seconds earlier, to pick the thread up")
+        self.assertIsNone(self.daemon.state.resume_point(), "used once")
+        self.daemon._play_next_track(user=True)
+        self.assertIsNone(self.daemon._pending_seek, "the next song starts at its start")
+
+    def test_only_the_first_song_after_a_start_is_taken_up(self):
+        self.daemon.cfg["MUSIC_RESUME_MODE"] = "same_position"
+        self.daemon._start_or_restart_playback()
+        song = self.daemon._last_music_track
+        self.daemon._position = 40.0
+        self.daemon._fade_out_and_pause(0)
+        self.assertEqual(self.daemon.state.resume_point(), (song, 40.0))
+        self.daemon._play_track(song)
+        self.assertIsNone(self.daemon._pending_seek, "a song played again by hand starts at its start")
+
+    def test_without_the_option_nothing_is_remembered(self):
+        self.daemon._start_or_restart_playback()
+        self.daemon._position = 95.0
+        self.daemon._go_standby("test")
+        self.assertIsNone(self.daemon.state.resume_point())
+        self.daemon._start_or_restart_playback()
+        self.assertIsNone(self.daemon._pending_seek)
+
     def test_the_daily_cutoff_can_be_switched_off(self):
         self.daemon.cfg.update({"CUTOFF_HOUR": 23, "CUTOFF_MINUTE": 30})
         self.assertTrue(self.daemon._cutoff_due(at(5, 23, 30)))

@@ -588,6 +588,7 @@ code {
 .nav-brand { display: none; }
 
 .nav-transfer { display: none; }
+.nav-now { display: none; }
 
 .tab-btn {
   flex: 1 1 0;
@@ -3720,6 +3721,42 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   }
   .tab-icon { width: 52px; height: 32px; }
   .toast-stack { bottom: calc(24px + env(safe-area-inset-bottom)); left: calc(50% + var(--rail-w) / 2); }
+
+  .nav-now:not([hidden]) {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+  .nav-now:hover { border-color: var(--accent); }
+  body[data-tab="home"][data-page="player"] .nav-now { display: none; }
+  body:has(#portalReleaseBtn:not([hidden])) .nav-now { display: none; }
+  .nn-cover {
+    position: relative;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--surface-3);
+    color: var(--text-muted);
+    overflow: hidden;
+  }
+  .nn-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .nav-now.is-paused .nn-cover { opacity: 0.55; }
+  .nn-text { display: none; }
   body[data-access="guest"] .toast-stack { left: 50%; }
 
   .player-footer .btn { width: auto; }
@@ -3783,6 +3820,19 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   .tab-btn.active .tab-icon { background: transparent; }
   .tab-icon { width: 24px; height: 24px; }
   .toast-stack { left: calc(50% + var(--sidebar-w) / 2); }
+
+  .nav-now:not([hidden]) {
+    left: 16px;
+    right: 16px;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    flex-direction: row;
+    gap: 10px;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .nn-text { display: grid; min-width: 0; }
+  .nn-title { font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nn-artist { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .nav-transfer:not([hidden]) {
     display: flex;

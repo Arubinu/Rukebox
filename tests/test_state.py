@@ -56,6 +56,14 @@ class StateTest(unittest.TestCase):
         self.s.set_active_list("soir")
         self.assertEqual(state.RadioState(self.path).active_list(), "soir")
 
+    def test_where_a_song_was_cut_short_is_kept_until_it_is_used(self):
+        current = state.RadioState(self.path)
+        self.assertIsNone(current.resume_point())
+        current.set_resume_point("/m/a.mp3", 95.26)
+        self.assertEqual(state.RadioState(self.path).resume_point(), ("/m/a.mp3", 95.3), "it survives a restart")
+        current.clear_resume_point()
+        self.assertIsNone(state.RadioState(self.path).resume_point())
+
     def test_click_bag_order(self):
         build = lambda: ["1.mp3", "2.mp3", "3.mp3"]  # noqa: E731
         got = [self.s.next_click_sound("meme", build) for _ in range(4)]

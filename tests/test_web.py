@@ -318,6 +318,29 @@ class WebTest(unittest.TestCase):
                          "already_linked")
         owner.post("/api/devices/unlink", json={"device_id": device["id"]})
 
+    def test_a_device_can_leave_by_itself_and_keeps_the_credits_it_shared(self):
+        phone, laptop = ws.app.test_client(), ws.app.test_client()
+        me = lambda client: client.get("/api/suggestions").get_json()["data"]["me"]  # noqa: E731
+        phone.post("/api/suggestions/name", json={"name": "Hibou gris"})
+        self.assertEqual(laptop.post("/api/devices/link_leave").get_json()["error"], "not_linked")
+        code = phone.post("/api/devices/link_code").get_json()["data"]["code"]
+        self.assertEqual(laptop.post("/api/devices/link_join", json={"code": code}).status_code, 200)
+
+        box = ws._suggestion_box()
+        device = box.resolve_device(laptop.get("/api/device").get_json()["data"]["token"], None, "127.0.0.1")[0]
+        spent = {"tokens": 0.0, "at": time.time(), "history": {"next": [time.time()]}, "volume_at": 0.0}
+        with ws._quota_lock:
+            ws._quota[device["person"]] = spent
+
+        self.assertEqual(laptop.post("/api/devices/link_leave").status_code, 200)
+        self.assertIsNone(me(laptop)["name"])
+        self.assertEqual((me(phone)["name"], me(phone)["linked"]), ("Hibou gris", 0))
+        with ws._quota_lock:
+            mine, theirs = ws._quota[device["id"]], ws._quota[device["person"]]
+        self.assertLess(mine["tokens"], 1, "leaving is not a way to a full counter")
+        self.assertLess(theirs["tokens"], 1)
+        self.assertIsNot(mine["history"], theirs["history"], "two counters from now on")
+
     def test_schedules_are_the_owners_and_only_hold_settings_a_schedule_may_change(self):
         guest = ws.app.test_client()
         self.assertEqual(guest.get("/api/schedules").status_code, 401)

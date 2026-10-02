@@ -153,6 +153,7 @@ class RadioDaemon:
         self._schedule_signature = None
         self._schedule_overrides = {}
         self._schedule_fired = {}
+        self._resume_armed = False
         self._schedule_list_before = _NO_LIST
         self._list_library = None
         self._genre_resolved = None
@@ -186,6 +187,7 @@ class RadioDaemon:
     AUDIO_OUTPUT_RECHECK_SEC = 30
     GENRE_CACHE_SEC = 5.0
     SPEAKER_MOVE_RETRY_SEC = 300
+    RESUME_REWIND_SEC = 3.0
 
     def _wired_output(self):
         """True when the sound goes to a wired output of the Pi, not the
@@ -395,6 +397,7 @@ class RadioDaemon:
             self.cfg["MUSIC_KEEP_PROGRESS"], self.cfg["MUSIC_RESUME_MODE"],
             custom_order=music_lists.custom_order(self._active_list_entry()),
         )
+        self._resume_armed = bool(self.cfg["MUSIC_KEEP_PROGRESS"])
 
         if self.cfg["MUSIC_START_MODE"] == "boot":
             self._music_started_mono = time.monotonic()
@@ -671,6 +674,8 @@ class RadioDaemon:
 
     def _play_track(self, path, start=0.0):
         """Plays one music file, from `start` seconds."""
+        resumed = self._resume_position(path)
+        start = start or resumed
         log.info("Playing: %s%s", path, " from %.0fs" % start if start else "")
         if self._sound_volume is not None:
             # Back from an announcement that played at a volume of its own.
@@ -681,6 +686,18 @@ class RadioDaemon:
         if self._pending_seek:
             self._position = self._pending_seek
         self._hold_music_without_speaker()
+
+    def _resume_position(self, path):
+        """Where to take a song up again: only the first one after a start or
+        a standby, and only if it is the one that was cut short."""
+        armed, self._resume_armed = self._resume_armed, False
+        point = self.state.resume_point()
+        self.state.clear_resume_point()
+        if not armed or not point or point[0] != path:
+            return 0.0
+        if self.cfg.get("MUSIC_RESUME_MODE") != "same_position":
+            return 0.0
+        return max(0.0, point[1] - self.RESUME_REWIND_SEC)
 
     def _hold_music_without_speaker(self):
         """Keeps a song paused when it starts while the speaker is away.
@@ -857,6 +874,8 @@ class RadioDaemon:
         seconds = max(0.0, time.monotonic() - since)
         if reason == "error":
             return seconds
+        if kind == "music" and reason != "eof" and self.cfg.get("MUSIC_RESUME_MODE") == "same_position":
+            self.state.set_resume_point(path, self._position)
 
         name = os.path.basename(path) if path else None
         if kind == "music":
@@ -1875,6 +1894,7 @@ class RadioDaemon:
         self._paused = False
         if song and os.path.exists(song):
             self.state.push_front(song)
+            self._resume_armed = True
         self._restore_base_volume()
         self.stats.record("standby", label=source, detail={"source": source})
         self._start_keepalive(target_mode="idle", quiet=True)
