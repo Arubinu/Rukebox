@@ -2,7 +2,9 @@
 set -euo pipefail
 
 DEST="${RUKEBOX_FLIC_SDK_DIR:-/opt/fliclib-linux-hci}"
-URL="https://codeload.github.com/50ButtonsEach/fliclib-linux-hci/tar.gz/refs/heads/master"
+# A fixed commit, not "master": flicd runs as root, so what is installed must be what was looked at.
+REF="${RUKEBOX_FLIC_SDK_REF:-f96d7a8658ba762d811c5f73ed0ed5be6c8c2cf1}"
+URL="https://codeload.github.com/50ButtonsEach/fliclib-linux-hci/tar.gz/$REF"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -21,4 +23,4 @@ rm -rf "$DEST"
 mv "$DEST.new" "$DEST"
 chmod -R a+rX "$DEST"
 chmod 755 "$DEST"/bin/*/flicd 2>/dev/null || true
-echo "Flic SDK installed in $DEST"
+echo "Flic SDK ($REF) installed in $DEST"
