@@ -92,6 +92,10 @@ tar czf "$ARCHIVE" -C "$PROJECT_ROOT" \
     --exclude='./TODO.md' \
     --exclude='./README.md' \
     --exclude='./README.*.md' \
+    --exclude='./node_modules' \
+    --exclude='./package.json' \
+    --exclude='./package-lock.json' \
+    --exclude='./.github' \
     .
 SIZE="$(du -h "$ARCHIVE" | cut -f1)"
 echo "   archive: $SIZE"

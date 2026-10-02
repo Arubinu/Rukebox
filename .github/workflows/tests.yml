@@ -16,6 +16,13 @@ jobs:
         run: pip install flask pyyaml
       - name: Unit tests
         run: python -m unittest discover -s tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Interface tests
+        run: |
+          npm ci
+          npm test
       - name: JavaScript parses
         run: |
           for f in web/*.js bootstrap/setup/setup.js; do node --check "$f"; done

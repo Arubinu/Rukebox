@@ -2322,9 +2322,18 @@ python3 -m unittest discover -s tests -v
 ```
 
 Standard library only. GitHub runs them on every push
-(`.github/workflows/tests.yml`). The web server's tests need Flask, so they
-are skipped on a computer without it; run the whole suite on the Pi against
-the installed code:
+(`.github/workflows/tests.yml`), together with the interface's own tests:
+the real page loaded in jsdom against a fake Pi (`tests/web/`). Those need
+Node.js on the computer you develop on - never on the Pi, which installs
+nothing of it:
+
+```bash
+npm install
+npm test
+```
+
+The web server's tests need Flask, so they are skipped on a computer without
+it; run the whole suite on the Pi against the installed code:
 
 ```bash
 scp -r tests pi@169.254.7.7:/tmp/rukebox-tests

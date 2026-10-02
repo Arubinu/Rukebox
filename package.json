@@ -1,0 +1,11 @@
+{
+  "name": "rukebox-web-tests",
+  "private": true,
+  "description": "Development only: the interface's tests. Nothing here is installed on the Pi.",
+  "scripts": {
+    "test": "node --test --test-force-exit tests/web/*.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  }
+}

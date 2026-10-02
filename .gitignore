@@ -38,3 +38,6 @@ dist/
 assets/icons/*.af
 assets/icons/logo-qr.zip
 assets/icons/logo-qr-4x.png
+
+# The interface's tests (npm install)
+node_modules/

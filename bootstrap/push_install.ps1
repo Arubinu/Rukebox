@@ -71,6 +71,10 @@ $tarArgs = @(
     "--exclude=./TODO.md",
     "--exclude=./README.md",
     "--exclude=./README.*.md",
+    "--exclude=./node_modules",
+    "--exclude=./package.json",
+    "--exclude=./package-lock.json",
+    "--exclude=./.github",
     "."
 )
 & tar.exe $tarArgs
