@@ -252,3 +252,84 @@ test("the owner links a device to another person's, and may unlink it", async (t
     && page.sent("POST", "/api/devices/unlink")))[0];
   assert.deepEqual(gone.body, { device_id: "d2" });
 });
+
+test("a schedule is saved with its days, its times and the settings it holds", async (t) => {
+  const page = open(t, { hash: "#settings/settings", routes: {
+    "GET /api/settings": { MUSIC_LOOP: "true", SINGLE_CLICK_ACTION: "next", CUTOFF_HOUR: "23", CUTOFF_MINUTE: "30",
+                           SHUTDOWN_AFTER_CUTOFF: "false" },
+    "GET /api/schedules": { schedules: [
+      { id: "soir", name: "Le soir", enabled: true, date: null, days: [4, 5], start: "20:00", stop: "23:00",
+        stop_action: "standby", list: null, settings: { BASE_VOLUME: "40", MUSIC_LOOP: "false" } },
+    ], settings: ["BASE_VOLUME", "CUTOFF_HOUR", "CUTOFF_MINUTE", "MUSIC_LOOP", "SINGLE_CLICK_ACTION"] },
+    "POST /api/schedules": (request) => Object.assign({ id: "matin" }, request.body),
+    "POST /api/schedules/soir": (request) => Object.assign({ id: "soir", name: "Le soir" }, request.body),
+  } });
+  await until(() => page.$("scheduleList").querySelector(".ann-item") && page.$("afterCutoff").value === "false");
+  const row = page.$("scheduleList").querySelector(".ann-item");
+  assert.match(row.textContent, /20:00 . 23:00/);
+  assert.match(row.textContent, /Standby/);
+
+  page.$("scheduleFormSection").open = true;
+  page.$("schedName").value = "Le matin";
+  page.$("schedWhen").value = "days";
+  page.$("schedWhen").dispatchEvent(new page.window.Event("change", { bubbles: true }));
+  assert.equal(page.$("schedDays").hidden, false);
+  const chips = page.$("schedDays").querySelectorAll("input");
+  assert.equal(chips.length, 7);
+  chips[0].checked = true;
+  chips[2].checked = true;
+  page.$("schedVolume").value = "30";
+
+  const choices = [...page.$("schedAddSetting").options].map((option) => option.value);
+  assert.ok(choices.includes("MUSIC_LOOP") && choices.includes("CUTOFF_HOUR"));
+  assert.ok(!choices.includes("BASE_VOLUME"), "the volume has a field of its own");
+  assert.ok(!choices.includes("CUTOFF_MINUTE"), "the cutoff is one time, not two numbers");
+  page.$("schedAddSetting").value = "MUSIC_LOOP";
+  page.$("schedAddSetting").dispatchEvent(new page.window.Event("change", { bubbles: true }));
+  const loop = page.$("schedOverrides").querySelector('[data-override="MUSIC_LOOP"]');
+  assert.equal(loop.checked, true, "it starts from the usual value");
+  loop.checked = false;
+  page.$("schedAddSetting").value = "CUTOFF_HOUR";
+  page.$("schedAddSetting").dispatchEvent(new page.window.Event("change", { bubbles: true }));
+  assert.equal(page.$("schedOverrides").querySelector('[data-override="CUTOFF_HOUR"]').value, "23:30");
+  assert.equal(page.document.querySelectorAll('#main [data-key="MUSIC_LOOP"]').length, 1,
+               "a copy is not a settings field");
+
+  page.$("scheduleForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
+  const made = (await until(() => page.sent("POST", "/api/schedules").length
+    && page.sent("POST", "/api/schedules")))[0].body;
+  assert.deepEqual(made, { name: "Le matin", days: [0, 2], date: null, start: "07:00", stop: null,
+                           stop_action: "pause", list: null,
+                           settings: { MUSIC_LOOP: "false", CUTOFF_HOUR: "23", CUTOFF_MINUTE: "30",
+                                       BASE_VOLUME: "30" } });
+
+  (await until(() => page.$("scheduleList").querySelector(".sched-edit"))).click();
+  assert.equal(page.$("schedName").value, "Le soir");
+  assert.equal(page.$("schedVolume").value, "40");
+  assert.equal(page.$("schedStopOn").checked, true);
+  assert.equal(page.$("schedActionRow").hidden, false);
+  assert.equal(page.$("schedOverrides").querySelector('[data-override="MUSIC_LOOP"]').checked, false);
+  page.$("schedOverrides").querySelector(".override-remove").click();
+  page.$("scheduleForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
+  const changed = (await until(() => page.sent("POST", "/api/schedules/soir").length
+    && page.sent("POST", "/api/schedules/soir")))[0].body;
+  assert.deepEqual(changed.settings, { BASE_VOLUME: "40" });
+  assert.deepEqual(changed.days, [4, 5]);
+  assert.deepEqual(page.errors, []);
+});
+
+test("the player says which schedule runs, and which one comes next", async (t) => {
+  const { STATUS } = require("./harness");
+  const running = open(t, { routes: {
+    "GET /api/status": Object.assign({}, STATUS, { schedule: { id: "soir", name: "Le soir", until: "23:00" } }),
+  } });
+  await until(() => /Le soir/.test(running.$("npNotices").textContent));
+  assert.match(running.$("npNotices").textContent, /until 23:00/);
+
+  const waiting = open(t, { routes: {
+    "GET /api/status": Object.assign({}, STATUS, { mode: "idle", music_start_mode: "action",
+      schedule_next: { id: "matin", name: "Le matin", at: "07:00", date: "2026-10-02" } }),
+  } });
+  await until(() => /Le matin/.test(waiting.$("npNotices").textContent));
+  assert.match(waiting.$("npNotices").textContent, /Le matin, 07:00/);
+});

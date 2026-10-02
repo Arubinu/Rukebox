@@ -314,6 +314,35 @@ class WebTest(unittest.TestCase):
                          "already_linked")
         owner.post("/api/devices/unlink", json={"device_id": device["id"]})
 
+    def test_schedules_are_the_owners_and_only_hold_settings_a_schedule_may_change(self):
+        guest = ws.app.test_client()
+        self.assertEqual(guest.get("/api/schedules").status_code, 401)
+        self.assertEqual(guest.post("/api/schedules", json={"name": "A", "start": "07:00"}).status_code, 401)
+
+        owner = self.owner()
+        listed = owner.get("/api/schedules").get_json()["data"]
+        self.assertIn("MUSIC_LOOP", listed["settings"])
+        self.assertNotIn("WEB_PORT", listed["settings"])
+        self.assertNotIn("WEB_PASSWORD_HASH", listed["settings"])
+
+        refused = owner.post("/api/schedules", json={"name": "A", "start": "07:00",
+                                                     "settings": {"WEB_PASSWORD_HASH": ""}})
+        self.assertEqual((refused.status_code, refused.get_json()["error"]), (400, "schedule_bad_setting"))
+        self.assertEqual(owner.post("/api/schedules", json={"name": "A"}).get_json()["error"], "schedule_no_time")
+
+        made = owner.post("/api/schedules", json={"name": "Le matin", "days": [0, 1, 2, 3, 4], "start": "07:00",
+                                                  "stop": "09:00", "stop_action": "standby",
+                                                  "settings": {"BASE_VOLUME": "35"}})
+        self.assertEqual(made.status_code, 200)
+        entry = made.get_json()["data"]
+        self.assertEqual((entry["id"], entry["settings"]), ("le-matin", {"BASE_VOLUME": "35"}))
+        off = owner.post("/api/schedules/le-matin", json={"enabled": False}).get_json()["data"]
+        self.assertFalse(off["enabled"])
+        self.assertEqual(off["stop"], "09:00", "a partial change keeps the rest")
+        self.assertEqual(owner.post("/api/schedules/nope", json={"enabled": False}).status_code, 404)
+        self.assertEqual(owner.delete("/api/schedules/le-matin").status_code, 200)
+        self.assertEqual(owner.get("/api/schedules").get_json()["data"]["schedules"], [])
+
     def test_an_announcements_volume_is_the_owners(self):
         guest = ws.app.test_client()
         self.assertEqual(guest.get("/api/announcement_volumes").status_code, 401)

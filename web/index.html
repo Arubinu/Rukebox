@@ -448,7 +448,89 @@
         </details>
 
         <section class="card" data-page="settings" data-tab="settings" aria-labelledby="settingsTitle">
-          <h2 data-icon="calendar" id="settingsTitle"><span data-i18n="settings.schedule_title">Start &amp; cutoff</span></h2>
+          <h2 data-icon="calendar" id="settingsTitle"><span data-i18n="settings.schedule_title">Schedules</span></h2>
+          <p class="hint help-text" data-i18n="schedules.help" hidden>
+            A schedule starts the music, stops it, or both, on chosen days or one date. Its settings only hold while it runs; the rest of the time, "Every day" below applies.
+          </p>
+          <ul class="device-list" id="scheduleList"></ul>
+
+          <details class="subsection" id="scheduleFormSection">
+            <summary><span id="scheduleFormTitle" data-i18n="schedules.add_section">Add a schedule</span></summary>
+            <form id="scheduleForm" class="settings-form">
+              <div class="field-row">
+                <label for="schedName" data-i18n="schedules.name">Name</label>
+                <input type="text" id="schedName" class="text-input" maxlength="40" required autocomplete="off">
+              </div>
+              <div class="field-row">
+                <label for="schedWhen" data-i18n="schedules.when">Days</label>
+                <select id="schedWhen">
+                  <option value="daily" data-i18n="schedules.when_daily">Every day</option>
+                  <option value="days" data-i18n="schedules.when_days">Chosen days</option>
+                  <option value="date" data-i18n="schedules.when_date">One date</option>
+                </select>
+              </div>
+              <div class="day-chips" id="schedDays" role="group" data-i18n-aria-label="schedules.when_days" aria-label="Chosen days" hidden></div>
+              <div class="field-row" id="schedDateRow" hidden>
+                <label for="schedDate" data-i18n="schedules.date">Date</label>
+                <input type="date" id="schedDate" class="text-input sched-date">
+              </div>
+              <div class="field-row">
+                <label for="schedStartOn" data-i18n="schedules.start">Starts the music at</label>
+                <span class="sched-time">
+                  <input type="checkbox" id="schedStartOn" class="switch-input" role="switch" checked>
+                  <input type="time" id="schedStart" class="time-input" value="07:00"
+                         data-i18n-aria-label="schedules.start" aria-label="Starts the music at">
+                </span>
+              </div>
+              <div class="field-row">
+                <label for="schedStopOn" data-i18n="schedules.stop">Stops at</label>
+                <span class="sched-time">
+                  <input type="checkbox" id="schedStopOn" class="switch-input" role="switch">
+                  <input type="time" id="schedStop" class="time-input" value="09:00"
+                         data-i18n-aria-label="schedules.stop" aria-label="Stops at">
+                </span>
+              </div>
+              <div class="field-row" id="schedActionRow" hidden>
+                <label for="schedAction" data-i18n="schedules.stop_action">At the stop</label>
+                <select id="schedAction">
+                  <option value="pause" data-i18n="schedules.action_pause">Pause the music</option>
+                  <option value="standby" data-i18n="schedules.action_standby">Standby</option>
+                  <option value="poweroff" data-i18n="schedules.action_poweroff">Switch the Pi off</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="schedVolume" data-i18n="schedules.volume">Volume</label>
+                  <p class="field-desc" id="schedVolumeDesc" data-i18n="schedules.volume_desc">Empty: left as it is.</p>
+                </div>
+                <input type="number" id="schedVolume" min="0" max="100" class="num-input" inputmode="numeric"
+                       aria-describedby="schedVolumeDesc">
+              </div>
+              <div class="field-row">
+                <label for="schedList" data-i18n="schedules.list">Music</label>
+                <select id="schedList"></select>
+              </div>
+              <div data-level="detail" class="sched-settings">
+                <p class="field-label" data-i18n="schedules.settings_title">Settings during this schedule</p>
+                <p class="field-desc" data-i18n="schedules.settings_desc">They replace the usual ones from the start to the stop, then the usual ones come back.</p>
+                <div id="schedOverrides"></div>
+                <div class="field-row">
+                  <label for="schedAddSetting" class="sr-only" data-i18n="schedules.add_setting">Add a setting</label>
+                  <select id="schedAddSetting"></select>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn" id="schedCancel" data-icon="x" data-i18n="common.cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
+
+          <details class="subsection" id="dailySection" open>
+            <summary><span data-i18n="schedules.daily_section">Every day</span></summary>
+            <p class="hint help-text" data-i18n="schedules.daily_help" hidden>
+              What the radio does outside any schedule: when the music starts, and the cutoff that ends the day.
+            </p>
           <form id="settingsForm" class="settings-form">
             <div class="field-row">
               <label for="cutoffTime" data-i18n="settings.cutoff">Cutoff</label>
@@ -460,6 +542,13 @@
               <select id="cutoffMode" data-key="CUTOFF_MODE">
                 <option value="end_of_track" data-i18n="settings.cutoff_mode_eot">End of current track</option>
                 <option value="exact" data-i18n="settings.cutoff_mode_exact">Exact (fade at the exact time)</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label for="afterCutoff" data-i18n="settings.after_cutoff">After the cutoff</label>
+              <select id="afterCutoff" data-key="SHUTDOWN_AFTER_CUTOFF">
+                <option value="true" data-i18n="settings.after_cutoff_off">Switch the Pi off</option>
+                <option value="false" data-i18n="settings.after_cutoff_standby">Standby: the Pi stays on</option>
               </select>
             </div>
             <div class="field-row">
@@ -487,6 +576,7 @@
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
             </div>
           </form>
+          </details>
         </section>
 
         <section class="card" data-page="playback" data-tab="settings" aria-labelledby="playbackTitle">

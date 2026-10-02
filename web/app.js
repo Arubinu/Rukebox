@@ -1552,6 +1552,13 @@ function applyNotices(d) {
   } else if (d.mode === "stopped") {
     add("info", "play", "notice.stopped");
   }
+  if (d.schedule) {
+    add("info", "calendar", "notice.schedule", { name: d.schedule.name, time: d.schedule.until });
+  } else if (["idle", "stopped"].includes(d.mode) && d.schedule_next) {
+    add("info", "calendar", "notice.schedule_next",
+        { name: d.schedule_next.name, when: scheduleNextWhen(d) });
+  }
+  paintScheduleRunning(d.schedule ? d.schedule.id : null);
   if (d.restart_pending) add("info", "restart", "notice.restart");
   const now = piMinutes(d);
   if (now !== null && typeof d.cutoff_hour === "number" && !["shutting_down"].includes(d.mode)) {
@@ -3043,6 +3050,434 @@ function announcementRow(item) {
 
 refreshAnnouncements();
 refreshEvery(refreshAnnouncements, 20000);
+
+/* Schedules: a row per schedule, and one form for a new one or the one being edited. */
+let schedulesData = [];
+let schedulesAllowed = [];
+let openScheduleId = null;
+let editingScheduleId = null;
+let runningScheduleId = null;
+
+function weekdayNames() {
+  const format = new Intl.DateTimeFormat(currentLang, { weekday: "short", timeZone: "UTC" });
+  // 1 January 2024 was a Monday, which is day 0 here as on the Pi.
+  return [0, 1, 2, 3, 4, 5, 6].map((i) => format.format(new Date(Date.UTC(2024, 0, 1 + i))).replace(/\.$/, ""));
+}
+
+function scheduleDaysLabel(item) {
+  if (item.date) {
+    return new Intl.DateTimeFormat(currentLang, { dateStyle: "medium", timeZone: "UTC" })
+      .format(new Date(item.date + "T00:00:00Z"));
+  }
+  const days = item.days || [];
+  if (!days.length || days.length === 7) return t("schedules.when_daily");
+  const names = weekdayNames();
+  return days.map((day) => names[day]).join(" ");
+}
+
+function scheduleMeta(item) {
+  const bits = [scheduleDaysLabel(item)];
+  if (item.start && item.stop) bits.push(item.start + " → " + item.stop);
+  else if (item.start) bits.push(item.start);
+  else bits.push("→ " + item.stop);
+  if (item.stop) bits.push(t("schedules.action_" + item.stop_action));
+  const extra = Object.keys(item.settings || {}).length;
+  if (extra) bits.push(t("schedules.settings_count", { n: extra }));
+  return bits.join(" · ");
+}
+
+function scheduleNextWhen(d) {
+  const next = d.schedule_next;
+  if (String(d.system_time || "").slice(0, 10) === next.date) return next.at;
+  const day = new Intl.DateTimeFormat(currentLang, { weekday: "long", timeZone: "UTC" })
+    .format(new Date(next.date + "T00:00:00Z"));
+  return day + " " + next.at;
+}
+
+function paintScheduleRunning(id) {
+  runningScheduleId = id;
+  document.querySelectorAll("#scheduleList .ann-item").forEach((li) => {
+    li.classList.toggle("is-playing", li.dataset.id === id);
+  });
+}
+
+function setScheduleOpen(id) {
+  openScheduleId = id;
+  document.querySelectorAll("#scheduleList .ann-item").forEach((li) => {
+    const open = li.dataset.id === id;
+    li.classList.toggle("is-open", open);
+    li.querySelector(".ann-head").setAttribute("aria-expanded", open ? "true" : "false");
+    li.querySelector(".ann-body").hidden = !open;
+  });
+}
+
+function scheduleRow(item) {
+  const li = document.createElement("li");
+  li.className = "ann-item";
+  li.dataset.id = item.id;
+  if (!item.enabled) li.classList.add("is-off");
+  if (item.id === runningScheduleId) li.classList.add("is-playing");
+  const open = item.id === openScheduleId;
+  if (open) li.classList.add("is-open");
+
+  const bodyId = "sched-body-" + item.id;
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "ann-head";
+  head.setAttribute("aria-expanded", open ? "true" : "false");
+  head.setAttribute("aria-controls", bodyId);
+  const text = document.createElement("span");
+  text.className = "ann-text";
+  const name = document.createElement("span");
+  name.className = "ann-name";
+  name.textContent = item.name;
+  const meta = document.createElement("span");
+  meta.className = "ann-meta";
+  meta.textContent = scheduleMeta(item);
+  if (!item.enabled) {
+    const off = document.createElement("span");
+    off.className = "sr-only";
+    off.textContent = ", " + t("announcements.state_off");
+    meta.appendChild(off);
+  }
+  text.append(name, meta);
+  const chevron = document.createElement("span");
+  chevron.className = "ann-chevron";
+  chevron.dataset.icon = "chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  head.append(text, chevron);
+  head.addEventListener("click", () => setScheduleOpen(li.classList.contains("is-open") ? null : item.id));
+
+  const body = document.createElement("div");
+  body.className = "ann-body";
+  body.id = bodyId;
+  body.hidden = !open;
+
+  const actions = document.createElement("div");
+  actions.className = "ann-actions is-two";
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "btn sched-edit";
+  edit.dataset.icon = "pencil";
+  edit.textContent = t("common.edit");
+  edit.addEventListener("click", () => startEditSchedule(item));
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "btn btn-danger-outline sched-delete";
+  del.dataset.icon = "trash";
+  del.textContent = t("common.delete");
+  del.addEventListener("click", async () => {
+    if (!(await showConfirm(t("confirm.delete_schedule", { name: item.name })))) return;
+    const r = await apiDelete("/api/schedules/" + item.id);
+    if (!r.ok) showError(r.error);
+    if (editingScheduleId === item.id) resetScheduleForm();
+    refreshSchedules();
+  });
+  actions.append(edit, del);
+
+  const manage = document.createElement("div");
+  manage.className = "ann-manage";
+  const switchLabel = document.createElement("label");
+  switchLabel.className = "ann-switch";
+  const toggle = document.createElement("input");
+  toggle.type = "checkbox";
+  toggle.className = "switch-input";
+  toggle.setAttribute("role", "switch");
+  toggle.checked = !!item.enabled;
+  const switchText = document.createElement("span");
+  switchText.textContent = t("announcements.active");
+  switchLabel.append(toggle, switchText);
+  toggle.addEventListener("change", async () => {
+    const wanted = toggle.checked;
+    const r = await apiPost("/api/schedules/" + item.id, { enabled: wanted });
+    if (!r.ok) {
+      toggle.checked = !wanted;
+      showError(r.error);
+      return;
+    }
+    refreshSchedules();
+  });
+  manage.append(switchLabel);
+
+  body.append(actions, manage);
+  li.append(head, body);
+  return li;
+}
+
+function renderSchedules() {
+  const list = document.getElementById("scheduleList");
+  list.replaceChildren();
+  if (!schedulesData.length) {
+    const li = document.createElement("li");
+    li.textContent = t("schedules.none_yet");
+    list.appendChild(li);
+    return;
+  }
+  schedulesData.forEach((item) => list.appendChild(scheduleRow(item)));
+}
+
+async function refreshSchedules() {
+  const result = await apiGet("/api/schedules");
+  if (!result.ok || !result.data) return;
+  schedulesData = Array.isArray(result.data.schedules) ? result.data.schedules : [];
+  schedulesAllowed = Array.isArray(result.data.settings) ? result.data.settings : [];
+  renderSchedules();
+  fillScheduleSettingChoices();
+}
+
+const schedForm = document.getElementById("scheduleForm");
+const schedOverrides = document.getElementById("schedOverrides");
+const schedAddSetting = document.getElementById("schedAddSetting");
+
+function paintScheduleDays(chosen) {
+  const box = document.getElementById("schedDays");
+  const picked = new Set(chosen || Array.from(box.querySelectorAll("input:checked")).map((el) => Number(el.value)));
+  box.replaceChildren(...weekdayNames().map((label, day) => {
+    const chip = document.createElement("label");
+    chip.className = "day-chip";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = String(day);
+    input.checked = picked.has(day);
+    const text = document.createElement("span");
+    text.textContent = label;
+    chip.append(input, text);
+    return chip;
+  }));
+}
+
+function updateScheduleForm() {
+  const when = document.getElementById("schedWhen").value;
+  document.getElementById("schedDays").hidden = when !== "days";
+  document.getElementById("schedDateRow").hidden = when !== "date";
+  const startOn = document.getElementById("schedStartOn").checked;
+  const stopOn = document.getElementById("schedStopOn").checked;
+  document.getElementById("schedStart").disabled = !startOn;
+  document.getElementById("schedStop").disabled = !stopOn;
+  document.getElementById("schedActionRow").hidden = !stopOn;
+}
+["schedWhen", "schedStartOn", "schedStopOn"].forEach((id) => {
+  document.getElementById(id).addEventListener("change", updateScheduleForm);
+});
+
+function fillScheduleLists(value) {
+  const select = document.getElementById("schedList");
+  let lists = [];
+  try {
+    lists = (listsData && listsData.lists) || [];
+  } catch (e) {
+    // Declared further down: at startup the music lists are not there yet.
+  }
+  select.replaceChildren();
+  [["keep", t("schedules.list_keep")], ["all", t("schedules.list_all")]]
+    .concat(lists.map((one) => ["id:" + one.id, one.name]))
+    .forEach(([optionValue, label]) => {
+      const option = document.createElement("option");
+      option.value = optionValue;
+      option.textContent = label;
+      select.appendChild(option);
+    });
+  const wanted = value === null || value === undefined ? "keep" : value === "" ? "all" : "id:" + value;
+  setFieldValue(select, wanted);
+}
+
+/* A schedule's setting is edited with a copy of the very control the settings pages use. */
+function overrideSource(key) {
+  const el = document.querySelector('#main [data-key="' + key + '"]');
+  return el && ["INPUT", "SELECT"].includes(el.tagName) ? el : null;
+}
+
+function overrideLabel(key) {
+  const el = overrideSource(key);
+  const label = el && el.id ? document.querySelector('label[for="' + el.id + '"]') : null;
+  return label ? label.textContent.trim() : key;
+}
+
+function overrideRow(key, values) {
+  const source = overrideSource(key);
+  if (!source) return null;
+  const row = document.createElement("div");
+  row.className = "field-row override-row";
+  const label = document.createElement("span");
+  label.className = "field-label";
+  label.textContent = overrideLabel(key);
+  const control = source.cloneNode(true);
+  ["id", "data-key", "data-key-minute", "aria-describedby", "hidden", "disabled"]
+    .forEach((name) => control.removeAttribute(name));
+  control.dataset.override = key;
+  control.setAttribute("aria-label", label.textContent);
+  if (source.dataset.keyMinute) {
+    control.dataset.overrideMinute = source.dataset.keyMinute;
+    control.value = formatHM(Number(values[key]) || 0, Number(values[source.dataset.keyMinute]) || 0);
+  } else {
+    setFieldValue(control, values[key]);
+  }
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "btn btn-icon btn-small override-remove";
+  remove.dataset.icon = "x";
+  remove.setAttribute("aria-label", t("schedules.remove_setting", { name: label.textContent }));
+  remove.addEventListener("click", () => {
+    row.remove();
+    fillScheduleSettingChoices();
+  });
+  const holder = document.createElement("span");
+  holder.className = "override-control";
+  holder.append(control, remove);
+  row.append(label, holder);
+  return row;
+}
+
+function currentSettingValues(key) {
+  const source = overrideSource(key);
+  const values = {};
+  if (!source) return values;
+  if (source.dataset.keyMinute) {
+    const [hour, minute] = timeFieldParts(source);
+    values[key] = hour;
+    values[source.dataset.keyMinute] = minute;
+  } else {
+    values[key] = collectFieldValue(source);
+  }
+  return values;
+}
+
+function fillScheduleSettingChoices() {
+  const used = new Set(Array.from(schedOverrides.querySelectorAll("[data-override]"))
+    .map((el) => el.dataset.override));
+  const choices = schedulesAllowed
+    .filter((key) => key !== "BASE_VOLUME" && !used.has(key) && overrideSource(key))
+    .map((key) => [key, overrideLabel(key)])
+    .sort((a, b) => a[1].localeCompare(b[1]));
+  schedAddSetting.replaceChildren();
+  [["", t("schedules.add_setting")]].concat(choices).forEach(([value, label]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    schedAddSetting.appendChild(option);
+  });
+}
+schedAddSetting.addEventListener("change", () => {
+  const key = schedAddSetting.value;
+  if (!key) return;
+  const row = overrideRow(key, currentSettingValues(key));
+  if (row) schedOverrides.appendChild(row);
+  fillScheduleSettingChoices();
+});
+
+function collectScheduleSettings() {
+  const out = {};
+  schedOverrides.querySelectorAll("[data-override]").forEach((el) => {
+    if (el.dataset.overrideMinute) {
+      const [hour, minute] = timeFieldParts(el);
+      out[el.dataset.override] = hour;
+      out[el.dataset.overrideMinute] = minute;
+    } else {
+      out[el.dataset.override] = collectFieldValue(el);
+    }
+  });
+  const volume = document.getElementById("schedVolume").value.trim();
+  if (volume !== "") out.BASE_VOLUME = volume;
+  return out;
+}
+
+function fillScheduleForm(item) {
+  const data = item || { name: "", days: [], date: null, start: "07:00", stop: null,
+                         stop_action: "pause", list: null, settings: {} };
+  document.getElementById("schedName").value = data.name;
+  document.getElementById("schedWhen").value = data.date ? "date" : (data.days || []).length ? "days" : "daily";
+  paintScheduleDays(data.days || []);
+  document.getElementById("schedDate").value = data.date || "";
+  document.getElementById("schedStartOn").checked = !!data.start;
+  document.getElementById("schedStart").value = data.start || "07:00";
+  document.getElementById("schedStopOn").checked = !!data.stop;
+  document.getElementById("schedStop").value = data.stop || "09:00";
+  document.getElementById("schedAction").value = data.stop_action || "pause";
+  const settings = data.settings || {};
+  document.getElementById("schedVolume").value = "BASE_VOLUME" in settings ? settings.BASE_VOLUME : "";
+  fillScheduleLists(data.list);
+  schedOverrides.replaceChildren();
+  Object.keys(settings).forEach((key) => {
+    if (key === "BASE_VOLUME") return;
+    const row = overrideRow(key, settings);
+    if (row) schedOverrides.appendChild(row);
+  });
+  fillScheduleSettingChoices();
+  updateScheduleForm();
+}
+
+function setScheduleFormTitle(item) {
+  const title = document.getElementById("scheduleFormTitle");
+  title.dataset.i18n = item ? "schedules.edit_section" : "schedules.add_section";
+  if (item) title.dataset.i18nVarName = item.name;
+  else delete title.dataset.i18nVarName;
+  title.textContent = t(title.dataset.i18n, item ? { name: item.name } : undefined);
+}
+
+function resetScheduleForm() {
+  editingScheduleId = null;
+  setScheduleFormTitle(null);
+  fillScheduleForm(null);
+  document.getElementById("scheduleFormSection").open = false;
+}
+
+function startEditSchedule(item) {
+  editingScheduleId = item.id;
+  setScheduleFormTitle(item);
+  fillScheduleForm(item);
+  const section = document.getElementById("scheduleFormSection");
+  section.open = true;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+document.getElementById("scheduleFormSection").addEventListener("toggle", (event) => {
+  // The lists are only known once their own card has loaded, well after this one.
+  if (event.target.open && !editingScheduleId) fillScheduleLists(null);
+});
+document.getElementById("schedCancel").addEventListener("click", resetScheduleForm);
+
+schedForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const when = document.getElementById("schedWhen").value;
+  const list = document.getElementById("schedList").value;
+  const body = {
+    name: document.getElementById("schedName").value,
+    days: when === "days"
+      ? Array.from(document.querySelectorAll("#schedDays input:checked")).map((el) => Number(el.value)) : [],
+    date: when === "date" ? document.getElementById("schedDate").value : null,
+    start: document.getElementById("schedStartOn").checked ? document.getElementById("schedStart").value : null,
+    stop: document.getElementById("schedStopOn").checked ? document.getElementById("schedStop").value : null,
+    stop_action: document.getElementById("schedAction").value,
+    list: list === "keep" ? null : list === "all" ? "" : list.slice(3),
+    settings: collectScheduleSettings(),
+  };
+  if (when === "days" && !body.days.length) {
+    showError("schedule_bad_days");
+    return;
+  }
+  if (when === "date" && !body.date) {
+    showError("schedule_bad_date");
+    return;
+  }
+  const result = await apiPost(editingScheduleId ? "/api/schedules/" + editingScheduleId : "/api/schedules", body);
+  if (!result.ok) {
+    showError(result.error);
+    return;
+  }
+  openScheduleId = result.data.id;
+  showToast(t("schedules.saved", { name: result.data.name }));
+  resetScheduleForm();
+  refreshSchedules();
+});
+
+fillScheduleForm(null);
+refreshSchedules();
+refreshEvery(refreshSchedules, 20000);
+window.LANG_CHANGE_LISTENERS.push(() => {
+  renderSchedules();
+  paintScheduleDays();
+  fillScheduleSettingChoices();
+});
 
 let audioOutputs = [];
 
@@ -6244,6 +6679,8 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "device_renamed", "device_name_locked", "portal_reset", "device_forgotten",
   "devices_linked", "device_unlinked",
+  "schedule_started", "schedule_ended", "schedule_stop",
+  "schedule_added", "schedule_changed", "schedule_removed",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",

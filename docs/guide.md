@@ -783,9 +783,12 @@ above.
   detailed view. A new change during a glide carries on from wherever it
   got to.
 - **Shutdown**: disconnects Bluetooth from the speaker then
-  `systemctl poweroff` (can be disabled with `SHUTDOWN_AFTER_CUTOFF=false`
-  for the scheduled cutoff — a long press on the Flic button always
-  shuts down, regardless of this setting). The install script grants the
+  `systemctl poweroff`. **After the cutoff** (Settings > Schedules > Every
+  day, `SHUTDOWN_AFTER_CUTOFF`) chooses what the daily cutoff ends with:
+  *Switch the Pi off*, or *Standby* - the Pi stays on, the speaker stays
+  connected, and it waits exactly as it does at startup, so the next start
+  (a time, the speaker, a click, a schedule) works. A long press on the
+  Flic button always shuts down, regardless of this setting. The install script grants the
   `pi` user passwordless sudo to shut down (needed since the daemon runs
   without an interactive session).
 
@@ -866,6 +869,38 @@ announcement can still fire normally, and correctly returns to
 or "Start music" in the web interface, restarts the list. The one
 exception is the cutoff announcement: it shuts the Pi down exactly as
 it would from any other mode, "stopped" included.
+
+### Schedules: other hours, other settings, on chosen days
+
+**Settings > Schedules** holds a list of schedules above the **Every day**
+settings (the start mode and the cutoff described above, which keep applying
+outside any schedule). A schedule has a name and:
+
+- **Days**: every day, chosen weekdays, or one date. A date beats the
+  weekdays; when two weekly schedules overlap, the first of the list wins.
+- **Starts the music at** and **Stops at**: one, the other, or both. A start
+  only starts the music when nothing is playing - like the daily start, it is
+  a floor, not a leash. A stop at or before the start is the next morning
+  (22:00 to 01:30 is one evening). Without a stop the schedule runs to the end
+  of its day; a schedule with only a stop is just that stop.
+- **At the stop**: pause the music, standby, or switch the Pi off.
+- **Volume** and **Music** (unchanged, the whole library, or one of your
+  lists): set when the schedule begins. When it ends, the usual volume and
+  the list that was playing before come back.
+- **Settings during this schedule** (detailed view): pick any playback,
+  volume, fade, button or cutoff setting and give it another value. It
+  replaces the usual one from the start to the stop and is taken back
+  afterwards; saving the usual settings meanwhile does not disturb the
+  running schedule. The cutoff time is one of them, which is how an evening
+  can run past the daily cutoff.
+
+The daemon decides by the clock alone at every scheduler tick (15 s), so a
+restart in the middle of a schedule finds it running again - its settings,
+volume and list are applied, but a start that is already past is not
+replayed. The player says which schedule runs and until when; while nothing
+plays, it says which one comes next. Schedules live in
+`/etc/rukebox/schedules.json` (`paths.schedules_file`) and need no restart.
+They are not part of the configuration export.
 
 ## Admin web interface
 

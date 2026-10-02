@@ -25,6 +25,7 @@ import library  # noqa: E402
 from mpv_controller import MPVController, audio_env, compression_filter  # noqa: E402
 import music_lists  # noqa: E402
 import playlist  # noqa: E402
+import schedules  # noqa: E402
 from state import RadioState  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
 import track_media  # noqa: E402
@@ -35,6 +36,9 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 log = logging.getLogger("radio")
+
+# "No list remembered" - None already means "the whole library".
+_NO_LIST = object()
 
 
 def announcement_target(msg):
@@ -141,6 +145,13 @@ class RadioDaemon:
         self._sound_volume = None
         self._music_lists = music_lists.load(cfg["MUSIC_LISTS_FILE"])
         self._lists_stamp = None
+        self._schedule_items = []
+        self._schedules_stamp = False
+        self._schedule_active = None
+        self._schedule_signature = None
+        self._schedule_overrides = {}
+        self._schedule_fired = {}
+        self._schedule_list_before = _NO_LIST
         self._list_library = None
         self._genre_resolved = None
 
@@ -414,6 +425,13 @@ class RadioDaemon:
         except Exception:  # noqa: BLE001
             log.exception("Could not re-read the configuration")
             return {"ok": False, "error": "config_unreadable"}
+        # A running schedule keeps its own settings over the file's.
+        fresh.update(self._schedule_overrides)
+        return self._apply_config(fresh)
+
+    def _apply_config(self, fresh):
+        """Writes the changed values into the live configuration, with what
+        each of them needs done."""
         applied, later = [], []
         for key, value in fresh.items():
             if self.cfg.get(key) == value:
@@ -1341,6 +1359,133 @@ class RadioDaemon:
             return
         self._perform_direct_action(action, "announcement")
 
+    def _schedules(self):
+        """The schedules, re-read whenever the file changed."""
+        path = self.cfg.get("SCHEDULES_FILE") or ""
+        try:
+            stamp = os.path.getmtime(path)
+        except OSError:
+            stamp = None
+        if stamp != self._schedules_stamp:
+            items = schedules.read_items(path) if path else []
+            if items is None:
+                log.error("Could not read %s: keeping the %d schedule(s) already loaded",
+                          path, len(self._schedule_items))
+            else:
+                self._schedule_items = items
+            self._schedules_stamp = stamp
+        return self._schedule_items
+
+    def _schedule_tick(self, now):
+        """Stops first, then whose settings hold now, then starts - so a
+        start already plays with its schedule's settings."""
+        if self.mode in ("shutting_down", "restarting"):
+            return
+        items = self._schedules()
+        for item in items:
+            if item.get("enabled", True) and schedules.stop_due(item, now) \
+                    and self._schedule_once("stop", item, now):
+                self._schedule_stop(item)
+        if self.mode == "shutting_down":
+            return
+        self._follow_schedule(schedules.active(items, now))
+        for item in items:
+            if item.get("enabled", True) and schedules.start_due(item, now) \
+                    and self._schedule_once("start", item, now):
+                self._schedule_start(item)
+
+    def _schedule_once(self, what, item, now):
+        """True the first time in this minute. Kept in memory, not per day: a
+        time moved later the same day must still fire."""
+        key, minute = (what, item["id"]), now.strftime("%Y-%m-%d %H:%M")
+        if self._schedule_fired.get(key) == minute:
+            return False
+        self._schedule_fired[key] = minute
+        return True
+
+    def _follow_schedule(self, active):
+        """Applies the running schedule's settings, list and volume - or takes
+        them back when no schedule runs any more."""
+        signature = None if active is None else (
+            active["id"], tuple(sorted((active.get("settings") or {}).items())), active.get("list"))
+        if signature == self._schedule_signature:
+            self._schedule_active = active
+            return
+        before = self._schedule_active
+        self._schedule_signature = signature
+        self._schedule_active = active
+        had_volume = "BASE_VOLUME" in self._schedule_overrides
+        self._schedule_overrides = schedules.overrides(active)
+        try:
+            fresh = load_config(env_overrides=False)
+        except Exception:  # noqa: BLE001
+            log.exception("Could not re-read the configuration for a schedule")
+            fresh = None
+        if fresh is not None:
+            fresh.update(self._schedule_overrides)
+            self._apply_config(fresh)
+        if had_volume or "BASE_VOLUME" in self._schedule_overrides:
+            volume = self.cfg["BASE_VOLUME"]
+            if self.mode in ("music", "idle", "stopped"):
+                self._set_user_volume(volume, "schedule")
+            else:
+                # An announcement is playing at its own level: the music's is for after it.
+                self._user_volume = self._shown_volume = float(volume)
+
+        wanted = active.get("list") if active else None
+        if wanted is not None:
+            if self._schedule_list_before is _NO_LIST:
+                self._schedule_list_before = self.state.active_list()
+            if (wanted or None) != self.state.active_list():
+                self._set_active_list(wanted or None, "schedule")
+        elif self._schedule_list_before is not _NO_LIST:
+            previous, self._schedule_list_before = self._schedule_list_before, _NO_LIST
+            if previous != self.state.active_list():
+                self._set_active_list(previous, "schedule")
+
+        if active and (not before or before["id"] != active["id"]):
+            log.info("Schedule '%s' is running until %s", active["name"], active["end"].strftime("%H:%M"))
+            self.stats.record("schedule_started", label=active["name"],
+                              detail={"id": active["id"], "settings": sorted(self._schedule_overrides)})
+        if before and (not active or before["id"] != active["id"]):
+            log.info("Schedule '%s' is over", before["name"])
+            self.stats.record("schedule_ended", label=before["name"], detail={"id": before["id"]})
+        self._bump_state()
+
+    def _schedule_start(self, item):
+        log.info("Schedule '%s': start", item["name"])
+        if self.mode in ("idle", "stopped"):
+            self.state.mark_triggered_today("last_music_start")
+            self._start_or_restart_playback(log_label="schedule")
+        elif self.mode == "music" and self._paused:
+            self._set_pause(False, "schedule")
+
+    def _schedule_stop(self, item):
+        action = item.get("stop_action") or "pause"
+        log.info("Schedule '%s': stop (%s)", item["name"], action)
+        self.stats.record("schedule_stop", label=item["name"], detail={"id": item["id"], "action": action})
+        if action == "poweroff":
+            self._power_off_now(reason="schedule")
+        elif action == "standby":
+            self._go_standby("schedule")
+        elif self.mode == "music" and not self._paused:
+            self._set_pause(True, "schedule")
+
+    def _schedule_status(self):
+        active = self._schedule_active
+        if not active:
+            return None
+        return {"id": active["id"], "name": active["name"], "until": active["end"].strftime("%H:%M"),
+                "stop_action": active.get("stop_action") if active.get("stop") else None}
+
+    def _next_schedule_status(self):
+        found = schedules.next_start(self._schedule_items, datetime.now())
+        if not found:
+            return None
+        item, when = found
+        return {"id": item["id"], "name": item["name"], "at": when.strftime("%H:%M"),
+                "date": when.strftime("%Y-%m-%d")}
+
     def _trigger_cutoff_event_exact(self):
         log.info("Triggering the cutoff (exact mode)")
         self._record_cutoff_trigger("exact")
@@ -1407,25 +1552,39 @@ class RadioDaemon:
         self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
 
     def _do_shutdown_sequence(self, force=False, reason="cutoff"):
+        if not force and not self.cfg["SHUTDOWN_AFTER_CUTOFF"]:
+            self._cutoff_standby()
+            return
         self._end_play("shutdown")
         mac = self.cfg["SPEAKER_MAC"]
         if mac and mac != "XX:XX:XX:XX:XX:XX":
             log.info("Disconnecting Bluetooth from %s", mac)
             self._bluetoothctl("disconnect", mac, timeout=10)
 
-        poweroff = bool(force or self.cfg["SHUTDOWN_AFTER_CUTOFF"])
-        self.stats.record("shutdown", label=reason, detail={"poweroff": poweroff})
+        log.info("Shutting down the Raspberry Pi")
+        self.stats.record("shutdown", label=reason, detail={"poweroff": True})
         self.stats.end_session(reason)
+        self._powering_off = True
+        self._bump_state()
+        time.sleep(2)
+        subprocess.run(["sudo", "systemctl", "poweroff"], check=False)
 
-        if poweroff:
-            log.info("Shutting down the Raspberry Pi")
-            self._powering_off = True
-            self._bump_state()
-            time.sleep(2)
-            subprocess.run(["sudo", "systemctl", "poweroff"], check=False)
-        else:
-            log.info("SHUTDOWN_AFTER_CUTOFF=false, the Pi stays on (mpv paused)")
-            self.mpv.set_pause(True)
+    def _cutoff_standby(self):
+        """The cutoff with SHUTDOWN_AFTER_CUTOFF off: the Pi stays on and waits
+        as it does at startup, the speaker still connected."""
+        log.info("Cutoff: the Pi stays on, in standby")
+        self._end_play("shutdown")
+        self._set_timer("resume", None)
+        self._set_timer("sleep", None)
+        self._announce_queue = []
+        self._forced_next = None
+        self._resume_track = None
+        self._pending_seek = None
+        self._paused = False
+        self._restore_base_volume()
+        self.stats.record("standby", label="cutoff", detail={"source": "cutoff"})
+        self._start_keepalive(target_mode="idle", quiet=True)
+        self._bump_state()
 
     def _record_click(self, kind, source, action, target=None):
         """One row per button press, with what it actually did."""
@@ -2233,6 +2392,8 @@ class RadioDaemon:
     def _scheduler_tick(self):
         self._announcements()
         now = datetime.now()
+        with self._command_lock:
+            self._schedule_tick(now)
 
         if (
             self.cfg["MUSIC_START_MODE"] == "scheduled"
@@ -2369,6 +2530,8 @@ class RadioDaemon:
             "upcoming_track_path": self._upcoming_track(),
             "track_count": self._track_count,
             "active_list": self._active_list_status(),
+            "schedule": self._schedule_status(),
+            "schedule_next": self._next_schedule_status(),
             "music_started_today": self.state.already_triggered_today("last_music_start"),
             "version": self._state_version,
             "restart_pending": self._restart_pending,
@@ -2559,6 +2722,11 @@ class RadioDaemon:
                     return {"ok": False, "error": "invalid_value"}
                 self._set_loop_mode(mode, source)
                 return {"ok": True, "data": {"loop_mode": self._loop_mode}}
+            if cmd == "reload_schedules":
+                self._schedules_stamp = False
+                if self._clock_ready.is_set():
+                    self._schedule_tick(datetime.now())
+                return {"ok": True, "count": len(self._schedule_items)}
             if cmd == "reload_lists":
                 self._lists_stamp = None
                 return {"ok": True, "count": len(self._lists())}

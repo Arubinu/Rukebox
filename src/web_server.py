@@ -51,6 +51,7 @@ import bt_link  # noqa: E402
 import library  # noqa: E402
 import likes  # noqa: E402
 import music_lists  # noqa: E402
+import schedules  # noqa: E402
 from version import is_newer, read_version_file, set_release  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [web] %(message)s")
@@ -1451,6 +1452,59 @@ def _active_list_id():
         return None
     return (((status.get("data") or {}).get("active_list") or {}).get("id")
             if status.get("ok") else None)
+
+
+def _schedules_path():
+    return cfg()["SCHEDULES_FILE"]
+
+
+@app.route("/api/schedules")
+def api_schedules():
+    """Every schedule, and the settings one may hold for itself."""
+    return jsonify({"ok": True, "data": {
+        "schedules": schedules.load(_schedules_path()),
+        "settings": sorted(schedules.OVERRIDABLE),
+    }})
+
+
+@app.route("/api/schedules", methods=["POST"])
+def api_create_schedule():
+    body = request.get_json(silent=True) or {}
+    try:
+        entry = schedules.add(_schedules_path(), body)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    notify_daemon("reload_schedules")
+    stats.record("schedule_added", label=entry["name"], detail={"id": entry["id"]})
+    return jsonify({"ok": True, "data": entry})
+
+
+@app.route("/api/schedules/<schedule_id>", methods=["POST"])
+def api_update_schedule(schedule_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        entry = schedules.update(_schedules_path(), schedule_id, body)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    notify_daemon("reload_schedules")
+    stats.record("schedule_changed", label=entry["name"],
+                 detail={"id": schedule_id, "changes": sorted(body)})
+    return jsonify({"ok": True, "data": entry})
+
+
+@app.route("/api/schedules/<schedule_id>", methods=["DELETE"])
+def api_delete_schedule(schedule_id):
+    try:
+        schedules.delete(_schedules_path(), schedule_id)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    notify_daemon("reload_schedules")
+    stats.record("schedule_removed", label=schedule_id)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/lists")

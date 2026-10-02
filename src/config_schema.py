@@ -451,7 +451,10 @@ SETTINGS = [
         "Cutoff mode",
     ),
     Setting("SHUTDOWN_AFTER_CUTOFF", "schedule", "shutdown_after_cutoff", "bool", "true",
-            "Whether the Pi actually powers itself off after the cutoff.",
+            "What the cutoff ends with.\n"
+            "true  -> the Pi powers itself off\n"
+            "false -> standby: the Pi stays on and waits as it does at startup,\n"
+            "         so the next start (a time, the speaker, a click) works",
             "Shut down after cutoff"),
 
     Setting("FADE_DURATION_SEC", "fades", "announcement_sec", "float", "15",
@@ -845,6 +848,15 @@ SETTINGS = [
         "one by one) or by genre (kept up to date from the library's tags);\n"
         "the radio plays one list, or everything when none is active.",
         "Music lists file",
+    ),
+    Setting(
+        "SCHEDULES_FILE", "paths", "schedules_file", "str",
+        "/etc/rukebox/schedules.json",
+        "The schedules built from the web interface - see src/schedules.py:\n"
+        "start the music, stop it, or both, on chosen days or one date, with\n"
+        "settings that only hold while the schedule runs. Read by the daemon\n"
+        "at every scheduler tick, so a change needs no restart.",
+        "Schedules file",
     ),
     Setting(
         "LIKES_FILE", "paths", "likes_file", "str",
