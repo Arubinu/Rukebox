@@ -119,7 +119,7 @@ if [ -z "${RUKEBOX_STATE_DIR:-}" ]; then
 fi
 mkdir -p "$BACKUP_DIR"
 
-ALL_SERVICES="rukebox-daemon.service rukebox-web.service flic-bridge.service rukebox-speaker-buttons.service"
+ALL_SERVICES="rukebox-daemon.service rukebox-web.service flic-bridge.service rukebox-speaker-buttons.service bt-connect.service home-wifi-connect.service"
 RUNNING_SERVICES=""
 
 remember_running() {
