@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 import _path  # noqa: F401
 import bt_link
@@ -225,8 +226,11 @@ class DaemonListsTest(unittest.TestCase):
         try:
             self.daemon.cfg["SPEAKER_MAC"] = "7C:E9:13:69:66:55"
             state = self.daemon._speaker_link()
-            self.daemon._move_speaker_to_its_controller(state)
+            # A machine started a minute ago: its uptime clock is still under the retry delay.
+            with mock.patch.object(rukebox_daemon.time, "monotonic", return_value=60.0):
+                self.daemon._move_speaker_to_its_controller(state)
             self.assertEqual(calls, [("7C:E9:13:69:66:55", "00:A7:50:72:14:C4")])
+            self.daemon._speaker_move_at = rukebox_daemon.time.monotonic()
             self.daemon._move_speaker_to_its_controller(state)
             self.assertEqual(len(calls), 1, "not again before the retry delay")
         finally:

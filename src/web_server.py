@@ -428,7 +428,9 @@ def api_device():
     return jsonify({"ok": True, "data": {"token": g.get("this_device_token")}})
 
 
-_bans_cache = {"at": 0.0, "any": False}
+# Never 0: the uptime clock starts at boot, and 0 would read as fresh for its first half minute.
+NEVER = float("-inf")
+_bans_cache = {"at": NEVER, "any": False}
 BAN_KICK_INTERVAL_SEC = 10
 _ban_thread = None
 _MAC_ARG_RE = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
@@ -445,7 +447,7 @@ def _bans_active():
 
 
 def _bans_changed():
-    _bans_cache["at"] = 0.0
+    _bans_cache["at"] = NEVER
     _ensure_ban_thread()
     threading.Thread(target=_kick_banned, daemon=True).start()
 
@@ -5062,7 +5064,7 @@ def api_backup_restore():
                 c = cfg()
             if "suggestions.db" in names:
                 _restore_sqlite(zf, "suggestions.db", c["SUGGESTIONS_DB_FILE"], "devices")
-                _bans_cache["at"] = 0
+                _bans_cache["at"] = NEVER
                 done["suggestions"] = True
             if "stats.db" in names and c.get("STATS_ENABLED"):
                 _restore_sqlite(zf, "stats.db", c["STATS_DB_FILE"], "events")

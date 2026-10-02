@@ -96,6 +96,7 @@ class WebTest(unittest.TestCase):
             "MUSIC_DIR": os.path.join(cls.dir, "music"),
             "MUSIC_CACHE_FILE": os.path.join(cls.dir, "music_cache.json"),
             "MUSIC_LISTS_FILE": os.path.join(cls.dir, "music_lists.json"),
+            "SCHEDULES_FILE": os.path.join(cls.dir, "schedules.json"),
             "ANNOUNCEMENTS_FILE": os.path.join(cls.dir, "announcements.json"),
             "HOME_WIFI_CONN_NAME": "rukebox-home",
             "GUEST_QUOTA_ENABLED": True, "GUEST_QUOTA_MAX": 3, "GUEST_QUOTA_REFILL_SEC": 600,

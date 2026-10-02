@@ -39,6 +39,7 @@ log = logging.getLogger("radio")
 
 # "No list remembered" - None already means "the whole library".
 _NO_LIST = object()
+NEVER = float("-inf")
 
 
 def announcement_target(msg):
@@ -107,11 +108,12 @@ class RadioDaemon:
 
         self._speaker_was_connected = None
         self._sink_missing_checks = 0
-        self._speaker_move_at = 0.0
+        # Never 0: the uptime clock starts at boot, and 0 would read as "just done" for minutes.
+        self._speaker_move_at = NEVER
         self._speaker_move_failed = False
         self._restart_pending = False
         self._audio_device = None
-        self._audio_output_checked = 0.0
+        self._audio_output_checked = NEVER
         self._audio_output_missing = None
         self._powering_off = False
         self._music_started_mono = None
@@ -126,7 +128,7 @@ class RadioDaemon:
         self._ap_iw_needs_sudo = None
         self._ap_warned = False
         self._session_marked_used = False
-        self._last_volume_event = 0.0
+        self._last_volume_event = NEVER
         self._volume_glide_gen = 0
         self._volume_glide_target = None
         self._sink_level = None
