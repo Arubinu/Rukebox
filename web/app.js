@@ -5974,12 +5974,15 @@ document.getElementById("apForm").addEventListener("submit", async (e) => {
 });
 
 let homeWifiToggleBusy = false;
+let homeWifiEdits = 0;
 let homeWifiClientHere = false;
 
 async function refreshHomeWifi() {
   if (homeWifiToggleBusy) return;
+  const edits = homeWifiEdits;
   const result = await apiGet("/api/wifi/status");
-  if (homeWifiToggleBusy) return;
+  // Asked before a switch was touched: this answer is older than what the switch says.
+  if (homeWifiToggleBusy || edits !== homeWifiEdits) return;
   const card = document.getElementById("homeWifiCard");
   if (!result.ok || !result.data.configured) {
     card.hidden = true;
@@ -6003,6 +6006,7 @@ async function refreshHomeWifi() {
 
 document.getElementById("homeWifiAuto").addEventListener("change", async (e) => {
   const on = e.target.checked;
+  homeWifiEdits += 1;
   homeWifiToggleBusy = true;
   const result = await apiPost("/api/wifi/autoconnect", { on });
   homeWifiToggleBusy = false;
@@ -6026,6 +6030,7 @@ document.getElementById("homeWifiToggle").addEventListener("change", async (e) =
       return;
     }
   }
+  homeWifiEdits += 1;
   homeWifiToggleBusy = true;
   const result = await apiPost("/api/wifi/toggle", { enabled: e.target.checked });
   if (!result.ok) {
