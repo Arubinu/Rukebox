@@ -138,6 +138,9 @@ TRIGGERS = ("time", "manual", "after_music", "after_boot")
 
 CHANCES = ("1/1", "3/4", "2/3", "1/2", "1/3", "1/4", "1/5", "1/7", "1/10")
 
+AFTER_ACTIONS = ("none", "pause", "mute", "loop_track", "loop_album", "loop_off",
+                 "volume_up", "volume_down", "sleep", "standby", "poweroff")
+
 
 def validate(data):
     """Raises ValueError carrying an error CODE (announcement_name_required,
@@ -178,6 +181,10 @@ def validate(data):
     if auto_chance not in CHANCES or manual_chance not in CHANCES:
         raise ValueError("announcement_bad_chance")
 
+    after_action = str(data.get("after_action") or "none")
+    if after_action not in AFTER_ACTIONS:
+        raise ValueError("announcement_bad_action")
+
     return {
         "name": name,
         "folder": folder,
@@ -188,6 +195,7 @@ def validate(data):
         "trigger": trigger,
         "delay_min": delay_min,
         "repeat_times": repeat_times,
+        "after_action": after_action,
         "enabled": bool(data.get("enabled", True)),
     }
 

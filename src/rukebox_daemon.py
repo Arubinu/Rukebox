@@ -130,6 +130,7 @@ class RadioDaemon:
         self._sink_resync = 0
         self._sink_turn = 0
         self._sink_warned = False
+        self._after_action = None
         self._speaker_warned = None
         self._last_tick = None
         self._flic_warned = False
@@ -1279,8 +1280,9 @@ class RadioDaemon:
         name = self.state.next_click_sound(source_id, lambda: [os.path.basename(f) for f in files])
         return [by_name[name]] if name in by_name else []
 
-    def _play_announce_queue(self, mode_name, files, volume_key=None):
+    def _play_announce_queue(self, mode_name, files, volume_key=None, after=None):
         self._announce_queue = list(files)
+        self._after_action = after
         self._sound_volume = self._source_volume(volume_key) if volume_key else None
         if not self._announce_queue:
             log.warning("No announcement to play for %s, continuing directly", mode_name)
@@ -1386,7 +1388,8 @@ class RadioDaemon:
         self._restore_base_volume()
         source_id = "custom:%s" % item["id"]
         self._play_announce_queue(source_id, self._next_announce_file(source_id, item["folder"]),
-                                  volume_key=source_id)
+                                  volume_key=source_id,
+                                  after=None if on_demand else item.get("after_action"))
         if not on_demand and item.get("trigger") == "time":
             self.state.mark_triggered_today("custom_%s" % item["id"])
 
@@ -1656,7 +1659,7 @@ class RadioDaemon:
         self._fade_out_and_pause(self.cfg["LONGPRESS_FADE_DURATION_SEC"])
         self._do_shutdown_sequence(force=True, reason=reason)
 
-    def _go_standby(self, source="unknown"):
+    def _go_standby(self, source="unknown", fade=True):
         """Standby: the same fade as before switching off, then the Pi stays on
         and waits exactly like at startup (keep-alive sound, mode idle)."""
         if self.mode in ("idle", "stopped", "shutting_down", "restarting"):
@@ -1665,7 +1668,8 @@ class RadioDaemon:
         song = self._last_music_track if self.mode == "music" else None
         self._set_timer("resume", None)
         self._set_timer("sleep", None)
-        self._fade_out_and_pause(self.cfg["LONGPRESS_FADE_DURATION_SEC"])
+        if fade:
+            self._fade_out_and_pause(self.cfg["LONGPRESS_FADE_DURATION_SEC"])
         self._announce_queue = []
         self._forced_next = None
         self._resume_track = None

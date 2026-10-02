@@ -907,6 +907,25 @@
                 <label for="annTime" data-i18n="common.time">Time</label>
                 <input type="time" id="annTime" class="time-input" value="12:00">
               </div>
+              <div class="field-row" id="annAfterRow">
+                <div class="field-text">
+                  <label for="annAfter" data-i18n="announcements.after">Then</label>
+                  <p class="field-desc" id="annAfterDesc" data-i18n="announcements.after_desc">Once it is over, when it started on its own. Never after a play started by hand.</p>
+                </div>
+                <select id="annAfter" aria-describedby="annAfterDesc">
+                  <option value="none" data-i18n="after.none">Back to the music</option>
+                  <option value="pause" data-i18n="click.pause">Pause</option>
+                  <option value="mute" data-i18n="click.mute">Mute / unmute</option>
+                  <option value="loop_track" data-i18n="click.loop_track">Loop this track</option>
+                  <option value="loop_album" data-i18n="click.loop_album">Loop this album</option>
+                  <option value="loop_off" data-i18n="click.loop_off">Normal playback</option>
+                  <option value="volume_up" data-i18n="click.volume_up">Volume +</option>
+                  <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
+                  <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
+                  <option value="standby" data-i18n="click.standby">Standby</option>
+                  <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                </select>
+              </div>
               <div data-level="detail" class="field-row">
                 <div class="field-text">
                   <label for="annManualChance" data-i18n="announcements.manual_chance">When started by hand</label>

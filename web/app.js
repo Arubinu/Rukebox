@@ -4765,6 +4765,7 @@ function updateAnnTimeVisibility() {
   document.getElementById("annRepeatRow").hidden = !delayed;
   document.getElementById("annRepeatCountRow").hidden = !delayed || annRepeat.value !== "count";
   document.getElementById("annAutoChanceRow").hidden = trigger === "manual";
+  document.getElementById("annAfterRow").hidden = trigger === "manual";
 }
 annTrigger.addEventListener("change", updateAnnTimeVisibility);
 annRepeat.addEventListener("change", updateAnnTimeVisibility);
@@ -4817,6 +4818,7 @@ function resetAnnouncementForm() {
   setAnnRepeat(1);
   document.getElementById("annAutoChance").value = "1/1";
   document.getElementById("annManualChance").value = "1/1";
+  document.getElementById("annAfter").value = "none";
   updateAnnTimeVisibility();
   paintAnnFormVolume(null);
   setAnnouncementFormMode(null);
@@ -4832,6 +4834,7 @@ function startEditAnnouncement(item) {
   setAnnRepeat(item.repeat_times === undefined ? 1 : item.repeat_times);
   document.getElementById("annAutoChance").value = item.auto_chance || "1/1";
   document.getElementById("annManualChance").value = item.manual_chance || "1/1";
+  document.getElementById("annAfter").value = item.after_action || "none";
   updateAnnTimeVisibility();
   paintAnnFormVolume("custom:" + item.id);
   setAnnouncementFormMode(item);
@@ -4894,6 +4897,7 @@ document.getElementById("announcementForm").addEventListener("submit", async (e)
     repeat_times: annRepeatTimes(),
     auto_chance: document.getElementById("annAutoChance").value,
     manual_chance: document.getElementById("annManualChance").value,
+    after_action: annTrigger.value === "manual" ? "none" : document.getElementById("annAfter").value,
   };
   if (editingAnnouncementId) {
     if (!body.folder.trim()) delete body.folder;

@@ -2192,8 +2192,8 @@ with:
 - a **name**,
 - a **folder** (anywhere; created on the Pi like any other audio folder,
   ONE of its files played per trigger, in turn, according to
-  `ANNOUNCE_ORDER_MODE` - only the cutoff plays its whole folder - same as
-  every other announcement folder — see "Announcement track order"
+  `ANNOUNCE_ORDER_MODE` - the cutoff too: one file, then the Pi switches
+  off - same as every other announcement folder — see "Announcement track order"
   below). The **Browse…** button beside that field walks the Pi's own
   directories instead of asking you to type a path on a phone keyboard:
   directories only, each one showing how many audio files it holds
@@ -2209,6 +2209,11 @@ with:
   - **only by hand** (the Announcement button, a click, "Play").
 
   The "k times out of n" setting applies to every automatic start.
+- **what follows it** (**Then**), when it started on its own: back to the
+  music (the default), or pause, mute, loop the track or the album, normal
+  playback, volume up or down, the sleep timer, standby, or switching the Pi
+  off. A play started by hand - the Announcement button, a click, "Play" -
+  never does it.
 
 Each one also gets a **"Play now"** button, to test it immediately
 without waiting for (or consuming) its scheduled time - useful right
