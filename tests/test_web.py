@@ -127,6 +127,25 @@ class WebTest(unittest.TestCase):
         client.post("/api/auth/login", json={"password": "secret"})
         return client
 
+    def test_another_sites_page_cannot_post(self):
+        owner = self.owner()
+        foreign = owner.post("/api/mute", json={"on": True}, headers={"Origin": "https://evil.example"})
+        self.assertEqual(foreign.status_code, 403)
+        self.assertEqual(foreign.get_json()["error"], "bad_origin")
+        self.assertEqual(owner.post("/api/mute", json={"on": True},
+                                    headers={"Origin": "null"}).status_code, 403)
+        for origin in (None, "http://localhost", "http://LOCALHOST:80"):
+            headers = {"Origin": origin} if origin else {}
+            self.assertEqual(owner.post("/api/mute", json={"on": True}, headers=headers).status_code,
+                             200, origin)
+        self.assertEqual(owner.get("/api/auth/status", headers={"Origin": "https://evil.example"}).status_code, 200)
+
+    def test_a_json_body_is_bounded(self):
+        owner_body = "x" * (1024 * 1024 + 10)
+        answer = self.owner().post("/api/mute", data=owner_body, content_type="application/json")
+        self.assertEqual(answer.status_code, 413)
+        self.assertEqual(answer.get_json()["error"], "too_large")
+
     def test_guest_surface(self):
         guest = ws.app.test_client()
         self.assertEqual(guest.post("/api/action/long_press").status_code, 401, "a guest never powers off")

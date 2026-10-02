@@ -16,6 +16,7 @@ import threading
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import zipfile
 import sqlite3
 import urllib.request
@@ -190,6 +191,35 @@ def _guest_allowed(path, method):
 
 
 _PRE_LOGIN_PATHS = frozenset({"/api/portal/status"})
+
+
+JSON_BODY_MAX_BYTES = 1024 * 1024
+
+
+def _same_origin():
+    """False for a request another site's page made the browser send."""
+    origin = request.headers.get("Origin")
+    if not origin:
+        return True
+
+    def bare(host):
+        host = host.lower()
+        return host[:-3] if host.endswith(":80") else host
+
+    theirs = urllib.parse.urlsplit(origin).netloc
+    return bool(theirs) and bare(theirs) == bare(request.host or "")
+
+
+@app.before_request
+def _refuse_foreign_requests():
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None
+    if not _same_origin():
+        return jsonify({"ok": False, "error": "bad_origin"}), 403
+    if not (request.mimetype or "").startswith("multipart/") \
+            and (request.content_length or 0) > JSON_BODY_MAX_BYTES:
+        return jsonify({"ok": False, "error": "too_large"}), 413
+    return None
 
 
 @app.before_request
