@@ -77,6 +77,12 @@ class TranslationsTest(unittest.TestCase):
                     recorded |= set(re.findall(r'\.record\(\s*"(\w+)"', f.read()))
         self.assertEqual(recorded - listed, set(), "add them to EVENT_TYPE_KEYS and event.* in i18n.js")
 
+    def test_every_listed_service_has_a_name(self):
+        server = _path.read("src", "web_server.py")
+        block = server[server.index("SYSTEM_SERVICES = ("):server.index("_SERVICE_PROPS")]
+        keys = i18n_blocks()["en"]
+        self.assertEqual({name for name in re.findall(r'\("([\w-]+)"', block) if "svc." + name not in keys}, set())
+
 
 class ServerRulesTest(unittest.TestCase):
     def test_errors_are_codes(self):

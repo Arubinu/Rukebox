@@ -469,3 +469,16 @@ test("a linked device can leave by itself, after being asked", async (t) => {
   await until(() => alone.document.querySelector("#modalBody .link-dialog"));
   assert.equal(alone.document.querySelector("#modalBody .link-leave"), null);
 });
+
+test("the network diagnostic is asked for and shown as it came", async (t) => {
+  const text = ["Network diagnostic", "findings:", " - nothing wrong"].join("\n");
+  const page = open(t, { hash: "#system/health", routes: {
+    "POST /api/diag/network": { report: text },
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  page.$("btnNetDiag").click();
+  const shown = await until(() => page.document.querySelector("#modalBody .diag-text"));
+  assert.equal(shown.textContent, text);
+  assert.equal(page.sent("POST", "/api/diag/network").length, 1);
+  assert.equal(page.sent("POST", "/api/diag/audio").length, 0);
+});

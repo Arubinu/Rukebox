@@ -17,6 +17,9 @@ REPAIR_SECONDS=300
 # The controller's byte counter must move while the radio plays: frozen this long means the link is dead.
 SILENT_SECONDS=15
 SILENT_MIN_BYTES=2000
+# The built-in chip is the Wi-Fi's radio too: paging an absent speaker there drops the Wi-Fi link.
+SHARED_CALM_TICKS=100
+SHARED_PAGE_SLOTS=4096
 
 SPEAKER_MAC=""
 ADAPTER=""
@@ -54,6 +57,21 @@ controller_index() {
             /^hci[0-9]+:/ { dev = $1; sub(":", "", dev); sub("hci", "", dev) }
             /BD Address:/ { if (toupper($3) == mac) print dev }' | head -1
     fi
+}
+
+shared_radio() {
+    local index bus
+    index="$(controller_index)"
+    [ -z "$index" ] && return 1
+    bus="$(hciconfig "hci${index}" 2>/dev/null | awk '/Bus:/ { for (i = 1; i < NF; i++) if ($i == "Bus:") print $(i + 1); exit }')"
+    [ -n "$bus" ] && [ "$bus" != "USB" ]
+}
+
+# Half the default page: short enough for the Wi-Fi to keep its access point, long enough to reach a speaker.
+shorten_page() {
+    local index
+    index="$(controller_index)"
+    [ -n "$index" ] && hciconfig "hci${index}" pageto "$SHARED_PAGE_SLOTS" 2>/dev/null || true
 }
 
 # btmgmt hangs with stdin on /dev/null (what systemd gives): it needs a pipe.
@@ -182,6 +200,7 @@ connected=0
 warned_unconfigured=0
 warned_calm=0
 connect_reported=0
+shared=0
 healthy_marks=0
 last_repair_time=-$((REPAIR_SECONDS * 2))
 healthy_marks=$(hci_stuck_marks)
@@ -194,6 +213,12 @@ while :; do
     if [ $((tick % SLOW_TICKS)) -eq 1 ]; then
         reload_config
         ensure_connectable
+        if shared_radio; then
+            shared=1
+            shorten_page
+        else
+            shared=0
+        fi
     fi
 
     if [ -z "$SPEAKER_MAC" ] || [ "$SPEAKER_MAC" = "XX:XX:XX:XX:XX:XX" ]; then
@@ -253,13 +278,24 @@ while :; do
         if [ "$failures" -eq 0 ]; then
             echo "Asking $SPEAKER_MAC to connect."
         fi
+        calm=0
         if [ "$failures" -lt "${#BACKOFF_TICKS[@]}" ]; then
             failures=$((failures + 1))
-        elif [ "$warned_calm" -eq 0 ]; then
-            echo "$SPEAKER_MAC still not reachable, keeping one attempt per minute."
-            warned_calm=1
+        else
+            calm=1
         fi
         next_attempt=$((tick + BACKOFF_TICKS[failures - 1]))
+        if [ "$calm" -eq 1 ] && [ "$shared" -eq 1 ]; then
+            next_attempt=$((tick + SHARED_CALM_TICKS))
+        fi
+        if [ "$calm" -eq 1 ] && [ "$warned_calm" -eq 0 ]; then
+            if [ "$shared" -eq 1 ]; then
+                echo "$SPEAKER_MAC still not reachable, keeping one attempt every five minutes: this controller shares the Wi-Fi's radio."
+            else
+                echo "$SPEAKER_MAC still not reachable, keeping one attempt per minute."
+            fi
+            warned_calm=1
+        fi
 
         # Once per burst: a wedged radio otherwise leaves nothing in the journal to go on.
         if [ "$connect_reported" -eq 0 ] && [ -n "$CONNECT_OUT" ]; then

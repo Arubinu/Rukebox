@@ -207,7 +207,7 @@ python3 "$PROJECT_ROOT/src/version.py" write /var/lib/rukebox/version.json "$PRO
 chown pi:pi /var/lib/rukebox/version.json
 
 echo "== Installing systemd services =="
-cp "$PROJECT_ROOT/systemd/"*.service /etc/systemd/system/
+install -m 644 "$PROJECT_ROOT/systemd/"*.service /etc/systemd/system/
 systemctl daemon-reload
 
 systemctl enable rukebox-config.service

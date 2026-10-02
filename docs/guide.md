@@ -578,6 +578,9 @@ either one counts for both (one vote per suggestion, one credit counter). The
 captive portal stays each device's own. **Link…** picks the other device among
 the named ones; **Unlink** takes this device out, and it leaves with nothing,
 like a device seen for the first time, while the others keep the name.
+A linked device can also leave by itself (**my devices** > **Leave**): it
+keeps the credits already spent together, so leaving is not a way to a full
+counter.
 
 People can do it themselves: on the Suggestions page, **my devices** shows a
 six-digit code on one device (five minutes, one use) to type on the other
@@ -739,7 +742,9 @@ above.
   `keep_progress` is on, `MUSIC_RESUME_MODE` (`playback.resume_mode`)
   decides what happens to the track that was interrupted mid-play by
   the shutdown: `next_track` (default) moves on as if it had finished,
-  `same_track` replays it from the start.
+  `same_track` replays it from the start, and `same_position` takes it up
+  where it stopped, three seconds earlier - after a shutdown, a standby or
+  a schedule's stop alike.
 
   The play queue itself is a single persisted list (`src/state.py`),
   built by `src/playlist.py` from whichever order mode is active — this
@@ -884,6 +889,8 @@ outside any schedule). A schedule has a name and:
   (22:00 to 01:30 is one evening). Without a stop the schedule runs to the end
   of its day; a schedule with only a stop is just that stop.
 - **At the stop**: pause the music, standby, or switch the Pi off.
+- **Opens with** (only with a start): one of your announcements, played
+  before the first song - one file, like every other trigger.
 - **Volume** and **Music** (unchanged, the whole library, or one of your
   lists): set when the schedule begins. When it ends, the usual volume and
   the list that was playing before come back.
@@ -901,6 +908,16 @@ replayed. The player says which schedule runs and until when; while nothing
 plays, it says which one comes next. Schedules live in
 `/etc/rukebox/schedules.json` (`paths.schedules_file`) and need no restart.
 They are not part of the configuration export.
+
+The arrows of a row move it up or down - the order matters when two weekly
+schedules overlap - and **Duplicate** opens the form on a copy (an
+announcement has the same button; the copy shares the folder of the first).
+Under the list, **This week** draws the seven coming days hour by hour: one
+bar per schedule, and a mark at the daily cutoff.
+
+The daily cutoff itself can be switched off (**Every day** > **Daily
+cutoff**, `schedule.cutoff_enabled`): the radio then only stops when a
+schedule, a button or you say so.
 
 ## Admin web interface
 
@@ -1209,8 +1226,10 @@ update make it for you.
   **pages**, one card each. On a phone, tapping an area shows its pages as a
   **grid** — a cell per page, an icon and a title, no frame around it — and
   the **logo** at the top left, darkened with an arrow on it, brings that grid
-  back. On a wide screen the same pages are listed **under their area in the
-  rail**, one click away. **Now playing** is a page of its own, and the one you
+  back. A medium-width window (from 640px) keeps that grid and puts the areas
+  in a column of icons on the left; from 1024px that column has room for names,
+  and the same pages are listed **under their area** there, one click away,
+  with a small **what is playing** box at its foot that leads to the player. **Now playing** is a page of its own, and the one you
   arrive on. On a phone a page uses the whole width — no card frame, no shadow,
   no padding, because that width is what its content needs; from 640px the card
   comes back, with the rail beside it. A page has its own address, so it can be
@@ -2035,6 +2054,27 @@ nmcli connection up "<profile name>"     # enable
 nmcli connection down "<profile name>"   # disable
 nmcli device show wlan0 | grep IP4.ADDRESS   # find the IP for SSH
 ```
+
+### If the personal Wi-Fi keeps dropping: the network diagnostic
+
+**System > System health > Network diagnostic** (or, over SSH,
+`/opt/rukebox/scripts/network-check.sh`) reads the link to your access point
+- signal, rates, frames lost on ten small pings and ten large ones - and
+every time the link dropped since the Pi started, with who ended it. Each
+drop is set against what the Bluetooth radio was doing at that second.
+
+That last part is what it was written for. The Pi Zero's built-in chip is
+**one radio for Wi-Fi and Bluetooth**. When the speaker goes through that
+chip and is switched off, every attempt to reach it takes the antenna for
+five seconds, and now and then the Wi-Fi loses its access point for it: the
+link drops and comes back ten seconds later (the report then reads *"n of
+the n drops came within 3s of a Bluetooth connection attempt giving up"*).
+`bt-connect.sh` therefore behaves differently on that chip: its attempts
+are half as long, and once the speaker has not answered for a couple of
+minutes it tries every five minutes instead of every minute. A speaker
+switched on later still connects at once by itself - the Pi stays
+connectable - so the slower pace only matters for a speaker that never
+calls back. On a USB Bluetooth adapter nothing changes.
 
 ### Limitation of the hostapd/dnsmasq path
 

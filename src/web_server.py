@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import announcements  # noqa: E402
 import audio_diag  # noqa: E402
+import net_diag  # noqa: E402
 import bt_codec  # noqa: E402
 import config_bundle  # noqa: E402
 import duplicates  # noqa: E402
@@ -4423,6 +4424,19 @@ def api_diag_audio():
         log.exception("Could not build the audio diagnostic")
         return jsonify({"ok": False, "error": "diag_failed"}), 500
     log.info("Audio diagnostic sent to %s", _client_ip())
+    return jsonify({"ok": True, "data": {"report": text}})
+
+
+@app.route("/api/diag/network", methods=["POST"])
+def api_diag_network():
+    """The personal Wi-Fi's link and every drop since the Pi started, set
+    against the Bluetooth radio's own attempts. A few seconds of pings."""
+    try:
+        text = net_diag.report(cfg=cfg())
+    except Exception:  # noqa: BLE001
+        log.exception("Could not build the network diagnostic")
+        return jsonify({"ok": False, "error": "diag_failed"}), 500
+    log.info("Network diagnostic sent to %s", _client_ip())
     return jsonify({"ok": True, "data": {"report": text}})
 
 

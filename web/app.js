@@ -8289,27 +8289,31 @@ setInterval(() => {
 }, 15000);
 document.querySelectorAll('.tab-btn[data-tab="system"]').forEach((btn) => btn.addEventListener("click", refreshHealth));
 
-document.getElementById("btnAudioDiag").addEventListener("click", async () => {
-  const btn = document.getElementById("btnAudioDiag");
-  btn.disabled = true;
-  const result = await apiPost("/api/diag/audio", {});
-  btn.disabled = false;
-  if (!result.ok) {
-    showToolError(t("diag.failed"), result);
-    return;
-  }
-  const text = (result.data && result.data.report) || "";
-  const report = document.createElement("pre");
-  report.className = "diag-text";
-  report.textContent = text;
-  const choice = await openModal({
-    title: t("diag.title"),
-    bodyNode: report,
-    modalClass: "modal-report",
-    choices: [{ label: t("diag.copy"), value: "copy" }],
+function diagnosticButton(id, path, titleKey) {
+  const btn = document.getElementById(id);
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    const result = await apiPost(path, {});
+    btn.disabled = false;
+    if (!result.ok) {
+      showToolError(t("diag.failed"), result);
+      return;
+    }
+    const text = (result.data && result.data.report) || "";
+    const report = document.createElement("pre");
+    report.className = "diag-text";
+    report.textContent = text;
+    const choice = await openModal({
+      title: t(titleKey),
+      bodyNode: report,
+      modalClass: "modal-report",
+      choices: [{ label: t("diag.copy"), value: "copy" }],
+    });
+    if (choice === "copy") copyText(text, report);
   });
-  if (choice === "copy") copyText(text, report);
-});
+}
+diagnosticButton("btnAudioDiag", "/api/diag/audio", "diag.title");
+diagnosticButton("btnNetDiag", "/api/diag/network", "diag.net_button");
 
 function renderRecentStats(series) {
   const sum = (rows, key) => rows.reduce((acc, row) => acc + (Number(row[key]) || 0), 0);

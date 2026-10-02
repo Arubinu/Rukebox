@@ -400,7 +400,8 @@ fi
 
 if [ -d "$SOURCE_DIR/systemd" ]; then
     step "Updating the systemd units"
-    cp "$SOURCE_DIR/systemd/"*.service "$SYSTEMD_DIR/"
+    # Mode 644: a tree pushed from Windows is all 755, and systemd warns about it at every reload.
+    install -m 644 "$SOURCE_DIR/systemd/"*.service "$SYSTEMD_DIR/"
     systemctl daemon-reload
     systemctl enable rukebox-config.service 2>/dev/null || true
     systemctl enable rukebox-gpio-reset.service 2>/dev/null || true
