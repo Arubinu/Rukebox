@@ -76,14 +76,6 @@ def is_selectable(bcm):
         return False
 
 
-def reserved_reason(bcm):
-    """Why this BCM number is refused, or None if it is fine."""
-    for pin in pinout():
-        if pin["bcm"] == bcm:
-            return pin["reserved"]
-    return None
-
-
 def physical_for_bcm(bcm):
     for pin in pinout():
         if pin["bcm"] == bcm:

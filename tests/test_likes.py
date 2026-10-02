@@ -20,11 +20,10 @@ class LikesTest(unittest.TestCase):
     def test_nothing_liked_yet(self):
         self.assertEqual(likes.load(self.path), [])
         self.assertEqual(likes.keys(self.path), set())
-        self.assertFalse(likes.is_liked(self.path, "abc"))
 
     def test_like_then_unlike(self):
         self.assertTrue(likes.toggle(self.path, "abc", "Title", "Artist"))
-        self.assertTrue(likes.is_liked(self.path, "abc"))
+        self.assertEqual(likes.keys(self.path), {"abc"})
         item = likes.load(self.path)[0]
         self.assertEqual(item["title"], "Title")
         self.assertEqual(item["artist"], "Artist")
@@ -43,7 +42,7 @@ class LikesTest(unittest.TestCase):
         likes.toggle(self.path, "one")  # takes the like back
         likes.toggle(self.path, "one")  # and puts it back
         self.assertEqual(len(likes.load(self.path)), 1)
-        self.assertTrue(likes.is_liked(self.path, "one"))
+        self.assertEqual(likes.keys(self.path), {"one"})
 
     def test_a_key_is_required(self):
         for empty in ("", "   ", None):

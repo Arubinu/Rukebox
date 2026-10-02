@@ -2699,7 +2699,7 @@ def api_set_settings():
         return jsonify({"ok": False, "error": "no_data"}), 400
     if _SETTINGS_HIDDEN_KEYS & set(body):
         return jsonify({"ok": False, "error": "use_auth_endpoint"}), 400
-    bad = _check_github_repo(body) or _check_bt_adapters(body)
+    bad = _check_github_repo(body) or _check_bt_adapters(body) or _check_gpio_pins(body)
     if bad:
         return jsonify({"ok": False, "error": bad}), 400
     try:
@@ -5307,6 +5307,24 @@ def _latest_release(repo, force=False):
     if result[1] != "no_internet":
         _release_cache.update({"at": now, "repo": repo, "result": result})
     return result
+
+
+def _check_gpio_pins(updates):
+    """Error code for a pin a button may not be wired to, or for one pin given
+    to both the button and the password reset, or None. The picker greys those
+    out, but the field beside it takes any number - and the reset configures
+    its pin as an input at every boot, which on an I2C pin loses the clock."""
+    keys = ("GPIO_BUTTON_PIN", "GPIO_RESET_PIN")
+    if not any(key in updates for key in keys):
+        return None
+    if any(key in updates and not gpio_pins.is_selectable(updates[key]) for key in keys):
+        return "gpio_pin_reserved"
+    current = cfg()
+    try:
+        button, reset = (int(updates.get(key, current.get(key))) for key in keys)
+    except (TypeError, ValueError):
+        return None
+    return "gpio_pin_taken" if button == reset else None
 
 
 def _check_github_repo(updates):

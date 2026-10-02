@@ -1,8 +1,11 @@
 """The web server's rules, through Flask's test client with a fake daemon
-and throwaway databases: the guest surface, the credits (and the devices
-spared them), the two-step "Next" then "play now", and the backup
-restore's refusals. Skipped where Flask is not installed - run them on
-the Pi:
+and throwaway databases: who may call what (the guest surface, the owner's
+routes, foreign origins and hosts, the login's throttle), the credits and
+the devices spared them, the devices themselves (names, bans, the three
+lists, several devices as one person), the captive portal's release, the
+music lists, the schedules, the announcement volumes, the two-step "Next"
+then "play now", and the backup restore's refusals. Skipped where Flask is
+not installed - run them on the Pi:
 
     scp -r tests pi@169.254.7.7:/tmp/rukebox-tests
     ssh pi@169.254.7.7 'RUKEBOX_SRC=/opt/rukebox/src python3 -m unittest discover -s /tmp/rukebox-tests -v'
@@ -342,6 +345,20 @@ class WebTest(unittest.TestCase):
         self.assertEqual(owner.post("/api/schedules/nope", json={"enabled": False}).status_code, 404)
         self.assertEqual(owner.delete("/api/schedules/le-matin").status_code, 200)
         self.assertEqual(owner.get("/api/schedules").get_json()["data"]["schedules"], [])
+
+    def test_a_pin_typed_by_hand_is_checked_like_one_picked(self):
+        owner = self.owner()
+        for pin in ("2", "14", "0", "28", "abc"):
+            answer = owner.post("/api/settings", json={"GPIO_RESET_PIN": pin})
+            self.assertEqual((answer.status_code, answer.get_json()["error"]), (400, "gpio_pin_reserved"), pin)
+        button = str(ws.cfg()["GPIO_BUTTON_PIN"])
+        taken = owner.post("/api/settings", json={"GPIO_RESET_PIN": button})
+        self.assertEqual((taken.status_code, taken.get_json()["error"]), (400, "gpio_pin_taken"))
+        both = owner.post("/api/settings", json={"GPIO_RESET_PIN": "17", "GPIO_BUTTON_PIN": "17"})
+        self.assertEqual(both.get_json()["error"], "gpio_pin_taken")
+        before = str(ws.cfg()["GPIO_RESET_PIN"])
+        self.assertEqual(owner.post("/api/settings", json={"GPIO_RESET_PIN": "17"}).status_code, 200)
+        self.assertEqual(owner.post("/api/settings", json={"GPIO_RESET_PIN": before}).status_code, 200)
 
     def test_an_announcements_volume_is_the_owners(self):
         guest = ws.app.test_client()

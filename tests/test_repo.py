@@ -149,12 +149,16 @@ class FilesTest(unittest.TestCase):
         self.assertNotIn("\r", _path.read("config", "sudoers-rukebox"))
 
     def test_push_scripts_exclude_the_same(self):
+        """Four lists, one archive: an update and a first install pack the
+        same tree, from a shell or from PowerShell."""
         if not os.path.exists(_path.repo_file("bootstrap", "push_update.sh")):
             self.skipTest("bootstrap/ is not installed on a Pi")
-        sh =re.findall(r"--exclude='([^']+)'", _path.read("bootstrap", "push_update.sh"))
-        ps1 = re.findall(r'"--exclude=([^"]+)"', _path.read("bootstrap", "push_update.ps1"))
-        self.assertTrue(sh)
-        self.assertEqual(sh, ps1)
+        wanted = re.findall(r"--exclude='([^']+)'", _path.read("bootstrap", "push_update.sh"))
+        self.assertTrue(wanted)
+        self.assertIn("./.venv", wanted, "a bare name excludes nothing: the members are ./...")
+        for name in ("push_update.ps1", "push_install.sh", "push_install.ps1"):
+            pattern = r'"--exclude=([^"]+)"' if name.endswith(".ps1") else r"--exclude='([^']+)'"
+            self.assertEqual(re.findall(pattern, _path.read("bootstrap", name)), wanted, name)
 
 
 class GuestPathsTest(unittest.TestCase):

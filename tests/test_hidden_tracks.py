@@ -21,12 +21,11 @@ class HiddenTracksTest(unittest.TestCase):
         self.assertEqual(hidden_tracks.load(self.path), [])
         self.assertEqual(hidden_tracks.keys(self.path), set())
         self.assertEqual(hidden_tracks.paths(self.path), set())
-        self.assertFalse(hidden_tracks.is_hidden(self.path, "abc"))
 
     def test_hide_then_give_back(self):
         self.assertTrue(hidden_tracks.set_hidden(
             self.path, "abc", True, "/m/A/Song.opus", "Song", "A"))
-        self.assertTrue(hidden_tracks.is_hidden(self.path, "abc"))
+        self.assertEqual(hidden_tracks.keys(self.path), {"abc"})
         self.assertEqual(hidden_tracks.paths(self.path), {"/m/A/Song.opus"})
         item = hidden_tracks.load(self.path)[0]
         self.assertEqual(item["title"], "Song")

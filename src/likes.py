@@ -30,10 +30,6 @@ def keys(path):
     return {item["key"] for item in load(path)}
 
 
-def is_liked(path, key):
-    return str(key) in keys(path)
-
-
 def toggle(path, key, title="", artist=""):
     """Likes a track, or takes the like back; returns the new state."""
     key = str(key or "").strip()

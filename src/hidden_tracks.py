@@ -34,10 +34,6 @@ def paths(path):
     return {item.get("path") for item in load(path) if item.get("path")}
 
 
-def is_hidden(path, key):
-    return str(key) in keys(path)
-
-
 def set_hidden(file_path, key, hidden, track_path="", title="", artist=""):
     """Hides a track, or gives it back to the radio; returns the new state."""
     key = str(key or "").strip()

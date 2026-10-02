@@ -93,7 +93,7 @@ def make_handler(args):
             location = "/"
             if captive_portal is not None:
                 try:
-                    location = captive_portal.redirect_url_for(self.client_address[0])
+                    location = captive_portal.redirect_url_for(self.client_address[0]) or "/"
                 except Exception:  # noqa: BLE001
                     location = "/"
             self._send(302, b"", "text/plain", {"Location": location})
