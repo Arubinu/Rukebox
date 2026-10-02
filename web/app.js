@@ -4769,6 +4769,7 @@ function updateAnnTimeVisibility() {
 }
 annTrigger.addEventListener("change", updateAnnTimeVisibility);
 annRepeat.addEventListener("change", updateAnnTimeVisibility);
+updateAnnTimeVisibility();
 
 function setAnnRepeat(times) {
   const n = Number(times);
