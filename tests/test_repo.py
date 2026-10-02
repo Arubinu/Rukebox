@@ -80,9 +80,14 @@ class TranslationsTest(unittest.TestCase):
 
 class ServerRulesTest(unittest.TestCase):
     def test_errors_are_codes(self):
-        with open(os.path.join(_path.SRC, "web_server.py"), encoding="utf-8") as f:
-            source = f.read()
-        self.assertEqual(re.findall(r'"error":\s*"[^"]*\s[^"]*"', source), [])
+        """In every module: what the daemon and its client answer reaches the page too."""
+        sentences = []
+        for name in sorted(os.listdir(_path.SRC)):
+            if name.endswith(".py"):
+                with open(os.path.join(_path.SRC, name), encoding="utf-8") as f:
+                    sentences += [(name, found) for found in
+                                  re.findall(r'"error":\s*f?"[^"]*\s[^"]*"', f.read())]
+        self.assertEqual(sentences, [])
 
     def test_no_analytics_like_routes(self):
         with open(os.path.join(_path.SRC, "web_server.py"), encoding="utf-8") as f:

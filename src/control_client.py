@@ -14,12 +14,14 @@ def send_control_command(sock_path: str, cmd: str, timeout: float = 10.0, **kwar
             s.connect(sock_path)
             s.sendall(json.dumps(payload).encode("utf-8"))
             data = s.recv(65536)
+    except socket.timeout:
+        return {"ok": False, "error": "daemon_timeout"}
     except OSError as e:
-        return {"ok": False, "error": f"could not connect to daemon: {e}"}
+        return {"ok": False, "error": "daemon_unreachable", "detail": str(e)}
 
     if not data:
-        return {"ok": False, "error": "empty response from daemon"}
+        return {"ok": False, "error": "daemon_bad_answer", "detail": "empty"}
     try:
         return json.loads(data.decode("utf-8"))
-    except json.JSONDecodeError:
-        return {"ok": False, "error": "invalid response from daemon"}
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {"ok": False, "error": "daemon_bad_answer", "detail": "not JSON"}

@@ -680,7 +680,7 @@ class StatsRecorder:
             }
         except Exception:  # noqa: BLE001
             log.exception("Could not build the statistics summary")
-            return {"enabled": False, "error": "query failed"}
+            return {"enabled": False, "error": "query_failed"}
 
     def events(self, limit=100, event_type=None, since=None, before_id=None):
         if not self.enabled:

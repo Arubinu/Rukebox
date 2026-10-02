@@ -291,15 +291,25 @@ class ControlClientTest(unittest.TestCase):
 
     def test_no_daemon_is_an_answer_not_an_exception(self):
         answer = control_client.send_control_command(self.path, "get_status", timeout=1)
-        self.assertFalse(answer["ok"])
-        self.assertIn("error", answer)
+        self.assertEqual((answer["ok"], answer["error"]), (False, "daemon_unreachable"))
+        self.assertTrue(answer["detail"], "what the system said, beside the code")
 
     def test_a_daemon_that_says_nothing_or_nonsense(self):
         self.serve(b"")
-        self.assertFalse(control_client.send_control_command(self.path, "get_status")["ok"])
+        self.assertEqual(control_client.send_control_command(self.path, "get_status")["error"],
+                         "daemon_bad_answer")
         os.remove(self.path)
         self.serve(b"not json")
-        self.assertFalse(control_client.send_control_command(self.path, "get_status")["ok"])
+        self.assertEqual(control_client.send_control_command(self.path, "get_status")["error"],
+                         "daemon_bad_answer")
+
+    def test_a_daemon_that_takes_too_long(self):
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(self.path)
+        server.listen(1)
+        self.addCleanup(server.close)
+        answer = control_client.send_control_command(self.path, "get_status", timeout=0.2)
+        self.assertEqual(answer, {"ok": False, "error": "daemon_timeout"})
 
 
 if __name__ == "__main__":
