@@ -1993,6 +1993,7 @@ select {
 .client-link-buttons { display: flex; flex: none; gap: 8px; margin-left: auto; }
 .link-dialog { display: grid; gap: 16px; }
 .link-dialog > .hint { margin: 0; }
+.link-dialog p { text-align: center; }
 .link-part { display: grid; gap: 8px; }
 .link-code {
   font-size: 2.1rem;
