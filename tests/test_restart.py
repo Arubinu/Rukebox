@@ -42,6 +42,8 @@ class RestartTest(unittest.TestCase):
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
             "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
+            # No cue: where the sound is installed, the restart waits for its end.
+            "RESTART_SOUND": "",
         })
         self.daemon = rukebox_daemon.RadioDaemon(cfg)
         self.daemon.mpv = FakeMpv()

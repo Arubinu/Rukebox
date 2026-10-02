@@ -12,6 +12,19 @@ SRC = os.environ.get("RUKEBOX_SRC") or os.path.join(ROOT, "src")
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
+import atexit  # noqa: E402
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+
+import config_file  # noqa: E402
+
+# Never the machine's own configuration: on an installed Pi it names the real
+# speaker, and a test would then move its volume.
+_SANDBOX = tempfile.mkdtemp(prefix="rukebox-tests-")
+atexit.register(shutil.rmtree, _SANDBOX, ignore_errors=True)
+config_file.YAML_FILE_CANDIDATES = [os.path.join(_SANDBOX, "rukebox.yaml")]
+config_file.ENV_FILE = os.path.join(_SANDBOX, "rukebox.env")
+
 
 def repo_file(*parts):
     """A file of the repository (web/, config/, bootstrap/...). When the
