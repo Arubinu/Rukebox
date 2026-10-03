@@ -64,3 +64,4 @@ textarea.text-input { resize: vertical; font: 13px ui-monospace, monospace; }
 .wz-progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
 .wz-error { margin: 0; text-align: center; }
 .wz-nav { margin-top: 4px; }
+.wz-nav > .btn-group:has(> #wzBack[hidden]) { display: none; }
