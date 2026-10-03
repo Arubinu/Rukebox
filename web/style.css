@@ -271,7 +271,16 @@
 [data-icon="plus-heart"] { --icon: var(--i-plus-heart); }
 [data-icon="heart-filled"] { --icon: var(--i-heart-filled); }
 
-[data-icon]::before,
+[data-icon]::before {
+  content: "";
+  display: inline-block;
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  background-color: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
 
 #btnPause[data-i18n="home.pause"] { --icon: var(--i-pause); }
 #btnPause[data-i18n="home.resume"],

@@ -106,6 +106,14 @@ class IconsTest(unittest.TestCase):
     """An icon is `data-icon="name"`, drawn by a `[data-icon="name"]` rule that
     points at a `--i-name` drawing. A name with no rule draws nothing at all,
     silently - the whole element is a mask with no image."""
+    def test_the_rule_that_draws_every_icon_is_whole(self):
+        css = _path.read("web", "style.css")
+        rule = re.search(r"\[data-icon\]::before\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(rule, "the one rule that draws every icon")
+        self.assertIn("mask: var(--icon)", rule.group(1))
+        self.assertIsNone(re.search(r",[ \t]*\n[ \t]*\n", css),
+                          "a selector list cut off from its rule (a comma, then a blank line)")
+
     def test_every_icon_used_is_defined(self):
         used = set(re.findall(r'data-icon="([^"]+)"', _path.read("web", "index.html")))
         used |= set(re.findall(r'dataset\.icon = "([^"]+)"', _path.read("web", "app.js")))
