@@ -30,6 +30,8 @@ import schedules  # noqa: E402
 OUT_DIR = os.path.expanduser("~/rukebox-tests")
 RELOADS = ("reload_config", "reload_schedules", "reload_announcements", "reload_lists", "reload_hidden")
 TEST_NAME = "Test matériel (temporaire)"
+TEST_VOLUME = 25
+SCHEDULE_VOLUME = 30
 
 cfg = config_and_scan.load_config(env_overrides=False)
 SOCK = cfg["CONTROL_SOCKET"]
@@ -166,7 +168,7 @@ def t_sound():
 def t_volume():
     ensure_music()
     before = status().get("volume") or 50
-    lower = max(5, int(before) - 20)
+    lower = max(5, int(before) - 12)
     say("Volume %s -> %s pendant 4 s, puis retour." % (before, lower))
     control("set_volume", value=lower)
     time.sleep(4)
@@ -301,11 +303,11 @@ def t_schedule(created):
     stop = start + timedelta(minutes=2)
     item = schedules.add(cfg["SCHEDULES_FILE"], {
         "name": TEST_NAME, "start": start.strftime("%H:%M"), "stop": stop.strftime("%H:%M"),
-        "stop_action": "pause", "settings": {"BASE_VOLUME": "40"}})
+        "stop_action": "pause", "settings": {"BASE_VOLUME": str(SCHEDULE_VOLUME)}})
     created["schedule"] = item["id"]
     control("reload_schedules")
-    say("Planning %s -> %s, volume 40. Environ 3 minutes..." % (
-        start.strftime("%H:%M"), stop.strftime("%H:%M")))
+    say("Planning %s -> %s, volume %d. Environ 3 minutes..." % (
+        start.strftime("%H:%M"), stop.strftime("%H:%M"), SCHEDULE_VOLUME))
     began = wait_for(lambda: status().get("mode") == "music" and not status().get("paused"),
                      (start - datetime.now()).total_seconds() + 40)
     volume = status().get("volume")
@@ -313,7 +315,7 @@ def t_schedule(created):
     ended = began and wait_for(lambda: status().get("paused") or status().get("mode") != "music",
                                (stop - datetime.now()).total_seconds() + 40)
     say("Arrêtée : %s" % bool(ended))
-    ok = bool(began) and bool(ended) and volume is not None and round(volume) == 40
+    ok = bool(began) and bool(ended) and volume is not None and round(volume) == SCHEDULE_VOLUME
     return ("réussi" if ok else "échoué"), "début=%s volume=%s fin=%s" % (bool(began), volume, bool(ended))
 
 
@@ -373,7 +375,7 @@ TESTS = [
      " suivante, puis je vérifie qu'elle passe et que la musique se met en pause (1 à 2 min).", None),
     ("schedule", "11. Planning complet",
      "Automatique, rien à faire : veille, puis un planning temporaire démarre la musique"
-     " au volume 40 et l'arrête 2 min plus tard (environ 3 min).", None),
+     " au volume 30 et l'arrête 2 min plus tard (environ 3 min).", None),
     ("resume", "12. Reprise à la même position", "Veille puis redémarrage de la musique.", t_resume),
     ("mute", "13. Muet", "Coupe le son 4 s.", t_mute),
     ("diag", "14. Diagnostic audio", "Mesure le débit du lien (6 s) et affiche le rapport.", t_diag),
@@ -465,6 +467,12 @@ def main():
     say("Réglages sauvegardés dans %s" % snap_path)
     say("Ils sont remis à la fin, même si tu arrêtes avec Q ou Ctrl-C.")
     say("Si la connexion coupe : python3 %s --restore %s" % (os.path.abspath(__file__), snap_path))
+
+    # The base too: a standby or a start goes back to it.
+    config_file.write_values({"BASE_VOLUME": str(TEST_VOLUME)})
+    control("reload_config")
+    control("set_volume", value=TEST_VOLUME)
+    say("Volume des tests : %d %%." % TEST_VOLUME)
 
     signal.signal(signal.SIGHUP, _stop)
     signal.signal(signal.SIGTERM, _stop)
