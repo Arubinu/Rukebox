@@ -1233,16 +1233,28 @@ function renderClockSync() {
 }
 window.LANG_CHANGE_LISTENERS.push(renderClockSync);
 
+/* "area/page", or "area/" for any page of an area. No list: a refresh every page needs. */
+function pageOnScreen(pages) {
+  if (!pages) return true;
+  const here = (document.body.dataset.tab || "") + "/" + (document.body.dataset.page || "");
+  return pages.some((page) => (page.endsWith("/") ? here.startsWith(page) : here === page));
+}
+
 const ON_SHOW_REFRESHES = [];
-function refreshEvery(callback, ms) {
-  ON_SHOW_REFRESHES.push(callback);
+function refreshEvery(callback, ms, pages) {
+  ON_SHOW_REFRESHES.push({ callback, pages });
   return setInterval(() => {
-    if (!document.hidden) callback();
+    if (!document.hidden && pageOnScreen(pages)) callback();
   }, ms);
 }
 
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) ON_SHOW_REFRESHES.forEach((callback) => callback());
+  if (document.hidden) return;
+  ON_SHOW_REFRESHES.forEach(({ callback, pages }) => { if (pageOnScreen(pages)) callback(); });
+});
+// What was not refreshed while away is brought up to date the moment its page opens.
+document.addEventListener("page-shown", () => {
+  ON_SHOW_REFRESHES.forEach(({ callback, pages }) => { if (pages && pageOnScreen(pages)) callback(); });
 });
 
 refreshEvery(renderBrandClock, 1000);
@@ -3829,7 +3841,7 @@ document.getElementById("btnAudioTest").addEventListener("click", async () => {
   }
 });
 refreshAudioOutputs();
-refreshEvery(refreshAudioOutputs, 20000);
+refreshEvery(refreshAudioOutputs, 20000, ["audio/output"]);
 
 let recentPlayingKey;
 let recentRetry = null;
@@ -3870,7 +3882,7 @@ async function refreshRecent() {
 }
 
 refreshRecent();
-refreshEvery(refreshRecent, 60000);
+refreshEvery(refreshRecent, 60000, ["home/recent"]);
 
 /* Liked tracks: the heart on the cover and its list. */
 let likedKeys = new Set();
@@ -4372,7 +4384,7 @@ async function refreshToday() {
   }));
 }
 refreshToday();
-refreshEvery(refreshToday, 120000);
+refreshEvery(refreshToday, 120000, ["home/today"]);
 
 let upnextSignature;
 
@@ -4462,7 +4474,7 @@ async function refreshUpnext() {
   }));
   document.getElementById("upnextEmpty").hidden = items.length > 0;
 }
-refreshEvery(refreshUpnext, 60000);
+refreshEvery(refreshUpnext, 60000, ["home/upnext"]);
 
 const librarySearch = document.getElementById("librarySearch");
 const libraryArtist = document.getElementById("libraryArtist");
@@ -4575,7 +4587,7 @@ refreshLibrary(false);
 
 refreshEvery(() => {
   if (!libraryAsked()) refreshLibrary(false);
-}, 30000);
+}, 30000, ["home/library"]);
 
 /* ---------- Music lists ---------- */
 
@@ -5128,7 +5140,7 @@ document.getElementById("listsCreate").addEventListener("click", async () => {
 });
 
 refreshLists();
-refreshEvery(refreshLists, 20000);
+refreshEvery(refreshLists, 20000, ["home/lists", "home/library", "settings/settings"]);
 
 const hapticsToggle = document.getElementById("hapticsToggle");
 hapticsToggle.checked = hapticsOn();
@@ -6887,7 +6899,7 @@ async function refreshApCard() {
 }
 
 refreshApCard();
-refreshEvery(refreshApCard, 10000);
+refreshEvery(refreshApCard, 10000, ["network/accesspoint"]);
 
 document.getElementById("apForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -6966,7 +6978,7 @@ document.getElementById("homeWifiAuto").addEventListener("change", async (e) => 
 });
 
 refreshHomeWifi();
-refreshEvery(refreshHomeWifi, 6000);
+refreshEvery(refreshHomeWifi, 6000, ["network/homewifi"]);
 
 document.getElementById("homeWifiToggle").addEventListener("change", async (e) => {
   if (!e.target.checked && homeWifiClientHere) {
@@ -8544,7 +8556,7 @@ document.addEventListener("page-shown", (event) => {
 
 refreshStats();
 
-refreshEvery(refreshStats, 30000);
+refreshEvery(refreshStats, 30000, ["stats/"]);
 
 let updatePollTimer = null;
 

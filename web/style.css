@@ -272,16 +272,6 @@
 [data-icon="heart-filled"] { --icon: var(--i-heart-filled); }
 
 [data-icon]::before,
-.icon-mask {
-  content: "";
-  display: inline-block;
-  flex: none;
-  width: 1.2em;
-  height: 1.2em;
-  background-color: currentColor;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-  mask: var(--icon) center / contain no-repeat;
-}
 
 #btnPause[data-i18n="home.pause"] { --icon: var(--i-pause); }
 #btnPause[data-i18n="home.resume"],
@@ -1018,10 +1008,6 @@ body[data-access="guest"] .view-bar { display: none; }
 }
 .card > h2 > span:first-of-type { flex: 1 1 auto; min-width: 0; }
 
-.lead {
-  color: var(--text-muted);
-  margin: -6px 0 16px;
-}
 
 .btn {
   display: inline-flex;
@@ -2520,7 +2506,6 @@ select {
   font-size: 13px;
   max-width: 100%;
 }
-.genre-pill.is-static { padding-right: 10px; }
 .genre-pill-x {
   display: inline-flex;
   align-items: center;

@@ -153,7 +153,7 @@ test("an announcement is saved with what follows it", async (t) => {
 test("ticking \"Connect at startup\" says so, even when an older status arrives meanwhile", async (t) => {
   const stale = deferred();
   let calls = 0;
-  const page = open(t, { routes: {
+  const page = open(t, { hash: "#network/homewifi", view: "detailed", routes: {
     "GET /api/wifi/status": () => {
       calls += 1;
       const answer = { configured: true, conn_name: "home", active: true, ip_address: "192.168.1.5/24",
@@ -162,8 +162,7 @@ test("ticking \"Connect at startup\" says so, even when an older status arrives 
     },
     "POST /api/wifi/autoconnect": {},
   } });
-  await until(() => page.$("bootOverlay").hidden && calls >= 1);
-  page.document.dispatchEvent(new page.window.Event("visibilitychange"));
+  // Opening its page asks again: that second answer is the one held back.
   await until(() => calls >= 2);
 
   const box = page.$("homeWifiAuto");
@@ -582,4 +581,13 @@ test("the header's menu opens on its button and closes on any other tap", async 
   page.$("themeToggleBtn").click();
   await wait(20);
   assert.equal(bar.classList.contains("menu-open"), false, "choosing an entry closes it too");
+});
+
+test("a card off screen is not polled, and is brought up to date when its page opens", async (t) => {
+  const page = open(t);
+  await until(() => page.sent("GET", "/api/status").length);
+  await until(() => page.sent("GET", "/api/wifi/ap").length);
+  const before = page.sent("GET", "/api/wifi/ap").length;
+  page.window.location.hash = "#network/accesspoint";
+  await until(() => page.sent("GET", "/api/wifi/ap").length > before);
 });

@@ -526,6 +526,29 @@ class WebTest(unittest.TestCase):
         self.assertFalse(ws._same_network("::1", "192.168.42.12/24"))
         self.assertFalse(ws._same_network(None, "192.168.42.12/24"))
 
+    def test_the_wifi_status_is_read_once_for_every_page_that_asks(self):
+        calls = []
+        original = ws.subprocess.run
+
+        def fake(args, **kw):
+            calls.append(args)
+            out = {"-f": "rukebox-home:wlan0\n", "IP4.ADDRESS": "192.168.42.12/24\n",
+                   "connection.autoconnect": "yes\n"}
+            return types.SimpleNamespace(returncode=0, stderr="",
+                                         stdout=next((v for k, v in out.items() if k in args), ""))
+
+        owner = self.owner()
+        ws.subprocess.run = fake
+        try:
+            here = owner.get("/api/wifi/status", environ_base={"REMOTE_ADDR": "192.168.42.42"}).get_json()["data"]
+            first = len(calls)
+            away = owner.get("/api/wifi/status", environ_base={"REMOTE_ADDR": "10.42.0.5"}).get_json()["data"]
+        finally:
+            ws.subprocess.run = original
+        self.assertEqual(len(calls), first, "the second page within seconds costs no nmcli call")
+        self.assertEqual((here["client_here"], away["client_here"]), (True, False),
+                         "but each page is told whether it is its own lifeline")
+
     def test_turning_the_personal_wifi_off_is_remembered(self):
         # Read back by scripts/home-wifi-connect.sh, which would otherwise reconnect behind the user's back.
         written = []

@@ -4143,7 +4143,13 @@ def api_wifi_status():
     conn_name = cfg().get("HOME_WIFI_CONN_NAME", "")
     if not conn_name:
         return jsonify({"ok": True, "data": {"configured": False}})
+    data = dict(_status_probe("wifi_status:" + conn_name, lambda: _read_home_wifi(conn_name)))
+    # Cutting the network this page is reached through closes it.
+    data["client_here"] = bool(data["ip_address"]) and _same_network(request.remote_addr, data["ip_address"])
+    return jsonify({"ok": True, "data": data})
 
+
+def _read_home_wifi(conn_name):
     result = subprocess.run(
         ["nmcli", "-t", "-f", "NAME,DEVICE", "connection", "show", "--active"],
         capture_output=True, text=True,
@@ -4162,13 +4168,8 @@ def api_wifi_status():
         ["nmcli", "-g", "connection.autoconnect", "connection", "show", conn_name],
         capture_output=True, text=True,
     ).stdout.strip()
-    return jsonify({
-        "ok": True,
-        "data": {"configured": True, "conn_name": conn_name, "active": active, "ip_address": ip_address,
-                 "autoconnect": auto == "yes",
-                 # Cutting the network this page is reached through closes it.
-                 "client_here": bool(ip_address) and _same_network(request.remote_addr, ip_address)},
-    })
+    return {"configured": True, "conn_name": conn_name, "active": active, "ip_address": ip_address,
+            "autoconnect": auto == "yes"}
 
 
 @app.route("/api/wifi/autoconnect", methods=["POST"])
@@ -4722,8 +4723,12 @@ def api_wifi_ap_share():
 @app.route("/api/wifi/ap")
 def api_wifi_ap_status():
     """Current admin access point SSID and whether it's password- protected."""
+    return jsonify({"ok": True, "data": _status_probe("wifi_ap", _read_access_point)})
+
+
+def _read_access_point():
     if not _ap_connection_exists():
-        return jsonify({"ok": True, "data": {"configured": False}})
+        return {"configured": False}
 
     ssid = subprocess.run(
         ["nmcli", "-g", "802-11-wireless.ssid", "connection", "show", AP_CONNECTION_NAME],
@@ -4738,11 +4743,7 @@ def api_wifi_ap_status():
         capture_output=True, text=True,
     )
     active = any(line.rpartition(":")[0] == AP_CONNECTION_NAME for line in active_result.stdout.splitlines())
-
-    return jsonify({
-        "ok": True,
-        "data": {"configured": True, "ssid": ssid, "password_set": bool(key_mgmt), "active": active},
-    })
+    return {"configured": True, "ssid": ssid, "password_set": bool(key_mgmt), "active": active}
 
 
 @app.route("/api/wifi/ap", methods=["POST"])
