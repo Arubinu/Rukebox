@@ -526,6 +526,22 @@ class WebTest(unittest.TestCase):
         self.assertFalse(ws._same_network("::1", "192.168.42.12/24"))
         self.assertFalse(ws._same_network(None, "192.168.42.12/24"))
 
+    def test_the_translations_sent_are_english_and_the_pages_language(self):
+        client = ws.app.test_client()
+
+        def langs(response):
+            body = response.get_data(as_text=True)
+            return [l for l in ws.I18N_LANGS if "\n  %s: {" % l in body or "I18N.%s =" % l in body]
+
+        self.assertEqual(langs(client.get("/i18n.js", headers={"Accept-Language": "de-DE,de;q=0.9"})), ["en", "de"])
+        client.set_cookie(ws.LANG_COOKIE, "it")
+        self.assertEqual(langs(client.get("/i18n.js", headers={"Accept-Language": "de-DE"})), ["en", "it"],
+                         "the page's own choice beats the browser's")
+        added = client.get("/i18n.js?add=1&lang=nl")
+        self.assertEqual(langs(added), ["nl"], "a language added later comes alone")
+        self.assertEqual(client.get("/i18n.js?add=1&lang=nl",
+                                    headers={"If-None-Match": added.headers["ETag"]}).status_code, 304)
+
     def test_the_wifi_status_is_read_once_for_every_page_that_asks(self):
         calls = []
         original = ws.subprocess.run

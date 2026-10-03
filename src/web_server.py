@@ -1145,6 +1145,80 @@ def _gzip_response(response):
 
 mimetypes.add_type("application/manifest+json", ".webmanifest")
 
+I18N_LANGS = ("en", "fr", "de", "es", "it", "nl")
+LANG_COOKIE = "rukebox_lang"
+_i18n_cache = {}
+_i18n_lock = threading.Lock()
+
+
+def _i18n_parts(path):
+    """web/i18n.js cut into what comes before the dictionary, one block per language, and after."""
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    start = text.index("const I18N = {\n") + len("const I18N = {\n")
+    end = text.index("\n};\n", start)
+    blocks = {}
+    lines = text[start:end + 1].splitlines(keepends=True)
+    current = None
+    for line in lines:
+        if len(line) > 6 and line.startswith("  ") and line[2:4] in I18N_LANGS and line[4:7] == ": {":
+            current = line[2:4]
+            blocks[current] = []
+        if current:
+            blocks[current].append(line)
+    return text[:start], {lang: "".join(body) for lang, body in blocks.items()}, text[end + 1:]
+
+
+def _page_lang():
+    asked = (request.args.get("lang") or request.cookies.get(LANG_COOKIE) or "").lower()
+    if asked in I18N_LANGS:
+        return asked
+    best = request.accept_languages.best_match(I18N_LANGS)
+    return best or "en"
+
+
+def _i18n_script(lang, only):
+    """English (every missing key falls back to it) and one language; or that language alone, to add."""
+    path = os.path.join(WEB_DIR, "i18n.js")
+    stamp = os.stat(path).st_mtime_ns
+    key = (stamp, lang, only)
+    with _i18n_lock:
+        hit = _i18n_cache.get(key)
+    if hit:
+        return hit
+    before, blocks, after = _i18n_parts(path)
+    if only:
+        text = "\"use strict\";\nI18N." + lang + " = {\n" + blocks[lang].split("\n", 1)[1].rstrip().rstrip(",") + ";\n"
+    else:
+        wanted = ["en"] + ([lang] if lang != "en" else [])
+        text = before + "".join(blocks[name] for name in wanted) + after
+    body = text.encode("utf-8")
+    entry = (body, gzip.compress(body, compresslevel=6), '"%x-%s-%d"' % (stamp, lang, only))
+    with _i18n_lock:
+        for old in [k for k in _i18n_cache if k[0] != stamp]:
+            del _i18n_cache[old]
+        _i18n_cache[key] = entry
+    return entry
+
+
+@app.route("/i18n.js")
+def i18n_script():
+    """Only the languages this page reads: the whole file is two thirds of a first load."""
+    lang = _page_lang()
+    only = request.args.get("add") == "1"
+    body, packed, etag = _i18n_script(lang, only)
+    if etag in (request.headers.get("If-None-Match") or ""):
+        response = Response(status=304)
+    else:
+        zipped = "gzip" in request.headers.get("Accept-Encoding", "").lower()
+        response = Response(packed if zipped else body, mimetype="text/javascript")
+        if zipped:
+            response.headers["Content-Encoding"] = "gzip"
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Vary"] = "Cookie, Accept-Language, Accept-Encoding"
+    return response
+
 
 @app.route("/<path:filename>")
 def static_files(filename):

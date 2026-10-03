@@ -10344,6 +10344,29 @@ function detectBrowserLang() {
 
 let currentLang = localStorage.getItem(LANG_KEY) || detectBrowserLang();
 
+/* The Pi sends English and this page's language only; the cookie tells it which next time. */
+function rememberLang() {
+  try { document.cookie = LANG_KEY + "=" + currentLang + "; path=/; max-age=31536000; SameSite=Lax"; } catch (e) { }
+}
+rememberLang();
+
+function loadLanguage(lang) {
+  if (I18N[lang]) return Promise.resolve();
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "/i18n.js?add=1&lang=" + lang;
+    script.onload = resolve;
+    script.onerror = resolve;
+    document.head.appendChild(script);
+  });
+}
+
+function languageChanged() {
+  applyStaticTranslations();
+  setLangButtonLabel();
+  window.LANG_CHANGE_LISTENERS.forEach((fn) => fn());
+}
+
 function t(key, vars) {
   const dict = I18N[currentLang] || I18N.en;
   let str = key in dict ? dict[key] : (key in I18N.en ? I18N.en[key] : key);
@@ -10390,13 +10413,17 @@ window.LANG_CHANGE_LISTENERS = window.LANG_CHANGE_LISTENERS || [];
 
 function cycleLanguage() {
   const idx = LANGS.indexOf(currentLang);
-  currentLang = LANGS[(idx + 1) % LANGS.length];
-  localStorage.setItem(LANG_KEY, currentLang);
-  applyStaticTranslations();
-  setLangButtonLabel();
-  window.LANG_CHANGE_LISTENERS.forEach((fn) => fn());
+  const next = LANGS[(idx + 1) % LANGS.length];
+  localStorage.setItem(LANG_KEY, next);
+  loadLanguage(next).then(() => {
+    currentLang = next;
+    rememberLang();
+    languageChanged();
+  });
 }
 
 applyStaticTranslations();
 setLangButtonLabel();
+// A language the Pi did not guess (the cookie came after this load) is fetched now.
+if (!I18N[currentLang]) loadLanguage(currentLang).then(languageChanged);
 document.getElementById("langToggleBtn").addEventListener("click", cycleLanguage);
