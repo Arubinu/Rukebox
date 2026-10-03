@@ -1347,7 +1347,7 @@ class RadioDaemon:
 
     def _after_announce_finished(self, mode_name):
         if mode_name == "cutoff_announce":
-            self._do_shutdown_sequence()
+            self._do_shutdown_sequence(tail=True)
         elif mode_name == "meme":
             self._resume_after_announce()
         elif mode_name.startswith("custom:"):
@@ -1364,7 +1364,7 @@ class RadioDaemon:
         if action == "poweroff":
             log.info("After the announcement: switching the Pi off")
             self.mode = "shutting_down"
-            self._do_shutdown_sequence(force=True, reason="announcement")
+            self._do_shutdown_sequence(force=True, reason="announcement", tail=True)
             return
         if action == "standby":
             self._go_standby("announcement", fade=False)
@@ -1609,22 +1609,26 @@ class RadioDaemon:
         files = self._next_announce_file("cutoff", self.cfg["CUTOFF_ANNOUNCE_DIR"])
         self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
 
-    def _do_shutdown_sequence(self, force=False, reason="cutoff"):
+    # mpv reports a file over when it has handed the last samples on: the
+    # speaker still has a second or two of them to play.
+    SHUTDOWN_TAIL_SEC = 3.0
+
+    def _do_shutdown_sequence(self, force=False, reason="cutoff", tail=False):
         if not force and not self.cfg["SHUTDOWN_AFTER_CUTOFF"]:
             self._cutoff_standby()
             return
         self._end_play("shutdown")
-        mac = self.cfg["SPEAKER_MAC"]
-        if mac and mac != "XX:XX:XX:XX:XX:XX":
-            log.info("Disconnecting Bluetooth from %s", mac)
-            self._bluetoothctl("disconnect", mac, timeout=10)
-
         log.info("Shutting down the Raspberry Pi")
         self.stats.record("shutdown", label=reason, detail={"poweroff": True})
         self.stats.end_session(reason)
         self._powering_off = True
         self._bump_state()
-        time.sleep(2)
+        time.sleep(self.SHUTDOWN_TAIL_SEC if tail else 2)
+
+        mac = self.cfg["SPEAKER_MAC"]
+        if mac and mac != "XX:XX:XX:XX:XX:XX":
+            log.info("Disconnecting Bluetooth from %s", mac)
+            self._bluetoothctl("disconnect", mac, timeout=10)
         subprocess.run(["sudo", "systemctl", "poweroff"], check=False)
 
     def _cutoff_standby(self):

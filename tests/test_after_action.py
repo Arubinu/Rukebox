@@ -99,7 +99,7 @@ class AfterActionTest(unittest.TestCase):
     def test_poweroff_switches_the_pi_off(self):
         with mock.patch.object(self.daemon, "_do_shutdown_sequence") as shutdown:
             self.play("poweroff")
-        shutdown.assert_called_once_with(force=True, reason="announcement")
+        shutdown.assert_called_once_with(force=True, reason="announcement", tail=True)
         self.assertEqual(self.daemon.mode, "shutting_down")
 
     def test_another_action_runs_once_the_music_is_back(self):
@@ -120,7 +120,19 @@ class AfterActionTest(unittest.TestCase):
             self.assertEqual(self.daemon._announce_queue, [], "nothing queued behind it")
             self.assertEqual(os.path.basename(self.daemon.mpv.files[-1]), "bye1.mp3")
             self.daemon._after_announce_finished("cutoff_announce")
-        shutdown.assert_called_once()
+        shutdown.assert_called_once_with(tail=True)
+
+    def test_the_speaker_plays_the_end_of_the_sound_before_the_pi_goes(self):
+        self.daemon.cfg.update({"SHUTDOWN_AFTER_CUTOFF": True, "SPEAKER_MAC": "7C:E9:13:69:66:55"})
+        steps = mock.Mock()
+        mock.patch.object(rukebox_daemon.time, "sleep", steps.sleep).start()
+        mock.patch.object(rukebox_daemon.subprocess, "run", steps.run).start()
+        mock.patch.object(self.daemon, "_bluetoothctl", steps.bluetoothctl).start()
+        self.daemon._do_shutdown_sequence(tail=True)
+        self.assertEqual([call[0] for call in steps.mock_calls], ["sleep", "bluetoothctl", "run"],
+                         "waited, then the speaker let go, then the power-off")
+        self.assertEqual(steps.sleep.call_args[0][0], self.daemon.SHUTDOWN_TAIL_SEC)
+        self.assertEqual(steps.run.call_args[0][0], ["sudo", "systemctl", "poweroff"])
 
 
 class AfterActionFieldTest(unittest.TestCase):
