@@ -655,7 +655,7 @@ def _guest_locked():
     return sorted({part.strip().lower() for part in str(cfg().get("GUEST_LOCKED") or "").split(",")} & known)
 
 
-ACTION_REPEAT_SEC = 1.0
+ACTION_REPEAT_SEC = None  # None: the ACTION_REPEAT_SEC setting; a number pins it (tests)
 ACTION_REPEAT_WAIT_SEC = 15
 # One family per thing that can be changed: within the window, only whoever changed it may act on it again.
 ACTION_FAMILIES = {
@@ -701,6 +701,15 @@ def _repeat_person():
         return request.remote_addr
 
 
+def _repeat_window():
+    if ACTION_REPEAT_SEC is not None:
+        return ACTION_REPEAT_SEC
+    try:
+        return max(0.0, min(10.0, float(cfg().get("ACTION_REPEAT_SEC", 1))))
+    except (TypeError, ValueError):
+        return 1.0
+
+
 def _repeat_active(state, now):
     return state["busy"] > 0 or now < state["until"]
 
@@ -710,7 +719,7 @@ def _skip_repeated_action():
     """An action someone else just took, or a double tap, gets the first answer and costs nothing."""
     path = request.path
     family = ACTION_FAMILIES.get(path)
-    if request.method != "POST" or not (family or path in ACTION_SAME_ONLY):
+    if request.method != "POST" or not (family or path in ACTION_SAME_ONLY) or _repeat_window() <= 0:
         return None
     action = GUEST_QUOTA_ACTIONS.get(path)
     if action and action in _guest_locked() and _quota_applies():
@@ -760,7 +769,7 @@ def _remember_action_reply(response):
         if response.status_code < 400 and not response.is_streamed:
             state["reply"] = (response.get_data(), response.status_code, response.mimetype,
                               response.headers.get("Content-Encoding"))
-            state["until"] = time.monotonic() + ACTION_REPEAT_SEC
+            state["until"] = time.monotonic() + _repeat_window()
         if state["busy"] == 0:
             state["done"].set()
     return response
@@ -984,7 +993,8 @@ class _ThrottledInput:
 
 def _transfer_limit():
     """The upload rate limit in bytes per second, or None. "auto" limits only
-    while something plays to a connected speaker of the built-in chip."""
+    while something plays to a connected speaker of the built-in chip, or of a
+    USB dongle when TRANSFER_LIMIT_USB says so."""
     c = cfg()
     mode = c.get("TRANSFER_LIMIT_MODE") or "auto"
     try:
@@ -1001,7 +1011,7 @@ def _transfer_limit():
     speaker = _resolve_controller(c.get("SPEAKER_BT_ADAPTER"), controllers)
     if speaker is None:
         speaker = controllers[0] if controllers else None
-    if speaker is None or speaker["bus"] == "usb":
+    if speaker is None or (speaker["bus"] == "usb" and not c.get("TRANSFER_LIMIT_USB")):
         return None
     status = control("get_status")
     data = (status.get("data") or {}) if status.get("ok") else {}

@@ -981,5 +981,44 @@ class RepeatedActionTest(unittest.TestCase):
         self.assertEqual(self.post("/api/action/next_track", "a").status_code, 400)
         self.assertEqual(self.post("/api/action/next_track", "b").status_code, 200)
 
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class TransferLimitTest(unittest.TestCase):
+    def limit(self, bus, **settings):
+        values = {"TRANSFER_LIMIT_MODE": "auto", "TRANSFER_LIMIT_KBPS": 200, "AUDIO_OUTPUT": "bluetooth",
+                  "SPEAKER_BT_ADAPTER": "AA:AA:AA:AA:AA:AA"}
+        values.update(settings)
+        playing = {"ok": True, "data": {"speaker_connected": True, "paused": False, "mode": "music"}}
+        with unittest.mock.patch.object(ws, "cfg", return_value=values), \
+                unittest.mock.patch.object(ws, "_bt_controllers",
+                                           return_value=[{"address": "AA:AA:AA:AA:AA:AA", "bus": bus, "name": "hci0"}]), \
+                unittest.mock.patch.object(ws, "_resolve_controller", side_effect=lambda value, found: found[0]), \
+                unittest.mock.patch.object(ws, "control", return_value=playing):
+            return ws._transfer_limit()
+
+    def test_a_speaker_on_a_dongle_is_limited_only_when_asked(self):
+        self.assertEqual(self.limit("uart"), 200 * 1024, "the built-in chip: limited, as before")
+        self.assertIsNone(self.limit("usb"), "a dongle: left alone by default")
+        self.assertEqual(self.limit("usb", TRANSFER_LIMIT_USB=True), 200 * 1024, "unless the option says so")
+
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class RepeatWindowSettingTest(unittest.TestCase):
+    def test_the_window_comes_from_the_settings_and_zero_turns_it_off(self):
+        ws._repeats.clear()
+        calls = []
+        with unittest.mock.patch.object(ws, "ACTION_REPEAT_SEC", None), \
+                unittest.mock.patch.object(ws, "cfg", return_value=dict(ws.cfg(), ACTION_REPEAT_SEC=0)), \
+                unittest.mock.patch.object(ws, "_quota_applies", return_value=False), \
+                unittest.mock.patch.object(ws, "_require_auth", return_value=None), \
+                unittest.mock.patch.object(ws, "control",
+                                           side_effect=lambda cmd, **kw: calls.append(cmd) or {"ok": True}):
+            self.assertEqual(ws._repeat_window(), 0)
+            client = ws.app.test_client()
+            client.post("/api/action/toggle_pause")
+            client.post("/api/action/toggle_pause")
+        self.assertEqual(calls.count("toggle_pause"), 2, "with 0, every press runs")
+
+
 if __name__ == "__main__":
     unittest.main()

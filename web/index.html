@@ -1218,6 +1218,14 @@
                 <option value="512">512</option>
               </select>
             </div>
+            <div data-level="detail" class="field-row" id="transferLimitUsbRow">
+              <div class="field-text">
+                <label for="transferLimitUsb" data-i18n="audioout.transfer_usb">Also with a speaker on a USB dongle</label>
+                <p class="field-desc" id="transferLimitUsbDesc" data-i18n="audioout.transfer_usb_desc">A dongle close to the board can still disturb the Wi-Fi.</p>
+              </div>
+              <input type="checkbox" id="transferLimitUsb" data-key="TRANSFER_LIMIT_USB" class="switch-input" role="switch"
+                     aria-describedby="transferLimitUsbDesc">
+            </div>
             <p class="hint help-text" data-i18n="audioout.help" hidden>
               The headphone jack exists on a Raspberry Pi 3 or 4, not on a Zero. A wired output is found again whenever it is plugged in; while it is missing, the sound goes to the default output. With a wired output, a Bluetooth speaker that drops no longer pauses the music nor powers the Pi off.
             </p>
@@ -1639,6 +1647,14 @@
               </div>
               <div class="codec-field" id="guestLocked" data-key="GUEST_LOCKED" data-min="0"
                    data-empty="guestlock.none" aria-describedby="guestLockedDesc"></div>
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="actionRepeat" data-i18n="repeat.label">Same action from someone else ignored for (sec)</label>
+                <p class="field-desc" id="actionRepeatDesc" data-i18n="repeat.desc">Several people pressing Next together skip one song. 0 turns it off.</p>
+              </div>
+              <input type="number" id="actionRepeat" min="0" max="10" step="0.5" data-key="ACTION_REPEAT_SEC"
+                     class="num-input" inputmode="decimal" aria-describedby="actionRepeatDesc">
             </div>
             <div class="field-row">
               <div class="field-text">

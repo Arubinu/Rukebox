@@ -6856,12 +6856,15 @@ function updateStartTimeVisibility() {
 
   document.getElementById("volumeFadeRow").hidden = document.getElementById("volumeChange").value !== "fade";
 
+  document.getElementById("transferLimitUsbRow").hidden = document.getElementById("transferLimitMode").value !== "auto";
+
   const cutoff = document.getElementById("cutoffEnabled").checked;
   ["cutoffTime", "cutoffMode", "afterCutoff"].forEach((id) => {
     document.getElementById(id).closest(".field-row").hidden = !cutoff;
   });
 }
 document.getElementById("volumeChange").addEventListener("change", updateStartTimeVisibility);
+document.getElementById("transferLimitMode").addEventListener("change", updateStartTimeVisibility);
 document.getElementById("cutoffEnabled").addEventListener("change", updateStartTimeVisibility);
 
 document.getElementById("musicStartMode").addEventListener("change", updateStartTimeVisibility);

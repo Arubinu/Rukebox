@@ -608,6 +608,13 @@ SETTINGS = [
         "Captive portal mode",
     ),
     Setting(
+        "ACTION_REPEAT_SEC", "security", "action_repeat_sec", "float", "1",
+        "For this long after an action ends, the same kind of action from\n"
+        "someone else is not run (they get the first answer and pay nothing):\n"
+        "several people pressing Next together skip one song. 0 = off.",
+        "Same action from someone else ignored for (sec)",
+    ),
+    Setting(
         "GUEST_QUOTA_ENABLED", "security", "guest_quota", "bool", "true",
         "Guests (guest_mode, below) spend credits on their actions, so the same\n"
         "song again and again, or skip-skip-skip, runs dry fast while an\n"
@@ -792,6 +799,13 @@ SETTINGS = [
     Setting("TRANSFER_LIMIT_KBPS", "hardware", "transfer_limit_kbps", "int", "200",
             "Upload speed while limited, in kilobytes per second.",
             "Limited speed (KB/s)"),
+    Setting(
+        "TRANSFER_LIMIT_USB", "hardware", "transfer_limit_usb", "bool", "false",
+        "In auto, limit too while the speaker is on a USB dongle. A dongle is a\n"
+        "radio of its own, but a few centimetres from the board's antenna it\n"
+        "can still disturb the Wi-Fi.",
+        "Also with a speaker on a USB dongle",
+    ),
     Setting(
         "USB_PORT_MODE", "hardware", "usb_port_mode", "str", "gadget",
         "The Pi Zero's USB data port:\n"

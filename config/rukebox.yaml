@@ -529,6 +529,11 @@ network:
 # Web interface password (optional) and its GPIO reset
 # ---------------------------------------------------------------
 security:
+  # For this long after an action ends, the same kind of action from
+  # someone else is not run (they get the first answer and pay nothing):
+  # several people pressing Next together skip one song. 0 = off.
+  action_repeat_sec: 1
+
   # Guests (guest_mode, below) spend credits on their actions, so the same
   # song again and again, or skip-skip-skip, runs dry fast while an
   # occasional press never does. Nothing for whoever is past the password.
@@ -647,6 +652,11 @@ hardware:
 
   # Upload speed while limited, in kilobytes per second.
   transfer_limit_kbps: 200
+
+  # In auto, limit too while the speaker is on a USB dongle. A dongle is a
+  # radio of its own, but a few centimetres from the board's antenna it
+  # can still disturb the Wi-Fi.
+  transfer_limit_usb: false
 
   # The Pi Zero's USB data port:
   #   gadget -> network over the USB cable to a computer (SSH, the web
