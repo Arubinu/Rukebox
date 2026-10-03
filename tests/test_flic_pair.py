@@ -42,6 +42,8 @@ class FlicPairTest(unittest.TestCase):
     def test_an_overrun_lets_the_next_attempt_start(self):
         with ws._flic_pair_lock:
             ws._flic_pair.update(state="found", until=time.time() - 1)
+        # The real wizard thread ends at once without the SDK: the state would read "done" or not by luck.
+        mock.patch.object(ws, "_flic_pair_run").start()
         r = self.client.post("/api/flic/pair/start")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.status()["state"], "searching")
