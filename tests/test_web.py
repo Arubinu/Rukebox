@@ -776,5 +776,21 @@ def tearDownModule():
     shutil.rmtree(TMP, ignore_errors=True)
 
 
+@unittest.skipUnless(flask, "Flask is not installed")
+class QuietReadsTest(unittest.TestCase):
+    def kept(self, line):
+        record = ws.logging.LogRecord("werkzeug", ws.logging.INFO, __file__, 1, line, None, None)
+        return ws._QuietReads().filter(record)
+
+    def test_only_the_reads_that_worked_are_left_out(self):
+        self.assertFalse(self.kept('10.42.0.5 - - [03/Oct/2026 10:08:46] "GET /api/status HTTP/1.1" 200 -'))
+        self.assertFalse(self.kept('10.42.0.5 - - [03/Oct/2026 10:08:46] "GET /api/library?q=a HTTP/1.1" 304 -'))
+        self.assertTrue(self.kept('10.42.0.5 - - [03/Oct/2026 10:08:46] "POST /api/action/next_track HTTP/1.1" 200 -'))
+        self.assertTrue(self.kept('10.42.0.5 - - [03/Oct/2026 10:08:46] "GET /api/status HTTP/1.1" 500 -'))
+        self.assertTrue(self.kept('10.42.0.5 - - [03/Oct/2026 10:08:46] "GET /hotspot-detect.html HTTP/1.1" 302 -'))
+        self.assertTrue(self.kept('10.42.0.5 - - [03/Oct/2026 10:08:46] "GET / HTTP/1.1" 200 -'))
+
+
+
 if __name__ == "__main__":
     unittest.main()

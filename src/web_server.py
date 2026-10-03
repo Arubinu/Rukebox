@@ -58,6 +58,19 @@ from version import is_newer, read_version_file, set_release  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [web] %(message)s")
 log = logging.getLogger("web")
 
+
+class _QuietReads(logging.Filter):
+    """The page asks the API several times a minute and the journal is kept on
+    the SD card: a read of /api/ that worked is not worth a line. Actions,
+    errors, page loads and the phones' connectivity probes still are."""
+    _READ = re.compile(r'"GET /api/[^"]*" (200|304) ')
+
+    def filter(self, record):
+        return not self._READ.search(record.getMessage())
+
+
+logging.getLogger("werkzeug").addFilter(_QuietReads())
+
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
 
 app = Flask(__name__, static_folder=None)

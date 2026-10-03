@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config_file  # noqa: E402
 from config_and_scan import load_config  # noqa: E402
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [gpio_reset] %(message)s")
 log = logging.getLogger("gpio_reset")
 
 
@@ -85,4 +84,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # Here and not at import: the web server and the GPIO button import this
+    # module, and the first basicConfig wins for the whole process.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [gpio_reset] %(message)s")
     sys.exit(main())

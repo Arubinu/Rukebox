@@ -115,6 +115,11 @@ install -D -m 644 -o root -g root "$PROJECT_ROOT/config/wireplumber-bluez.conf" 
 # A lingering "manager" session never gets rtkit priority: these limits let PipeWire take it itself.
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/rt-limits.conf" \
     /etc/systemd/system/user@.service.d/10-rukebox-rt.conf
+install -D -m 644 -o root -g root "$PROJECT_ROOT/config/journald-rukebox.conf" \
+    /etc/systemd/journald.conf.d/50-rukebox.conf
+install -D -m 644 -o root -g root "$PROJECT_ROOT/config/rtkit-quiet.conf" \
+    /etc/systemd/system/rtkit-daemon.service.d/50-rukebox-quiet.conf
+systemctl restart systemd-journald || true
 systemctl daemon-reload
 pip3 install bleak flask --break-system-packages
 

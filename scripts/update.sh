@@ -426,6 +426,16 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         install -D -m 644 -o root -g root "$SOURCE_DIR/config/rt-limits.conf" \
             /etc/systemd/system/user@.service.d/10-rukebox-rt.conf 2>/dev/null || true
     fi
+    if [ -f "$SOURCE_DIR/config/journald-rukebox.conf" ] \
+            && ! cmp -s "$SOURCE_DIR/config/journald-rukebox.conf" /etc/systemd/journald.conf.d/50-rukebox.conf; then
+        install -D -m 644 -o root -g root "$SOURCE_DIR/config/journald-rukebox.conf" \
+            /etc/systemd/journald.conf.d/50-rukebox.conf 2>/dev/null \
+            && systemctl restart systemd-journald 2>/dev/null || true
+    fi
+    if [ -f "$SOURCE_DIR/config/rtkit-quiet.conf" ]; then
+        install -D -m 644 -o root -g root "$SOURCE_DIR/config/rtkit-quiet.conf" \
+            /etc/systemd/system/rtkit-daemon.service.d/50-rukebox-quiet.conf 2>/dev/null || true
+    fi
     systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
     systemctl enable --now home-wifi-connect.service 2>/dev/null || true
     loginctl enable-linger pi 2>/dev/null || true
