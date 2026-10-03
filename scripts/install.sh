@@ -119,7 +119,7 @@ install -D -m 644 -o root -g root "$PROJECT_ROOT/config/journald-rukebox.conf" \
     /etc/systemd/journald.conf.d/50-rukebox.conf
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/rtkit-quiet.conf" \
     /etc/systemd/system/rtkit-daemon.service.d/50-rukebox-quiet.conf
-systemctl restart systemd-journald || true
+systemctl restart systemd-journald && journalctl --flush || true
 systemctl daemon-reload
 pip3 install bleak flask --break-system-packages
 
