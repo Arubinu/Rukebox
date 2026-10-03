@@ -362,17 +362,100 @@
     $("wzBundleText").textContent = state.bundleName || t("setup.bundle_drop");
   }
 
+  // A full backup (Configuration card) is a ZIP: config.json is the bundle,
+  // and sounds/<source>/<file> go back into their announcement folders.
+  async function zipEntries(file) {
+    const tail = new DataView(await file.slice(Math.max(0, file.size - 65557)).arrayBuffer());
+    let eocd = -1;
+    for (let i = tail.byteLength - 22; i >= 0; i--) {
+      if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error("zip");
+    const count = tail.getUint16(eocd + 10, true);
+    const cdSize = tail.getUint32(eocd + 12, true);
+    const cdOffset = tail.getUint32(eocd + 16, true);
+    const cd = new DataView(await file.slice(cdOffset, cdOffset + cdSize).arrayBuffer());
+    const dec = new TextDecoder();
+    const out = [];
+    for (let p = 0, n = 0; n < count; n++) {
+      if (cd.getUint32(p, true) !== 0x02014b50) throw new Error("zip");
+      const nameLen = cd.getUint16(p + 28, true);
+      out.push({
+        method: cd.getUint16(p + 10, true),
+        size: cd.getUint32(p + 20, true),
+        local: cd.getUint32(p + 42, true),
+        name: dec.decode(new Uint8Array(cd.buffer, cd.byteOffset + p + 46, nameLen)),
+      });
+      p += 46 + nameLen + cd.getUint16(p + 30, true) + cd.getUint16(p + 32, true);
+    }
+    return out;
+  }
+
+  async function zipData(file, entry) {
+    const head = new DataView(await file.slice(entry.local, entry.local + 30).arrayBuffer());
+    const start = entry.local + 30 + head.getUint16(26, true) + head.getUint16(28, true);
+    const raw = file.slice(start, start + entry.size);
+    if (entry.method === 0) return raw;
+    if (entry.method !== 8) throw new Error("zip");
+    return new Response(raw.stream().pipeThrough(new DecompressionStream("deflate-raw"))).blob();
+  }
+
+  const AUDIO_ROOT = "/home/pi/audio/";
+
+  // Where a backed-up sound goes on the card, or null when its folder is not under the audio root.
+  function backupSoundPath(data, member) {
+    const parts = member.split("/");
+    if (parts.length !== 3 || !parts[2] || parts[2].startsWith(".") || !AUDIO_EXT.test(parts[2])) return null;
+    const s = data.settings || {};
+    let folder = null;
+    if (parts[1] === "meme") folder = s.MEME_DIR || AUDIO_ROOT + "memes";
+    else if (parts[1] === "cutoff") folder = s.CUTOFF_ANNOUNCE_DIR || AUDIO_ROOT + "cutoff_announcements";
+    else if (parts[1].startsWith("custom_")) {
+      const item = (data.announcements || []).find((a) => a.id === parts[1].slice(7));
+      folder = item && item.folder;
+    }
+    folder = String(folder || "").replace(/\/+$/, "");
+    if (!folder.startsWith(AUDIO_ROOT)) return null;
+    return folder.slice(AUDIO_ROOT.length) + "/" + parts[2];
+  }
+
+  async function readBackup(file) {
+    const entries = await zipEntries(file);
+    const config = entries.find((e) => e.name === "config.json");
+    if (!config) throw new Error("format");
+    const data = JSON.parse(await (await zipData(file, config)).text());
+    const sounds = [];
+    for (const entry of entries) {
+      if (!entry.name.startsWith("sounds/")) continue;
+      const path = backupSoundPath(data, entry.name);
+      if (path) sounds.push({ file: await zipData(file, entry), path });
+    }
+    return { data, sounds };
+  }
+
   async function readBundle(file) {
     const status = $("wzBundleStatus");
     state.bundle = null;
     state.bundleName = file ? file.name : "";
     status.textContent = "";
+    delete state.media.backup;
+    paintFiles();
     if (!file) { paintBundle(); return; }
     paintBundle();
     try {
-      const data = JSON.parse(await file.text());
+      let data;
+      let sounds = null;
+      if (/\.zip$/i.test(file.name) || file.type.includes("zip")) {
+        ({ data, sounds } = await readBackup(file));
+      } else {
+        data = JSON.parse(await file.text());
+      }
       if (!data || data.format !== "rukebox-config" || typeof data.settings !== "object") throw new Error("format");
       state.bundle = data;
+      if (sounds) {
+        state.media.backup = sounds;
+        paintFiles();
+      }
       const s = data.settings;
       if (s.MUSIC_START_MODE) $("wzStart").value = s.MUSIC_START_MODE;
       const hm = (h, m) => String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
@@ -380,7 +463,9 @@
       if (s.CUTOFF_HOUR !== undefined) $("wzCutoff").value = hm(s.CUTOFF_HOUR, s.CUTOFF_MINUTE || 0);
       if (s.AUDIO_OUTPUT) $("wzOutput").value = s.AUDIO_OUTPUT;
       $("wzStartTimeRow").hidden = $("wzStart").value !== "scheduled";
-      status.textContent = t("setup.bundle_ok", { n: Object.keys(s).length });
+      status.textContent = sounds
+        ? t("setup.bundle_zip_ok", { n: Object.keys(s).length, sounds: sounds.length })
+        : t("setup.bundle_ok", { n: Object.keys(s).length });
       status.classList.remove("warning");
     } catch (e) {
       state.bundleName = "";

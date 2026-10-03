@@ -1793,6 +1793,12 @@ merged as above, statistics and suggestions replaced, sounds added to
 their announcements (the player restarts when the statistics were
 restored).
 
+The card setup page takes that `.zip` too, at its "radio" step: it reads
+the configuration out of it and puts the announcements' sounds on the card,
+in the folders they come from (only those under `/home/pi/audio`). The
+statistics and the suggestions are not written to the card - restore the
+same file from the interface once the Rukebox runs.
+
 **Storage health** (System health card): each storage - the microSD card,
 or a USB key / disk holding the music - with its kind, free room,
 read-only state (the kernel stops writing to a failing card), file system
