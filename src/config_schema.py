@@ -56,6 +56,14 @@ SETTINGS = [
         "Audio output",
     ),
     Setting(
+        "AUDIO_FALLBACK_OUTPUT", "audio", "fallback_output", "str", "",
+        "Where the sound goes while the Bluetooth speaker is away: empty for\n"
+        "nowhere (the music pauses, see pause_on_speaker_loss), or jack / usb /\n"
+        "hdmi to keep playing there. The speaker takes the sound back when it\n"
+        "returns. Only used when output is bluetooth.",
+        "Fallback output",
+    ),
+    Setting(
         "SPEAKER_MAC", "bluetooth", "speaker_mac", "str", "",
         "MAC address of the \"master\" speaker (the other speaker of a stereo\n"
         "pair is handled by the speakers themselves, not our concern here).\n"

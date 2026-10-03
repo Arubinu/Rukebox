@@ -68,6 +68,7 @@ class RadioDaemon:
     SINK_MISSING_CHECKS = 2
     # A press on the speaker is only visible as a new level; 2s makes it feel answered.
     SINK_POLL_SEC = 2.0
+    UNHEARD_MAX_SEC = 30
     SINK_RESYNC_TURNS = 2
     SINK_NAME_EVERY = 3
     CUTOFF_CATCH_UP_SEC = 300
@@ -121,6 +122,7 @@ class RadioDaemon:
         self._last_sound = None
         self._paused_for_speaker = False
         self._speaker_lost_at = None
+        self._speaker_seen_at = None
         self._speaker_ever_connected = False
         self._bt_start_done = False
         self._started_monotonic = time.monotonic()
@@ -205,7 +207,9 @@ class RadioDaemon:
         self._audio_output_checked = now
         if self._output_override:
             planned = self.cfg.get("AUDIO_OUTPUT", "bluetooth")
-            if audio_output.find(planned, audio_output.list_sinks(env=audio_env())):
+            # A departing speaker's sink can linger a moment: only its return counts.
+            back = planned != "bluetooth" or self._speaker_lost_at is None
+            if back and audio_output.find(planned, audio_output.list_sinks(env=audio_env())):
                 log.info("Audio output: '%s' is back, leaving '%s'", planned, self._output_override)
                 self._output_override = None
                 self._bump_state()
@@ -1209,7 +1213,11 @@ class RadioDaemon:
             return
         # Left at its last level, the speaker would multiply the software volume.
         self._set_sink_volume(100)
-        self.mpv.set_volume(self._current_volume)
+        if self._sound_volume is not None:
+            self.mpv.set_volume(self._sound_volume)
+        else:
+            self._current_volume = self._target_volume()
+            self.mpv.set_volume(self._current_volume)
 
     def _music_gain(self):
         """What mpv is set to when the speaker carries the volume: what an
@@ -2133,6 +2141,8 @@ class RadioDaemon:
 
         if connected:
             self._speaker_ever_connected = True
+        if audible:
+            self._speaker_seen_at = time.monotonic()
 
         if self._speaker_was_connected is None:
             self._speaker_was_connected = audible
@@ -2171,13 +2181,42 @@ class RadioDaemon:
             },
             counters={"speaker_drops": 1}, daily={"speaker_drops": 1},
         )
+        if self._switch_to_fallback_output():
+            return
         if self.cfg.get("SPEAKER_LOSS_PAUSE") and not self._wired_output() \
                 and self.mode == "music" and not self._paused:
             log.info("Pausing the music until the speaker comes back")
+            self._rewind_unheard()
             self.mpv.set_pause(True)
             self._paused = True
             self._paused_for_speaker = True
             self.stats.record("playback_pause", label="paused", detail={"source": "speaker_lost"})
+
+    def _rewind_unheard(self):
+        """Goes back by what played since the speaker was last seen: nobody heard it."""
+        if self.mode != "music" or self._speaker_seen_at is None:
+            return
+        unheard = min(time.monotonic() - self._speaker_seen_at, self.UNHEARD_MAX_SEC)
+        if unheard > 1 and self._position > 0:
+            self._position = max(0.0, self._position - unheard)
+            self.mpv.seek(self._position)
+
+    def _switch_to_fallback_output(self):
+        """The speaker is gone: plays on, on the wired output chosen for that."""
+        kind = self.cfg.get("AUDIO_FALLBACK_OUTPUT") or ""
+        if kind not in ("jack", "usb", "hdmi") or self._wired_output() \
+                or self.mode == "shutting_down":
+            return False
+        if not audio_output.find(kind, audio_output.list_sinks(env=audio_env())):
+            log.info("Fallback output '%s' not found: the speaker loss is handled as usual", kind)
+            return False
+        log.info("Speaker gone: the sound moves to the fallback output (%s)", kind)
+        self._output_override = kind
+        self._apply_audio_output(force=True)
+        self._rewind_unheard()
+        self.stats.record("output_override", label=kind, detail={"source": "speaker_lost"})
+        self._bump_state()
+        return True
 
     def _on_speaker_back(self, mac):
         log.info("Speaker reconnected (%s)", mac)

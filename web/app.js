@@ -6858,6 +6858,8 @@ function updateStartTimeVisibility() {
 
   document.getElementById("transferLimitUsbRow").hidden = document.getElementById("transferLimitMode").value !== "auto";
 
+  document.getElementById("audioFallbackRow").hidden = document.getElementById("audioOutputSelect").value !== "bluetooth";
+
   const cutoff = document.getElementById("cutoffEnabled").checked;
   ["cutoffTime", "cutoffMode", "afterCutoff"].forEach((id) => {
     document.getElementById(id).closest(".field-row").hidden = !cutoff;
@@ -6865,6 +6867,7 @@ function updateStartTimeVisibility() {
 }
 document.getElementById("volumeChange").addEventListener("change", updateStartTimeVisibility);
 document.getElementById("transferLimitMode").addEventListener("change", updateStartTimeVisibility);
+document.getElementById("audioOutputSelect").addEventListener("change", updateStartTimeVisibility);
 document.getElementById("cutoffEnabled").addEventListener("change", updateStartTimeVisibility);
 
 document.getElementById("musicStartMode").addEventListener("change", updateStartTimeVisibility);

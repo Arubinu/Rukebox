@@ -27,6 +27,12 @@ audio:
   # music nor powers the Pi off.
   output: "bluetooth"
 
+  # Where the sound goes while the Bluetooth speaker is away: empty for
+  # nowhere (the music pauses, see pause_on_speaker_loss), or jack / usb /
+  # hdmi to keep playing there. The speaker takes the sound back when it
+  # returns. Only used when output is bluetooth.
+  fallback_output: ""
+
 # ---------------------------------------------------------------
 # Bluetooth: speaker, and which controller does what
 # ---------------------------------------------------------------
