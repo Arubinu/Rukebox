@@ -23,6 +23,7 @@ import bt_link  # noqa: E402
 import config_and_scan  # noqa: E402
 import config_bundle  # noqa: E402
 import config_file  # noqa: E402
+import config_schema  # noqa: E402
 import control_client  # noqa: E402
 import schedules  # noqa: E402
 
@@ -53,11 +54,26 @@ def status():
     return answer.get("data") or {} if answer.get("ok") else {}
 
 
+TOUCHED = {}
+
+
 def set_settings(values):
+    current = config_file.read_values()
+    for key in values:
+        TOUCHED.setdefault(key, current.get(key, ""))
     config_file.write_values({k: str(v).lower() if isinstance(v, bool) else str(v)
                               for k, v in values.items()})
     control("reload_config")
     time.sleep(1)
+
+
+def put_back_settings():
+    """What one test changed is put back before the next one starts."""
+    if TOUCHED:
+        config_file.write_values(dict(TOUCHED))
+        TOUCHED.clear()
+        control("reload_config")
+        time.sleep(1)
 
 
 def sink_volume():
@@ -223,7 +239,8 @@ def t_buttons():
     say("Gestes reçus : %s" % (", ".join(seen) if seen else "aucun"))
     if not seen:
         return "échoué", "aucun geste dans le journal"
-    return ask_verdict("La radio a-t-elle réagi comme réglé dans « Boutons de l'enceinte » ?"), \
+    return ask_verdict("La radio a-t-elle fait l'action réglée dans « Boutons de l'enceinte »,"
+                       " musique comprise ?"), \
         ", ".join(seen)
 
 
@@ -241,8 +258,13 @@ def t_loss():
 
 
 def t_chime():
+    keys = ["AP_CONNECT_SOUND"] + [k for k in config_schema.SYSTEM_SOUNDS if k != "AP_CONNECT_SOUND"]
+    key = next((k for k in keys if cfg.get(k) and os.path.exists(cfg[k])), None)
+    if not key:
+        return "non conclu", "aucun son système présent sur le Pi"
     ensure_music()
-    answer = control("test_system_sound", key="AP_CONNECT_SOUND")
+    say("Son joué : %s" % os.path.basename(cfg[key]))
+    answer = control("test_system_sound", key=key)
     if not answer.get("ok"):
         return "échoué", answer.get("error", "")
     time.sleep(2)
@@ -347,9 +369,11 @@ TESTS = [
     ("chime", "9. Son système par-dessus la musique",
      "Joue le carillon de connexion au Wi-Fi pendant la musique.", t_chime),
     ("announcement", "10. Annonce programmée suivie d'une pause",
-     "Crée une annonce temporaire dans 1-2 min (dossier des sons des boutons).", None),
+     "Automatique, rien à faire : une annonce temporaire est programmée à la minute"
+     " suivante, puis je vérifie qu'elle passe et que la musique se met en pause (1 à 2 min).", None),
     ("schedule", "11. Planning complet",
-     "Met en veille, puis un planning temporaire démarre (volume 40) et s'arrête 2 min après.", None),
+     "Automatique, rien à faire : veille, puis un planning temporaire démarre la musique"
+     " au volume 40 et l'arrête 2 min plus tard (environ 3 min).", None),
     ("resume", "12. Reprise à la même position", "Veille puis redémarrage de la musique.", t_resume),
     ("mute", "13. Muet", "Coupe le son 4 s.", t_mute),
     ("diag", "14. Diagnostic audio", "Mesure le débit du lien (6 s) et affiche le rapport.", t_diag),
@@ -465,10 +489,12 @@ def main():
                 verdict, detail = "erreur", "%s: %s" % (type(e).__name__, e)
             say(">> %s %s" % (verdict.upper(), detail))
             results.append((title, verdict, detail))
+            put_back_settings()
     except (Quit, KeyboardInterrupt):
         say()
         say("Arrêt demandé.")
     finally:
+        TOUCHED.clear()
         try:
             restore(snapshot, created)
         except Exception as e:  # noqa: BLE001
