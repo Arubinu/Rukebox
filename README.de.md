@@ -56,7 +56,7 @@ Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
    muss der Benutzername `pi` lauten.
 2. **Karte vorbereiten**: `dist/rukebox-setup.html` aus der
    [neuesten Version](https://github.com/Arubinu/Rukebox/releases)
-   herunterladen, in Chrome oder Edge öffnen, die Karte wählen und ein paar
+   herunterladen, im Browser öffnen, die Karte wählen und ein paar
    Fragen beantworten (WLAN, Zugangspunkt, Zeitzone, Musik).
 3. **Pi starten**: Er installiert alles selbst und zeigt den Fortschritt
    auf einer Webseite. Einmal braucht er Internet - über WLAN, ein

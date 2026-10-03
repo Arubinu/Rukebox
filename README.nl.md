@@ -56,7 +56,7 @@ speaker of elke telefoon op de wifi van de Pi is genoeg.
    moet de gebruikersnaam `pi` zijn.
 2. **Bereid de kaart voor**: download `dist/rukebox-setup.html` van de
    [nieuwste versie](https://github.com/Arubinu/Rukebox/releases), open het
-   in Chrome of Edge, kies de kaart en beantwoord een paar vragen (wifi,
+   in je browser, kies de kaart en beantwoord een paar vragen (wifi,
    toegangspunt, tijdzone, muziek).
 3. **Start de Pi**: hij installeert alles zelf en toont de voortgang op
    een webpagina. Hij heeft één keer internet nodig - via wifi, een

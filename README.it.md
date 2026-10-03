@@ -54,7 +54,7 @@ della cassa o qualsiasi telefono collegato al Wi-Fi del Pi.
    nome utente deve essere `pi`.
 2. **Prepara la scheda**: scarica `dist/rukebox-setup.html` dall'
    [ultima versione](https://github.com/Arubinu/Rukebox/releases), aprilo
-   in Chrome o Edge, scegli la scheda e rispondi a qualche domanda (Wi-Fi,
+   nel tuo browser, scegli la scheda e rispondi a qualche domanda (Wi-Fi,
    punto di accesso, fuso orario, musica).
 3. **Avvia il Pi**: installa tutto da solo e mostra l'avanzamento su una
    pagina web. Ha bisogno di Internet una sola volta - via Wi-Fi, con un

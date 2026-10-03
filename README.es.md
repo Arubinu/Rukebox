@@ -54,7 +54,7 @@ cualquier móvil conectado al Wi-Fi de la Pi.
    usuario debe ser `pi`.
 2. **Prepara la tarjeta**: descarga `dist/rukebox-setup.html` de la
    [última versión](https://github.com/Arubinu/Rukebox/releases), ábrelo en
-   Chrome o Edge, elige la tarjeta y responde a unas preguntas (Wi-Fi, punto
+   tu navegador, elige la tarjeta y responde a unas preguntas (Wi-Fi, punto
    de acceso, zona horaria, música).
 3. **Enciende la Pi**: lo instala todo sola y muestra el progreso en una
    página web. Necesita Internet una sola vez - por Wi-Fi, un cable

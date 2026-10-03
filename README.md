@@ -52,7 +52,7 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
    name must be `pi`.
 2. **Prepare the card**: download `dist/rukebox-setup.html` from the
    [latest release](https://github.com/Arubinu/Rukebox/releases), open it
-   in Chrome or Edge, select the card and answer a few questions (Wi-Fi,
+   in your browser, select the card and answer a few questions (Wi-Fi,
    access point, time zone, music).
 3. **Start the Pi**: it installs everything by itself and shows its
    progress on a web page. It needs Internet once - through Wi-Fi, an

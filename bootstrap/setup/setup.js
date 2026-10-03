@@ -75,7 +75,6 @@
   }
 
   function validate(step) {
-    if (step === "welcome" && !window.showDirectoryPicker && !window.__rukeboxTestCard) return "setup.unsupported";
     if (step === "card" && !state.card) return "setup.err_no_card";
     if (step === "account") {
       if (!/^[A-Za-z0-9-]{1,63}$/.test($("wzHost").value)) return "setup.err_hostname";
@@ -110,11 +109,118 @@
   const mb = (n) => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + " KB"
     : (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + " MB";
 
+  // Firefox and Safari can read a folder the person picks, never write into it:
+  // the card is read from that folder, and what would be written goes into a ZIP.
+  const DIRECT = !!(window.showDirectoryPicker || window.__rukeboxTestCard);
+
+  function zipCard(fileList) {
+    const top = new Map();
+    for (const f of fileList) {
+      const parts = (f.webkitRelativePath || f.name).split("/");
+      const name = parts.length > 1 ? parts[1] : parts[0];
+      if (!top.has(name)) top.set(name, parts.length > 2 ? null : f);
+    }
+    const out = new Map();
+    return {
+      zip: true,
+      out,
+      async *entries() { for (const name of top.keys()) yield [name]; },
+      async readText(name) { const f = top.get(name); return f ? f.text() : null; },
+      write(path, data) { out.set(path, data); },
+      remove(name) { for (const k of [...out.keys()]) if (k === name || k.startsWith(name + "/")) out.delete(k); },
+    };
+  }
+
+  const CRC_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  // Stored, not compressed: the card holds sound files that do not compress anyway.
+  async function buildZip(files, onProgress) {
+    const enc = new TextEncoder();
+    const now = new Date();
+    const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    const parts = [];
+    const central = [];
+    let offset = 0;
+    let count = 0;
+    for (const [path, data] of files) {
+      const bytes = typeof data === "string" ? enc.encode(data)
+        : data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer());
+      const name = enc.encode(path);
+      const crc = crc32(bytes);
+      const head = (size, sig) => {
+        const v = new DataView(new ArrayBuffer(size));
+        v.setUint32(0, sig, true);
+        return v;
+      };
+      const local = head(30, 0x04034b50);
+      local.setUint16(4, 20, true);
+      local.setUint16(6, 0x0800, true);
+      local.setUint16(10, time, true);
+      local.setUint16(12, date, true);
+      local.setUint32(14, crc, true);
+      local.setUint32(18, bytes.length, true);
+      local.setUint32(22, bytes.length, true);
+      local.setUint16(26, name.length, true);
+      parts.push(local.buffer, name, data instanceof Blob ? data : bytes);
+      const entry = head(46, 0x02014b50);
+      entry.setUint16(4, 20, true);
+      entry.setUint16(6, 20, true);
+      entry.setUint16(8, 0x0800, true);
+      entry.setUint16(12, time, true);
+      entry.setUint16(14, date, true);
+      entry.setUint32(16, crc, true);
+      entry.setUint32(20, bytes.length, true);
+      entry.setUint32(24, bytes.length, true);
+      entry.setUint16(28, name.length, true);
+      entry.setUint32(42, offset, true);
+      central.push(entry.buffer, name);
+      offset += 30 + name.length + bytes.length;
+      count += 1;
+      if (onProgress) onProgress(count / files.length);
+    }
+    const centralSize = central.reduce((n, p) => n + p.byteLength, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, count, true);
+    end.setUint16(10, count, true);
+    end.setUint32(12, centralSize, true);
+    end.setUint32(16, offset, true);
+    return new Blob([...parts, ...central, end.buffer], { type: "application/zip" });
+  }
+
+  function downloadZip() {
+    if (!state.zip) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(state.zip);
+    a.download = "rukebox-card.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  }
+
   async function readText(dir, name) {
+    if (dir.zip) return dir.readText(name);
     try { return await (await (await dir.getFileHandle(name)).getFile()).text(); } catch (e) { return null; }
   }
 
   async function writeFile(dir, path, data) {
+    if (dir.zip) return dir.write(path, data);
     const parts = path.split("/").filter(Boolean);
     let d = dir;
     for (const part of parts.slice(0, -1)) d = await d.getDirectoryHandle(part, { create: true });
@@ -125,6 +231,7 @@
   }
 
   async function removeEntry(dir, name) {
+    if (dir.zip) return dir.remove(name);
     try { await dir.removeEntry(name, { recursive: true }); } catch (e) {  }
   }
 
@@ -169,10 +276,24 @@
   }
 
   $("wzPickCard").addEventListener("click", async () => {
+    if (!DIRECT) {
+      $("wzCardFolder").click();
+      return;
+    }
     let dir;
     try {
       dir = window.__rukeboxTestCard || await window.showDirectoryPicker({ id: "rukebox-card", mode: "readwrite" });
     } catch (e) { return;  }
+    await useCard(dir);
+  });
+
+  $("wzCardFolder").addEventListener("change", async () => {
+    const files = $("wzCardFolder").files;
+    if (files && files.length) await useCard(zipCard(files));
+    $("wzCardFolder").value = "";
+  });
+
+  async function useCard(dir) {
     const names = new Set();
     for await (const [name] of dir.entries()) names.add(name);
     const status = $("wzCardStatus");
@@ -199,7 +320,7 @@
       paintAccount();
     }
     show(steps.findIndex((s) => s.dataset.step === "card") + 1);
-  });
+  }
 
   function paintAccount() {
     const imager = choice("account") !== "here";
@@ -431,6 +552,11 @@
       await writeFile(dir, "rukebox-media/" + m.path, m.file);
       done++;
     }
+    if (dir.zip) {
+      progress(0.98, "setup.w_zip");
+      state.zip = await buildZip([...dir.out.entries()]);
+      downloadZip();
+    }
     progress(1, "setup.w_done");
   }
 
@@ -482,11 +608,18 @@
     }
   }
 
-  if (!window.showDirectoryPicker && !window.__rukeboxTestCard) $("wzUnsupported").hidden = false;
+  if (!DIRECT) {
+    $("wzUnsupported").hidden = false;
+    $("wzWrite").dataset.i18n = "setup.write_zip";
+    $("wzWrite").textContent = t("setup.write_zip");
+    $("wzZipStep").hidden = false;
+    $("wzZipAgainRow").hidden = false;
+  }
+  $("wzZipAgain").addEventListener("click", downloadZip);
   paintAccount();
   paintInternet();
   paintBundle();
   window.LANG_CHANGE_LISTENERS.push(() => { paintAccount(); paintFiles(); paintBundle(); if (steps[current].dataset.step === "write") paintSummary(); });
-  window.__rukeboxWizard = { show, state, writeCard, steps };
+  window.__rukeboxWizard = { show, state, writeCard, steps, zipCard, useCard, buildZip };
   show(0);
 })();

@@ -57,7 +57,7 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
    nom d'utilisateur doit être `pi`.
 2. **Prépare la carte** : télécharge `dist/rukebox-setup.html` depuis la
    [dernière version](https://github.com/Arubinu/Rukebox/releases),
-   ouvre-le dans Chrome ou Edge, choisis la carte et réponds à quelques
+   ouvre-le dans ton navigateur, choisis la carte et réponds à quelques
    questions (Wi-Fi, point d'accès, fuseau horaire, musique).
 3. **Démarre le Pi** : il installe tout seul et affiche sa progression sur
    une page web. Il a besoin d'Internet une seule fois - par le Wi-Fi, un

@@ -47,8 +47,11 @@ tests/                      Unit tests (python3 -m unittest discover -s tests)
 > with Raspberry Pi Imager (if you fill in its settings, the user name must
 > be `pi`), put the card back into the computer and open
 > `rukebox-setup.html` (attached to each release, or built with
-> `python3 bootstrap/build_setup_page.py` into `dist/`) in **Chrome or
-> Edge**. It asks for everything (account, Internet for the installation -
+> `python3 bootstrap/build_setup_page.py` into `dist/`) in a browser. In
+> **Chrome or Edge** it writes the card itself; **Firefox and Safari** cannot
+> write into a folder, so there it reads the card and prepares
+> `rukebox-card.zip` instead, whose contents you copy to the card, replacing
+> the files already there (`config.txt`, `cmdline.txt`, `firstrun.sh`). It asks for everything (account, Internet for the installation -
 > Imager's Wi-Fi, another one, Ethernet or the USB cable - the Rukebox's own
 > Wi-Fi, passwords, a few radio settings, optionally some files) and writes
 > the card. Then the Pi installs itself on its first boot: access point first, then the Internet (the Wi-Fi given when

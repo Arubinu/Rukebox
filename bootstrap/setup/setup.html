@@ -36,7 +36,7 @@
           <li data-i18n="setup.welcome_user">If you fill in Imager's settings (Wi-Fi, account), the user name must be "pi".</li>
           <li data-i18n="setup.welcome_insert">Put the card back into this computer, then follow the steps here.</li>
         </ol>
-        <p class="hint warning" id="wzUnsupported" data-i18n="setup.unsupported" hidden>This browser cannot write to the card: open this page in Chrome or Edge on a computer.</p>
+        <p class="hint" id="wzUnsupported" data-i18n="setup.unsupported" hidden>This browser cannot write to the card directly: the page prepares a ZIP file whose contents you copy onto it.</p>
       </section>
 
       <section class="card wz-step" data-step="card" hidden>
@@ -44,6 +44,7 @@
         <p data-i18n="setup.card_hint">Choose the card's "bootfs" drive (the small partition the computer can open).</p>
         <div class="form-actions">
           <button type="button" class="btn btn-primary" id="wzPickCard" data-icon="folder" data-i18n="setup.card_pick">Choose the card…</button>
+          <input type="file" id="wzCardFolder" webkitdirectory hidden>
         </div>
         <p class="hint" id="wzCardStatus" role="status"></p>
       </section>
@@ -214,9 +215,13 @@
       <section class="card wz-step" data-step="done" hidden>
         <h2 data-icon="check"><span data-i18n="setup.done_title">The card is ready</span></h2>
         <ol class="wz-list">
+          <li id="wzZipStep" data-i18n="setup.zip_copy" hidden>Open rukebox-card.zip (just downloaded) and copy everything it holds to the card, replacing the files already there.</li>
           <li data-i18n="setup.done_eject">Eject the card safely, put it into the Pi and switch it on.</li>
           <li data-i18n="setup.done_wait">Leave this page open: it finds the Pi and takes you to it. The installation takes 15 to 30 minutes.</li>
         </ol>
+        <div class="form-actions" id="wzZipAgainRow" hidden>
+          <button type="button" class="btn" id="wzZipAgain" data-icon="download" data-i18n="setup.zip_again">Download the ZIP again</button>
+        </div>
         <p class="hint" id="wzFindStatus" role="status"></p>
         <div class="form-actions" id="wzOpenRow" hidden>
           <a class="btn btn-primary" id="wzOpen" data-icon="link" data-i18n="setup.open_pi">Open the Rukebox</a>
