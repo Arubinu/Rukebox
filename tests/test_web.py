@@ -862,34 +862,85 @@ class GuestLockTest(unittest.TestCase):
 
 @unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
 class RepeatedActionTest(unittest.TestCase):
-    def test_a_press_while_the_first_is_still_running_waits_for_its_answer(self):
+    def setUp(self):
         ws._repeats.clear()
-        calls = []
+        self.calls = []
+        self.delay = 0.0
+        self.addCleanup(unittest.mock.patch.stopall)
+        unittest.mock.patch.object(ws, "_quota_applies", return_value=False).start()
+        unittest.mock.patch.object(ws, "_repeat_person",
+                                   side_effect=lambda: ws.request.headers.get("X-Who", "a")).start()
+        unittest.mock.patch.object(ws, "ACTION_REPEAT_SEC", 1.0).start()
 
-        def slow(cmd, **kw):
-            calls.append(cmd)
-            time.sleep(0.3)
-            return {"ok": True, "data": {"paused": True}}
+        def control(cmd, **kw):
+            self.calls.append((cmd, kw))
+            time.sleep(self.delay)
+            return {"ok": True, "data": {"cmd": cmd}}
+        unittest.mock.patch.object(ws, "control", side_effect=control).start()
+        self.client = ws.app.test_client()
 
-        with unittest.mock.patch.object(ws, "control", side_effect=slow),                 unittest.mock.patch.object(ws, "_quota_applies", return_value=False):
-            answers = []
-            threads = [threading.Thread(target=lambda: answers.append(
-                ws.app.test_client().post("/api/action/toggle_pause").get_json())) for _ in range(3)]
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join()
-        self.assertEqual(calls, ["toggle_pause"], "three presses at once pause once, not pause-resume-pause")
-        self.assertEqual([a["data"]["paused"] for a in answers], [True] * 3, "and all three are told the same")
+    def post(self, path, who="a", **body):
+        return self.client.post(path, json=body or None, headers={"X-Who": who})
+
+    def cmds(self):
+        return [c for c, _ in self.calls]
+
+    def test_next_previous_and_back_to_the_start_are_one_family(self):
+        self.post("/api/action/next_track", "a")
+        r = self.post("/api/action/previous_track", "b")
+        self.assertEqual(self.cmds(), ["next_track"], "someone else's Previous right after a Next is not run")
+        self.assertEqual(r.get_json()["data"]["cmd"], "next_track", "it gets the answer of what did happen")
+        self.post("/api/action/previous_track", "a")
+        self.assertEqual(self.cmds(), ["next_track", "previous_track"],
+                         "the one who just acted may go on (a second Previous goes further back)")
+
+    def test_the_window_runs_from_the_end_of_a_fade(self):
+        self.delay = 1.3
+        first = threading.Thread(target=lambda: self.post("/api/action/next_track", "a"))
+        first.start()
+        time.sleep(1.1)
+        self.post("/api/action/next_track", "b")
+        first.join()
+        self.delay = 0
+        self.post("/api/action/next_track", "c")
+        self.assertEqual(self.cmds(), ["next_track"], "pressed during the fade, and just after it: one song")
+
+    def test_a_volume_is_one_hand_on_the_dial(self):
+        for value in (40, 41, 43):
+            self.post("/api/volume", "a", value=value)
+        self.post("/api/volume", "b", value=42)
+        self.assertEqual([kw["value"] for c, kw in self.calls if c == "set_volume"], [40, 41, 43],
+                         "a slider drag goes through, a near value from someone else does not")
+
+    def test_a_double_tap_on_a_toggle_is_one_tap(self):
+        self.post("/api/action/toggle_pause", "a")
+        self.post("/api/action/toggle_pause", "a")
+        self.post("/api/mute", "a", on="toggle")
+        self.post("/api/mute", "a", on="toggle")
+        self.assertEqual(self.cmds(), ["toggle_pause", "set_mute"])
+
+    def test_three_presses_at_once_run_once(self):
+        self.delay = 0.3
+        threads = [threading.Thread(target=lambda w=w: self.post("/api/action/toggle_pause", w)) for w in "abc"]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(self.cmds(), ["toggle_pause"])
+
+    def test_two_songs_queued_by_two_people_are_both_queued(self):
+        unittest.mock.patch.object(ws, "_path_for_key", side_effect=lambda key: "/music/" + key).start()
+        self.post("/api/library/queue", "a", key="k1")
+        self.post("/api/library/queue", "b", key="k2")
+        self.post("/api/library/queue", "c", key="k1")
+        self.assertEqual([kw["path"] for c, kw in self.calls if c == "queue_track"],
+                         ["/music/k1", "/music/k2"], "the same song asked twice is queued once")
 
     def test_a_failure_is_not_repeated(self):
-        ws._repeats.clear()
         results = iter([{"ok": False, "error": "x"}, {"ok": True}])
-        with unittest.mock.patch.object(ws, "control", side_effect=lambda *a, **k: next(results)),                 unittest.mock.patch.object(ws, "_quota_applies", return_value=False):
-            client = ws.app.test_client()
-            self.assertEqual(client.post("/api/action/next_track").status_code, 400)
-            self.assertEqual(client.post("/api/action/next_track").status_code, 200)
-
+        ws.control.side_effect = lambda *a, **k: next(results)
+        self.assertEqual(self.post("/api/action/next_track", "a").status_code, 400)
+        self.assertEqual(self.post("/api/action/next_track", "b").status_code, 200)
 
 if __name__ == "__main__":
     unittest.main()

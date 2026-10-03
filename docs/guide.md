@@ -556,12 +556,15 @@ access) takes commands away from guests altogether, whatever their credits
 and even for a device spared them: next, previous, start, pause, sound,
 announcement, volume, up next, play now, another output. Their buttons stay
 on the guests' page, greyed with a padlock, and the Pi refuses them anyway
-(`guest_locked`). **The same action asked twice within a second** - two
-people pressing Next together, a double tap on Pause - runs once: whoever
-asked second gets the first answer and pays nothing, so a crowd skips one
-song, not three, and a pause is not undone by the next tap. A different
-value (another volume, another song) is a different action and goes
-through. **Connected devices** (System) lists who
+(`guest_locked`). **When several people press at once**, what one of them just did is not
+undone or doubled by the others: for a second after an action ends (a fade
+included), the same kind of action from someone else is not run - they get
+the first answer and pay nothing. The kinds are: changing the song (next,
+previous, back to the start, a button sound, play now), play/pause and
+standby, the volume, mute, and loop. The person who just acted may go on (a
+second Previous goes one song further back, a volume slider keeps moving),
+except for a double tap on a toggle such as Pause, which counts once. Two
+people queueing two different songs both get their song. **Connected devices** (System) lists who
 is on the Rukebox now, with their nickname (a generated one until they
 choose). It is not only the access point's own clients: a device that
 reaches the interface over the owner's home network never joins the

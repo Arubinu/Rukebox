@@ -657,15 +657,35 @@ def _guest_locked():
 
 ACTION_REPEAT_SEC = 1.0
 ACTION_REPEAT_WAIT_SEC = 15
-REPEAT_GUARDED_PATHS = set(GUEST_QUOTA_ACTIONS) | {
-    "/api/mute", "/api/loop", "/api/action/standby", "/api/action/poweroff",
-    "/api/action/long_press", "/api/action/timed_pause", "/api/action/sleep_timer",
+# One family per thing that can be changed: within the window, only whoever changed it may act on it again.
+ACTION_FAMILIES = {
+    "/api/action/next_track": "track",
+    "/api/action/previous_track": "track",
+    "/api/action/single_click": "track",
+    "/api/action/double_click": "track",
+    "/api/action/skip_sound": "track",
+    "/api/library/play": "track",
+    "/api/action/toggle_pause": "playback",
+    "/api/action/start_music": "playback",
+    "/api/action/timed_pause": "playback",
+    "/api/action/standby": "playback",
+    "/api/action/poweroff": "playback",
+    "/api/action/long_press": "playback",
+    "/api/volume": "volume",
+    "/api/mute": "mute",
+    "/api/loop": "loop",
 }
+# Asked twice, these are one request whoever asks: the same song queued, the same output chosen.
+ACTION_SAME_ONLY = {"/api/library/queue", "/api/audio/fallback", "/api/action/announce",
+                    "/api/action/sleep_timer"}
+# A second identical tap of a toggle by the same person undoes the first: an accident, not a wish.
+ACTION_TOGGLES = {"/api/action/toggle_pause", "/api/action/start_music", "/api/action/skip_sound",
+                  "/api/mute", "/api/loop"}
 _repeats = {}
 _repeats_lock = threading.Lock()
 
 
-def _repeat_key():
+def _repeat_request():
     body = request.get_json(silent=True)
     try:
         canon = json.dumps(body, sort_keys=True)
@@ -674,28 +694,52 @@ def _repeat_key():
     return request.path, canon
 
 
+def _repeat_person():
+    try:
+        return _this_device(_suggestion_box())["person"]
+    except Exception:
+        return request.remote_addr
+
+
+def _repeat_active(state, now):
+    return state["busy"] > 0 or now < state["until"]
+
+
 @app.before_request
 def _skip_repeated_action():
-    """The same action asked again within a second, by anyone, gets the first answer and costs nothing."""
-    if request.method != "POST" or request.path not in REPEAT_GUARDED_PATHS:
+    """An action someone else just took, or a double tap, gets the first answer and costs nothing."""
+    path = request.path
+    family = ACTION_FAMILIES.get(path)
+    if request.method != "POST" or not (family or path in ACTION_SAME_ONLY):
         return None
-    action = GUEST_QUOTA_ACTIONS.get(request.path)
+    action = GUEST_QUOTA_ACTIONS.get(path)
     if action and action in _guest_locked() and _quota_applies():
         return None
-    key = _repeat_key()
+    asked = _repeat_request()
+    key = ("family", family) if family else ("same",) + asked
+    person = _repeat_person() if family else None
     now = time.monotonic()
     with _repeats_lock:
-        for old in [k for k, e in _repeats.items() if now - e["at"] >= ACTION_REPEAT_SEC and e["done"].is_set()]:
+        for old in [k for k, s in _repeats.items() if not _repeat_active(s, now)]:
             del _repeats[old]
-        first = _repeats.get(key)
-        if first is None or now - first["at"] >= ACTION_REPEAT_SEC:
-            _repeats[key] = {"at": now, "done": threading.Event(), "reply": None}
-            g.repeat_key = key
+        state = _repeats.get(key)
+        repeat = state is not None and (
+            not family or state["person"] != person
+            or (path in ACTION_TOGGLES and state["asked"] == asked))
+        if not repeat:
+            if state is None:
+                state = {"busy": 0, "until": 0.0, "done": threading.Event(), "reply": None}
+                _repeats[key] = state
+            if state["busy"] == 0:
+                state["done"] = threading.Event()
+            state.update(busy=state["busy"] + 1, person=person, asked=asked)
+            g.repeat_state = state
             return None
-    # Toggles (pause, mute, loop) would otherwise flip twice, and "next" skip two songs.
-    if not first["done"].wait(ACTION_REPEAT_WAIT_SEC):
+        done = state["done"]
+    # The window runs to a second after the action ENDS: a fade can outlast it.
+    if not done.wait(ACTION_REPEAT_WAIT_SEC):
         return jsonify({"ok": True, "data": {"repeated": True}})
-    reply = first["reply"]
+    reply = state["reply"]
     if reply is None:
         return None
     data, status, mimetype, encoding = reply
@@ -707,20 +751,21 @@ def _skip_repeated_action():
 
 @app.after_request
 def _remember_action_reply(response):
-    key = g.pop("repeat_key", None)
-    if key is None:
+    state = g.pop("repeat_state", None)
+    if state is None:
         return response
     with _repeats_lock:
-        entry = _repeats.get(key)
-        if entry is not None:
-            if response.status_code < 400 and not response.is_streamed:
-                entry["reply"] = (response.get_data(), response.status_code, response.mimetype,
-                                  response.headers.get("Content-Encoding"))
-            else:
-                # A failure is not repeated: the next press may try for real.
-                del _repeats[key]
-            entry["done"].set()
+        state["busy"] -= 1
+        # A failure opens no window: the next press may try for real.
+        if response.status_code < 400 and not response.is_streamed:
+            state["reply"] = (response.get_data(), response.status_code, response.mimetype,
+                              response.headers.get("Content-Encoding"))
+            state["until"] = time.monotonic() + ACTION_REPEAT_SEC
+        if state["busy"] == 0:
+            state["done"].set()
     return response
+
+
 
 
 @app.before_request
