@@ -1967,6 +1967,7 @@
       </main>
 
       <nav class="tabbar" data-i18n-aria-label="nav.label" aria-label="Sections">
+        <div class="nav-scroll" id="navScroll">
         <div class="nav-brand" aria-hidden="true">
           <img src="/logo.webp" alt="" width="40" height="40">
           <span class="brand-text">
@@ -1995,6 +1996,13 @@
         <button type="button" class="tab-btn" data-level="detail" data-tab="stats">
           <span class="tab-icon" data-icon="chart" aria-hidden="true"></span><span data-i18n="tab.stats">Stats</span>
         </button>
+        <button type="button" class="nav-transfer" id="navTransfer" hidden>
+          <span class="nt-title" id="navTransferTitle" data-icon="upload"></span>
+          <span class="nt-bar" aria-hidden="true"><span id="navTransferBar"></span></span>
+          <span class="nt-line" id="navTransferLine" role="status"></span>
+        </button>
+        </div>
+        <div class="nav-foot" id="navFoot">
         <button type="button" class="nav-now" id="navNow" hidden>
           <span class="nn-cover" data-icon="music" aria-hidden="true"><img id="navNowCover" alt="" hidden></span>
           <span class="nn-text">
@@ -2002,11 +2010,7 @@
             <span class="nn-artist" id="navNowArtist"></span>
           </span>
         </button>
-        <button type="button" class="nav-transfer" id="navTransfer" hidden>
-          <span class="nt-title" id="navTransferTitle" data-icon="upload"></span>
-          <span class="nt-bar" aria-hidden="true"><span id="navTransferBar"></span></span>
-          <span class="nt-line" id="navTransferLine" role="status"></span>
-        </button>
+        </div>
       </nav>
 
       <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>

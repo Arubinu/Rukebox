@@ -556,3 +556,15 @@ test("the owner picks the locked commands in a list, and may lock none", async (
   volume.dispatchEvent(new page.window.Event("change", { bubbles: true }));
   assert.equal(page.$("guestLocked").value, "");
 });
+
+test("beside the menu, the portal button sits in the menu's foot, not over its pages", async (t) => {
+  const held = { "GET /api/portal/status": { enabled: true, mode: "release", on_ap: true, released: false } };
+  const wide = open(t, { routes: held, media: (query) => query.includes("640px") });
+  await until(() => !wide.$("portalReleaseBtn").hidden);
+  await until(() => wide.$("guestRelease").parentElement === wide.$("navFoot"));
+  assert.equal(wide.$("portalReleaseBtn").parentElement, wide.$("guestRelease"));
+
+  const phone = open(t, { routes: held });
+  await until(() => !phone.$("portalReleaseBtn").hidden);
+  assert.equal(phone.$("guestRelease").parentElement, phone.$("main"), "a phone keeps it at the top of the grid");
+});

@@ -9552,12 +9552,30 @@ function initHelpToggles() {
 
 initHelpToggles();
 
+/* Beside the menu, the portal block belongs to the menu's foot: pinned under its pages, not over them.
+   Called before this point of initApp runs, so it keeps its state on itself rather than in a const. */
+function placeGuestRelease() {
+  const block = document.getElementById("guestRelease");
+  const navFoot = document.getElementById("navFoot");
+  if (!block || !navFoot) return false;
+  if (!placeGuestRelease.query) {
+    placeGuestRelease.query = window.matchMedia("(min-width: 640px)");
+    placeGuestRelease.query.addEventListener("change", () => placePortalButton());
+    placeGuestRelease.next = block.nextElementSibling;
+  }
+  const inMenu = placeGuestRelease.query.matches && document.body.dataset.access !== "guest";
+  if (inMenu && block.parentElement !== navFoot) navFoot.appendChild(block);
+  if (!inMenu && block.parentElement === navFoot) placeGuestRelease.next.before(block);
+  return inMenu;
+}
+
 function placePortalButton() {
   const btn = document.getElementById("portalReleaseBtn");
   const foot = document.getElementById("portalFoot");
   const top = document.getElementById("guestRelease");
   if (!btn || !foot || !top) return;
-  const onHomeGrid = document.body.dataset.tab === "home" && !document.body.dataset.page;
+  const inMenu = placeGuestRelease();
+  const onHomeGrid = !inMenu && document.body.dataset.tab === "home" && !document.body.dataset.page;
   const wanted = onHomeGrid ? foot : top;
   if (btn.parentElement !== wanted) wanted.appendChild(btn);
 }
@@ -9647,7 +9665,7 @@ document.getElementById("guestLoginBtn").addEventListener("click", () => {
   showLoginOverlay();
 });
 
-const SCROLL_FADE_SELECTOR = ".device-list, .folder-list, .session-list, .event-list";
+const SCROLL_FADE_SELECTOR = ".device-list, .folder-list, .session-list, .event-list, .nav-scroll";
 
 function updateScrollFade(el) {
   const above = el.scrollTop > 2;
@@ -9659,7 +9677,9 @@ function updateScrollFade(el) {
 document.querySelectorAll(SCROLL_FADE_SELECTOR).forEach((el) => {
   const update = () => updateScrollFade(el);
   el.addEventListener("scroll", update, { passive: true });
-  new MutationObserver(update).observe(el, { childList: true, subtree: true });
+  // An area's page list opens by a class or attribute, which changes the height without a child.
+  new MutationObserver(update).observe(el, { childList: true, subtree: true, attributes: true,
+                                              attributeFilter: ["class", "hidden"] });
   if (window.ResizeObserver) new ResizeObserver(update).observe(el);
   update();
 });

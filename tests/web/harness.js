@@ -40,7 +40,9 @@ function load(options = {}) {
   });
   const { window } = dom;
 
-  window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {},
+  // options.media(query) answers a media query; every query is false otherwise (a phone).
+  window.matchMedia = (query) => ({ matches: !!(options.media && options.media(query)),
+                                    addEventListener() {}, removeEventListener() {},
                                addListener() {}, removeListener() {} });
   class Observer { observe() {} unobserve() {} disconnect() {} }
   window.ResizeObserver = window.ResizeObserver || Observer;
