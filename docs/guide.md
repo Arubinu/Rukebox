@@ -1795,7 +1795,9 @@ restored).
 
 The card setup page takes that `.zip` too, at its "radio" step: it reads
 the configuration out of it and puts the announcements' sounds on the card,
-in the folders they come from (only those under `/home/pi/audio`). The
+in the folders they come from (only those under `/home/pi/audio`). Its
+"files" step then lists every announcement of that configuration, each with
+its own row to add sounds to, and says how many came from the backup. The
 statistics and the suggestions are not written to the card - restore the
 same file from the interface once the Rukebox runs.
 

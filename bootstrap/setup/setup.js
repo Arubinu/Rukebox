@@ -439,7 +439,7 @@
     state.bundleName = file ? file.name : "";
     status.textContent = "";
     delete state.media.backup;
-    paintFiles();
+    showConfigAnnouncements(null);
     if (!file) { paintBundle(); return; }
     paintBundle();
     try {
@@ -452,10 +452,8 @@
       }
       if (!data || data.format !== "rukebox-config" || typeof data.settings !== "object") throw new Error("format");
       state.bundle = data;
-      if (sounds) {
-        state.media.backup = sounds;
-        paintFiles();
-      }
+      if (sounds) state.media.backup = sounds;
+      showConfigAnnouncements(data);
       const s = data.settings;
       if (s.MUSIC_START_MODE) $("wzStart").value = s.MUSIC_START_MODE;
       const hm = (h, m) => String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
@@ -498,7 +496,7 @@
   });
   $("wzBundle").addEventListener("change", () => readBundle($("wzBundle").files[0]));
 
-  // The four folders a card can carry, and the folder name each one becomes on
+  // The folders a card can carry, and the folder name each one becomes on
   // the Pi (see install.sh): they must match.
   const FILE_SOURCES = [
     ["wzMusic", "music", true],
@@ -506,6 +504,29 @@
     ["wzMorning", "morning_announcements", false],
     ["wzCutoffFiles", "cutoff_announcements", false],
   ];
+  // A loaded configuration may keep its sounds elsewhere, and brings its own announcements.
+  const folderFor = {};
+  let annRows = [];
+
+  function targetFolder(key) { return folderFor[key] || key; }
+
+  function underAudioRoot(folder) {
+    folder = String(folder || "").replace(/\/+$/, "");
+    return folder.startsWith(AUDIO_ROOT) ? folder.slice(AUDIO_ROOT.length) : null;
+  }
+
+  function backupCount(folder) {
+    return (state.media.backup || []).filter((m) => m.path.startsWith(folder + "/")).length;
+  }
+
+  function annNote(item) {
+    if (item.trigger === "manual") return t("setup.ann_manual");
+    if (item.trigger === "after_music" || item.trigger === "after_boot") {
+      return Number.isFinite(item.delay_min) ? t("setup.ann_delay", { n: item.delay_min }) : "";
+    }
+    if (!Number.isFinite(item.hour) || !Number.isFinite(item.minute)) return "";
+    return t("setup.ann_at", { time: String(item.hour).padStart(2, "0") + ":" + String(item.minute).padStart(2, "0") });
+  }
 
   function mediaBytes() {
     return Object.values(state.media).flat().reduce((n, f) => n + f.file.size, 0);
@@ -516,11 +537,16 @@
     const status = $("wzFilesStatus");
     status.textContent = n ? t("setup.files_total", { n, size: mb(bytes), max: mb(MEDIA_BUDGET) }) : "";
     status.classList.toggle("warning", bytes > MEDIA_BUDGET);
-    for (const [input, target] of FILE_SOURCES) {
+    for (const [input, target] of FILE_SOURCES.concat(annRows.map((r) => [r.input, r.key]))) {
       const chosen = (state.media[target] || []).length;
-      $(input + "Count").textContent = chosen ? t("setup.files_count", { n: chosen }) : "";
-      $(input).closest(".wz-file-row").classList.toggle("has-files", chosen > 0);
+      const fromBackup = backupCount(targetFolder(target));
+      const parts = [];
+      if (chosen) parts.push(t("setup.files_count", { n: chosen }));
+      if (fromBackup) parts.push(t("setup.files_from_backup", { n: fromBackup }));
+      $(input + "Count").textContent = parts.join(" · ");
+      $(input).closest(".wz-file-row").classList.toggle("has-files", chosen + fromBackup > 0);
     }
+    for (const row of annRows) $(row.input + "Note").textContent = annNote(row.item);
   }
   function pick(input, target, keepTree) {
     input.addEventListener("change", () => {
@@ -528,13 +554,60 @@
         .filter((f) => !f.name.startsWith(".") && (keepTree ? MUSIC_EXT : AUDIO_EXT).test(f.name))
         .map((f) => {
           const rel = keepTree && f.webkitRelativePath ? f.webkitRelativePath.split("/").slice(1).join("/") : f.name;
-          return { file: f, path: target + "/" + rel };
+          return { file: f, rel, path: targetFolder(target) + "/" + rel };
         })
         .filter((m) => !m.path.split("/").some((p) => p.startsWith(".")));
       paintFiles();
     });
   }
   FILE_SOURCES.forEach(([input, target, keepTree]) => pick($(input), target, keepTree));
+
+  // One row per announcement of the loaded configuration, to add sounds to it.
+  function showConfigAnnouncements(data) {
+    for (const row of annRows) {
+      $(row.input).closest(".wz-file-row").remove();
+      delete state.media[row.key];
+    }
+    annRows = [];
+    for (const key of Object.keys(folderFor)) delete folderFor[key];
+    const s = (data && data.settings) || {};
+    const memes = underAudioRoot(s.MEME_DIR);
+    const cutoff = underAudioRoot(s.CUTOFF_ANNOUNCE_DIR);
+    if (memes) folderFor.memes = memes;
+    if (cutoff) folderFor.cutoff_announcements = cutoff;
+    const items = (data && Array.isArray(data.announcements)) ? data.announcements : [];
+    $("wzRowMorning").hidden = items.length > 0;
+    const template = $("wzRowMemes");
+    let after = $("wzRowMorning");
+    items.forEach((item, i) => {
+      const folder = underAudioRoot(item.folder);
+      if (!folder || !item.name) return;
+      const input = "wzAnn" + i;
+      const key = "ann:" + item.id;
+      folderFor[key] = folder;
+      const row = template.cloneNode(true);
+      row.id = "wzRowAnn" + i;
+      row.classList.remove("has-files");
+      const strong = row.querySelector("strong");
+      strong.removeAttribute("data-i18n");
+      strong.textContent = item.name;
+      const small = row.querySelector("small");
+      small.removeAttribute("data-i18n");
+      small.id = input + "Note";
+      row.querySelector(".wz-file-count").id = input + "Count";
+      const file = row.querySelector("input");
+      file.id = input;
+      file.value = "";
+      after.after(row);
+      after = row;
+      pick(file, key, false);
+      annRows.push({ input, key, item });
+    });
+    for (const [, target] of FILE_SOURCES) {
+      for (const m of state.media[target] || []) m.path = targetFolder(target) + "/" + m.rel;
+    }
+    paintFiles();
+  }
 
   function setupAnswers() {
     const net = choice("internet");
