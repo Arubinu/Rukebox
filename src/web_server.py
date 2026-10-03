@@ -655,6 +655,74 @@ def _guest_locked():
     return sorted({part.strip().lower() for part in str(cfg().get("GUEST_LOCKED") or "").split(",")} & known)
 
 
+ACTION_REPEAT_SEC = 1.0
+ACTION_REPEAT_WAIT_SEC = 15
+REPEAT_GUARDED_PATHS = set(GUEST_QUOTA_ACTIONS) | {
+    "/api/mute", "/api/loop", "/api/action/standby", "/api/action/poweroff",
+    "/api/action/long_press", "/api/action/timed_pause", "/api/action/sleep_timer",
+}
+_repeats = {}
+_repeats_lock = threading.Lock()
+
+
+def _repeat_key():
+    body = request.get_json(silent=True)
+    try:
+        canon = json.dumps(body, sort_keys=True)
+    except (TypeError, ValueError):
+        canon = request.get_data(as_text=True)
+    return request.path, canon
+
+
+@app.before_request
+def _skip_repeated_action():
+    """The same action asked again within a second, by anyone, gets the first answer and costs nothing."""
+    if request.method != "POST" or request.path not in REPEAT_GUARDED_PATHS:
+        return None
+    action = GUEST_QUOTA_ACTIONS.get(request.path)
+    if action and action in _guest_locked() and _quota_applies():
+        return None
+    key = _repeat_key()
+    now = time.monotonic()
+    with _repeats_lock:
+        for old in [k for k, e in _repeats.items() if now - e["at"] >= ACTION_REPEAT_SEC and e["done"].is_set()]:
+            del _repeats[old]
+        first = _repeats.get(key)
+        if first is None or now - first["at"] >= ACTION_REPEAT_SEC:
+            _repeats[key] = {"at": now, "done": threading.Event(), "reply": None}
+            g.repeat_key = key
+            return None
+    # Toggles (pause, mute, loop) would otherwise flip twice, and "next" skip two songs.
+    if not first["done"].wait(ACTION_REPEAT_WAIT_SEC):
+        return jsonify({"ok": True, "data": {"repeated": True}})
+    reply = first["reply"]
+    if reply is None:
+        return None
+    data, status, mimetype, encoding = reply
+    response = Response(data, status=status, mimetype=mimetype)
+    if encoding:
+        response.headers["Content-Encoding"] = encoding
+    return response
+
+
+@app.after_request
+def _remember_action_reply(response):
+    key = g.pop("repeat_key", None)
+    if key is None:
+        return response
+    with _repeats_lock:
+        entry = _repeats.get(key)
+        if entry is not None:
+            if response.status_code < 400 and not response.is_streamed:
+                entry["reply"] = (response.get_data(), response.status_code, response.mimetype,
+                                  response.headers.get("Content-Encoding"))
+            else:
+                # A failure is not repeated: the next press may try for real.
+                del _repeats[key]
+            entry["done"].set()
+    return response
+
+
 @app.before_request
 def _check_quota():
     action = GUEST_QUOTA_ACTIONS.get(request.path)

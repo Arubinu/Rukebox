@@ -14,6 +14,7 @@ import io
 import os
 import shutil
 import tempfile
+import threading
 import time
 import types
 import unittest
@@ -126,6 +127,13 @@ class WebTest(unittest.TestCase):
         ws.control = cls.orig_control
         shutil.rmtree(cls.dir, ignore_errors=True)
 
+    def setUp(self):
+        # These tests repeat one action on purpose; the one-second guard has its own test.
+        patcher = unittest.mock.patch.object(ws, "ACTION_REPEAT_SEC", 0)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        ws._repeats.clear()
+
     def owner(self):
         client = ws.app.test_client()
         client.post("/api/auth/login", json={"password": "secret"})
@@ -231,6 +239,36 @@ class WebTest(unittest.TestCase):
         os.utime(flag, (old, old))
         self.assertFalse(ws.update_in_progress(state))
         self.assertFalse(os.path.exists(flag), "the stale flag is cleared while we are there")
+
+    def test_the_same_action_within_a_second_runs_once_and_costs_once(self):
+        ws.ACTION_REPEAT_SEC = 1.0
+        first, second = ws.app.test_client(), ws.app.test_client()
+        before = len([c for c in self.calls if c[0] == "next_track"])
+        self.assertEqual(first.post("/api/action/next_track").status_code, 200)
+        self.assertEqual(second.post("/api/action/next_track").status_code, 200,
+                         "the second person gets the first answer, not a refusal")
+        self.assertEqual(len([c for c in self.calls if c[0] == "next_track"]) - before, 1,
+                         "two people pressing Next at once skip one song, not two")
+        token = second.get("/api/device").get_json()["data"]["token"]
+        device = ws._suggestion_box().resolve_device(token, None, "127.0.0.1")[0]
+        with ws._quota_lock:
+            spent = ws._quota.get(device["person"], {}).get("tokens", 3)
+        self.assertEqual(spent, 3, "and the second one pays nothing")
+
+        sets = len([c for c in self.calls if c[0] == "set_volume"])
+        owner = self.owner()
+        owner.post("/api/volume", json={"value": 40})
+        owner.post("/api/volume", json={"value": 41})
+        self.assertEqual(len([c for c in self.calls if c[0] == "set_volume"]) - sets, 2,
+                         "a different value is a different action")
+
+        ws._repeats.clear()
+        ws.ACTION_REPEAT_SEC = 0.05
+        owner.post("/api/action/toggle_pause")
+        time.sleep(0.1)
+        owner.post("/api/action/toggle_pause")
+        self.assertEqual(len([c for c in self.calls if c[0] == "toggle_pause"]) >= 2, True,
+                         "past the window, the same action runs again")
 
     def test_credits_and_free_devices(self):
         guest = ws.app.test_client()
@@ -819,6 +857,38 @@ class GuestLockTest(unittest.TestCase):
     def test_the_owner_is_never_locked(self):
         unittest.mock.patch.object(ws, "_is_authenticated", return_value=True).start()
         self.assertNotEqual(self.client.post("/api/action/next_track").status_code, 403)
+
+
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class RepeatedActionTest(unittest.TestCase):
+    def test_a_press_while_the_first_is_still_running_waits_for_its_answer(self):
+        ws._repeats.clear()
+        calls = []
+
+        def slow(cmd, **kw):
+            calls.append(cmd)
+            time.sleep(0.3)
+            return {"ok": True, "data": {"paused": True}}
+
+        with unittest.mock.patch.object(ws, "control", side_effect=slow),                 unittest.mock.patch.object(ws, "_quota_applies", return_value=False):
+            answers = []
+            threads = [threading.Thread(target=lambda: answers.append(
+                ws.app.test_client().post("/api/action/toggle_pause").get_json())) for _ in range(3)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+        self.assertEqual(calls, ["toggle_pause"], "three presses at once pause once, not pause-resume-pause")
+        self.assertEqual([a["data"]["paused"] for a in answers], [True] * 3, "and all three are told the same")
+
+    def test_a_failure_is_not_repeated(self):
+        ws._repeats.clear()
+        results = iter([{"ok": False, "error": "x"}, {"ok": True}])
+        with unittest.mock.patch.object(ws, "control", side_effect=lambda *a, **k: next(results)),                 unittest.mock.patch.object(ws, "_quota_applies", return_value=False):
+            client = ws.app.test_client()
+            self.assertEqual(client.post("/api/action/next_track").status_code, 400)
+            self.assertEqual(client.post("/api/action/next_track").status_code, 200)
 
 
 if __name__ == "__main__":
