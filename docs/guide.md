@@ -2447,6 +2447,13 @@ journalctl -u flic-bridge.service -f
 journalctl -u bt-connect.service -f
 ```
 
+The journal is kept on the card across restarts (Raspberry Pi OS keeps it in
+memory only; `/etc/systemd/journald.conf.d/50-rukebox.conf` changes that,
+capped at 48 MB), so what happened before the last power-off can still be
+read: `journalctl -b -1 -u rukebox-daemon.service`, and `journalctl
+--list-boots` for the earlier ones. To keep it small, rtkit's routine messages
+and the page's successful reads of the API are not written.
+
 > **If the Bluetooth search finds nothing** although devices are nearby: the
 > radio is probably soft-blocked at the kernel level, which BlueZ cannot undo
 > (`bluetoothctl power on` fails while the switch is blocked) — some images
