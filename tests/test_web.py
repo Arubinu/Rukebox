@@ -870,6 +870,38 @@ class QuietReadsTest(unittest.TestCase):
 
 
 @unittest.skipUnless(flask, "Flask is not installed")
+class SpeakerNudgeTest(unittest.TestCase):
+    """The page sees the speaker go: the daemon is told at once."""
+
+    def setUp(self):
+        ws._speaker_seen.clear()
+        self.sent = []
+        patcher = unittest.mock.patch.object(
+            ws.threading, "Thread",
+            side_effect=lambda target, args, daemon: types.SimpleNamespace(
+                start=lambda: self.sent.append(args[0])))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def link(self, connected, unknown=False):
+        return {"connected": connected, "unknown": unknown}
+
+    def test_only_a_change_is_sent(self):
+        ws._tell_daemon_if_speaker_changed("M", self.link(True))
+        ws._tell_daemon_if_speaker_changed("M", self.link(True))
+        self.assertEqual(self.sent, [])
+        ws._tell_daemon_if_speaker_changed("M", self.link(False))
+        self.assertEqual(self.sent, ["speaker_check"])
+        ws._tell_daemon_if_speaker_changed("M", self.link(True))
+        self.assertEqual(self.sent, ["speaker_check", "speaker_check"])
+
+    def test_no_answer_is_not_a_change(self):
+        ws._tell_daemon_if_speaker_changed("M", self.link(True))
+        ws._tell_daemon_if_speaker_changed("M", self.link(False, unknown=True))
+        self.assertEqual(self.sent, [])
+
+
+@unittest.skipUnless(flask, "Flask is not installed")
 class GuestLockTest(unittest.TestCase):
     def setUp(self):
         self.addCleanup(unittest.mock.patch.stopall)

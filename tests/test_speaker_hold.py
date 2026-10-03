@@ -6,7 +6,6 @@ import os
 import shutil
 import tempfile
 import threading
-import time
 import unittest
 from unittest import mock
 
@@ -100,23 +99,27 @@ class SpeakerHoldTest(unittest.TestCase):
     def speaker_goes_away(self):
         self.daemon._on_speaker_lost(MAC)
 
-    def test_what_played_unheard_is_played_again(self):
-        self.daemon._position = 100.0
-        self.daemon._speaker_seen_at = time.monotonic() - 8
-        self.speaker_goes_away()
-        self.assertTrue(self.daemon.mpv.paused)
-        self.assertAlmostEqual(self.daemon.mpv.seeked, 92.0, delta=0.5)
+    def test_a_nudge_from_the_web_server_checks_the_speaker_at_once(self):
+        turns = []
+        self.daemon._speaker_watch_turn = lambda: turns.append(1) or 10.0
+        self.assertEqual(self.daemon._speaker_watch_now(), 10.0)
+        self.assertEqual(turns, [1])
 
     def test_a_fallback_output_plays_on_instead_of_pausing(self):
         self.daemon.cfg["AUDIO_FALLBACK_OUTPUT"] = "usb"
-        with mock.patch.object(rukebox_daemon, "audio_env", return_value={}),                 mock.patch.object(audio_output, "list_sinks", return_value=[]),                 mock.patch.object(audio_output, "find", return_value={"name": "usb"}),                 mock.patch.object(audio_output, "mpv_device", return_value=("pipewire/usb", True)):
+        with mock.patch.object(rukebox_daemon, "audio_env", return_value={}), \
+                mock.patch.object(audio_output, "list_sinks", return_value=[]), \
+                mock.patch.object(audio_output, "find", return_value={"name": "usb"}), \
+                mock.patch.object(audio_output, "mpv_device", return_value=("pipewire/usb", True)):
             self.speaker_goes_away()
         self.assertNotEqual(self.daemon.mpv.paused, True)
         self.assertEqual(self.daemon._output_override, "usb")
 
     def test_a_fallback_output_that_is_not_there_pauses_as_before(self):
         self.daemon.cfg["AUDIO_FALLBACK_OUTPUT"] = "usb"
-        with mock.patch.object(rukebox_daemon, "audio_env", return_value={}),                 mock.patch.object(audio_output, "list_sinks", return_value=[]),                 mock.patch.object(audio_output, "find", return_value=None):
+        with mock.patch.object(rukebox_daemon, "audio_env", return_value={}), \
+                mock.patch.object(audio_output, "list_sinks", return_value=[]), \
+                mock.patch.object(audio_output, "find", return_value=None):
             self.speaker_goes_away()
         self.assertTrue(self.daemon.mpv.paused)
         self.assertIsNone(self.daemon._output_override)

@@ -68,7 +68,6 @@ class RadioDaemon:
     SINK_MISSING_CHECKS = 2
     # A press on the speaker is only visible as a new level; 2s makes it feel answered.
     SINK_POLL_SEC = 2.0
-    UNHEARD_MAX_SEC = 30
     SINK_RESYNC_TURNS = 2
     SINK_NAME_EVERY = 3
     CUTOFF_CATCH_UP_SEC = 300
@@ -78,6 +77,7 @@ class RadioDaemon:
         self._state_version = 0
         self._mode = "idle"
         self._command_lock = threading.Lock()
+        self._speaker_watch_lock = threading.Lock()
         self.cfg = cfg
         self.state = RadioState(os.path.join(cfg["STATE_DIR"], "state.json"))
         self.mpv = MPVController(cfg["MPV_SOCKET"])
@@ -122,7 +122,6 @@ class RadioDaemon:
         self._last_sound = None
         self._paused_for_speaker = False
         self._speaker_lost_at = None
-        self._speaker_seen_at = None
         self._speaker_ever_connected = False
         self._bt_start_done = False
         self._started_monotonic = time.monotonic()
@@ -2099,7 +2098,12 @@ class RadioDaemon:
         while not self._stop_event.wait(wait):
             if self.mode == "shutting_down":
                 return
-            wait = self._guarded("Speaker watch", self._speaker_watch_turn) or 10.0
+            wait = self._speaker_watch_now() or 10.0
+
+    def _speaker_watch_now(self):
+        """One watch turn, never two at once: the loop and a nudge from the web server."""
+        with self._speaker_watch_lock:
+            return self._guarded("Speaker watch", self._speaker_watch_turn)
 
     def _speaker_watch_turn(self):
         """One turn of the watch; the seconds to wait before the next."""
@@ -2141,8 +2145,6 @@ class RadioDaemon:
 
         if connected:
             self._speaker_ever_connected = True
-        if audible:
-            self._speaker_seen_at = time.monotonic()
 
         if self._speaker_was_connected is None:
             self._speaker_was_connected = audible
@@ -2186,20 +2188,10 @@ class RadioDaemon:
         if self.cfg.get("SPEAKER_LOSS_PAUSE") and not self._wired_output() \
                 and self.mode == "music" and not self._paused:
             log.info("Pausing the music until the speaker comes back")
-            self._rewind_unheard()
             self.mpv.set_pause(True)
             self._paused = True
             self._paused_for_speaker = True
             self.stats.record("playback_pause", label="paused", detail={"source": "speaker_lost"})
-
-    def _rewind_unheard(self):
-        """Goes back by what played since the speaker was last seen: nobody heard it."""
-        if self.mode != "music" or self._speaker_seen_at is None:
-            return
-        unheard = min(time.monotonic() - self._speaker_seen_at, self.UNHEARD_MAX_SEC)
-        if unheard > 1 and self._position > 0:
-            self._position = max(0.0, self._position - unheard)
-            self.mpv.seek(self._position)
 
     def _switch_to_fallback_output(self):
         """The speaker is gone: plays on, on the wired output chosen for that."""
@@ -2213,7 +2205,6 @@ class RadioDaemon:
         log.info("Speaker gone: the sound moves to the fallback output (%s)", kind)
         self._output_override = kind
         self._apply_audio_output(force=True)
-        self._rewind_unheard()
         self.stats.record("output_override", label=kind, detail={"source": "speaker_lost"})
         self._bump_state()
         return True
@@ -2864,6 +2855,10 @@ class RadioDaemon:
             if cmd == "reload_lists":
                 self._lists_stamp = None
                 return {"ok": True, "count": len(self._lists())}
+            if cmd == "speaker_check":
+                # The web server saw the speaker come or go before our own next turn.
+                self._speaker_watch_now()
+                return {"ok": True}
             if cmd == "reload_hidden":
                 tracks = self._rebuild_queue()
                 return {"ok": True, "tracks": len(tracks),

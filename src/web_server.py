@@ -2429,6 +2429,7 @@ def api_status():
     data["speaker_mac"] = cfg().get("SPEAKER_MAC", "")
     mac = data["speaker_mac"]
     link = _status_probe(("speaker", mac), lambda: _speaker_link(mac))
+    _tell_daemon_if_speaker_changed(mac, link)
     # A controller that does not answer is not a speaker that is off.
     data["speaker_connected"] = None if link["unknown"] else link["connected"]
     data["speaker_controller"] = link["controller"] if link["connected"] else None
@@ -3671,6 +3672,20 @@ def _bt_discover(mac, timeout=12):
 
 CONNECT_SETTLE_SECONDS = 2.5
 PAIR_SCAN_WAIT = 2.5
+
+
+_speaker_seen = {}
+
+
+def _tell_daemon_if_speaker_changed(mac, link):
+    """The page often learns first that the speaker came or went: the daemon
+    checks it at once rather than at its next turn."""
+    if link["unknown"]:
+        return
+    before = _speaker_seen.get(mac)
+    _speaker_seen[mac] = link["connected"]
+    if before is not None and before != link["connected"]:
+        threading.Thread(target=notify_daemon, args=("speaker_check",), daemon=True).start()
 
 
 def _speaker_link(mac):

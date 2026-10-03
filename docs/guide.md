@@ -875,9 +875,9 @@ disconnects"), all driven by that same check:
   heard if the speaker comes back mid-sound), the next song is loaded, and
   it stays paused until the speaker really is there. Before, a press undid
   that pause and the radio played on into nothing for as long as the speaker
-  was gone. The pause is immediate, and the song goes back by the seconds
-  that played between the speaker's last check and its loss (up to 30):
-  nobody heard them.
+  was gone. The radio checks the speaker every `SPEAKER_WATCH_INTERVAL_SEC`
+  (10 s), and at once whenever an open page sees it come or go - so with the
+  interface open, the pause follows the "not connected" banner.
 - `AUDIO_FALLBACK_OUTPUT` (Audio output card, "If the speaker is lost"):
   instead of pausing, keep playing on a wired output (`jack`, `usb`,
   `hdmi`) while the speaker is away; it takes the sound back when it
