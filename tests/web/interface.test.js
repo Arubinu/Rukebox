@@ -511,3 +511,19 @@ test("new suggestions show a badge to the owner until the page is opened", async
   await wait(80);
   assert.equal(guest.document.querySelector("[data-badge]"), null, "only the owner is told");
 });
+
+test("arriving on the player, its own answers come first and the rest after the loading screen", async (t) => {
+  const page = open(t);
+  await until(() => page.sent("GET", "/api/status").length);
+  await wait(50);
+  assert.equal(page.$("bootOverlay").hidden || page.$("bootOverlay").classList.contains("boot-gone"), false);
+  assert.equal(page.sent("GET", "/api/settings").length, 0, "nothing the player does not show yet");
+  assert.equal(page.sent("GET", "/api/system/info").length, 0);
+  await until(() => page.$("bootOverlay").classList.contains("boot-gone") || page.$("bootOverlay").hidden);
+  await until(() => page.sent("GET", "/api/settings").length);
+
+  const deep = open(t, { hash: "#system/health" });
+  await until(() => deep.sent("GET", "/api/status").length);
+  await until(() => deep.sent("GET", "/api/settings").length);
+  assert.equal(deep.$("bootOverlay").hidden, false, "another page asks for everything at once, as before");
+});

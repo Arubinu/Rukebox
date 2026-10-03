@@ -210,8 +210,28 @@ const BOOT_GIVE_UP_MS = 40000;
 
 let booting = false;
 
-const BOOT_QUIET_MS = 400;
+const BOOT_QUIET_MS = 250;
 const BOOT_POPULATE_TIMEOUT_MS = 6000;
+
+// Arriving on the player, what it shows is asked for alone; the rest waits for
+// the loading screen to go. A Pi Zero answers one request in 80 ms, the first
+// of forty in more than a second.
+const BOOT_FIRST_PATHS = ["/api/portal/status", "/api/device", "/api/status", "/api/likes",
+                          "/api/audio/fallback", "/api/queue", "/api/now/lyrics"];
+let bootHolding = false;
+let bootGateOpen = null;
+const bootGate = new Promise((resolve) => { bootGateOpen = resolve; });
+
+function bootWaits(path) {
+  if (!bootHolding) return false;
+  const clean = path.split("?")[0];
+  return !BOOT_FIRST_PATHS.includes(clean) && !clean.startsWith("/api/auth/");
+}
+
+function releaseBootGate() {
+  bootHolding = false;
+  bootGateOpen();
+}
 
 let requestsInFlight = 0;
 let quietTimer = null;
@@ -341,12 +361,16 @@ async function boot() {
         return;
       }
     }
+    const hash = window.location.hash.replace(/^#/, "");
+    bootHolding = !hash || hash === "home/player";
     try {
       await initApp();
-
+      // Not the player after all (a held portal opens the Home menu): every tile needs its data.
+      if (document.body.dataset.page !== "player") releaseBootGate();
       await waitForCards();
     } finally {
       hideBootOverlay();
+      releaseBootGate();
     }
   } finally {
     booting = false;
@@ -805,6 +829,7 @@ async function apiFetch(path, options) {
   if (guestMode && path.startsWith("/api/") && !guestMayCall(path)) {
     return { ok: false, error: "auth_required" };
   }
+  if (bootWaits(path)) await bootGate;
   noteRequestStarted();
   let res;
   try {
