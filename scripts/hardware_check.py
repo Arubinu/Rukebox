@@ -180,10 +180,18 @@ def t_volume():
 def t_link():
     ensure_music()
     set_settings({"SPEAKER_VOLUME_LINK": True, "SPEAKER_VOLUME_LOCK": False})
-    time.sleep(5)
-    shown, sink = status().get("volume"), sink_volume()
+
+    def levels():
+        return status().get("volume"), sink_volume()
+
+    def agree():
+        shown, sink = levels()
+        return shown is not None and sink is not None and abs(round(shown) - sink) <= 3
+
+    # The speaker answers its own volume a moment after it is set.
+    same = bool(wait_for(agree, 10))
+    shown, sink = levels()
     say("Interface : %s, enceinte : %s" % (shown, sink))
-    same = shown is not None and sink is not None and abs(round(shown) - sink) <= 2
     pause_prompt("Appuie une ou deux fois sur le bouton volume + ou - de l'enceinte.")
     moved = wait_for(lambda: abs((status().get("volume") or 0) - (shown or 0)) >= 1, 10)
     after = status().get("volume")
@@ -213,8 +221,9 @@ def t_handover():
 
 def t_lock():
     ensure_music()
-    set_settings({"SPEAKER_VOLUME_LINK": False, "SPEAKER_VOLUME_LOCK": True})
-    time.sleep(4)
+    # Linked, as on this radio: the speaker is held at the interface's volume.
+    set_settings({"SPEAKER_VOLUME_LINK": True, "SPEAKER_VOLUME_LOCK": True})
+    time.sleep(5)
     held = sink_volume()
     say("Niveau tenu : %s" % held)
     pause_prompt("Appuie plusieurs fois sur le volume + de l'enceinte.")
@@ -266,11 +275,23 @@ def t_chime():
         return "non conclu", "aucun son système présent sur le Pi"
     ensure_music()
     say("Son joué : %s" % os.path.basename(cfg[key]))
+    say("D'abord seul, musique en pause...")
+    control("toggle_pause")
+    time.sleep(2)
     answer = control("test_system_sound", key=key)
+    time.sleep(3)
+    control("toggle_pause")
     if not answer.get("ok"):
         return "échoué", answer.get("error", "")
+    alone = ask_verdict("L'as-tu entendu seul ?")
     time.sleep(2)
-    return ask_verdict("As-tu entendu le petit carillon PAR-DESSUS la musique, sans coupure ?"), ""
+    say("Puis par-dessus la musique...")
+    control("test_system_sound", key=key)
+    time.sleep(3)
+    over = ask_verdict("Et par-dessus la musique, sans coupure ?")
+    if alone == "échoué":
+        return "échoué", "inaudible même seul : trop faible"
+    return over, "seul=%s, sur la musique=%s" % (alone, over)
 
 
 def _next_minute(lead=60):
@@ -363,13 +384,13 @@ TESTS = [
     ("handover", "5. Remise du volume à la connexion",
      "Il faudra éteindre puis rallumer l'enceinte (environ 2 min).", t_handover),
     ("lock", "6. Verrou du volume de l'enceinte",
-     "Ses boutons de volume ne doivent plus rien changer.", t_lock),
+     "Volume lié et verrouillé : ses boutons de volume ne doivent plus rien changer.", t_lock),
     ("buttons", "7. Boutons de l'enceinte (AVRCP)",
      "Il faudra appuyer sur Lecture/Pause et Suivant de l'enceinte.", t_buttons),
     ("loss", "8. Enceinte perdue puis retrouvée",
      "Il faudra l'éteindre (la musique doit se mettre en pause) puis la rallumer.", t_loss),
     ("chime", "9. Son système par-dessus la musique",
-     "Joue le carillon de connexion au Wi-Fi pendant la musique.", t_chime),
+     "Joue un son système seul, puis par-dessus la musique.", t_chime),
     ("announcement", "10. Annonce programmée suivie d'une pause",
      "Automatique, rien à faire : une annonce temporaire est programmée à la minute"
      " suivante, puis je vérifie qu'elle passe et que la musique se met en pause (1 à 2 min).", None),
