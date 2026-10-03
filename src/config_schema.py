@@ -293,6 +293,15 @@ SETTINGS = [
         "The speaker's volume is the volume",
     ),
     Setting(
+        "SPEAKER_VOLUME_LOCK", "playback", "speaker_volume_lock", "bool", "false",
+        "The speaker's volume buttons cannot change the volume: whatever they\n"
+        "do is put back within two seconds. Linked (speaker_volume_link), the\n"
+        "interface's volume is the one kept; otherwise the level the speaker\n"
+        "had when it connected. A speaker that keeps its volume to itself\n"
+        "(no absolute volume over Bluetooth) cannot be held.",
+        "The speaker's volume buttons are locked",
+    ),
+    Setting(
         "PAUSE_DURATIONS", "playback", "pause_durations", "str", "5,15,30,60",
         "The durations (minutes, comma-separated) the web interface's\n"
         "\"Timer\" offers as a timed pause: the music pauses, then starts\n"
@@ -633,6 +642,13 @@ SETTINGS = [
             "", "Price: Play a song of Up next now"),
     Setting("GUEST_COST_OUTPUT", "security", "guest_cost_output", "int", "1",
             "", "Price: Another audio output (planned one missing)"),
+    Setting(
+        "GUEST_LOCKED", "security", "guest_locked", "str", "",
+        "Guest commands locked whatever the credits, comma-separated: next,\n"
+        "previous, start, pause, sound, announce, volume, queue, play_now,\n"
+        "output (the names of the prices above). Empty = none.",
+        "Locked for guests",
+    ),
     Setting(
         "GUEST_MODE_ENABLED", "security", "guest_mode", "bool", "false",
         "Lets anyone on the access point use the BUTTON actions - sound,\n"

@@ -527,3 +527,32 @@ test("arriving on the player, its own answers come first and the rest after the 
   await until(() => deep.sent("GET", "/api/settings").length);
   assert.equal(deep.$("bootOverlay").hidden, false, "another page asks for everything at once, as before");
 });
+
+test("a command locked for guests shows a padlock and cannot be pressed", async (t) => {
+  const { STATUS } = require("./harness");
+  const page = open(t, { routes: {
+    "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
+                                guest_mode: true, auth_required: true, authenticated: false },
+    "GET /api/status": Object.assign({}, STATUS, { guest_locked: ["next", "volume"] }),
+  } });
+  await until(() => page.$("btnNext").hasAttribute("data-locked"));
+  assert.equal(page.$("btnNext").getAttribute("aria-disabled"), "true");
+  assert.equal(page.document.querySelector(".volume-row").hasAttribute("data-locked"), true);
+  assert.equal(page.$("btnPrev").hasAttribute("data-locked"), false);
+});
+
+test("the owner picks the locked commands in a list, and may lock none", async (t) => {
+  const page = open(t, { hash: "#network/guest", routes: {
+    "GET /api/settings": { GUEST_LOCKED: "volume" },
+  } });
+  const field = await until(() => page.$("guestLocked").querySelector(".codec-open"));
+  await until(() => page.$("guestLocked").value === "volume");
+  field.click();
+  const boxes = await until(() => page.document.querySelectorAll("#modalBody .codec-list input"));
+  assert.equal(boxes.length, 10);
+  const volume = [...boxes].find((box) => box.value === "volume");
+  assert.equal(volume.disabled, false, "the last one can be unticked: nothing locked is allowed");
+  volume.checked = false;
+  volume.dispatchEvent(new page.window.Event("change", { bubbles: true }));
+  assert.equal(page.$("guestLocked").value, "");
+});

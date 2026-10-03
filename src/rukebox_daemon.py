@@ -1243,8 +1243,10 @@ class RadioDaemon:
             return None
 
     def _follow_sink_volume(self):
-        """One watch turn: the speaker's own volume, when the link is on."""
-        if not self._speaker_volume_linked():
+        """One watch turn: the speaker's own volume, when it is linked or locked."""
+        linked = self._speaker_volume_linked()
+        locked = bool(self.cfg.get("SPEAKER_VOLUME_LOCK"))
+        if not linked and not locked:
             self._sink_level = None
             self._sink_name = None
             self._sink_resync = 0
@@ -1262,11 +1264,21 @@ class RadioDaemon:
             self._sink_resync = self.SINK_RESYNC_TURNS
         if self._sink_level is None or self._sink_resync:
             self._sink_resync = max(0, self._sink_resync - 1)
-            self._assert_sink_volume(self._target_volume())
+            if linked:
+                self._assert_sink_volume(self._target_volume())
+            else:
+                # Locked without the link: the level the speaker came with is the one held.
+                found = percent if percent is not None else self._read_sink_percent()
+                if found is not None:
+                    self._sink_level = found
             return
         if percent is None:
             percent = self._read_sink_percent()
         if percent is None or abs(percent - self._sink_level) <= 1.0:
+            return
+        if locked:
+            log.info("Speaker volume buttons are locked: back to %.0f%%", self._sink_level)
+            self._assert_sink_volume(self._sink_level)
             return
         self._sink_level = percent
         self._adopt_volume(percent)

@@ -792,5 +792,34 @@ class QuietReadsTest(unittest.TestCase):
 
 
 
+@unittest.skipUnless(flask, "Flask is not installed")
+class GuestLockTest(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(unittest.mock.patch.stopall)
+        self.values = {"WEB_PASSWORD_HASH": "x", "GUEST_MODE_ENABLED": True, "GUEST_QUOTA_ENABLED": False,
+                       "GUEST_LOCKED": "next, volume, nonsense"}
+        real = ws.cfg
+
+        def fake_cfg():
+            values = dict(real())
+            values.update(self.values)
+            return values
+
+        unittest.mock.patch.object(ws, "cfg", side_effect=fake_cfg).start()
+        unittest.mock.patch.object(ws, "control", return_value={"ok": True, "data": {}}).start()
+        self.client = ws.app.test_client()
+
+    def test_a_locked_command_is_refused_to_a_guest(self):
+        self.assertEqual(ws._guest_locked(), ["next", "volume"], "unknown names are ignored")
+        r = self.client.post("/api/action/next_track")
+        self.assertEqual((r.status_code, r.get_json()["error"]), (403, "guest_locked"))
+        self.assertEqual(self.client.post("/api/volume", json={"volume": 50}).status_code, 403)
+        self.assertNotEqual(self.client.post("/api/action/previous_track").status_code, 403)
+
+    def test_the_owner_is_never_locked(self):
+        unittest.mock.patch.object(ws, "_is_authenticated", return_value=True).start()
+        self.assertNotEqual(self.client.post("/api/action/next_track").status_code, 403)
+
+
 if __name__ == "__main__":
     unittest.main()

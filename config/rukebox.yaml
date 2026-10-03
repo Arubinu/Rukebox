@@ -225,6 +225,13 @@ playback:
   # what you want when the radio feeds something without volume keys.
   speaker_volume_link: false
 
+  # The speaker's volume buttons cannot change the volume: whatever they
+  # do is put back within two seconds. Linked (speaker_volume_link), the
+  # interface's volume is the one kept; otherwise the level the speaker
+  # had when it connected. A speaker that keeps its volume to itself
+  # (no absolute volume over Bluetooth) cannot be held.
+  speaker_volume_lock: false
+
   # The durations (minutes, comma-separated) the web interface's
   # "Timer" offers as a timed pause: the music pauses, then starts
   # again by itself.
@@ -560,6 +567,11 @@ security:
   guest_cost_play_now: 1
 
   guest_cost_output: 1
+
+  # Guest commands locked whatever the credits, comma-separated: next,
+  # previous, start, pause, sound, announce, volume, queue, play_now,
+  # output (the names of the prices above). Empty = none.
+  guest_locked: ""
 
   # Lets anyone on the access point use the BUTTON actions - sound,
   # announcement, start the music, volume - without knowing the web

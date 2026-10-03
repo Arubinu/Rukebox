@@ -1677,6 +1677,19 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
 }
 .btn-small[data-cost]::after { top: -7px; right: -7px; background: var(--surface); border: 1px solid var(--border); }
 [data-cost][data-cost-short]::after { background: var(--danger); border-color: var(--danger); color: var(--danger-contrast); }
+/* Locked for guests: still there, so the page keeps its shape, but out of reach. */
+[data-locked] { position: relative; opacity: 0.45; pointer-events: none; }
+[data-locked]::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 15px;
+  height: 15px;
+  background-color: currentColor;
+  -webkit-mask: var(--i-lock) center / contain no-repeat;
+  mask: var(--i-lock) center / contain no-repeat;
+}
 .client-list li { flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .client-options { flex: 1 1 100%; min-width: 0; }
 .client-options > summary {

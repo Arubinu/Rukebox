@@ -225,5 +225,63 @@ class SinkCommandTest(unittest.TestCase):
             self.assertIsNone(audio_diag.default_sink_volume())
 
 
+class SpeakerVolumeLockTest(VolumeLinkTest):
+    """speaker_volume_lock: the speaker's own volume buttons cannot change anything."""
+
+    def speaker(self, start):
+        level = [start]
+
+        def write(percent, env=None):
+            level[0] = percent / 100.0
+            return True
+
+        mock.patch.object(audio_diag, "default_sink", return_value=("bluez_output.x", "Speaker")).start()
+        mock.patch.object(audio_diag, "default_sink_volume", side_effect=lambda env=None: level[0]).start()
+        mock.patch.object(audio_diag, "set_default_sink_volume", side_effect=write).start()
+        return level
+
+    def test_linked_the_interface_keeps_the_volume(self):
+        daemon = self.build(linked=True)
+        daemon.cfg["SPEAKER_VOLUME_LOCK"] = True
+        level = self.speaker(0.30)
+        for _ in range(4):
+            daemon._follow_sink_volume()
+        level[0] = 0.90                              # a press on the speaker's volume +
+        for _ in range(2):
+            daemon._follow_sink_volume()
+        self.assertEqual(level[0], 0.30, "put back")
+        self.assertIsNone(daemon._user_volume, "and the slider never followed it")
+
+    def test_not_linked_the_level_it_connected_with_is_held(self):
+        daemon = self.build(linked=False)
+        daemon.cfg["SPEAKER_VOLUME_LOCK"] = True
+        level = self.speaker(0.70)
+        for _ in range(4):
+            daemon._follow_sink_volume()
+        level[0] = 0.20
+        for _ in range(2):
+            daemon._follow_sink_volume()
+        self.assertEqual(level[0], 0.70)
+
+    def test_unlocked_the_speakers_buttons_still_count(self):
+        daemon = self.build(linked=True)
+        level = self.speaker(0.30)
+        for _ in range(4):
+            daemon._follow_sink_volume()
+        level[0] = 0.55
+        for _ in range(2):
+            daemon._follow_sink_volume()
+        self.assertEqual(daemon._user_volume, 55.0)
+
+    def test_neither_linked_nor_locked_nothing_is_watched(self):
+        daemon = self.build(linked=False)
+        level = self.speaker(0.70)
+        daemon._follow_sink_volume()
+        level[0] = 0.20
+        daemon._follow_sink_volume()
+        self.assertEqual(level[0], 0.20)
+        self.assertIsNone(daemon._sink_level)
+
+
 if __name__ == "__main__":
     unittest.main()

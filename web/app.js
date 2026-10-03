@@ -1490,6 +1490,7 @@ function applyGuestCredits(d) {
   const line = document.getElementById("guestCredits");
   const q = d.quota;
   guestQuota = q || null;
+  guestLocked = Array.isArray(d.guest_locked) ? d.guest_locked : [];
   line.hidden = !q;
   paintCosts();
   if (!q) return;
@@ -1497,7 +1498,19 @@ function applyGuestCredits(d) {
   line.toggleAttribute("data-low", q.tokens < 2);
 }
 
+let guestLocked = [];
+
 function paintCost(el) {
+  const locked = guestLocked.includes(el.dataset.costAction);
+  el.toggleAttribute("data-locked", locked);
+  if (locked) {
+    el.setAttribute("aria-disabled", "true");
+    el.setAttribute("aria-description", t("guestlock.badge"));
+    el.removeAttribute("data-cost");
+    el.removeAttribute("data-cost-short");
+    return;
+  }
+  el.removeAttribute("aria-disabled");
   const q = guestQuota;
   const cost = q && q.costs ? Number(q.costs[el.dataset.costAction]) || 0 : 0;
   if (!cost) {
@@ -2389,6 +2402,21 @@ const BT_CODEC_LABELS = {
   sbc_xq: "SBC-XQ", sbc: "SBC", faststream: "FastStream", opus: "Opus",
 };
 
+// The guest commands that can be locked, named after their prices.
+const GUEST_LOCK_LABELS = {
+  next: "quota.cost_next", previous: "quota.cost_previous", start: "quota.cost_start",
+  pause: "quota.cost_pause", sound: "quota.cost_sound", announce: "quota.cost_announce",
+  volume: "guestlock.volume", queue: "quota.cost_queue", play_now: "quota.cost_play_now",
+  output: "quota.cost_output",
+};
+
+function choiceLabels(el) {
+  if (el.dataset.key === "GUEST_LOCKED") {
+    return Object.fromEntries(Object.entries(GUEST_LOCK_LABELS).map(([k, key]) => [k, t(key)]));
+  }
+  return BT_CODEC_LABELS;
+}
+
 function codecValues(el) {
   return String(el.value || "").split(/[,;]/)
     .map((part) => part.trim().toLowerCase())
@@ -2397,9 +2425,10 @@ function codecValues(el) {
 
 function codecSummary(el) {
   const chosen = codecValues(el);
+  const labels = choiceLabels(el);
   return chosen.length
-    ? chosen.map((codec) => BT_CODEC_LABELS[codec] || codec).join(", ")
-    : t("audioout.codecs_none");
+    ? chosen.map((codec) => labels[codec] || codec).join(", ")
+    : t(el.dataset.empty || "audioout.codecs_none");
 }
 
 function paintCodecField(el) {
@@ -2409,19 +2438,22 @@ function paintCodecField(el) {
 
 function codecList(el) {
   const chosen = codecValues(el);
+  const labels = choiceLabels(el);
+  // Offering no codec leaves the speaker nothing to agree on; a lock list may be empty.
+  const least = el.dataset.min === undefined ? 1 : Number(el.dataset.min);
   const list = document.createElement("div");
   list.className = "codec-list";
-  Object.keys(BT_CODEC_LABELS).forEach((codec) => {
+  Object.keys(labels).forEach((codec) => {
     const label = document.createElement("label");
     label.className = "codec-box";
     const box = document.createElement("input");
     box.type = "checkbox";
     box.value = codec;
     box.checked = chosen.includes(codec);
-    box.disabled = chosen.length < 2 && box.checked;
+    box.disabled = box.checked && chosen.length <= least;
     if (box.disabled) label.classList.add("is-disabled");
     const text = document.createElement("span");
-    text.textContent = BT_CODEC_LABELS[codec];
+    text.textContent = labels[codec];
     box.addEventListener("change", () => {
       const kept = codecValues(el).filter((one) => one !== codec);
       if (box.checked) kept.push(codec);

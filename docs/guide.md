@@ -548,7 +548,12 @@ repeats it within a few minutes, and credits come back over time. Anyone
 can put a song of **Recently played** or the **Library** up next, then
 start one of **Up next** at once (two prices, which add up), and when the planned audio
 output is gone (speaker off, card unplugged) anyone may send the sound to
-another one until it comes back. **Connected devices** (System) lists who
+another one until it comes back. **Locked for guests** (Network > Guest
+access) takes commands away from guests altogether, whatever their credits
+and even for a device spared them: next, previous, start, pause, sound,
+announcement, volume, up next, play now, another output. Their buttons stay
+on the guests' page, greyed with a padlock, and the Pi refuses them anyway
+(`guest_locked`). **Connected devices** (System) lists who
 is on the Rukebox now, with their nickname (a generated one until they
 choose). It is not only the access point's own clients: a device that
 reaches the interface over the owner's home network never joins the
@@ -2252,6 +2257,17 @@ hand:
 sudo python3 src/config_file.py set SPEAKER_VOLUME_LINK=true
 echo '{"cmd":"reload_config"}' | nc -U /tmp/rukebox_control.sock
 ```
+
+**The speaker's volume buttons are locked** (Playback > Volume,
+`speaker_volume_lock`) takes them away from whoever stands next to the
+speaker. The Pi cannot stop a speaker from changing its own volume, but it
+reads it every two seconds and puts it back: linked, to the interface's volume
+(the slider keeps the say); not linked, to the level the speaker had when it
+connected. A press is therefore heard for a moment before it is undone. It
+needs a speaker that shares its volume over Bluetooth (AVRCP absolute volume):
+one that keeps it to itself cannot be held. The speaker's other buttons
+(play/pause, next, previous) are locked by setting their action to
+**Nothing** under Buttons.
 
 ### An announcement that plays only some of the time
 

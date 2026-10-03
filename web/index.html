@@ -728,6 +728,14 @@
             </div>
             <div data-level="detail" class="field-row">
               <div class="field-text">
+                <label for="speakerVolumeLock" data-i18n="settings.speaker_volume_lock">The speaker's volume buttons are locked</label>
+                <p class="field-desc" id="speakerVolumeLockDesc" data-i18n="settings.speaker_volume_lock_desc">What they change is put back within two seconds.</p>
+              </div>
+              <input type="checkbox" id="speakerVolumeLock" data-key="SPEAKER_VOLUME_LOCK" class="switch-input" role="switch"
+                     aria-describedby="speakerVolumeLockDesc">
+            </div>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
                 <label for="audioCompression" data-i18n="settings.audio_compression">Volume boost</label>
                 <p class="field-desc" id="audioCompressionDesc" data-i18n="settings.audio_compression_desc">Evens the loudness out when the recordings are quiet, without touching the slider.</p>
               </div>
@@ -1619,6 +1627,14 @@
                 <option value="new_only" data-i18n="portal.new_only">New devices only: never again for a known one</option>
                 <option value="hold" data-i18n="portal.hold">Every time: the page comes back at each check</option>
               </select>
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label data-i18n="guestlock.label">Locked for guests</label>
+                <p class="field-desc" id="guestLockedDesc" data-i18n="guestlock.desc">Commands a guest cannot use at all, whatever their credits.</p>
+              </div>
+              <div class="codec-field" id="guestLocked" data-key="GUEST_LOCKED" data-min="0"
+                   data-empty="guestlock.none" aria-describedby="guestLockedDesc"></div>
             </div>
             <div class="field-row">
               <div class="field-text">

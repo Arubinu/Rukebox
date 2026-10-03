@@ -650,11 +650,19 @@ def _quota_applies():
     return bool(cfg().get("WEB_PASSWORD_HASH")) and not _is_authenticated()
 
 
+def _guest_locked():
+    known = set(GUEST_QUOTA_ACTIONS.values())
+    return sorted({part.strip().lower() for part in str(cfg().get("GUEST_LOCKED") or "").split(",")} & known)
+
+
 @app.before_request
 def _check_quota():
     action = GUEST_QUOTA_ACTIONS.get(request.path)
     if request.method != "POST" or not action or not _quota_applies():
         return None
+    # A lock is not a price: it holds with the credits off, and for a device spared them.
+    if action in _guest_locked():
+        return jsonify({"ok": False, "error": "guest_locked"}), 403
     s = _quota_settings()
     if not s["enabled"]:
         return None
@@ -2236,6 +2244,7 @@ def api_status():
     data["ssh_enabled"] = _status_probe("ssh_enabled", lambda: _service_is_enabled("ssh"))
     data["flic_active"] = _status_probe("flic_active", lambda: _service_is_active("flic-bridge"))
     data["quota"] = _quota_status()
+    data["guest_locked"] = _guest_locked() if _quota_applies() else []
     return jsonify({"ok": True, "data": data})
 
 
