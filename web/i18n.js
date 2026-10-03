@@ -6,6 +6,7 @@ const LANG_KEY = "rukebox_lang";
 const I18N = {
   en: {
     "theme.toggle": "Toggle light/dark theme",
+    "menu.more": "More options",
     "lang.toggle": "Change language",
     "setup.subtitle": "Card setup",
     "setup.welcome_title": "Set up your Rukebox",
@@ -1727,6 +1728,7 @@ const I18N = {
 
   fr: {
     "theme.toggle": "Basculer thème clair/sombre",
+    "menu.more": "Plus d'options",
     "lang.toggle": "Changer de langue",
     "setup.subtitle": "Préparation de la carte",
     "setup.welcome_title": "Prépare ta Rukebox",
@@ -3448,6 +3450,7 @@ const I18N = {
 
   de: {
     "theme.toggle": "Hell-/Dunkelmodus umschalten",
+    "menu.more": "Weitere Optionen",
     "lang.toggle": "Sprache ändern",
     "setup.subtitle": "Karte vorbereiten",
     "setup.welcome_title": "Richte deine Rukebox ein",
@@ -5169,6 +5172,7 @@ const I18N = {
 
   es: {
     "theme.toggle": "Cambiar tema claro/oscuro",
+    "menu.more": "Más opciones",
     "lang.toggle": "Cambiar idioma",
     "setup.subtitle": "Preparación de la tarjeta",
     "setup.welcome_title": "Prepara tu Rukebox",
@@ -6890,6 +6894,7 @@ const I18N = {
 
   it: {
     "theme.toggle": "Alterna tema chiaro/scuro",
+    "menu.more": "Altre opzioni",
     "lang.toggle": "Cambia lingua",
     "setup.subtitle": "Preparazione della scheda",
     "setup.welcome_title": "Prepara la tua Rukebox",
@@ -8611,6 +8616,7 @@ const I18N = {
 
   nl: {
     "theme.toggle": "Licht/donker thema wisselen",
+    "menu.more": "Meer opties",
     "lang.toggle": "Taal wijzigen",
     "setup.subtitle": "Kaart voorbereiden",
     "setup.welcome_title": "Richt je Rukebox in",

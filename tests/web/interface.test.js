@@ -568,3 +568,18 @@ test("beside the menu, the portal button sits in the menu's foot, not over its p
   await until(() => !phone.$("portalReleaseBtn").hidden);
   assert.equal(phone.$("guestRelease").parentElement, phone.$("main"), "a phone keeps it at the top of the grid");
 });
+
+test("the header's menu opens on its button and closes on any other tap", async (t) => {
+  const page = open(t);
+  await until(() => page.sent("GET", "/api/status").length);
+  const bar = page.document.querySelector(".topbar");
+  page.$("topbarMoreBtn").click();
+  assert.equal(bar.classList.contains("menu-open"), true);
+  assert.equal(page.$("topbarMoreBtn").getAttribute("aria-expanded"), "true");
+  page.$("main").click();
+  assert.equal(bar.classList.contains("menu-open"), false, "a tap elsewhere closes it");
+  page.$("topbarMoreBtn").click();
+  page.$("themeToggleBtn").click();
+  await wait(20);
+  assert.equal(bar.classList.contains("menu-open"), false, "choosing an entry closes it too");
+});

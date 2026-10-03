@@ -91,7 +91,11 @@
           <span class="dot" id="connDot" aria-hidden="true"></span>
           <span id="connLabel" data-i18n="conn.connecting">Connecting…</span>
         </div>
-        <div class="topbar-controls">
+        <button type="button" id="topbarMoreBtn" class="icon-toggle-btn topbar-more" data-icon="more"
+                aria-expanded="false" aria-controls="topbarControls"
+                data-i18n-title="menu.more" data-i18n-aria-label="menu.more"
+                title="More options" aria-label="More options"></button>
+        <div class="topbar-controls" id="topbarControls">
           <button type="button" id="themeToggleBtn" class="icon-toggle-btn" data-icon="sun"
                   data-i18n-title="theme.toggle" data-i18n-aria-label="theme.toggle"
                   title="Toggle light/dark theme" aria-label="Toggle light/dark theme"></button>

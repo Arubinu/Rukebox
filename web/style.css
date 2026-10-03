@@ -116,6 +116,7 @@
   --i-volume-x: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11 5 6 9H2v6h4l5 4z%22/%3E%3Cpath d=%22m22 9-6 6%22/%3E%3Cpath d=%22m16 9 6 6%22/%3E%3C/svg%3E");
   --i-server: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%222%22 y=%223%22 width=%2220%22 height=%228%22 rx=%222%22/%3E%3Crect x=%222%22 y=%2213%22 width=%2220%22 height=%228%22 rx=%222%22/%3E%3Cpath d=%22M6 7h.01M6 17h.01%22/%3E%3C/svg%3E");
   --i-chart: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 3v18h18%22/%3E%3Cpath d=%22M8 17v-5M13 17V8M18 17v-9%22/%3E%3C/svg%3E");
+  --i-more: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%225%22 r=%221%22/%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%221%22/%3E%3Ccircle cx=%2212%22 cy=%2219%22 r=%221%22/%3E%3C/svg%3E");
   --i-sun: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%224%22/%3E%3Cpath d=%22M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4%22/%3E%3C/svg%3E");
   --i-moon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z%22/%3E%3C/svg%3E");
   --i-globe: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22M2 12h20%22/%3E%3Cpath d=%22M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z%22/%3E%3C/svg%3E");
@@ -198,6 +199,7 @@
 [data-icon="volume-x"] { --icon: var(--i-volume-x); }
 [data-icon="server"] { --icon: var(--i-server); }
 [data-icon="chart"] { --icon: var(--i-chart); }
+[data-icon="more"] { --icon: var(--i-more); }
 [data-icon="sun"] { --icon: var(--i-sun); }
 [data-icon="moon"] { --icon: var(--i-moon); }
 [data-icon="globe"] { --icon: var(--i-globe); }
@@ -542,6 +544,7 @@ code {
   display: flex;
   gap: 6px;
 }
+.topbar .topbar-more { display: none; }
 .icon-toggle-btn {
   display: inline-flex;
   align-items: center;
@@ -3942,6 +3945,52 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
 
 @media (min-width: 1400px) {
   :root { --content-w: 960px; }
+}
+
+/* Under 390px six named tabs do not fit: icons, and the name of the one in use. */
+@media (max-width: 389.98px) {
+  .tab-btn:not(.active) > span[data-i18n] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .tab-btn.active { flex-grow: 1.9; }
+
+  .topbar .topbar-more { display: inline-flex; grid-area: controls; }
+  .topbar-controls {
+    display: none;
+    position: absolute;
+    top: calc(100% - 2px);
+    right: 12px;
+    z-index: 50;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    width: max-content;
+    max-width: calc(100vw - 24px);
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+  }
+  .topbar.menu-open .topbar-controls { display: flex; }
+  .topbar-controls .icon-toggle-btn,
+  .topbar-controls #themeToggleBtn,
+  .topbar-controls #logoutBtn {
+    width: auto;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 12px;
+    border-color: transparent;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .topbar-controls .icon-toggle-btn::after { content: attr(aria-label); font-weight: 500; }
+  .topbar-controls .lang-btn::after { color: var(--text-muted); }
 }
 
 @media (max-width: 380px) {

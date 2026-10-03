@@ -459,6 +459,26 @@ function switchThemeFrom(btn, next) {
   });
 }
 
+/* Under 390px the header's three buttons live in a menu (style.css); outside it is always closed. */
+function setTopbarMenu(open) {
+  const bar = document.querySelector(".topbar");
+  const more = document.getElementById("topbarMoreBtn");
+  if (!bar || !more) return;
+  bar.classList.toggle("menu-open", open);
+  more.setAttribute("aria-expanded", String(open));
+}
+document.getElementById("topbarMoreBtn").addEventListener("click", (event) => {
+  event.stopPropagation();
+  setTopbarMenu(!document.querySelector(".topbar").classList.contains("menu-open"));
+});
+document.getElementById("topbarControls").addEventListener("click", () => setTimeout(() => setTopbarMenu(false), 0));
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#topbarControls, #topbarMoreBtn")) setTopbarMenu(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setTopbarMenu(false);
+});
+
 document.getElementById("themeToggleBtn").addEventListener("click", (event) => {
   const current = localStorage.getItem(THEME_KEY) || "system";
   const next = effectiveTheme(current) === "dark" ? "light" : "dark";
