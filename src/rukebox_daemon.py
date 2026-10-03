@@ -457,6 +457,8 @@ class RadioDaemon:
                 log.exception("Could not apply the ReplayGain mode")
         if "AUDIO_COMPRESSION" in applied:
             self._apply_compression()
+        if "SPEAKER_VOLUME_LINK" in applied:
+            self._apply_volume_link()
         if "MUSIC_ORDER_MODE" in applied or "MUSIC_DIR" in applied:
             tracks = self._playable_tracks()
             if tracks:
@@ -1199,6 +1201,16 @@ class RadioDaemon:
         """Whether the speaker's own volume IS the radio's volume."""
         return bool(self.cfg.get("SPEAKER_VOLUME_LINK"))
 
+    def _apply_volume_link(self):
+        """The link just turned on or off: one volume must stay in charge."""
+        if self._speaker_volume_linked():
+            self._sink_level = None
+            self._write_level(self._current_volume)
+            return
+        # Left at its last level, the speaker would multiply the software volume.
+        self._set_sink_volume(100)
+        self.mpv.set_volume(self._current_volume)
+
     def _music_gain(self):
         """What mpv is set to when the speaker carries the volume: what an
         announcement or a System sound asks for, or everything."""
@@ -1275,6 +1287,11 @@ class RadioDaemon:
         if percent is None:
             percent = self._read_sink_percent()
         if percent is None or abs(percent - self._sink_level) <= 1.0:
+            return
+        name = audio_diag.default_sink(env=audio_env())[0]
+        if name and not name.startswith("bluez_") and not self._wired_output():
+            # The speaker is gone and PipeWire fell back to another output: not its volume.
+            self._sink_name = name
             return
         if locked:
             log.info("Speaker volume buttons are locked: back to %.0f%%", self._sink_level)

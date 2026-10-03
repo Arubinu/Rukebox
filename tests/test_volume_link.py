@@ -196,6 +196,27 @@ class VolumeLinkTest(unittest.TestCase):
         self.assertIsNone(daemon._sink_level)
 
 
+    def test_unlinking_gives_the_speaker_its_full_volume_back(self):
+        daemon = self.build(linked=True)
+        with mock.patch.object(audio_diag, "set_default_sink_volume", return_value=True):
+            daemon._set_user_volume(28, "web")
+        fresh = dict(daemon.cfg, SPEAKER_VOLUME_LINK=False)
+        with mock.patch.object(audio_diag, "set_default_sink_volume",
+                               return_value=True) as sink:
+            daemon._apply_config(fresh)
+        self.assertEqual(sink.call_args[0][0], 100)
+        self.assertEqual(daemon.mpv.volume, 28)
+
+    def test_the_fallback_output_is_not_followed_while_the_speaker_is_gone(self):
+        daemon = self.build(linked=True)
+        with mock.patch.object(audio_diag, "set_default_sink_volume", return_value=True):
+            daemon._follow_sink_volume()
+        with mock.patch.object(audio_diag, "default_sink", return_value=("auto_null", "Dummy")),                 mock.patch.object(audio_diag, "default_sink_volume", return_value=1.0),                 mock.patch.object(audio_diag, "set_default_sink_volume", return_value=True):
+            for _ in range(12):
+                daemon._follow_sink_volume()
+        self.assertEqual(daemon._shown_volume, 30)
+
+
 class SinkCommandTest(unittest.TestCase):
     def test_the_arg_is_a_fraction_and_never_above_full_scale(self):
         with mock.patch.object(audio_diag, "_run") as run:
