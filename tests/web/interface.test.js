@@ -482,3 +482,32 @@ test("the network diagnostic is asked for and shown as it came", async (t) => {
   assert.equal(page.sent("POST", "/api/diag/network").length, 1);
   assert.equal(page.sent("POST", "/api/diag/audio").length, 0);
 });
+
+test("new suggestions show a badge to the owner until the page is opened", async (t) => {
+  const item = (id, extra) => Object.assign({ id, kind: "music", text: "Song " + id, author: "Renard bleu",
+                                               created_at: id, status: "open", up: 0, down: 0, my_vote: 0,
+                                               mine: false }, extra);
+  const list = { me: { name: "Moi", rename_wait: 0, locked: false, linked: 0 }, owner: true,
+                 text_max: { music: 200, announcement: 500 },
+                 items: [item(4), item(6), item(7, { mine: true }), item(8, { status: "declined" })] };
+  const page = open(t, { hash: "#home", storage: { rukebox_suggest_seen: "5" },
+                         routes: { "GET /api/suggestions": list } });
+  const tile = await until(() => page.document.querySelector('.page-tile[data-page="suggest"] .page-tile-icon[data-badge]'));
+  assert.equal(tile.dataset.badge, "1", "only the open one, newer than the last seen, not the owner's own");
+  assert.equal(page.document.querySelector('.tab-btn[data-tab="home"] .tab-icon').dataset.badge, "1");
+  assert.equal(page.document.querySelector('.rail-page[data-page="suggest"]').dataset.badge, "1");
+
+  page.document.querySelector('.page-tile[data-page="suggest"]').click();
+  await until(() => !page.document.querySelector('.tab-btn[data-tab="home"] .tab-icon').dataset.badge);
+  assert.equal(page.window.localStorage.getItem("rukebox_suggest_seen"), "8");
+
+  const first = open(t, { hash: "#home", routes: { "GET /api/suggestions": list } });
+  await until(() => first.window.localStorage.getItem("rukebox_suggest_seen") === "8");
+  assert.equal(first.document.querySelector("[data-badge]"), null, "a first visit counts from now");
+
+  const guest = open(t, { hash: "#home", storage: { rukebox_suggest_seen: "0" },
+                          routes: { "GET /api/suggestions": Object.assign({}, list, { owner: false }) } });
+  await until(() => guest.$("bootOverlay").hidden);
+  await wait(80);
+  assert.equal(guest.document.querySelector("[data-badge]"), null, "only the owner is told");
+});

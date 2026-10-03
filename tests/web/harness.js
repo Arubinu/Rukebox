@@ -81,6 +81,7 @@ function load(options = {}) {
 
   // One evaluation: separate ones would not share their top-level const/let.
   // `expose` names top-level functions of the page to hand to a test: the evaluation keeps them to itself.
+  Object.entries(options.storage || {}).forEach(([key, value]) => window.localStorage.setItem(key, value));
   const exposed = options.expose ? "\n;window.__exposed = { " + options.expose.join(", ") + " };" : "";
   window.eval(["i18n.js", "qr.js", "app.js"].map(read).join("\n;\n") + exposed);
 

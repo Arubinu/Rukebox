@@ -1315,8 +1315,13 @@ update make it for you.
   is one line (200 characters), an announcement idea a few lines (500).
   A device may change its name once an hour (`rename_interval_min`). The
   owner marks suggestions added or declined, deletes them, and sees
-  everyone who took a name with all the names they went by. Can be turned
-  off (Network > Guest access, with the delay).
+  everyone who took a name with all the names they went by. New ones are
+  announced to the owner only: a red count on the Suggestions tile, on the
+  Home tab and in the side menu until the page is opened, and a bubble
+  with a **See** button when one arrives while the interface is open.
+  What was already seen is remembered per browser; the first visit of a
+  browser counts from that moment. Can be turned off (Network > Guest
+  access, with the delay).
 - **Simple or detailed view**: the interface opens in a simple view with
   only the essential options. The box at the bottom of each section
   ("Show all options") switches to the detailed view, with everything;

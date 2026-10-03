@@ -5146,9 +5146,84 @@ async function refreshSuggestions() {
   }
   renderSuggestMe();
   renderSuggestions();
+  noteNewSuggestions();
   const names = document.getElementById("suggestNamesSection");
   names.hidden = !suggestState.owner;
   if (suggestState.owner && names.open) refreshSuggestNames();
+}
+
+// Per browser: the owner's phone and computer each keep what they have already shown.
+const SUGGEST_SEEN_KEY = "rukebox_suggest_seen";
+let suggestNewCount = 0;
+let suggestNewLatest = null;
+let suggestNoticeReady = false;
+
+function suggestSeenId() {
+  try {
+    const value = localStorage.getItem(SUGGEST_SEEN_KEY);
+    return value === null ? null : Number(value) || 0;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setSuggestSeenId(id) {
+  try { localStorage.setItem(SUGGEST_SEEN_KEY, String(id)); } catch (e) { /* private window */ }
+}
+
+function suggestPageShown() {
+  return document.body.dataset.tab === "home" && document.body.dataset.page === "suggest" && !document.hidden;
+}
+
+function noteNewSuggestions() {
+  if (!suggestState || !suggestState.owner) {
+    suggestNewCount = 0;
+    paintSuggestBadges();
+    return;
+  }
+  const items = suggestState.items || [];
+  const newest = items.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
+  let seen = suggestSeenId();
+  // A first visit starts from now: a badge counting the whole history says nothing.
+  if (seen === null || suggestPageShown()) {
+    setSuggestSeenId(newest);
+    seen = newest;
+  }
+  const fresh = items.filter((item) => item.status === "open" && !item.mine && Number(item.id) > seen)
+    .sort((a, b) => Number(b.id) - Number(a.id));
+  const before = suggestNewCount;
+  const latest = fresh.length ? fresh[0].id : null;
+  suggestNewCount = fresh.length;
+  // Never at the page's first answer: those were waiting before the page opened, the badge says it.
+  if (suggestNoticeReady && fresh.length && latest !== suggestNewLatest && fresh.length > before) {
+    const first = fresh[0];
+    showToast(fresh.length > 1 ? t("suggest.new_many", { n: fresh.length })
+                               : t("suggest.new_one", { name: first.author || "?" }),
+              first.text, { action: { label: t("suggest.see"), run: () => setActiveView("home", "suggest") } });
+  }
+  suggestNewLatest = latest;
+  suggestNoticeReady = true;
+  paintSuggestBadges();
+}
+
+function paintSuggestBadges() {
+  const count = suggestNewCount > 99 ? "99+" : String(suggestNewCount);
+  const targets = [
+    pageGrids.home && pageGrids.home.querySelector('.page-tile[data-page="suggest"] .page-tile-icon'),
+    railPages.home && railPages.home.querySelector('.rail-page[data-page="suggest"]'),
+    document.querySelector('.tabbar .tab-btn[data-tab="home"] .tab-icon'),
+  ];
+  targets.forEach((el) => {
+    if (!el) return;
+    if (suggestNewCount) el.dataset.badge = count;
+    else delete el.dataset.badge;
+  });
+  const tile = pageGrids.home && pageGrids.home.querySelector('.page-tile[data-page="suggest"]');
+  if (tile) {
+    const title = tile.querySelector(".page-tile-title").textContent;
+    if (suggestNewCount) tile.setAttribute("aria-label", title + " (" + t("suggest.new_count", { n: suggestNewCount }) + ")");
+    else tile.removeAttribute("aria-label");
+  }
 }
 
 function renderSuggestMe() {
@@ -8387,6 +8462,7 @@ document.addEventListener("page-shown", (event) => {
   if (page === "duplicates") refreshDuplicates();
   if (page === "previous") refreshPrevious();
   if (page === "banned") refreshBanned();
+  if (page === "suggest" && suggestNewCount) noteNewSuggestions();
 });
 
 refreshStats();
