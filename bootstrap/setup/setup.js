@@ -643,13 +643,25 @@
     const f = accountFields();
     const here = choice("account") === "here";
     const how = t(here ? "setup.account_here" : "setup.account_imager");
+    const account = [how];
+    if (!here && (f.password || f.key)) account.push(t("setup.sum_account_extra"));
+    account.push(t("setup.sum_account_name", { name: a.hostname }));
     const lines = [
-      t(here || !(f.password || f.key) ? "setup.sum_account" : "setup.sum_account_plus", { how, name: a.hostname }),
-      t("setup.sum_internet", { how: t("setup.net_" + a.internet) }),
-      t("setup.sum_ap", { name: a.access_point.ssid, how: t(a.access_point.password ? "setup.sum_secured" : "setup.sum_open") }),
-      t("setup.sum_files", { n: Object.values(state.media).flat().length, size: mb(mediaBytes()) }),
+      [t("setup.sum_account"), account],
+      [t("setup.sum_internet", { how: t("setup.net_" + a.internet) })],
+      [t("setup.sum_ap", { name: a.access_point.ssid, how: t(a.access_point.password ? "setup.sum_secured" : "setup.sum_open") })],
+      [t("setup.sum_files", { n: Object.values(state.media).flat().length, size: mb(mediaBytes()) })],
     ];
-    $("wzSummary").replaceChildren(...lines.map((l) => { const li = document.createElement("li"); li.textContent = l; return li; }));
+    $("wzSummary").replaceChildren(...lines.map(([text, sub]) => {
+      const li = document.createElement("li");
+      li.textContent = text;
+      if (sub) {
+        const ul = document.createElement("ul");
+        ul.replaceChildren(...sub.map((s) => { const item = document.createElement("li"); item.textContent = s; return item; }));
+        li.appendChild(ul);
+      }
+      return li;
+    }));
   }
 
   function progress(frac, key, vars) {
