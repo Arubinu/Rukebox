@@ -1067,6 +1067,25 @@ import, before it swaps anything in. A hand `scp` does not — if you copy
 files onto the Pi yourself, stop the music first, or check the file sizes
 afterwards.
 
+### Checking everything with the speaker: the test routine
+
+What only a real speaker can prove - the sound coming out, the linked volume
+and its hand-over when the speaker comes back, the volume lock, the speaker's
+own buttons, the pause when it is switched off, a system sound over the music,
+a scheduled announcement followed by its action, a whole schedule, resuming at
+the same position - is walked through by one script, in French, from the
+computer: `bootstrap\hardware_check.cmd` on Windows,
+`bootstrap/hardware_check.sh` elsewhere (the Pi's address as an optional
+argument, `rukebox.local` by default). Each test says what it will do and what
+you will have to do; **Enter** runs it, **P** skips it, **Q** stops.
+
+Everything it changes is saved first (`~/rukebox-tests/avant-<date>.json` on
+the Pi) and put back at the end, after Q, Ctrl-C or a dropped connection; the
+temporary announcement and schedule are deleted. If the script itself was
+killed, `python3 /opt/rukebox/scripts/hardware_check.py --restore <that file>`
+puts the settings back. The results are written next to it
+(`resultats-<date>.txt`).
+
 ### If the sound stops for no reason: the audio diagnostic
 
 A Bluetooth link can carry nothing at all while every layer above it says it
