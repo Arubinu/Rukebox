@@ -1363,8 +1363,9 @@ update make it for you.
   the clock source. A scan lists the devices that announce a name (plus
   any that is already paired or connected); the ones that do not are
   hidden, because a list of bare MAC addresses cannot be acted on.
-- **Configuration**: download every setting, the custom announcements
-  and the saved track orders as one JSON file, and import one — see
+- **Configuration**: download every setting, the custom announcements,
+  the saved track orders, the schedules, the music lists, the liked tracks
+  and the tracks set aside as one JSON file, and import one — see
   "Backing up the configuration" below.
 - **System**: enable/disable the SSH server, trigger a music library
   rescan.
@@ -1688,8 +1689,10 @@ rather than leaving you wondering why the music went quiet.
 ## Backing up the configuration
 
 The **Configuration** card (System tab) downloads every setting, the
-custom announcements and the saved announcement track orders as one JSON
-file, and imports one back. That is what makes a fresh installation cheap:
+custom announcements, the saved announcement track orders, the schedules,
+the music lists, the liked tracks and the tracks set aside by the duplicate
+check as one JSON file, and imports one back. A file exported before the last
+four existed leaves them as they are. That is what makes a fresh installation cheap:
 flash the card, install, import the file, done — no need to remember how
 the last one was configured.
 

@@ -40,6 +40,12 @@ def _write(path, items):
     json_file.write(path, {"lists": items})
 
 
+def save_all(path, items):
+    """Replaces every list (a configuration import)."""
+    with json_file.lock(path):
+        _write(path, items)
+
+
 def _genres(raw):
     if isinstance(raw, str):
         raw = re.split(r"[;,]", raw)

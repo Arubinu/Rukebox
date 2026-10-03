@@ -4896,9 +4896,20 @@ def api_config_import():
         return jsonify({"ok": False, "error": str(e)}), 400
 
     notify_daemon("reload_announcements")
+    _reload_after_import(summary)
     notify_daemon("reload_config")
     stats.record("config_imported", label=str(summary["settings"]), detail=summary)
     return jsonify({"ok": True, "data": summary})
+
+
+def _reload_after_import(summary):
+    """The daemon reads these stores on its own clock: tell it they changed."""
+    if "schedules" in summary:
+        notify_daemon("reload_schedules")
+    if "music_lists" in summary:
+        notify_daemon("reload_lists")
+    if "hidden" in summary:
+        notify_daemon("reload_hidden")
 
 
 BACKUP_FORMAT = "rukebox-backup"
@@ -5138,6 +5149,7 @@ def api_backup_restore():
                 bundle = json.loads(zf.read("config.json").decode("utf-8"))
                 done["config"] = config_bundle.import_bundle(bundle, c)
                 notify_daemon("reload_announcements")
+                _reload_after_import(done["config"])
                 notify_daemon("reload_config")
                 c = cfg()
             if "suggestions.db" in names:

@@ -50,3 +50,9 @@ def toggle(path, key, title="", artist=""):
             keeping = keeping[-MAX:]
         json_file.write(path, {"tracks": keeping})
     return liked
+
+
+def save_all(path, items):
+    """Replaces the whole list (a configuration import)."""
+    with json_file.lock(path):
+        json_file.write(path, {"tracks": items[-MAX:]})

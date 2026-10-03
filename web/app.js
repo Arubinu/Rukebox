@@ -8803,7 +8803,12 @@ document.getElementById("configFileInput").addEventListener("change", async (eve
       settings: d.settings_changed || 0,
       announcements: d.announcements || 0,
       orders: d.track_order || 0,
-    });
+    }) + ("schedules" in d ? " " + t("config.imported_more", {
+      schedules: d.schedules || 0,
+      lists: d.music_lists || 0,
+      likes: d.likes || 0,
+      hidden: d.hidden || 0,
+    }) : "");
 
     status.textContent = summary;
     showToast(t("config.imported_title"), summary);

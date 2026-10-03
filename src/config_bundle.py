@@ -8,6 +8,10 @@ import time
 import announcements
 import config_file
 import config_schema
+import hidden_tracks
+import likes
+import music_lists
+import schedules
 import track_order
 
 log = logging.getLogger("config_bundle")
@@ -32,6 +36,10 @@ def export_bundle(cfg, version=None):
         "settings": settings,
         "announcements": announcements.load(cfg.get("ANNOUNCEMENTS_FILE", "")),
         "track_order": track_order.load(cfg.get("TRACK_ORDER_FILE", "")),
+        "schedules": schedules.load(cfg.get("SCHEDULES_FILE", "")),
+        "music_lists": music_lists.load(cfg.get("MUSIC_LISTS_FILE", "")),
+        "likes": likes.load(cfg.get("LIKES_FILE", "")),
+        "hidden": hidden_tracks.load(cfg.get("HIDDEN_FILE", "")),
     }
 
 
@@ -57,11 +65,52 @@ def _clean_announcements(items):
     return cleaned
 
 
+def _clean_records(items, validate, slugify):
+    """Validated copies keeping their ids and dates; the bad ones are dropped."""
+    kept = []
+    for item in (items if isinstance(items, list) else []):
+        if not isinstance(item, dict):
+            continue
+        try:
+            clean = validate(item)
+        except ValueError:
+            continue
+        clean["id"] = str(item.get("id", "")).strip() or slugify(clean["name"])
+        try:
+            clean["created_at"] = float(item.get("created_at", 0)) or time.time()
+        except (TypeError, ValueError):
+            clean["created_at"] = time.time()
+        kept.append(clean)
+    return _dedupe_ids(kept)
+
+
+def _clean_tracks(items, fields, date_field):
+    """Liked or set-aside tracks: a key each, one entry per key."""
+    kept, seen = [], set()
+    for item in (items if isinstance(items, list) else []):
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key") or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        clean = {"key": key}
+        for field in fields:
+            clean[field] = str(item.get(field) or "").strip()
+        try:
+            clean[date_field] = float(item.get(date_field) or 0) or time.time()
+        except (TypeError, ValueError):
+            clean[date_field] = time.time()
+        kept.append(clean)
+    kept.sort(key=lambda item: item[date_field])
+    return kept
+
+
 def _dedupe_ids(items):
     """Two records sharing an id would make one of them unreachable."""
     used = set()
     for item in items:
-        base = item["id"] or "announcement"
+        base = item["id"] or "item"
         candidate = base
         suffix = 2
         while candidate in used:
@@ -128,7 +177,7 @@ def import_bundle(data, cfg):
     if isinstance(data.get("track_order"), dict):
         track_order.save_all(cfg["TRACK_ORDER_FILE"], orders)
 
-    return {
+    summary = {
         "settings": len(updates),
         "settings_changed": changed,
         "announcements": applied_announcements,
@@ -136,6 +185,25 @@ def import_bundle(data, cfg):
         "track_order": len(orders),
         "unknown_settings": unknown,
     }
+
+    # Absent from a file exported before they existed: left as they are.
+    if isinstance(data.get("schedules"), list):
+        items = _clean_records(data["schedules"], schedules.validate, schedules._slugify)
+        schedules.save_all(cfg["SCHEDULES_FILE"], items)
+        summary["schedules"] = len(items)
+    if isinstance(data.get("music_lists"), list):
+        items = _clean_records(data["music_lists"], music_lists.validate, music_lists._slugify)
+        music_lists.save_all(cfg["MUSIC_LISTS_FILE"], items)
+        summary["music_lists"] = len(items)
+    if isinstance(data.get("likes"), list):
+        items = _clean_tracks(data["likes"], ("title", "artist"), "liked_at")
+        likes.save_all(cfg["LIKES_FILE"], items)
+        summary["likes"] = len(items)
+    if isinstance(data.get("hidden"), list):
+        items = _clean_tracks(data["hidden"], ("path", "title", "artist"), "hidden_at")
+        hidden_tracks.save_all(cfg["HIDDEN_FILE"], items)
+        summary["hidden"] = len(items)
+    return summary
 
 
 def load_bundle_file(path):

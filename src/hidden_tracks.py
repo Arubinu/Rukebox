@@ -60,3 +60,9 @@ def clear(file_path):
     """Gives every hidden track back to the radio."""
     with json_file.lock(file_path):
         json_file.write(file_path, {"tracks": []})
+
+
+def save_all(path, items):
+    """Replaces the whole list (a configuration import)."""
+    with json_file.lock(path):
+        json_file.write(path, {"tracks": items[-MAX:]})

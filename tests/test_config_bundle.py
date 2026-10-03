@@ -10,6 +10,10 @@ import _path  # noqa: F401
 import announcements
 import config_bundle
 import config_file
+import hidden_tracks
+import likes
+import music_lists
+import schedules
 import track_order
 
 
@@ -70,7 +74,11 @@ class BundleTest(unittest.TestCase):
         self.addCleanup(lambda: setattr(config_file, "YAML_FILE_CANDIDATES", before[0]))
         self.addCleanup(lambda: setattr(config_file, "ENV_FILE", before[1]))
         self.cfg = {"ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
-                    "TRACK_ORDER_FILE": os.path.join(self.dir, "track_order.json")}
+                    "TRACK_ORDER_FILE": os.path.join(self.dir, "track_order.json"),
+                    "SCHEDULES_FILE": os.path.join(self.dir, "schedules.json"),
+                    "MUSIC_LISTS_FILE": os.path.join(self.dir, "music_lists.json"),
+                    "LIKES_FILE": os.path.join(self.dir, "likes.json"),
+                    "HIDDEN_FILE": os.path.join(self.dir, "hidden.json")}
 
     def bundle(self, **parts):
         data = {"format": config_bundle.BUNDLE_FORMAT, "version": config_bundle.BUNDLE_VERSION,
@@ -166,6 +174,48 @@ class BundleTest(unittest.TestCase):
             self.bundle(track_order={"meme": ["b.mp3", "a.mp3"], "broken": "a.mp3"}), self.cfg)
         self.assertEqual(summary["track_order"], 1)
         self.assertEqual(track_order.load(self.cfg["TRACK_ORDER_FILE"]), {"meme": ["b.mp3", "a.mp3"]})
+
+    def fill_the_four_stores(self):
+        schedules.add(self.cfg["SCHEDULES_FILE"], {"name": "Weekend", "days": [5, 6],
+                                                    "start": "09:00", "stop": "11:00"})
+        music_lists.add(self.cfg["MUSIC_LISTS_FILE"], {"name": "Evening", "kind": "manual",
+                                                        "tracks": ["a.opus", "b.opus"]})
+        likes.toggle(self.cfg["LIKES_FILE"], "k1", "Song", "Artist")
+        hidden_tracks.set_hidden(self.cfg["HIDDEN_FILE"], "k2", True, "/music/x.opus", "X", "Y")
+
+    def test_schedules_lists_likes_and_set_aside_tracks_travel_too(self):
+        self.fill_the_four_stores()
+        bundle = json.loads(json.dumps(config_bundle.export_bundle(self.cfg)))
+        for name in ("schedules.json", "music_lists.json", "likes.json", "hidden.json"):
+            os.remove(os.path.join(self.dir, name))
+
+        summary = config_bundle.import_bundle(bundle, self.cfg)
+        self.assertEqual((summary["schedules"], summary["music_lists"], summary["likes"],
+                          summary["hidden"]), (1, 1, 1, 1))
+        plan = schedules.load(self.cfg["SCHEDULES_FILE"])[0]
+        self.assertEqual((plan["id"], plan["days"], plan["start"]), ("weekend", [5, 6], "09:00"))
+        self.assertEqual(music_lists.load(self.cfg["MUSIC_LISTS_FILE"])[0]["tracks"],
+                         ["a.opus", "b.opus"])
+        self.assertEqual(likes.keys(self.cfg["LIKES_FILE"]), {"k1"})
+        self.assertEqual(hidden_tracks.paths(self.cfg["HIDDEN_FILE"]), {"/music/x.opus"})
+
+    def test_an_older_file_leaves_the_four_stores_alone(self):
+        self.fill_the_four_stores()
+        summary = config_bundle.import_bundle(self.bundle(), self.cfg)
+        self.assertNotIn("schedules", summary)
+        self.assertEqual(len(schedules.load(self.cfg["SCHEDULES_FILE"])), 1)
+        self.assertEqual(likes.keys(self.cfg["LIKES_FILE"]), {"k1"})
+
+    def test_a_bad_record_costs_only_itself(self):
+        summary = config_bundle.import_bundle(self.bundle(
+            schedules=[{"id": "a", "name": "A", "start": "08:00"}, {"name": "No time"}, "junk"],
+            music_lists=[{"id": "g", "name": "Jazz", "kind": "genre", "genres": []},
+                         {"id": "m", "name": "Mine", "tracks": ["a.opus"]}],
+            likes=[{"key": "k"}, {"key": "k"}, {"title": "no key"}],
+            hidden=[]), self.cfg)
+        self.assertEqual((summary["schedules"], summary["music_lists"], summary["likes"],
+                          summary["hidden"]), (1, 1, 1, 0))
+        self.assertEqual([item["id"] for item in music_lists.load(self.cfg["MUSIC_LISTS_FILE"])], ["m"])
 
     def test_a_file_that_cannot_be_read_is_none(self):
         path = os.path.join(self.dir, "bundle.json")
