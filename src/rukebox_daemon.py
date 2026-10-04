@@ -71,6 +71,7 @@ class RadioDaemon:
     SINK_RESYNC_TURNS = 2
     SINK_NAME_EVERY = 3
     CUTOFF_CATCH_UP_SEC = 300
+    CUTOFF_PENDING_MAX_SEC = 1800
 
     def __init__(self, cfg):
         self._state_cond = threading.Condition()
@@ -1621,6 +1622,16 @@ class RadioDaemon:
         self._play_announce_queue("cutoff_announce", files, volume_key="cutoff")
         self.state.mark_triggered_today("last_cutoff_trigger")
 
+    def _pending_cutoff_still_due(self):
+        """A cutoff that has waited longer than any song is a leftover, not a cutoff."""
+        age = self.state.pending_cutoff_age()
+        if age is not None and age <= self.CUTOFF_PENDING_MAX_SEC:
+            return True
+        log.info("The cutoff waiting for the end of a track is %s old: dropped",
+                 "%d min" % (age // 60) if age is not None else "of unknown age")
+        self.state.set_pending_cutoff(False)
+        return False
+
     def _arm_cutoff_end_of_track(self):
         log.info("Scheduled cutoff: waiting for the end of the current track")
         self._record_cutoff_trigger("end_of_track")
@@ -2022,7 +2033,8 @@ class RadioDaemon:
         if self.mode == "music":
             if reason == "error" and self._should_back_off():
                 return
-            if self.state.is_pending_cutoff() and self.cfg["CUTOFF_MODE"] == "end_of_track":
+            if self.state.is_pending_cutoff() and self.cfg["CUTOFF_MODE"] == "end_of_track" \
+                    and self._pending_cutoff_still_due():
                 self._start_cutoff_announce_now()
             else:
                 self._play_next_track()

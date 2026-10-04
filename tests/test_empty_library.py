@@ -14,7 +14,7 @@ import rukebox_daemon
 from test_speaker_hold import FakeMpv
 
 
-class EmptyLibraryTest(unittest.TestCase):
+class DaemonCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.music = os.path.join(self.dir, "music")
@@ -40,6 +40,8 @@ class EmptyLibraryTest(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.dir, ignore_errors=True)
 
+
+class EmptyLibraryTest(DaemonCase):
     def boot_start(self):
         self.daemon._start_music_faded(self.daemon._play_next_track)
 
@@ -75,6 +77,27 @@ class EmptyLibraryTest(unittest.TestCase):
             self.daemon._scheduler_tick()
         from_idle.assert_called_once()
         end_of_track.assert_not_called()
+
+
+class PendingCutoffTest(DaemonCase):
+    """A cutoff waiting for the end of a track does not outlive its evening."""
+
+    def end_of_track(self, waited_sec):
+        self.daemon.cfg["CUTOFF_MODE"] = "end_of_track"
+        self.daemon.mode = "music"
+        self.daemon.state.set_pending_cutoff(True)
+        self.daemon.state.data["pending_cutoff_at"] -= waited_sec
+        with mock.patch.object(self.daemon, "_start_cutoff_announce_now") as cutoff, \
+                mock.patch.object(self.daemon, "_play_next_track") as following:
+            self.daemon._on_mpv_event({"event": "end-file", "reason": "eof"})
+        return cutoff.called, following.called
+
+    def test_a_recent_cutoff_still_happens_at_the_end_of_the_track(self):
+        self.assertEqual(self.end_of_track(5 * 60), (True, False))
+
+    def test_a_cutoff_left_waiting_too_long_is_dropped(self):
+        self.assertEqual(self.end_of_track(31 * 60), (False, True))
+        self.assertFalse(self.daemon.state.is_pending_cutoff())
 
 
 if __name__ == "__main__":

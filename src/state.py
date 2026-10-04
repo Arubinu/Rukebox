@@ -256,7 +256,13 @@ class RadioState:
     def set_pending_cutoff(self, value: bool):
         with self._lock:
             self.data["pending_cutoff"] = value
+            self.data["pending_cutoff_at"] = time.time() if value else None
             self._save()
+
+    def pending_cutoff_age(self):
+        """Seconds since the cutoff began waiting for the end of a track, None when unknown."""
+        at = self.data.get("pending_cutoff_at")
+        return None if not isinstance(at, (int, float)) else max(0.0, time.time() - at)
 
     def is_pending_cutoff(self):
         return self.data.get("pending_cutoff", False)
