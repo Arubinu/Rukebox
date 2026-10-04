@@ -4686,6 +4686,25 @@ async function refreshUpnext() {
 }
 refreshEvery(refreshUpnext, 60000, ["home/upnext"]);
 
+async function refreshMemories() {
+  const box = document.getElementById("memoriesList");
+  const r = await apiGet("/api/memories");
+  const items = r.ok && Array.isArray(r.data) ? r.data : [];
+  box.hidden = items.length === 0;
+  box.replaceChildren(...items.map((item) => {
+    const li = document.createElement("li");
+    const text = document.createElement("span");
+    text.className = "memory-text";
+    const when = item.years ? t(item.years === 1 ? "memory.year" : "memory.years", { n: item.years })
+      : t("memory.month");
+    const song = item.artist ? item.title + " - " + item.artist : item.title;
+    text.textContent = t("memory.liked", { when, song });
+    li.append(text, libraryButton(item, true));
+    return li;
+  }));
+}
+refreshEvery(refreshMemories, 600000, ["home/upnext"]);
+
 const librarySearch = document.getElementById("librarySearch");
 const libraryArtist = document.getElementById("libraryArtist");
 const libraryAlbum = document.getElementById("libraryAlbum");

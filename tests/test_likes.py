@@ -1,4 +1,5 @@
 """Liked tracks (src/likes.py): the file, the dates, and the heart's answer."""
+import datetime
 import os
 import shutil
 import tempfile
@@ -53,6 +54,28 @@ class LikesTest(unittest.TestCase):
         with open(self.path, "w", encoding="utf-8") as handle:
             handle.write("{not json")
         self.assertEqual(likes.load(self.path), [])
+
+
+
+class MemoriesTest(unittest.TestCase):
+    @staticmethod
+    def liked(key, day):
+        return {"key": key, "title": key.upper(), "artist": "A",
+                "liked_at": time.mktime(day.timetuple()) + 3600}
+
+    def test_a_year_ago_and_a_month_ago(self):
+        today = datetime.date(2027, 10, 4)
+        items = [self.liked("year", datetime.date(2026, 10, 5)),
+                 self.liked("two", datetime.date(2025, 10, 3)),
+                 self.liked("month", datetime.date(2027, 9, 4)),
+                 self.liked("never", datetime.date(2027, 6, 1))]
+        found = likes.memories(items, today)
+        self.assertEqual([(m["key"], m.get("years"), m.get("months")) for m in found],
+                         [("two", 2, None), ("year", 1, None), ("month", None, 1)])
+
+    def test_the_end_of_a_month_is_clamped(self):
+        found = likes.memories([self.liked("feb", datetime.date(2027, 2, 28))], datetime.date(2027, 3, 31))
+        self.assertEqual([m["key"] for m in found], ["feb"])
 
 
 if __name__ == "__main__":

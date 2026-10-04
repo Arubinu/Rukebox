@@ -4899,6 +4899,13 @@ def api_likes():
     }})
 
 
+@app.route("/api/memories")
+def api_memories():
+    """Songs liked on this day in an earlier year, or a month ago."""
+    items = likes.load(cfg()["LIKES_FILE"])
+    return jsonify({"ok": True, "data": likes.memories(items, datetime.now().date())})
+
+
 @app.route("/api/likes/toggle", methods=["POST"])
 def api_likes_toggle():
     """{key, title, artist}: likes the track, or takes the like back."""

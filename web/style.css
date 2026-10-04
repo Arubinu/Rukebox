@@ -1499,6 +1499,9 @@ body.lyrics-fullscreen { overflow: hidden; }
 .recap-lines { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 6px; }
 .recap-heading { font-size: 1rem; margin: 20px 0 8px; }
 .recap-list li { display: flex; justify-content: space-between; gap: 12px; }
+.memories { margin-bottom: 14px; }
+.memories li { background: var(--accent-soft); border-radius: var(--radius); }
+.memory-text { flex: 1 1 auto; min-width: 0; }
 .recap-count { color: var(--text-muted, inherit); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #btnLoop[aria-pressed="true"] {
   color: var(--accent);

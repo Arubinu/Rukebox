@@ -1415,6 +1415,10 @@ log keeps "Blind test started" and who won it.
   kept by the track's library key, so it survives a rescan, and the file is
   `likes_file` (`/var/lib/rukebox/likes.json`) - plain JSON you can copy to
   another Pi. The page only appears once something has been liked.
+- **On this day** (top of Up next, not for guests): the songs liked on
+  this day in an earlier year ("A year ago, you liked: ..."), two days
+  either way, else those liked a month ago - each with "Next" to play it
+  again. Nothing shows when no like falls on the date.
 - **Today** (Home, guests too): music time, songs, sounds and
   announcements, button presses and the most played songs of the day.
 - **Mute**: the speaker icon left of the volume slider mutes and unmutes
