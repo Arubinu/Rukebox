@@ -2611,11 +2611,10 @@ def _skip_vote_state(key, person):
     if not c.get("SKIP_VOTE_ENABLED", True) or not key:
         return None
     try:
-        box = _suggestion_box()
-        present = {box.person_id(device_id) for device_id in _recently_seen()}
-    except Exception:  # noqa: BLE001
-        log.exception("Could not count who is here for the vote")
-        return None
+        person_of = _suggestion_box().person_id
+    except Exception:  # noqa: BLE001 - without the devices' base, a device is a person
+        person_of = str
+    present = {person_of(device_id) for device_id in _recently_seen()}
     present.add(person)
     if len(present) < SKIP_VOTE_MIN:
         return None
