@@ -630,3 +630,29 @@ test("a vote to skip shows the count, and a vote is sent once", async (t) => {
   await until(() => page.$("btnSkipVote").textContent === "You voted (2/3)");
   assert.equal(page.$("btnSkipVote").disabled, true);
 });
+
+test("the blind test: the host starts it, a player answers once, and sees the right song after", async (t) => {
+  let game = { state: "none", owner: true, round_choices: [5, 10], second_choices: [10, 20] };
+  const page = open(t, { hash: "#home/game", routes: {
+    "GET /api/game": () => game,
+    "POST /api/game/start": () => {
+      game = { state: "playing", owner: true, round: 1, rounds: 5, remaining: 18, answered: 0, mine: null,
+               choices: ["A - 1", "B - 2", "C - 3", "D - 4"], scores: [] };
+      return {};
+    },
+    "POST /api/game/answer": () => (game = Object.assign({}, game, { mine: 2, answered: 1 })),
+  } });
+  await until(() => !page.$("gameStartForm").hidden);
+  assert.equal(page.$("gameRounds").value, "10");
+  page.$("gameStartForm").dispatchEvent(new page.window.Event("submit", { cancelable: true }));
+  await until(() => page.$("gameChoices").children.length === 4);
+  assert.match(page.$("gameRound").textContent, /Round 1 \/ 5/);
+  page.$("gameChoices").children[2].click();
+  await until(() => page.sent("POST", "/api/game/answer").length === 1);
+  await until(() => page.$("gameChoices").children[2].classList.contains("is-mine"));
+  assert.ok([...page.$("gameChoices").children].every((b) => b.disabled), "one answer a round");
+  game = Object.assign({}, game, { state: "reveal", answer: 1, gain: 0, fastest: "Fox" });
+  await until(() => page.$("gameChoices").children[1].classList.contains("is-right"));
+  assert.ok(page.$("gameChoices").children[2].classList.contains("is-wrong"));
+  assert.match(page.$("gameResult").textContent, /Wrong this time\. Fastest: Fox\./);
+});

@@ -225,6 +225,39 @@
           <p class="hint" id="recentEmpty" data-i18n="recent.empty" hidden>Nothing played yet.</p>
         </section>
 
+        <section class="card" id="gameCard" data-page="game" data-tab="home" aria-labelledby="gameTitle">
+          <h2 data-icon="trophy" id="gameTitle"><span data-i18n="game.title">Blind test</span></h2>
+          <p class="hint help-text" data-i18n="game.help" hidden>
+            An extract plays; everyone with the page open picks the song among four. A right answer
+            scores one point, the fastest right answer two. The radio takes up its music afterwards.
+          </p>
+          <div id="gameLobby">
+            <p class="hint" id="gameWaiting" data-i18n="game.waiting">No game is on: the host starts one from here.</p>
+            <form id="gameStartForm" class="settings-form" hidden>
+              <div class="field-row">
+                <label for="gameRounds" data-i18n="game.rounds">Rounds</label>
+                <select id="gameRounds"></select>
+              </div>
+              <div class="field-row">
+                <label for="gameSeconds" data-i18n="game.seconds">Extract length (sec)</label>
+                <select id="gameSeconds"></select>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="play" data-i18n="game.start">Start a game</button>
+              </div>
+            </form>
+          </div>
+          <div id="gamePlay" hidden>
+            <p class="game-round" id="gameRound" role="status"></p>
+            <div class="game-choices" id="gameChoices"></div>
+            <p class="hint game-result" id="gameResult" role="status"></p>
+            <div class="form-actions">
+              <button type="button" class="btn btn-warning-outline" id="btnGameStop" data-icon="stop" data-i18n="game.stop" hidden>Stop the game</button>
+            </div>
+          </div>
+          <ol class="device-list game-scores" id="gameScores"></ol>
+        </section>
+
         <section class="card" id="likesCard" data-page="likes" data-tab="home" aria-labelledby="likesTitle" hidden>
           <h2 data-icon="heart" id="likesTitle"><span data-i18n="likes.title">Liked tracks</span></h2>
           <p class="hint help-text" data-i18n="likes.help" hidden>

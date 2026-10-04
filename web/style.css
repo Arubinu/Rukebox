@@ -140,6 +140,7 @@
   --i-link: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7%22/%3E%3Cpath d=%22M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7%22/%3E%3C/svg%3E");
   --i-unlink: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m18.8 13.7 1.7-1.7a5 5 0 0 0-7-7l-1.7 1.7M5.2 10.3 3.5 12a5 5 0 0 0 7 7l1.7-1.7M8 2v3M2 8h3M16 22v-3M22 16h-3%22/%3E%3C/svg%3E");
   --i-ban: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22m4.9 4.9 14.2 14.2%22/%3E%3C/svg%3E");
+  --i-trophy: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 9H4.5a2.5 2.5 0 0 1 0-5H6%22/%3E%3Cpath d=%22M18 9h1.5a2.5 2.5 0 0 0 0-5H18%22/%3E%3Cpath d=%22M4 22h16%22/%3E%3Cpath d=%22M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22%22/%3E%3Cpath d=%22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22%22/%3E%3Cpath d=%22M18 2H6v7a6 6 0 0 0 12 0V2Z%22/%3E%3C/svg%3E");
   --i-users: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2%22/%3E%3Ccircle cx=%229%22 cy=%227%22 r=%224%22/%3E%3Cpath d=%22M22 21v-2a4 4 0 0 0-3-3.87%22/%3E%3Cpath d=%22M16 3.13a4 4 0 0 1 0 7.75%22/%3E%3C/svg%3E");
   --i-battery: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect width=%2216%22 height=%2210%22 x=%222%22 y=%227%22 rx=%222%22 ry=%222%22/%3E%3Cline x1=%2222%22 x2=%2222%22 y1=%2211%22 y2=%2213%22/%3E%3C/svg%3E");
   --i-lock: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect width=%2218%22 height=%2211%22 x=%223%22 y=%2211%22 rx=%222%22 ry=%222%22/%3E%3Cpath d=%22M7 11V7a5 5 0 0 1 10 0v4%22/%3E%3C/svg%3E");
@@ -243,6 +244,7 @@
 [data-icon="bluetooth"] { --icon: var(--i-bluetooth); }
 [data-icon="battery"] { --icon: var(--i-battery); }
 [data-icon="users"] { --icon: var(--i-users); }
+[data-icon="trophy"] { --icon: var(--i-trophy); }
 [data-icon="clock"] { --icon: var(--i-clock); }
 [data-icon="shield"] { --icon: var(--i-shield); }
 [data-icon="wifi"] { --icon: var(--i-wifi); }
@@ -1481,6 +1483,17 @@ body.lyrics-fullscreen { overflow: hidden; }
 .player-extras .btn { flex: 1 1 0; min-width: 0; }
 .skip-vote { display: flex; margin-top: 10px; }
 .skip-vote .btn { flex: 1 1 auto; }
+.game-round { font-weight: 600; margin: 4px 0 12px; font-variant-numeric: tabular-nums; }
+.game-choices { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 640px) { .game-choices { grid-template-columns: 1fr 1fr; } }
+.game-choice { min-height: 56px; white-space: normal; text-align: center; justify-content: center; }
+.game-choice.is-mine { outline: 3px solid var(--accent-ring); }
+.game-choice.is-right { background: var(--success-soft); color: var(--success-text); border-color: var(--success); opacity: 1; }
+.game-choice.is-wrong { background: var(--danger-soft); border-color: var(--danger); opacity: 1; }
+.game-result { min-height: 1.4em; margin-top: 10px; }
+.game-scores li { display: flex; justify-content: space-between; gap: 12px; }
+.game-scores li.is-me { font-weight: 600; }
+.game-points { font-variant-numeric: tabular-nums; }
 #btnLoop[aria-pressed="true"] {
   color: var(--accent);
   border-color: var(--accent);

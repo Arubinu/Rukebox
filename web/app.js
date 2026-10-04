@@ -162,6 +162,8 @@ const GUEST_API_PATHS = [
   "/api/status",
   "/api/status/wait",
   "/api/vote/skip",
+  "/api/game",
+  "/api/game/answer",
   "/api/volume",
   "/api/action/single_click",
   "/api/action/double_click",
@@ -1161,7 +1163,7 @@ function setVolumeFill(el) {
   el.style.setProperty("--pct", el.value + "%");
 }
 
-const MODE_KEYS = ["music", "idle", "stopped", "meme", "cutoff_announce", "shutting_down", "restarting"];
+const MODE_KEYS = ["music", "idle", "stopped", "meme", "cutoff_announce", "shutting_down", "restarting", "game"];
 
 function modeLabel(mode) {
   if (MODE_KEYS.includes(mode)) return t("mode." + mode);
@@ -1715,6 +1717,7 @@ function applyNotices(d) {
     });
   }
   if (d.output_override) add("info", "speaker", "notice.override", { output: t("audioout." + d.output_override) });
+  if (d.mode === "game") add("info", "trophy", "notice.game");
   if (d.clock_ready === false) add("warn", "clock", "notice.clock");
   if (d.track_count === 0) add("warn", "music", "notice.no_tracks");
   if ((d.consecutive_play_errors || 0) >= 3) add("warn", "alert", "notice.errors", { n: d.consecutive_play_errors });
@@ -4040,6 +4043,120 @@ document.getElementById("btnLike").addEventListener("click", async () => {
 
 refreshLikes();
 refreshEvery(refreshLikes, 120000);
+
+let gameChoicesSignature = "";
+let gameOptionsFilled = false;
+
+async function refreshGame() {
+  const r = await apiGet("/api/game");
+  if (r.ok) paintGame(r.data);
+}
+
+function paintGame(g) {
+  const lobby = g.state === "none" || g.state === "over";
+  document.getElementById("gameLobby").hidden = !lobby;
+  document.getElementById("gameStartForm").hidden = !g.owner;
+  document.getElementById("gameWaiting").hidden = !!g.owner;
+  if (g.owner && !gameOptionsFilled && g.round_choices) {
+    gameOptionsFilled = true;
+    const fill = (id, values, picked) => {
+      const select = document.getElementById(id);
+      select.innerHTML = "";
+      values.forEach((v) => {
+        const o = document.createElement("option");
+        o.value = String(v);
+        o.textContent = String(v);
+        o.selected = v === picked;
+        select.appendChild(o);
+      });
+    };
+    fill("gameRounds", g.round_choices, 10);
+    fill("gameSeconds", g.second_choices, 20);
+  }
+
+  document.getElementById("gamePlay").hidden = g.state === "none";
+  const round = document.getElementById("gameRound");
+  if (g.state === "playing") {
+    round.textContent = t("game.round", { n: g.round, total: g.rounds }) + " · " + t("game.remaining", { s: g.remaining || 0 });
+  } else if (g.state === "reveal") {
+    round.textContent = t("game.round", { n: g.round, total: g.rounds });
+  } else if (g.state === "over") {
+    round.textContent = t("game.over");
+  }
+
+  const box = document.getElementById("gameChoices");
+  const signature = JSON.stringify(g.choices || []);
+  if (signature !== gameChoicesSignature) {
+    gameChoicesSignature = signature;
+    box.innerHTML = "";
+    (g.choices || []).forEach((label, index) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn game-choice";
+      btn.textContent = label;
+      btn.addEventListener("click", async () => {
+        const r = await apiPost("/api/game/answer", { choice: index });
+        if (!r.ok) showError(r.error, t("game.title"));
+        else paintGame(Object.assign({}, g, r.data, { owner: g.owner }));
+      });
+      box.appendChild(btn);
+    });
+  }
+  [...box.children].forEach((btn, index) => {
+    btn.disabled = g.state !== "playing" || g.mine !== null;
+    btn.classList.toggle("is-mine", g.mine === index);
+    btn.classList.toggle("is-right", g.answer === index && g.state !== "playing");
+    btn.classList.toggle("is-wrong", g.mine === index && g.answer !== undefined && g.answer !== index
+                                     && g.state !== "playing");
+  });
+
+  const result = document.getElementById("gameResult");
+  let text = "";
+  if (g.state === "playing") {
+    text = g.mine !== null ? t("game.answered", { n: g.answered }) : "";
+  } else if (g.state === "reveal" || (g.state === "over" && g.answer !== undefined)) {
+    if (g.gain >= 2) text = t("game.fastest_you");
+    else if (g.gain === 1) text = t("game.right");
+    else if (g.mine !== null) text = t("game.wrong");
+    else text = t("game.no_answer");
+    if (g.fastest && g.gain < 2) text += " " + t("game.fastest", { name: g.fastest });
+  }
+  if (g.state === "over" && g.error) text = errorLabel(g.error);
+  result.textContent = text;
+
+  document.getElementById("btnGameStop").hidden = !(g.owner && (g.state === "playing" || g.state === "reveal"));
+
+  const scores = document.getElementById("gameScores");
+  scores.innerHTML = "";
+  (g.scores || []).forEach((s) => {
+    const li = document.createElement("li");
+    li.classList.toggle("is-me", !!s.me);
+    const name = document.createElement("span");
+    name.textContent = s.name;
+    const points = document.createElement("span");
+    points.className = "game-points";
+    points.textContent = t("game.points", { n: s.points });
+    li.append(name, points);
+    scores.appendChild(li);
+  });
+}
+
+document.getElementById("gameStartForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const r = await apiPost("/api/game/start", {
+    rounds: Number(document.getElementById("gameRounds").value),
+    seconds: Number(document.getElementById("gameSeconds").value),
+  });
+  if (!r.ok) showError(r.error, t("game.title"));
+  refreshGame();
+});
+
+document.getElementById("btnGameStop").addEventListener("click", async () => {
+  await apiPost("/api/game/stop", {});
+  refreshGame();
+});
+
+refreshEvery(refreshGame, 1000, ["home/game"]);
 window.LANG_CHANGE_LISTENERS.push(() => {
   renderLikes();
   paintLikeButton();
@@ -7140,7 +7257,7 @@ function formatBytes(n) {
 const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shutdown",
   "clock_ready", "clock_unreliable", "clock_manual_set", "timezone_set", "click", "track_played",
   "meme_played", "announce_played", "playback_error", "playback_stalled",
-  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "skip_voted", "ap_client_connected",
+  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "skip_voted", "game_started", "game_over", "ap_client_connected",
   "ap_client_disconnected", "web_session", "music_started", "music_list_stopped",
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",

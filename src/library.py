@@ -222,6 +222,14 @@ class Library:
                 found.update((r["path"], r["loudness"]) for r in rows)
         return found
 
+    def quiz_tracks(self):
+        """The rows a blind test can ask about: read, with a title and an artist."""
+        with self._lock:
+            return [{"path": r["path"], "title": r["title"], "artist": r["artist"], "duration": r["duration"]}
+                    for r in self._db.execute(
+                        "SELECT path, title, artist, duration FROM tracks"
+                        " WHERE probed = 1 AND title IS NOT NULL AND artist IS NOT NULL")]
+
     def status(self):
         with self._lock:
             total, read = self._db.execute(

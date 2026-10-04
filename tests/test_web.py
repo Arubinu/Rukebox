@@ -1107,6 +1107,41 @@ class RepeatWindowSettingTest(unittest.TestCase):
         self.assertEqual(calls.count("toggle_pause"), 2, "with 0, every press runs")
 
 
+class GameRouteTest(unittest.TestCase):
+    def setUp(self):
+        ws._game = None
+        self.addCleanup(setattr, ws, "_game", None)
+        self.addCleanup(unittest.mock.patch.stopall)
+        patch = unittest.mock.patch.object
+        patch(ws, "_require_auth", return_value=None).start()
+        patch(ws, "_game_player", side_effect=lambda: (ws.request.headers.get("X-Who", "a"), "Name")).start()
+        rows = [{"path": "/m/%d" % i, "title": "Song %d" % i, "artist": "A%d" % i, "duration": 200}
+                for i in range(12)]
+        patch(ws, "_get_library", return_value=unittest.mock.Mock(quiz_tracks=lambda: rows)).start()
+        self.started = patch(ws.threading, "Thread").start()
+        patch(ws, "stats").start()
+        self.client = ws.app.test_client()
+
+    def test_a_game_is_started_answered_and_stopped(self):
+        self.assertEqual(self.client.get("/api/game").get_json()["data"]["state"], "none")
+        self.assertEqual(self.client.post("/api/game/start", json={"rounds": 7}).status_code, 400)
+        self.assertTrue(self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20}).get_json()["ok"])
+        self.started.return_value.start.assert_called_once()
+        self.assertEqual(self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20}).get_json()["error"],
+                         "game_running")
+        question = ws._game.next_question()
+        r = self.client.post("/api/game/answer", json={"choice": question["answer"]}, headers={"X-Who": "b"})
+        self.assertEqual(r.get_json()["data"]["mine"], question["answer"])
+        self.assertNotIn("answer", r.get_json()["data"], "the answer stays hidden until the reveal")
+        self.client.post("/api/game/stop")
+        self.assertTrue(ws._game.stopped)
+
+    def test_a_library_too_small_is_refused(self):
+        ws._get_library.return_value = unittest.mock.Mock(quiz_tracks=lambda: [])
+        r = self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20})
+        self.assertEqual(r.get_json()["error"], "game_not_enough_tracks")
+
+
 class SkipVoteTest(unittest.TestCase):
     def setUp(self):
         ws._skip_votes.update(key=None, persons=set())

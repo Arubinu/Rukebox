@@ -128,6 +128,7 @@ class RadioDaemon:
         self._speaker_ever_connected = False
         self._battery_step = None
         self._battery_warned = False
+        self._game_return = None
         self._bt_start_done = False
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
@@ -905,7 +906,7 @@ class RadioDaemon:
         if kind == "music" and reason != "eof" and self.cfg.get("MUSIC_RESUME_MODE") == "same_position":
             self.state.set_resume_point(path, self._position)
 
-        if path and os.path.dirname(path) == self._speech_dir():
+        if kind == "game" or (path and os.path.dirname(path) == self._speech_dir()):
             return seconds
         name = os.path.basename(path) if path else None
         if kind == "music":
@@ -1877,6 +1878,50 @@ class RadioDaemon:
         self._begin_play("speech", path)
         return None
 
+    def _game_clip(self, path, start, seconds):
+        """A blind test's extract: the radio steps aside, the clip plays and
+        pauses after `seconds`, and nothing follows on by itself."""
+        path = self._library_path(path)
+        if not path:
+            return "not_found"
+        if self.mode != "game":
+            if self.mode not in ("music", "idle", "stopped"):
+                return "busy"
+            back = (self._last_music_track, self._position) if self.mode == "music" else None
+            self._game_return = (self.mode, back)
+            if self.mode == "music" and not self._paused:
+                self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
+            log.info("Blind test: the radio steps aside")
+        self._restore_base_volume()
+        self.mode = "game"
+        self._sound_volume = None
+        self._pending_seek = start if start and start > 1 else None
+        self._begin_play("game", path)
+        self._paused = False
+
+        def hush():
+            if self.mode == "game":
+                self.mpv.set_pause(True)
+                self._paused = True
+        self._set_timer("game", max(3.0, min(float(seconds or 20), 60.0)), hush)
+        return None
+
+    def _game_end(self):
+        """The blind test is over: the radio takes up what it was doing."""
+        if self.mode != "game":
+            return
+        self._set_timer("game", None)
+        self._end_play("stop")
+        mode, back = getattr(self, "_game_return", None) or ("idle", None)
+        self._game_return = None
+        log.info("Blind test over: back to %s", mode)
+        if mode == "music":
+            self._resume_mode = "music"
+            self._resume_track = back
+            self._resume_after_announce()
+        else:
+            self._start_keepalive(mode, quiet=True)
+
     def _check_cutoff_warning(self, now):
         """Says the cutoff is coming, CUTOFF_WARNING_MIN minutes ahead, once a day."""
         minutes = int(self.cfg.get("CUTOFF_WARNING_MIN", 0) or 0)
@@ -2108,6 +2153,9 @@ class RadioDaemon:
 
         if self.mode == "restarting":
             self._restart_now()
+            return
+
+        if self.mode == "game":
             return
 
         if self.mode in ("idle", "stopped"):
@@ -3045,6 +3093,17 @@ class RadioDaemon:
                 ready = getattr(self, "_clock_ready", None)
                 if ready is not None:
                     ready.set()
+                return {"ok": True}
+            if cmd == "game_clip":
+                try:
+                    start = float(msg.get("start") or 0)
+                    seconds = float(msg.get("seconds") or 20)
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "bad_request"}
+                error = self._game_clip(msg.get("path"), start, seconds)
+                return {"ok": False, "error": error} if error else {"ok": True}
+            if cmd == "game_end":
+                self._game_end()
                 return {"ok": True}
             if cmd == "speak":
                 kind = msg.get("kind")

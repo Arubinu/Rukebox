@@ -50,6 +50,7 @@ import suggestions  # noqa: E402
 import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 import library  # noqa: E402
+import blind_test  # noqa: E402
 import likes  # noqa: E402
 import music_lists  # noqa: E402
 import schedules  # noqa: E402
@@ -167,6 +168,8 @@ _GUEST_PATHS = frozenset({
     "/api/status",
     "/api/status/wait",
     "/api/vote/skip",
+    "/api/game",
+    "/api/game/answer",
     "/api/volume",
     "/api/action/single_click",
     "/api/action/double_click",
@@ -2492,6 +2495,107 @@ def api_action(name):
     result = control(name)
     status_code = 200 if result.get("ok") else 400
     return jsonify(result), status_code
+
+
+GAME_KEPT_SEC = 600
+_game = None
+_game_lock = threading.Lock()
+
+
+def _game_player():
+    """(person, name) of whoever asks."""
+    try:
+        device = _this_device(_suggestion_box())
+        return device["person"], device.get("name") or None
+    except Exception:  # noqa: BLE001
+        return request.remote_addr, None
+
+
+def _game_run(game):
+    """Plays the rounds one after the other, then gives the radio back."""
+    try:
+        while not game.stopped:
+            question = game.next_question()
+            if question is None:
+                break
+            result = control("game_clip", path=question["path"], start=question["start"],
+                             seconds=game.clip_sec)
+            if not result.get("ok"):
+                game.finish(result.get("error") or "daemon_unreachable")
+                return
+            question["started"] = time.monotonic()
+            deadline = question["started"] + game.clip_sec
+            while time.monotonic() < deadline and not game.stopped and not game.everyone_answered():
+                time.sleep(0.25)
+            game.close_round()
+            reveal_end = time.monotonic() + blind_test.REVEAL_SEC
+            while time.monotonic() < reveal_end and not game.stopped:
+                time.sleep(0.25)
+        game.finish()
+        best = game.view(None)["scores"][:1]
+        stats.record("game_over", label=best[0]["name"] if best else "-",
+                     detail={"rounds": game.round, "players": len(game.scores)})
+    except Exception:  # noqa: BLE001
+        log.exception("Blind test failed")
+        game.finish("game_failed")
+    finally:
+        control("game_end")
+
+
+@app.route("/api/game")
+def api_game():
+    person, name = _game_player()
+    game = _game
+    options = {"owner": _is_owner(), "round_choices": list(blind_test.ROUNDS),
+               "second_choices": list(blind_test.CLIP_SECONDS)}
+    if game is None or (game.state == "over" and time.monotonic() - game.ended_at > GAME_KEPT_SEC):
+        return jsonify({"ok": True, "data": dict(options, state="none")})
+    game.seen(person, name)
+    return jsonify({"ok": True, "data": dict(game.view(person), **options)})
+
+
+@app.route("/api/game/start", methods=["POST"])
+def api_game_start():
+    global _game
+    body = request.get_json(silent=True) or {}
+    try:
+        rounds, seconds = int(body.get("rounds", 10)), int(body.get("seconds", 20))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "bad_request"}), 400
+    if rounds not in blind_test.ROUNDS or seconds not in blind_test.CLIP_SECONDS:
+        return jsonify({"ok": False, "error": "bad_request"}), 400
+    with _game_lock:
+        if _game is not None and _game.state != "over":
+            return jsonify({"ok": False, "error": "game_running"}), 409
+        tracks = blind_test.Game.playable(_get_library().quiz_tracks(), seconds)
+        game = blind_test.Game(tracks, rounds, seconds)
+        if not game.enough():
+            return jsonify({"ok": False, "error": "game_not_enough_tracks"}), 409
+        _game = game
+    stats.record("game_started", label="%d x %ds" % (rounds, seconds), detail={"rounds": rounds})
+    threading.Thread(target=_game_run, args=(game,), daemon=True).start()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/game/answer", methods=["POST"])
+def api_game_answer():
+    game = _game
+    if game is None:
+        return jsonify({"ok": False, "error": "game_not_asking"}), 409
+    person, name = _game_player()
+    choice = (request.get_json(silent=True) or {}).get("choice")
+    error = game.answer(person, name, choice if isinstance(choice, int) else -1)
+    if error:
+        return jsonify({"ok": False, "error": error}), 409
+    return jsonify({"ok": True, "data": game.view(person)})
+
+
+@app.route("/api/game/stop", methods=["POST"])
+def api_game_stop():
+    game = _game
+    if game is not None and game.state != "over":
+        game.stop()
+    return jsonify({"ok": True})
 
 
 SKIP_VOTE_MIN = 2

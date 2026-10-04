@@ -1333,6 +1333,22 @@ plays and the event log says "Skipped by vote". Who is "here" is who made a
 request in the last two minutes, i.e. anyone whose page is open; a new song
 starts a new vote.
 
+**Blind test** (Home > Blind test, guests included): the owner picks a
+number of rounds (5 to 20) and an extract length (10 to 30 s) and starts a
+game. The radio steps aside - the song playing pauses after the usual short
+fade - and each round plays an extract of a song from the library, taken
+about a third of the way in, while everyone with the page open picks the song
+among four (title - artist, the three wrong ones by other artists where the
+library allows). A right answer scores one point, the fastest right answer
+two. A round ends when its extract is over or when everyone looking at the
+game has answered; the right song is then shown for a few seconds, with the
+scores. At the end, or when the owner stops it, the radio takes up the song
+it had paused (or goes back to waiting). Players are named like in the
+suggestion box. Only songs whose tags have been read, with a title and an
+artist, are asked about; a library with fewer than the rounds asked for
+cannot start a game. The extracts never count in the statistics; the event
+log keeps "Blind test started" and who won it.
+
 ### Features
 
 - **Finding your way**: the bar at the bottom (a column on a wider screen)
