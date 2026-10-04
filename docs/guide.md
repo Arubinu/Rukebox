@@ -966,6 +966,26 @@ The daily cutoff itself can be switched off (**Every day** > **Daily
 cutoff**, `schedule.cutoff_enabled`): the radio then only stops when a
 schedule, a button or you say so.
 
+### The talking clock
+
+The radio can say the time out loud, offline, through `pico2wave`
+(`libttspico-utils`) or, for Dutch and as a fallback, `espeak-ng` - both
+installed with the radio, and by the updater when they are missing.
+
+- **A button**: "Say the time" is one more click action (single, double, the
+  speaker's buttons). The song pauses, the time is said, and the song goes on
+  where it was. With nothing playing, it is simply said.
+- **An announcement**: **Say first** (the time, or the time and the date)
+  is spoken before its sound - "It is 6:58. Today is Monday, October 5." -
+  and an announcement with no sound in its folder just says it.
+- **Before the cutoff**: **Say it before (min)** (`schedule.cutoff_warning_min`,
+  0 = off) says "The radio stops in 10 minutes" once, while the music plays.
+
+The language is **Spoken language** (`schedule.speech_language`: en, fr, de,
+es, it, nl), next to the cutoff, with a button to hear it. The setup page sets
+it to the language it was used in. What is said never counts in the
+statistics' top sounds; the event log keeps one "Spoken" line each time.
+
 ## Admin web interface
 
 A complete web interface, accessible from your phone (or any device),

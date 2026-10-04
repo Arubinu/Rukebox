@@ -557,6 +557,29 @@
               <input type="time" id="cutoffTime" class="time-input" data-key="CUTOFF_HOUR"
                      data-key-minute="CUTOFF_MINUTE" value="07:00">
             </div>
+            <div class="field-row" id="cutoffWarningRow">
+              <div class="field-text">
+                <label for="cutoffWarning" data-i18n="settings.cutoff_warning">Say it before (min)</label>
+                <p class="field-desc" id="cutoffWarningDesc" data-i18n="settings.cutoff_warning_desc">"The radio stops in N minutes", while the music plays. 0 = say nothing.</p>
+              </div>
+              <input type="number" id="cutoffWarning" min="0" max="60" step="1" data-key="CUTOFF_WARNING_MIN"
+                     class="num-input" inputmode="numeric" aria-describedby="cutoffWarningDesc">
+            </div>
+            <div class="field-row">
+              <label for="speechLanguage" data-i18n="settings.speech_language">Spoken language</label>
+              <div class="input-with-action">
+                <select id="speechLanguage" data-key="SPEECH_LANGUAGE">
+                  <option value="en">English</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
+                  <option value="es">Español</option>
+                  <option value="it">Italiano</option>
+                  <option value="nl">Nederlands</option>
+                </select>
+                <button type="button" class="btn btn-icon" id="btnSpeechTest" data-icon="play"
+                        data-i18n-aria-label="settings.speech_test" aria-label="Hear it" data-i18n-title="settings.speech_test" title="Hear it"></button>
+              </div>
+            </div>
             <div data-level="detail" class="field-row">
               <label for="cutoffMode" data-i18n="settings.cutoff_mode">Cutoff mode</label>
               <select id="cutoffMode" data-key="CUTOFF_MODE">
@@ -801,6 +824,7 @@
                   <option value="next" data-i18n="click.next">Next track</option>
                   <option value="previous" data-i18n="click.previous">Previous track</option>
                   <option value="sound" data-i18n="click.sound">Play the sound</option>
+                  <option value="time" data-i18n="click.time">Say the time</option>
                   <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                   <option value="pause" data-i18n="click.pause">Pause</option>
                   <option value="play" data-i18n="click.play">Play</option>
@@ -834,6 +858,7 @@
                   <option value="next" data-i18n="click.next">Next track</option>
                   <option value="previous" data-i18n="click.previous">Previous track</option>
                   <option value="sound" data-i18n="click.sound">Play the sound</option>
+                  <option value="time" data-i18n="click.time">Say the time</option>
                   <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                   <option value="pause" data-i18n="click.pause">Pause</option>
                   <option value="play" data-i18n="click.play">Play</option>
@@ -884,6 +909,7 @@
                     <option value="next" data-i18n="click.next">Next track</option>
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
+                    <option value="time" data-i18n="click.time">Say the time</option>
                     <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                     <option value="pause" data-i18n="click.pause">Pause</option>
                     <option value="play" data-i18n="click.play">Play</option>
@@ -917,6 +943,7 @@
                     <option value="next" data-i18n="click.next">Next track</option>
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
+                    <option value="time" data-i18n="click.time">Say the time</option>
                     <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                     <option value="pause" data-i18n="click.pause">Pause</option>
                     <option value="play" data-i18n="click.play">Play</option>
@@ -950,6 +977,7 @@
                     <option value="next" data-i18n="click.next">Next track</option>
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
+                    <option value="time" data-i18n="click.time">Say the time</option>
                     <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                     <option value="pause" data-i18n="click.pause">Pause</option>
                     <option value="play" data-i18n="click.play">Play</option>
@@ -1074,6 +1102,17 @@
               <div class="field-row" id="annTimeRow">
                 <label for="annTime" data-i18n="common.time">Time</label>
                 <input type="time" id="annTime" class="time-input" value="12:00">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="annSpeech" data-i18n="announcements.speech">Say first</label>
+                  <p class="field-desc" id="annSpeechDesc" data-i18n="announcements.speech_desc">Spoken before its sound, in the language chosen with the cutoff.</p>
+                </div>
+                <select id="annSpeech" aria-describedby="annSpeechDesc">
+                  <option value="none" data-i18n="speech.none">Nothing</option>
+                  <option value="time" data-i18n="speech.time">The time</option>
+                  <option value="time_date" data-i18n="speech.time_date">The time and the date</option>
+                </select>
               </div>
               <div class="field-row" id="annAfterRow">
                 <div class="field-text">

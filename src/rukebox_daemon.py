@@ -26,6 +26,7 @@ from mpv_controller import MPVController, audio_env, compression_filter  # noqa:
 import music_lists  # noqa: E402
 import playlist  # noqa: E402
 import schedules  # noqa: E402
+import speech  # noqa: E402
 from state import RadioState  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
 import track_media  # noqa: E402
@@ -904,6 +905,8 @@ class RadioDaemon:
         if kind == "music" and reason != "eof" and self.cfg.get("MUSIC_RESUME_MODE") == "same_position":
             self.state.set_resume_point(path, self._position)
 
+        if path and os.path.dirname(path) == self._speech_dir():
+            return seconds
         name = os.path.basename(path) if path else None
         if kind == "music":
             event = "track_played"
@@ -1658,7 +1661,9 @@ class RadioDaemon:
                                  else self.cfg["FADE_DURATION_SEC"])
         self._restore_base_volume()
         source_id = "custom:%s" % item["id"]
-        self._play_announce_queue(source_id, self._next_announce_file(source_id, item["folder"]),
+        spoken = self._speech_file(item.get("speech") or "none")
+        files = ([spoken] if spoken else []) + self._next_announce_file(source_id, item["folder"])
+        self._play_announce_queue(source_id, files,
                                   volume_key=source_id,
                                   after=None if on_demand else item.get("after_action"))
         if mark and not on_demand and item.get("trigger") == "time":
@@ -1737,11 +1742,11 @@ class RadioDaemon:
         "playpause", "pause", "play",
         "loop_track", "loop_album", "loop_off",
         "volume_up", "volume_down", "sleep",
-        "mute", "standby", "poweroff",
+        "mute", "standby", "poweroff", "time",
         "off",
     )
     LONG_PRESS_ACTIONS = ("poweroff", "standby")
-    SOUND_ACTIONS = ("next", "previous", "sound")
+    SOUND_ACTIONS = ("next", "previous", "sound", "time")
     START_ACTIONS = ("play", "playpause")
 
     def _pick_click_sound(self, sound_source):
@@ -1778,6 +1783,10 @@ class RadioDaemon:
             self._record_click(kind, source, self._perform_direct_action(action, source))
             return
 
+        if action == "time":
+            error = self._speak("time", source)
+            self._record_click(kind, source, "ignored" if error else "time_then_resume", target=error)
+            return
         chosen = self._pick_click_sound(sound_source)
         if action == "sound" and not chosen:
             log.info("%s click: no sound to play in '%s'", kind, sound_source)
@@ -1807,6 +1816,62 @@ class RadioDaemon:
         self.mode = "meme"
         self._sound_volume = self._source_volume(sound_source)
         self._begin_play("meme", chosen)
+
+    def _speech_dir(self):
+        return os.path.join(self.cfg.get("STATE_DIR") or "/tmp", "speech")
+
+    def _speech_file(self, kind, minutes=None):
+        """A WAV of `kind` said now, named after its own words; None when it cannot be said."""
+        text = speech.sentence(kind, datetime.now(), self.cfg.get("SPEECH_LANGUAGE"), minutes)
+        if not text:
+            return None
+        folder = self._speech_dir()
+        try:
+            os.makedirs(folder, exist_ok=True)
+            for old in os.listdir(folder):
+                os.remove(os.path.join(folder, old))
+        except OSError:
+            log.warning("Cannot prepare %s", folder, exc_info=True)
+        name = "".join(c for c in text if c not in "/\\").strip()[:120] + ".wav"
+        path = os.path.join(folder, name)
+        return path if speech.render(text, self.cfg.get("SPEECH_LANGUAGE"), path) else None
+
+    def _speak(self, kind, source, minutes=None):
+        """Says the time (or the coming cutoff): the song pauses and comes back
+        where it was; with nothing playing it is a cue on its own."""
+        if self.mode not in ("music", "idle", "stopped"):
+            return "busy"
+        path = self._speech_file(kind, minutes)
+        if not path:
+            return "speech_unavailable"
+        log.info("Saying: %s", os.path.splitext(os.path.basename(path))[0])
+        self.stats.record("speech_played", label=kind, detail={"source": source})
+        if self.mode != "music" or self._paused:
+            self._play_cue_sound(path)
+            return None
+        resume = (self._last_music_track, self._position)
+        self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
+        self._restore_base_volume()
+        self._resume_mode = "music"
+        self._resume_track = resume
+        self._next_is_user = False
+        self.mode = "meme"
+        self._sound_volume = None
+        self._begin_play("speech", path)
+        return None
+
+    def _check_cutoff_warning(self, now):
+        """Says the cutoff is coming, CUTOFF_WARNING_MIN minutes ahead, once a day."""
+        minutes = int(self.cfg.get("CUTOFF_WARNING_MIN", 0) or 0)
+        if minutes <= 0 or not self.cfg.get("CUTOFF_ENABLED", True) or self.mode != "music":
+            return
+        cutoff = now.replace(hour=self.cfg["CUTOFF_HOUR"], minute=self.cfg["CUTOFF_MINUTE"],
+                             second=0, microsecond=0)
+        left = (cutoff - now.replace(second=0, microsecond=0)).total_seconds() / 60
+        if left != minutes or self.state.already_triggered_today("cutoff_warning"):
+            return
+        self.state.mark_triggered_today("cutoff_warning")
+        self._speak("cutoff", "scheduler", minutes=minutes)
 
     def _perform_direct_action(self, action, source):
         """The actions that play no sound first."""
@@ -2585,6 +2650,9 @@ class RadioDaemon:
             self.stats.record("music_started", label="scheduled")
             self._start_or_restart_playback()
 
+        with self._command_lock:
+            self._check_cutoff_warning(now)
+
         if self._cutoff_due(now) and not self.state.already_triggered_today("last_cutoff_trigger"):
             if self.mode in ("idle", "stopped") or (self.mode == "music" and not self._current_track):
                 self._trigger_cutoff_from_idle()
@@ -2961,6 +3029,12 @@ class RadioDaemon:
                 if ready is not None:
                     ready.set()
                 return {"ok": True}
+            if cmd == "speak":
+                kind = msg.get("kind")
+                if kind not in ("time", "time_date"):
+                    return {"ok": False, "error": "unknown_speech"}
+                error = self._speak(kind, msg.get("source") or "web")
+                return {"ok": False, "error": error} if error else {"ok": True}
             if cmd == "test_system_sound":
                 key = msg.get("key")
                 if key not in SYSTEM_SOUNDS:

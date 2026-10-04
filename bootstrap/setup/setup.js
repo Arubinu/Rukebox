@@ -635,6 +635,7 @@
     s.MUSIC_START_HOUR = String(Number(sh)); s.MUSIC_START_MINUTE = String(Number(sm));
     s.CUTOFF_HOUR = String(Number(ch)); s.CUTOFF_MINUTE = String(Number(cm));
     s.AUDIO_OUTPUT = $("wzOutput").value;
+    if (!s.SPEECH_LANGUAGE) s.SPEECH_LANGUAGE = currentLang;
     return bundle;
   }
 

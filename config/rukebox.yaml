@@ -402,6 +402,15 @@ schedule:
   #          so the next start (a time, the speaker, a click) works
   shutdown_after_cutoff: true
 
+  # Say "the radio stops in N minutes" that many minutes before the
+  # cutoff, while the music plays. 0 = say nothing.
+  cutoff_warning_min: 0
+
+  # Language of what the radio says out loud (the time, the date, the
+  # cutoff warning): en, fr, de, es, it or nl. Needs pico2wave or
+  # espeak-ng (installed with the radio).
+  speech_language: "en"
+
 # ---------------------------------------------------------------
 # Fade durations - every stop is progressive, never abrupt
 # ---------------------------------------------------------------

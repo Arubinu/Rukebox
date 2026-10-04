@@ -2907,6 +2907,11 @@ document.querySelectorAll(".click-action-select").forEach((select) => {
   select.addEventListener("change", updateClickSoundRows);
 });
 
+document.getElementById("btnSpeechTest").addEventListener("click", async () => {
+  const r = await apiPost("/api/speech/test", { kind: "time_date" });
+  if (!r.ok) showError(r.error, t("settings.speech_test"));
+});
+
 document.querySelectorAll(".click-test-btn").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const field = btn.dataset.click;
@@ -5778,6 +5783,7 @@ function resetAnnouncementForm() {
   document.getElementById("annAutoChance").value = "1/1";
   document.getElementById("annManualChance").value = "1/1";
   document.getElementById("annAfter").value = "none";
+  document.getElementById("annSpeech").value = "none";
   updateAnnTimeVisibility();
   paintAnnFormVolume(null);
   setAnnouncementFormMode(null);
@@ -5794,6 +5800,7 @@ function startEditAnnouncement(item) {
   document.getElementById("annAutoChance").value = item.auto_chance || "1/1";
   document.getElementById("annManualChance").value = item.manual_chance || "1/1";
   document.getElementById("annAfter").value = item.after_action || "none";
+  document.getElementById("annSpeech").value = item.speech || "none";
   updateAnnTimeVisibility();
   paintAnnFormVolume("custom:" + item.id);
   setAnnouncementFormMode(item);
@@ -5865,6 +5872,7 @@ document.getElementById("announcementForm").addEventListener("submit", async (e)
     auto_chance: document.getElementById("annAutoChance").value,
     manual_chance: document.getElementById("annManualChance").value,
     after_action: annTrigger.value === "manual" ? "none" : document.getElementById("annAfter").value,
+    speech: document.getElementById("annSpeech").value,
   };
   if (editingAnnouncementId) {
     if (!body.folder.trim()) delete body.folder;
@@ -6875,7 +6883,7 @@ function updateStartTimeVisibility() {
   document.getElementById("audioFallbackRow").hidden = document.getElementById("audioOutputSelect").value !== "bluetooth";
 
   const cutoff = document.getElementById("cutoffEnabled").checked;
-  ["cutoffTime", "cutoffMode", "afterCutoff"].forEach((id) => {
+  ["cutoffTime", "cutoffWarning", "cutoffMode", "afterCutoff"].forEach((id) => {
     document.getElementById(id).closest(".field-row").hidden = !cutoff;
   });
 }
@@ -7109,7 +7117,7 @@ function formatBytes(n) {
 const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shutdown",
   "clock_ready", "clock_unreliable", "clock_manual_set", "timezone_set", "click", "track_played",
   "meme_played", "announce_played", "playback_error", "playback_stalled",
-  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "ap_client_connected",
+  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "ap_client_connected",
   "ap_client_disconnected", "web_session", "music_started", "music_list_stopped",
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",
@@ -7156,7 +7164,8 @@ function endReasonLabel(reason) {
 const CLICK_ACTION_KEYS = ["sound_then_next", "next_track_no_sound", "start_from_idle",
   "announcement", "shutdown", "ignored", "previous_track", "sound_then_previous",
   "sound_then_resume", "paused", "resumed", "loop_track", "loop_album", "loop_off",
-  "volume_up", "volume_down", "sleep_on", "sleep_off", "standby", "muted", "unmuted"];
+  "volume_up", "volume_down", "sleep_on", "sleep_off", "standby", "muted", "unmuted",
+  "time_then_resume"];
 function clickActionLabel(action) {
   return CLICK_ACTION_KEYS.includes(action) ? t("clickaction." + action) : action;
 }

@@ -443,6 +443,10 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         apt-get install -y util-linux-extra >/dev/null 2>&1 \
             || echo "WARNING: hwclock is missing (util-linux-extra): a time set by hand stays out of the clock module."
     fi
+    if ! command -v pico2wave >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+        apt-get install -y libttspico-utils espeak-ng >/dev/null 2>&1 \
+            || echo "WARNING: no speech program (libttspico-utils, espeak-ng): the radio cannot say the time."
+    fi
 fi
 
 if [ -f "$INSTALL_DIR/config/sudoers-rukebox" ]; then

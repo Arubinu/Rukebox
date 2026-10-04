@@ -109,6 +109,7 @@ apt-get update
 # rtkit gives the audio server realtime priority, so a busy moment does not make the sound stutter.
 # util-linux-extra carries hwclock, which writes a time set by hand into the clock module.
 apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit util-linux-extra \
+    libttspico-utils espeak-ng \
     pipewire pipewire-bin wireplumber pipewire-audio
 # WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/wireplumber-bluez.conf" \

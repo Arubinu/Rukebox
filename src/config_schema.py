@@ -495,6 +495,15 @@ SETTINGS = [
             "false -> standby: the Pi stays on and waits as it does at startup,\n"
             "         so the next start (a time, the speaker, a click) works",
             "Shut down after cutoff"),
+    Setting("CUTOFF_WARNING_MIN", "schedule", "cutoff_warning_min", "int", "0",
+            "Say \"the radio stops in N minutes\" that many minutes before the\n"
+            "cutoff, while the music plays. 0 = say nothing.",
+            "Spoken cutoff warning (min)"),
+    Setting("SPEECH_LANGUAGE", "schedule", "speech_language", "str", "en",
+            "Language of what the radio says out loud (the time, the date, the\n"
+            "cutoff warning): en, fr, de, es, it or nl. Needs pico2wave or\n"
+            "espeak-ng (installed with the radio).",
+            "Spoken language"),
 
     Setting("FADE_DURATION_SEC", "fades", "announcement_sec", "float", "15",
             "Fade before a scheduled announcement.", "Announcement fade (sec)"),

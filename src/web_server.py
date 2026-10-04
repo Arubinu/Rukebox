@@ -2878,6 +2878,15 @@ def api_system_sound_test(key):
     return jsonify({"ok": False, "error": result.get("error", "daemon_unreachable")}), 409
 
 
+@app.route("/api/speech/test", methods=["POST"])
+def api_speech_test():
+    kind = (request.get_json(silent=True) or {}).get("kind") or "time_date"
+    result = control("speak", kind=kind)
+    if result.get("ok"):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": result.get("error", "daemon_unreachable")}), 409
+
+
 @app.route("/api/announce_files/<path:source_id>", methods=["POST"])
 def api_announce_file_upload(source_id):
     folder, error = _announce_files_folder(source_id)
