@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import sys
 import time
 
@@ -22,13 +23,16 @@ BUNDLE_VERSION = 1
 EXCLUDED_SETTINGS = ("WEB_PASSWORD_HASH", "WEB_SESSION_SECRET")
 
 
-def export_bundle(cfg, version=None):
+REPAIR_FILE = "repair.json"
+
+
+def export_bundle(cfg, version=None, flic_buttons=None):
     """Everything a fresh installation needs, as a plain dict."""
     settings = {
         key: value for key, value in config_file.read_values().items()
         if key not in EXCLUDED_SETTINGS
     }
-    return {
+    bundle = {
         "format": BUNDLE_FORMAT,
         "version": BUNDLE_VERSION,
         "exported_at": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -41,6 +45,31 @@ def export_bundle(cfg, version=None):
         "likes": likes.load(cfg.get("LIKES_FILE", "")),
         "hidden": hidden_tracks.load(cfg.get("HIDDEN_FILE", "")),
     }
+    # The pairings themselves stay with the card: only how many there were travels.
+    if flic_buttons is not None:
+        bundle["flic_buttons"] = int(flic_buttons)
+    return bundle
+
+
+def repair_path(cfg):
+    return os.path.join(cfg.get("STATE_DIR") or "/var/lib/rukebox", REPAIR_FILE)
+
+
+def read_repair(cfg):
+    """What a restored configuration still needs paired again, {} when nothing."""
+    try:
+        with open(repair_path(cfg), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def clear_repair(cfg):
+    try:
+        os.remove(repair_path(cfg))
+    except OSError:
+        pass
 
 
 def _clean_announcements(items):
@@ -203,6 +232,15 @@ def import_bundle(data, cfg):
         items = _clean_tracks(data["hidden"], ("path", "title", "artist"), "hidden_at")
         hidden_tracks.save_all(cfg["HIDDEN_FILE"], items)
         summary["hidden"] = len(items)
+    flic = data.get("flic_buttons")
+    if isinstance(flic, int) and not isinstance(flic, bool) and flic > 0:
+        try:
+            os.makedirs(os.path.dirname(repair_path(cfg)), exist_ok=True)
+            with open(repair_path(cfg), "w", encoding="utf-8") as f:
+                json.dump({"flic_buttons": flic}, f)
+            summary["flic_buttons"] = flic
+        except OSError:
+            log.warning("Could not note the Flic buttons to pair again")
     return summary
 
 

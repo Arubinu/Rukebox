@@ -106,6 +106,22 @@ class BundleTest(unittest.TestCase):
         self.assertEqual([item["id"] for item in bundle["announcements"]], ["lunch"])
         self.assertEqual(bundle["track_order"], {"meme": ["b.mp3", "a.mp3"]})
 
+    def test_paired_flic_buttons_are_counted_and_asked_for_again(self):
+        self.cfg["STATE_DIR"] = self.dir
+        self.assertNotIn("flic_buttons", config_bundle.export_bundle(self.cfg))
+        bundle = config_bundle.export_bundle(self.cfg, flic_buttons=2)
+        self.assertEqual(bundle["flic_buttons"], 2)
+        summary = config_bundle.import_bundle(json.loads(json.dumps(bundle)), self.cfg)
+        self.assertEqual(summary["flic_buttons"], 2)
+        self.assertEqual(config_bundle.read_repair(self.cfg), {"flic_buttons": 2})
+        config_bundle.clear_repair(self.cfg)
+        self.assertEqual(config_bundle.read_repair(self.cfg), {})
+
+    def test_no_flic_button_means_nothing_to_pair_again(self):
+        self.cfg["STATE_DIR"] = self.dir
+        config_bundle.import_bundle(self.bundle(flic_buttons=0), self.cfg)
+        self.assertEqual(config_bundle.read_repair(self.cfg), {})
+
     def test_what_was_exported_comes_back_and_changes_nothing(self):
         config_file.write_values({"BASE_VOLUME": "42"})
         bundle = json.loads(json.dumps(config_bundle.export_bundle(self.cfg)))

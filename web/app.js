@@ -1385,7 +1385,8 @@ async function refreshStatus() {
   syncPiClock(d);
 
   const badge = document.getElementById("speakerBadge");
-  badge.textContent = d.speaker_connected ? t("speaker.connected") : t("speaker.not_connected");
+  badge.textContent = d.speaker_connected ? t("speaker.connected")
+    : d.speaker_mac && d.speaker_paired === false ? t("speaker.not_paired") : t("speaker.not_connected");
   badge.classList.toggle("connected", d.speaker_connected);
   document.getElementById("speakerMacDisplay").textContent = d.speaker_mac || "—";
 
@@ -1680,6 +1681,7 @@ function applyNotices(d) {
     add("warn", "alert", "notice.no_audio_server");
   } else if (!d.output_override && (!ao.output || ao.output === "bluetooth")) {
     if (!d.speaker_mac) add("warn", "bluetooth", "notice.no_speaker");
+    else if (d.speaker_paired === false) add("warn", "bluetooth", "notice.speaker_unpaired");
     else if (d.speaker_connected === false) add("warn", "bluetooth", "notice.speaker_off");
   }
   if (d.speaker_connected && d.speaker_controller && d.speaker_expected &&
@@ -7688,6 +7690,8 @@ async function refreshStats(force) {
 const SETUP_TARGETS = {
   storage: ["system", "healthTitle", "chip"],
   speaker: ["audio", "btTitle", "bluetooth"],
+  speaker_pair: ["audio", "btTitle", "bluetooth"],
+  flic_pair: ["audio", "btTitle", "bluetooth"],
   clock: ["system", "clockTitle", "clock"],
   timezone: ["system", "clockTitle", "globe"],
   music: ["home", "musicTitle", "music"],

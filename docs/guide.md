@@ -1793,6 +1793,12 @@ merged as above, statistics and suggestions replaced, sounds added to
 their announcements (the player restarts when the statistics were
 restored).
 
+**Pairings never travel with a configuration or a backup**: the speaker's and
+the Flic button's pairings live on the card itself. A restored configuration
+keeps the speaker's address, so the page says "Not paired with this Pi" and
+"To finish" asks to pair it again; the export also counts the Flic buttons that
+were paired, and "To finish" asks for those until one is paired again.
+
 The card setup page takes that `.zip` too, at its "radio" step: it reads
 the configuration out of it and puts the announcements' sounds on the card,
 in the folders they come from (only those under `/home/pi/audio`). Its

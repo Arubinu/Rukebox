@@ -591,3 +591,15 @@ test("a card off screen is not polled, and is brought up to date when its page o
   page.window.location.hash = "#network/accesspoint";
   await until(() => page.sent("GET", "/api/wifi/ap").length > before);
 });
+
+test("a speaker known by its address only is said to need pairing, not just to be off", async (t) => {
+  const { STATUS } = require("./harness");
+  const page = open(t, { routes: {
+    "GET /api/status": Object.assign({}, STATUS, { speaker_mac: "7C:E9:13:69:66:55",
+      speaker_connected: false, speaker_paired: false,
+      audio_output: { server: true, sink: null, output: "bluetooth" } }),
+  } });
+  await until(() => /not paired with this Pi/.test(page.$("npNotices").textContent));
+  assert.equal(page.$("speakerBadge").textContent, "Not paired with this Pi");
+  assert.doesNotMatch(page.$("npNotices").textContent, /is not connected\./);
+});

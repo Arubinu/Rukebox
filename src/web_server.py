@@ -2432,6 +2432,7 @@ def api_status():
     _tell_daemon_if_speaker_changed(mac, link)
     # A controller that does not answer is not a speaker that is off.
     data["speaker_connected"] = None if link["unknown"] else link["connected"]
+    data["speaker_paired"] = None if link["unknown"] else bool(link["connected"] or link["paired_here"])
     data["speaker_controller"] = link["controller"] if link["connected"] else None
     data["speaker_controller_kind"] = _controller_kind(link["controller"])
     data["speaker_expected"] = link["expected"]
@@ -3361,6 +3362,14 @@ def _flic_buttons():
     return list((info or {}).get("bd_addr_of_verified_buttons") or [])
 
 
+def _flic_button_count():
+    """How many Flic buttons are paired, or None when flicd cannot say."""
+    if not _service_is_active("flicd"):
+        return None
+    buttons = _flic_buttons()
+    return None if buttons is None else len(buttons)
+
+
 @app.route("/api/flic/status")
 def api_flic_status():
     sdk = os.path.isfile(os.path.join(FLIC_SDK_DIR, "clientlib", "python", "fliclib.py"))
@@ -3695,6 +3704,14 @@ def _tell_daemon_if_speaker_changed(mac, link):
     _speaker_seen[mac] = link["connected"]
     if before is not None and before != link["connected"]:
         threading.Thread(target=notify_daemon, args=("speaker_check",), daemon=True).start()
+
+
+def _speaker_paired(mac):
+    """False when no controller of this Pi is paired with the speaker, None when unknown."""
+    link = _status_probe(("speaker", mac), lambda: _speaker_link(mac))
+    if link["unknown"]:
+        return None
+    return bool(link["connected"] or link["paired_here"])
 
 
 def _speaker_link(mac):
@@ -4654,7 +4671,8 @@ def _cached_probe(key, ttl, compute):
     return value
 
 
-SETUP_ITEMS = ("speaker", "clock", "timezone", "music", "password", "ap_open", "storage")
+SETUP_ITEMS = ("speaker", "speaker_pair", "flic_pair", "clock", "timezone", "music", "password",
+               "ap_open", "storage")
 
 
 @app.route("/api/diag/audio", methods=["POST"])
@@ -4773,8 +4791,18 @@ def _library_item(key):
 def api_setup_pending():
     c = cfg()
     pending = []
-    if (c.get("AUDIO_OUTPUT") or "bluetooth") == "bluetooth" and not c.get("SPEAKER_MAC"):
-        pending.append("speaker")
+    if (c.get("AUDIO_OUTPUT") or "bluetooth") == "bluetooth":
+        mac = c.get("SPEAKER_MAC")
+        if not mac:
+            pending.append("speaker")
+        elif _speaker_paired(mac) is False:
+            # A restored configuration still names a speaker this Pi was never paired with.
+            pending.append("speaker_pair")
+    if config_bundle.read_repair(c).get("flic_buttons"):
+        if _flic_button_count():
+            config_bundle.clear_repair(c)
+        else:
+            pending.append("flic_pair")
     has_rtc = os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc")
     bt_mac = str(c.get("BT_CLOCK_MAC") or "")
     bt_clock = bool(c.get("BT_CLOCK_ENABLED")) and re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", bt_mac)
@@ -5091,7 +5119,8 @@ def api_browse():
 def api_config_export():
     """The whole hand-made configuration as one downloadable file."""
     c = cfg()
-    bundle = config_bundle.export_bundle(c, read_version_file(c["UPDATE_VERSION_FILE"]))
+    bundle = config_bundle.export_bundle(c, read_version_file(c["UPDATE_VERSION_FILE"]),
+                                         flic_buttons=_flic_button_count())
     payload = json.dumps(bundle, ensure_ascii=False, indent=2)
     filename = "rukebox-config-%s.json" % time.strftime("%Y%m%d-%H%M%S")
     stats.record("config_exported", detail={"settings": len(bundle["settings"])})
@@ -5223,7 +5252,8 @@ def api_backup():
     manifest = {"format": BACKUP_FORMAT, "version": BACKUP_VERSION, "created": time.time(), "sounds": {}}
     try:
         with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zf:
-            bundle = config_bundle.export_bundle(c, read_version_file(c["UPDATE_VERSION_FILE"]))
+            bundle = config_bundle.export_bundle(c, read_version_file(c["UPDATE_VERSION_FILE"]),
+                                                 flic_buttons=_flic_button_count())
             zf.writestr("config.json", json.dumps(bundle, ensure_ascii=False, indent=2))
             if "stats" in wanted and c.get("STATS_ENABLED") and _sqlite_snapshot(c["STATS_DB_FILE"], zf, "stats.db"):
                 parts.append("stats")

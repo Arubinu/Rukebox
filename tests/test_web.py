@@ -921,6 +921,42 @@ class SpeakerNudgeTest(unittest.TestCase):
 
 
 @unittest.skipUnless(flask, "Flask is not installed")
+class RepairAfterRestoreTest(unittest.TestCase):
+    """A restored configuration keeps addresses, never pairings: "To finish" says so."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        values = dict(ws.cfg(), SPEAKER_MAC="7C:E9:13:69:66:55", AUDIO_OUTPUT="bluetooth",
+                      STATE_DIR=self.dir, WEB_PASSWORD_HASH="", SETUP_HIDDEN="")
+        for target, value in (("cfg", lambda: dict(values)), ("_ap_is_open", lambda: False),
+                              ("_storages", lambda: []), ("_timezone_name", lambda: "Europe/Paris"),
+                              ("control", lambda *a, **k: {"ok": True, "data": {"track_count": 10}})):
+            patcher = unittest.mock.patch.object(ws, target, side_effect=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def items(self, paired, flic_count):
+        with unittest.mock.patch.object(ws, "_speaker_paired", return_value=paired), \
+                unittest.mock.patch.object(ws, "_flic_button_count", return_value=flic_count):
+            return ws.app.test_client().get("/api/setup/pending").get_json()["data"]["items"]
+
+    def test_a_speaker_known_by_address_only_asks_to_be_paired(self):
+        self.assertIn("speaker_pair", self.items(False, None))
+        self.assertNotIn("speaker_pair", self.items(True, None))
+        self.assertNotIn("speaker_pair", self.items(None, None), "no answer is not 'unpaired'")
+
+    def test_flic_buttons_are_asked_for_until_one_is_paired(self):
+        with open(os.path.join(self.dir, "repair.json"), "w") as f:
+            f.write('{"flic_buttons": 1}')
+        self.assertIn("flic_pair", self.items(True, None))
+        self.assertIn("flic_pair", self.items(True, 0))
+        self.assertNotIn("flic_pair", self.items(True, 1))
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "repair.json")), "done once and for all")
+        self.assertNotIn("flic_pair", self.items(True, 0))
+
+
+@unittest.skipUnless(flask, "Flask is not installed")
 class GuestLockTest(unittest.TestCase):
     def setUp(self):
         self.addCleanup(unittest.mock.patch.stopall)
