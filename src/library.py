@@ -28,6 +28,8 @@ CREATE INDEX IF NOT EXISTS tracks_artist ON tracks(artist);
 """
 
 PROBE_TIMEOUT_SEC = 20
+LOUDNESS_TIMEOUT_SEC = 300
+_LOUDNESS_RE = re.compile(r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", re.MULTILINE)
 _LEADING_NUMBER = re.compile(r"^\s*\d{1,3}\s*[-._)]\s*")
 # A genre tag can hold several genres at once.
 _GENRE_SEPARATORS = re.compile(r"[;,/|]")
@@ -107,6 +109,22 @@ def read_tags(path):
     }
 
 
+def read_loudness(path):
+    """The file's integrated loudness (LUFS, EBU R128), or None."""
+    cmd = ["ffmpeg", "-nostats", "-hide_banner", "-i", path, "-map", "0:a:0",
+           "-af", "ebur128", "-f", "null", "-"]
+    if os.name == "posix":
+        cmd = ["nice", "-n", "19"] + cmd
+    try:
+        err = subprocess.run(cmd, capture_output=True, timeout=LOUDNESS_TIMEOUT_SEC).stderr
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    found = _LOUDNESS_RE.findall(err.decode("utf-8", errors="replace"))
+    # The summary comes last; -70 is what silence measures.
+    value = float(found[-1]) if found else None
+    return value if value is not None and value > -70 else None
+
+
 class Library:
     def __init__(self, db_path, key_fn):
         """key_fn(path) gives the opaque key the web interface uses for a
@@ -115,6 +133,12 @@ class Library:
         self._db = sqlite3.connect(db_path, check_same_thread=False)
         self._db.row_factory = sqlite3.Row
         self._db.executescript(SCHEMA)
+        known = {row[1] for row in self._db.execute("PRAGMA table_info(tracks)")}
+        if "loudness" not in known:
+            self._db.execute("ALTER TABLE tracks ADD COLUMN loudness REAL")
+        if "measured" not in known:
+            self._db.execute("ALTER TABLE tracks ADD COLUMN measured INTEGER NOT NULL DEFAULT 0")
+        self._db.commit()
         self._lock = threading.Lock()
         self._key_fn = key_fn
         self._genre_cache = None
@@ -173,6 +197,30 @@ class Library:
                                              os.path.basename(path)]))), path))
             self._db.commit()
         self._genre_cache = None
+
+    def unmeasured(self, limit=20):
+        with self._lock:
+            return [r["path"] for r in self._db.execute(
+                "SELECT path FROM tracks WHERE measured = 0 ORDER BY path LIMIT ?", (limit,))]
+
+    def store_loudness(self, path, value):
+        """Records a measurement; None too, so an unreadable file is not tried again."""
+        with self._lock:
+            self._db.execute("UPDATE tracks SET loudness = ?, measured = 1 WHERE path = ?", (value, path))
+            self._db.commit()
+
+    def loudness_for(self, paths):
+        """{path: LUFS} for the paths already measured."""
+        wanted = list(paths)
+        found = {}
+        with self._lock:
+            for start in range(0, len(wanted), 500):
+                chunk = wanted[start:start + 500]
+                rows = self._db.execute(
+                    "SELECT path, loudness FROM tracks WHERE loudness IS NOT NULL AND path IN (%s)"
+                    % ",".join("?" * len(chunk)), chunk)
+                found.update((r["path"], r["loudness"]) for r in rows)
+        return found
 
     def status(self):
         with self._lock:

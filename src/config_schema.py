@@ -231,6 +231,12 @@ SETTINGS = [
         "                   not after a power cut.",
         "On restart, resume with",
     ),
+    Setting("MORNING_RISE_TRACKS", "playback", "rising_start_tracks", "int", "0",
+            "At each music start, the first N songs of the queue play from the\n"
+            "quietest to the loudest - the music wakes up with you. The loudness\n"
+            "of each file is measured once, in the background (EBU R128).\n"
+            "0 = off, 30 at most.",
+            "Rising start (songs)"),
     Setting("ANNOUNCE_ORDER_MODE", "playback", "announce_order_mode", "str", "random_albums",
             "Applied to every announcement folder (morning, cutoff,\n"
             "double-click, and any custom announcement type) that holds\n"

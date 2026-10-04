@@ -634,6 +634,14 @@
               </select>
             </div>
             <div class="field-row">
+              <div class="field-text">
+                <label for="risingStart" data-i18n="settings.rising_start">Rising start (songs)</label>
+                <p class="field-desc" id="risingStartDesc" data-i18n="settings.rising_start_desc">At each start, the first songs go from the quietest to the loudest. 0 = off.</p>
+              </div>
+              <input type="number" id="risingStart" min="0" max="30" step="1" data-key="MORNING_RISE_TRACKS"
+                     class="num-input" inputmode="numeric" aria-describedby="risingStartDesc">
+            </div>
+            <div class="field-row">
               <label for="musicLoopToggle" data-i18n="settings.loop">Loop the list</label>
               <input type="checkbox" id="musicLoopToggle" data-key="MUSIC_LOOP" class="switch-input" role="switch">
             </div>

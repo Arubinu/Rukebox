@@ -758,6 +758,19 @@ above.
     music library itself — impractical at the scale of a real music
     collection, natural sort/file naming is the only control there).
 
+  **Rising start** (`MORNING_RISE_TRACKS`, `playback.rising_start_tracks`,
+  0 = off, 30 at most): at each music start - the boot, a time, the
+  speaker, a click - the next N songs of the queue are played from the
+  quietest to the loudest, whatever the order mode, so the music wakes up
+  with you. "Quiet" is the file's integrated loudness (EBU R128), measured
+  once per file by the web server in the background, after the tags, with
+  `ffmpeg` at the lowest priority: about 5 s a song on a Pi Zero 2 W, so a
+  1 000-song library takes a couple of hours the first time; songs not
+  measured yet keep their place after the measured ones. It is a measure of
+  loudness, not of tempo: a quiet recording of a lively song still counts as
+  quiet. Songs asked for stay first, and a start that takes the last song up
+  again (`same_track` / `same_position`) is left alone.
+
   `MUSIC_LOOP` (`playback.loop`) controls what happens once the list
   has played through once: `true` (default) loops forever, like
   before. `false` stops after exactly one pass — the Pi and the

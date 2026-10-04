@@ -1122,8 +1122,25 @@ class RadioDaemon:
             if tracks:
                 self._rebuild_queue(tracks)
 
+    def _rise_queue_head(self):
+        """MORNING_RISE_TRACKS: the first songs of a start go from the quietest to the loudest."""
+        count = int(self.cfg.get("MORNING_RISE_TRACKS", 0) or 0)
+        resuming = self._resume_armed and self.cfg.get("MUSIC_RESUME_MODE") in ("same_track", "same_position")
+        if count < 2 or self._forced_next or resuming:
+            return
+        try:
+            if self._list_library is None:
+                self._list_library = library.Library(self.cfg["LIBRARY_DB_FILE"], track_media.track_key)
+            levels = self._list_library.loudness_for(self.state.data["play_queue"][:count * 2 + 50])
+        except Exception:  # noqa: BLE001 - a missing measurement must never stop the start
+            log.exception("Could not read the loudness of the coming songs")
+            return
+        if levels and self.state.rise_head(min(count, 30), levels.get):
+            log.info("The first %d songs rise from the quietest to the loudest", min(count, 30))
+
     def _start_music_faded(self, start):
         """Runs `start` (which begins the first song) under START_FADE_SEC."""
+        self._rise_queue_head()
         try:
             fade = float(self.cfg.get("START_FADE_SEC", 0) or 0)
         except (TypeError, ValueError):

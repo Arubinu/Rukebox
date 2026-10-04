@@ -113,6 +113,24 @@ class RadioState:
                 all_tracks, music_dir, order_mode, custom_order)
             self._save()
 
+    def rise_head(self, count, level):
+        """Orders the next `count` songs from the quietest to the loudest
+        (level(path): a number, or None when unknown - those keep the end).
+        Songs asked for stay first, in their own order."""
+        with self._lock:
+            queue = self.data["play_queue"]
+            asked = set(self.data.get("requests") or [])
+            start = 0
+            while start < len(queue) and queue[start] in asked:
+                start += 1
+            head = queue[start:start + count]
+            if len(head) < 2:
+                return False
+            known = sorted((p for p in head if level(p) is not None), key=level)
+            queue[start:start + count] = known + [p for p in head if level(p) is None]
+            self._save()
+            return True
+
     def has_queued_tracks(self):
         return bool(self.data["play_queue"])
 

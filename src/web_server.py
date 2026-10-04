@@ -1556,6 +1556,13 @@ def _library_loop():
                     break
                 for path in batch:
                     _library.store(path, library.read_tags(path), c["MUSIC_DIR"])
+            # After the tags, which the page needs first: one ffmpeg pass per file, once.
+            while not _library_wake.is_set():
+                batch = _library.unmeasured(5)
+                if not batch:
+                    break
+                for path in batch:
+                    _library.store_loudness(path, library.read_loudness(path))
         except Exception:  # noqa: BLE001
             log.exception("Library catalogue: update failed")
         _library_wake.wait(LIBRARY_RESYNC_SEC)
