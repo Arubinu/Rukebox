@@ -304,5 +304,58 @@ class SpeakerVolumeLockTest(VolumeLinkTest):
         self.assertIsNone(daemon._sink_level)
 
 
+
+class QuickStepTest(SpeakerVolumeLockTest):
+    """Right after a start, a press on the speaker's volume moves it by big steps."""
+
+    def settle(self, daemon):
+        for _ in range(4):
+            daemon._follow_sink_volume()
+
+    def test_linked_a_press_soon_after_the_start_is_a_big_step(self):
+        daemon = self.build(linked=True)
+        level = self.speaker(0.30)
+        self.settle(daemon)
+        daemon._open_quick_steps()
+        level[0] = 0.26                              # one press on volume -
+        daemon._follow_sink_volume()
+        self.assertAlmostEqual(level[0], 0.10)
+        self.assertEqual(daemon._user_volume, 10.0)
+        daemon._quick_until = 0.0                    # ten seconds later
+        level[0] = 0.06
+        daemon._follow_sink_volume()
+        self.assertEqual(daemon._user_volume, 6.0, "back to the speaker's own steps")
+
+    def test_a_press_while_the_volume_is_handed_over_still_counts(self):
+        daemon = self.build(linked=True)
+        level = self.speaker(0.80)
+        self.settle(daemon)
+        daemon._start_music_faded(lambda: None)      # hands the volume over again
+        daemon._follow_sink_volume()
+        self.assertAlmostEqual(level[0], 0.30)
+        level[0] = 0.24
+        daemon._follow_sink_volume()
+        self.assertAlmostEqual(level[0], 0.10, "the press wins over the hand-over")
+
+    def test_not_linked_the_speakers_own_volume_takes_the_step(self):
+        daemon = self.build(linked=False)
+        level = self.speaker(0.70)
+        daemon._open_quick_steps()
+        daemon._follow_sink_volume()
+        level[0] = 0.75
+        daemon._follow_sink_volume()
+        self.assertAlmostEqual(level[0], 0.90)
+
+    def test_zero_keeps_the_speakers_steps(self):
+        daemon = self.build(linked=True)
+        daemon.cfg["SPEAKER_QUICK_STEP"] = 0
+        level = self.speaker(0.30)
+        self.settle(daemon)
+        daemon._open_quick_steps()
+        level[0] = 0.26
+        daemon._follow_sink_volume()
+        self.assertEqual(daemon._user_volume, 26.0)
+
+
 if __name__ == "__main__":
     unittest.main()

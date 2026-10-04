@@ -94,6 +94,14 @@ SETTINGS = [
         "Pause when the speaker disconnects",
     ),
     Setting(
+        "SPEAKER_QUICK_STEP", "bluetooth", "quick_volume_step", "int", "20",
+        "Right after the music starts (or the speaker comes back), a press on\n"
+        "the speaker's volume buttons moves the volume by this many points -\n"
+        "the music is often far too loud then. Back to the speaker's own small\n"
+        "steps 10 seconds after the last press. 0 = always the speaker's steps.",
+        "Big volume steps at the start (%)",
+    ),
+    Setting(
         "SPEAKER_BATTERY_LOW", "bluetooth", "battery_low_percent", "int", "15",
         "Warn once (a sound and a line on the player) when the speaker says its\n"
         "battery is at or below this percentage. 0 = no warning. Only speakers\n"
@@ -511,6 +519,11 @@ SETTINGS = [
             "espeak-ng (installed with the radio).",
             "Spoken language"),
 
+    Setting("ANNOUNCE_MUSIC_UNDER", "fades", "music_under_announcements", "int", "0",
+            "Keep the music playing under an announcement (the spoken time\n"
+            "included), at this percentage of its volume. 0 = the music pauses\n"
+            "for the announcement, as before.",
+            "Music under announcements (%)"),
     Setting("FADE_DURATION_SEC", "fades", "announcement_sec", "float", "15",
             "Fade before a scheduled announcement.", "Announcement fade (sec)"),
     Setting("INTERACTIVE_FADE_DURATION_SEC", "fades", "interactive_sec", "float", "1.5",

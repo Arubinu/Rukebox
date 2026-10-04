@@ -59,6 +59,12 @@ bluetooth:
   # check (speaker_watch_sec), so within that many seconds.
   pause_on_speaker_loss: true
 
+  # Right after the music starts (or the speaker comes back), a press on
+  # the speaker's volume buttons moves the volume by this many points -
+  # the music is often far too loud then. Back to the speaker's own small
+  # steps 10 seconds after the last press. 0 = always the speaker's steps.
+  quick_volume_step: 20
+
   # Warn once (a sound and a line on the player) when the speaker says its
   # battery is at or below this percentage. 0 = no warning. Only speakers
   # that report their battery to BlueZ can be followed.
@@ -421,6 +427,11 @@ schedule:
 # Fade durations - every stop is progressive, never abrupt
 # ---------------------------------------------------------------
 fades:
+  # Keep the music playing under an announcement (the spoken time
+  # included), at this percentage of its volume. 0 = the music pauses
+  # for the announcement, as before.
+  music_under_announcements: 0
+
   # Fade before a scheduled announcement.
   announcement_sec: 15
 

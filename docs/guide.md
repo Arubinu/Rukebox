@@ -922,6 +922,13 @@ disconnects"), all driven by that same check:
   was gone. The radio checks the speaker every `SPEAKER_WATCH_INTERVAL_SEC`
   (10 s), and at once whenever an open page sees it come or go - so with the
   interface open, the pause follows the "not connected" banner.
+- `SPEAKER_QUICK_STEP` (20, 0 = off): for 10 seconds after the music
+  starts - or the speaker comes back - a press on the speaker's own volume
+  buttons moves the volume by 20 points in the press's direction, since a
+  speaker woken from standby is often far too loud and its own steps are
+  small. Each press keeps the big steps 10 more seconds; then the speaker's
+  steps are its own again. Works whether or not the speaker's volume is
+  linked to the radio's (a lock wins over it).
 - `SPEAKER_BATTERY_LOW` (15 %, 0 = off): when the speaker reports its
   battery to BlueZ, the level shows next to its address, and once it falls
   to that percentage the radio plays `BATTERY_LOW_SOUND` (a System sound)
@@ -1024,6 +1031,13 @@ installed with the radio, and by the updater when they are missing.
   and an announcement with no sound in its folder just says it.
 - **Before the cutoff**: **Say it before (min)** (`schedule.cutoff_warning_min`,
   0 = off) says "The radio stops in 10 minutes" once, while the music plays.
+
+**Music under announcements** (Settings > Fades,
+`fades.music_under_announcements`, 0 = off): instead of pausing for an
+announcement - the custom ones, the Announcement button, the spoken time -
+the music goes on at that percentage of its volume while the announcement
+plays in a second player, then comes back up. Skip stops the announcement.
+The cutoff still stops the music, and a button's sound still plays alone.
 
 The language is **Spoken language** (`schedule.speech_language`: en, fr, de,
 es, it, nl), next to the cutoff, with a button to hear it. The setup page sets

@@ -71,6 +71,7 @@ class RadioDaemon:
     # A press on the speaker is only visible as a new level; 2s makes it feel answered.
     SINK_POLL_SEC = 2.0
     SINK_RESYNC_TURNS = 2
+    QUICK_WINDOW_SEC = 10.0
     SINK_NAME_EVERY = 3
     CUTOFF_CATCH_UP_SEC = 300
     CUTOFF_PENDING_MAX_SEC = 1800
@@ -131,6 +132,9 @@ class RadioDaemon:
         self._battery_warned = False
         self._game_return = None
         self._last_card = None
+        self._quick_until = 0.0
+        self._duck_factor = 1.0
+        self._duck_proc = None
         self._bt_start_done = False
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
@@ -1151,6 +1155,7 @@ class RadioDaemon:
         fade = min(max(fade, 0.0), 120.0)
         # A volume handed to an idle Bluetooth link never reaches the speaker.
         self._sink_resync = self.SINK_RESYNC_TURNS
+        self._open_quick_steps()
         if fade <= 0:
             start()
             return
@@ -1287,9 +1292,9 @@ class RadioDaemon:
         or the radio's software volume is, and the speaker's is a second one on
         top of it."""
         if self._speaker_volume_linked() and self._set_sink_volume(vol):
-            self.mpv.set_volume(self._music_gain())
+            self.mpv.set_volume(self._music_gain() * self._duck_factor)
             return
-        self.mpv.set_volume(vol)
+        self.mpv.set_volume(vol * self._duck_factor)
 
     def _volume_watch_loop(self):
         """Follows the speaker's own volume when the two are linked."""
@@ -1310,14 +1315,16 @@ class RadioDaemon:
         """One watch turn: the speaker's own volume, when it is linked or locked."""
         linked = self._speaker_volume_linked()
         locked = bool(self.cfg.get("SPEAKER_VOLUME_LOCK"))
-        if not linked and not locked:
+        quick = self._quick_step() > 0 and time.monotonic() < self._quick_until
+        if not linked and not locked and not quick:
             self._sink_level = None
             self._sink_name = None
             self._sink_resync = 0
             return
         self._sink_turn += 1
         percent = None
-        if self._sink_level is not None and not self._sink_resync                 and self._sink_turn % self.SINK_NAME_EVERY:
+        if self._sink_level is not None and not self._sink_resync \
+                and self._sink_turn % self.SINK_NAME_EVERY:
             percent = self._read_sink_percent()
             if percent is None or abs(percent - self._sink_level) <= 1.0:
                 return
@@ -1326,6 +1333,14 @@ class RadioDaemon:
             # Another output (the speaker just connected): it knows nothing of our volume.
             self._sink_name = name
             self._sink_resync = self.SINK_RESYNC_TURNS
+        if quick and not locked and self._sink_level is not None \
+                and 0 < self._sink_resync < self.SINK_RESYNC_TURNS:
+            # Already handed over once since the start: a change now is a press.
+            pressed = self._read_sink_percent()
+            if pressed is not None and abs(pressed - self._sink_level) > 1.0:
+                self._sink_resync = 0
+                self._quick_press(pressed, linked)
+                return
         if self._sink_level is None or self._sink_resync:
             self._sink_resync = max(0, self._sink_resync - 1)
             if linked:
@@ -1349,8 +1364,38 @@ class RadioDaemon:
             log.info("Speaker volume buttons are locked: back to %.0f%%", self._sink_level)
             self._assert_sink_volume(self._sink_level)
             return
+        if quick:
+            self._quick_press(percent, linked)
+            return
+        if not linked:
+            self._sink_level = percent
+            return
         self._sink_level = percent
         self._adopt_volume(percent)
+
+    def _quick_step(self):
+        try:
+            return max(0, min(50, int(self.cfg.get("SPEAKER_QUICK_STEP", 0) or 0)))
+        except (TypeError, ValueError):
+            return 0
+
+    def _open_quick_steps(self):
+        """The speaker's volume buttons take big steps for a moment."""
+        if self._quick_step() > 0:
+            self._quick_until = time.monotonic() + self.QUICK_WINDOW_SEC
+
+    def _quick_press(self, percent, linked):
+        """A press soon after the start: the step is SPEAKER_QUICK_STEP, in the
+        press's direction, and the big steps last 10 seconds more."""
+        step = self._quick_step()
+        before = self._sink_level
+        target = max(0.0, min(100.0, before + (step if percent > before else -step)))
+        log.info("Speaker volume pressed right after the start: %.0f%% -> %.0f%%", before, target)
+        self._assert_sink_volume(target)
+        self._sink_level = target
+        self._quick_until = time.monotonic() + self.QUICK_WINDOW_SEC
+        if linked:
+            self._adopt_volume(target)
 
     def _read_sink_percent(self):
         found = audio_diag.default_sink_volume(env=audio_env())
@@ -1676,13 +1721,18 @@ class RadioDaemon:
             },
             counters={"custom_announces": 1}, daily={"custom_announces": 1},
         )
+        source_id = "custom:%s" % item["id"]
+        spoken = self._speech_file(item.get("speech") or "none")
+        files = ([spoken] if spoken else []) + self._next_announce_file(source_id, item["folder"])
+        if self._play_ducked(source_id, files, volume_key=source_id,
+                             after=None if on_demand else item.get("after_action")):
+            if mark and not on_demand and item.get("trigger") == "time":
+                self.state.mark_triggered_today("custom_%s" % item["id"])
+            return
         self._resume_mode = self.mode
         self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"] if on_demand
                                  else self.cfg["FADE_DURATION_SEC"])
         self._restore_base_volume()
-        source_id = "custom:%s" % item["id"]
-        spoken = self._speech_file(item.get("speech") or "none")
-        files = ([spoken] if spoken else []) + self._next_announce_file(source_id, item["folder"])
         self._play_announce_queue(source_id, files,
                                   volume_key=source_id,
                                   after=None if on_demand else item.get("after_action"))
@@ -1869,6 +1919,8 @@ class RadioDaemon:
         if self.mode != "music" or self._paused:
             self._play_cue_sound(path)
             return None
+        if self._play_ducked("speech", [path]):
+            return None
         resume = (self._last_music_track, self._position)
         self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
         self._restore_base_volume()
@@ -2002,6 +2054,96 @@ class RadioDaemon:
             return "busy"
         return None
 
+    def _music_under(self):
+        try:
+            return max(0, min(80, int(self.cfg.get("ANNOUNCE_MUSIC_UNDER", 0) or 0)))
+        except (TypeError, ValueError):
+            return 0
+
+    def _duck_possible(self, files):
+        return (self._music_under() > 0 and bool(files) and self.mode == "music"
+                and not self._paused and self._duck_proc is None)
+
+    def _set_duck(self, factor, seconds=0.8):
+        """Brings the music's level to `factor` of itself, in small steps."""
+        linked = self._speaker_volume_linked()
+        start = self._duck_factor
+        steps = 8
+        for i in range(1, steps + 1):
+            self._duck_factor = start + (factor - start) * i / steps
+            base = self._music_gain() if linked else (self._current_volume or self._target_volume())
+            self.mpv.set_volume(round(base * self._duck_factor, 1))
+            time.sleep(seconds / steps)
+
+    def _play_ducked(self, kind, files, volume_key=None, after=None):
+        """Plays `files` over the music, the music kept under them; True when
+        it does (False: the caller pauses the music as before)."""
+        if not self._duck_possible(files):
+            return False
+        volume = self._source_volume(volume_key) if volume_key else None
+        log.info("Playing over the music (kept at %d%%): %s", self._music_under(),
+                 ", ".join(os.path.basename(f) for f in files))
+        self._duck_proc = "starting"
+
+        def run():
+            try:
+                self._set_duck(self._music_under() / 100.0)
+                for path in files:
+                    if self._duck_proc is None:
+                        break
+                    self._last_sound = {"path": path, "kind": kind, "at": time.monotonic()}
+                    self._bump_state()
+                    started = time.monotonic()
+                    self._play_cue_blocking(path, volume)
+                    if os.path.dirname(path) != self._speech_dir():
+                        seconds = time.monotonic() - started
+                        name = os.path.basename(path)
+                        self.stats.record(
+                            "announce_played", label=name,
+                            detail={"kind": kind, "seconds": round(seconds, 1), "reason": "eof", "under": True},
+                            counters={"announcements_played": 1, "seconds_announce": seconds},
+                            daily={"seconds_announce": seconds}, item=(kind, name), seconds=seconds)
+            finally:
+                self._duck_proc = None
+                self._set_duck(1.0)
+            if after and after != "none":
+                with self._command_lock:
+                    log.info("After the announcement: %s", after)
+                    self._perform_direct_action(after, "announcement")
+                    self._bump_state()
+
+        threading.Thread(target=run, daemon=True).start()
+        return True
+
+    def _play_cue_blocking(self, path, volume=None):
+        command = ["mpv", "--no-terminal", "--really-quiet", "--audio-device=" + (self._audio_device or "auto")]
+        if volume is not None:
+            command.append("--volume=%.1f" % volume)
+        command.append(path)
+        try:
+            proc = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    env=audio_env())
+        except OSError:
+            log.exception("Could not launch mpv for a sound over the music")
+            return
+        self._duck_proc = proc
+        try:
+            proc.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        if self._duck_proc is proc:
+            self._duck_proc = "between"
+
+    def _skip_ducked(self):
+        """The sound playing over the music, stopped."""
+        proc = self._duck_proc
+        if proc is None:
+            return False
+        self._duck_proc = None
+        if hasattr(proc, "terminate"):
+            proc.terminate()
+        return True
+
     def _check_cutoff_warning(self, now):
         """Says the cutoff is coming, CUTOFF_WARNING_MIN minutes ahead, once a day."""
         minutes = int(self.cfg.get("CUTOFF_WARNING_MIN", 0) or 0)
@@ -2064,6 +2206,8 @@ class RadioDaemon:
             "announce_on_demand", label=folder_source,
             detail={"folder": folder, "files": len(files)},
         )
+        if self._play_ducked("button_announce:on_demand", files, volume_key=folder_source):
+            return None
         self._resume_mode = self.mode
         self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
         self._restore_base_volume()
@@ -2476,6 +2620,7 @@ class RadioDaemon:
 
     def _on_speaker_back(self, mac):
         log.info("Speaker reconnected (%s)", mac)
+        self._open_quick_steps()
         self._speaker_lost_at = None
         self.stats.record("speaker_reconnected", label=mac, counters={"speaker_recoveries": 1})
         if self._output_override and self.cfg.get("AUDIO_OUTPUT", "bluetooth") == "bluetooth":
@@ -3136,6 +3281,10 @@ class RadioDaemon:
                 return self._set_active_list(msg.get("id"), source, bool(msg.get("start")))
             if cmd == "skip_sound":
                 mode = self.mode
+                if self._skip_ducked():
+                    log.info("Sound over the music skipped")
+                    self.stats.record("sound_skipped", label="under", detail={"source": source})
+                    return {"ok": True}
                 if not (mode == "meme" or mode.startswith(("custom:", "button_announce:"))):
                     return {"ok": False, "error": "nothing_to_skip"}
                 log.info("Sound skipped (%s)", mode)
