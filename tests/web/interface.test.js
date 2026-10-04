@@ -599,7 +599,7 @@ test("a speaker known by its address only is said to need pairing, not just to b
       speaker_connected: false, speaker_paired: false,
       audio_output: { server: true, sink: null, output: "bluetooth" } }),
   } });
-  await until(() => /not paired with this Pi/.test(page.$("npNotices").textContent));
-  assert.equal(page.$("speakerBadge").textContent, "Not paired with this Pi");
+  await until(() => /not paired yet/.test(page.$("npNotices").textContent));
+  assert.equal(page.$("speakerBadge").textContent, "Not paired");
   assert.doesNotMatch(page.$("npNotices").textContent, /is not connected\./);
 });
