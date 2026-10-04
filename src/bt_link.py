@@ -105,7 +105,11 @@ def locate(mac, adapter=""):
         return state
 
     found = controllers()
-    expected = str(adapter or "").strip().upper() or default_controller(found)
+    named = str(adapter or "").strip().upper()
+    # A configuration brought from another Pi can name a controller this one does not have.
+    if named and found and named not in {c["address"] for c in found}:
+        named = ""
+    expected = named or default_controller(found)
     state["expected"] = expected
     others = [c["address"] for c in found if c["address"] != expected]
 

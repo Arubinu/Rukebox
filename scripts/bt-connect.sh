@@ -31,7 +31,18 @@ reload_config() {
     fi
     SPEAKER_MAC="${SPEAKER_MAC:-}"
     ADAPTER="${SPEAKER_BT_ADAPTER:-}"
+    # A configuration brought from another Pi names a controller this one does not have.
+    case "$ADAPTER" in
+        ??:??:??:??:??:??)
+            if [ -z "$(adapter_index)" ]; then
+                [ "$MISSING_ADAPTER" != "$ADAPTER" ] \
+                    && echo "Controller $ADAPTER is not on this Pi: using the default one."
+                MISSING_ADAPTER="$ADAPTER"
+                ADAPTER=""
+            fi ;;
+    esac
 }
+MISSING_ADAPTER=""
 
 adapter_index() {
     case "$ADAPTER" in

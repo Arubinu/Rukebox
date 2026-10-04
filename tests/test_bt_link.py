@@ -105,6 +105,12 @@ class LocateTest(PatchTest):
         self.assertEqual(state["expected"], DONGLE)
         self.assertEqual(state["controller"], BUILTIN)
 
+    def test_a_controller_this_pi_does_not_have_means_the_default_one(self):
+        self.patch(Fake({DONGLE: CONNECTED}))
+        state = bt_link.locate(SPEAKER, "B8:27:EB:00:00:01")
+        self.assertEqual(state["expected"], DONGLE)
+        self.assertEqual(state["controller"], DONGLE)
+
     def test_not_connected_anywhere(self):
         self.patch(Fake({DONGLE: PAIRED_OFF, BUILTIN: ABSENT}))
         state = bt_link.locate(SPEAKER, DONGLE)
