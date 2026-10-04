@@ -21,8 +21,27 @@ if [[ "$HCI_DEVICE" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
         sleep 1
     done
     if [ -z "$HCI_DEVICE" ]; then
-        echo "flicd: no Bluetooth controller with address $ADDRESS" >&2
-        exit 1
+        # A replaced dongle has another address: take the one USB controller, never a guess between several.
+        USB_DEVICES="$(hciconfig 2>/dev/null | awk '/^hci[0-9]+:/ { dev = $1; sub(":", "", dev) }
+            /Bus: USB/ { print dev }')"
+        SPEAKER_DEVICE=""
+        if [[ "${SPEAKER_BT_ADAPTER:-}" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
+            SPEAKER_DEVICE="$(hci_for_address "$SPEAKER_BT_ADAPTER")"
+        fi
+        # Only when the speaker is clearly elsewhere: flicd would take its controller from it.
+        SPEAKER_ELSEWHERE=0
+        if [ "${AUDIO_OUTPUT:-bluetooth}" != "bluetooth" ]; then
+            SPEAKER_ELSEWHERE=1
+        elif [ -n "$SPEAKER_DEVICE" ] && ! printf '%s\n' "$USB_DEVICES" | grep -qx "$SPEAKER_DEVICE"; then
+            SPEAKER_ELSEWHERE=1
+        fi
+        if [ "$SPEAKER_ELSEWHERE" -eq 1 ] && [ "$(printf '%s\n' "$USB_DEVICES" | grep -c .)" -eq 1 ]; then
+            HCI_DEVICE="$USB_DEVICES"
+            echo "flicd: no controller with address $ADDRESS, using the USB one ($HCI_DEVICE)" >&2
+        else
+            echo "flicd: no Bluetooth controller with address $ADDRESS" >&2
+            exit 1
+        fi
     fi
 fi
 
