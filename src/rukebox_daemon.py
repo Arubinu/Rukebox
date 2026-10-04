@@ -78,6 +78,7 @@ class RadioDaemon:
         self._mode = "idle"
         self._command_lock = threading.Lock()
         self._speaker_watch_lock = threading.Lock()
+        self._waiting_for_tracks = False
         self.cfg = cfg
         self.state = RadioState(os.path.join(cfg["STATE_DIR"], "state.json"))
         self.mpv = MPVController(cfg["MPV_SOCKET"])
@@ -663,7 +664,13 @@ class RadioDaemon:
                     return
         tracks = self._playable_tracks()
         if not tracks:
+            # Music was wanted: it starts once a rescan finds some.
+            self._waiting_for_tracks = True
+            if self.mode == "music":
+                log.info("Nothing to play yet: waiting for music in the library")
+                self._start_keepalive("idle", quiet=True)
             return
+        self._waiting_for_tracks = False
 
         track = self.state.pop_next_track_or_none()
         if track is None:
@@ -676,6 +683,18 @@ class RadioDaemon:
                 return
 
         self._play_track(track)
+
+    def _rescan_music(self, source):
+        """Reads the music folder again; music that was waiting for it starts."""
+        from config_and_scan import force_rescan
+        force_rescan(self.cfg["MUSIC_CACHE_FILE"])
+        # Read the list back now, or the interface shows the old count until the next track.
+        self._get_music_list()
+        log.info("Music rescanned: %d tracks", self._track_count)
+        self.stats.record("music_rescan", detail={"source": source})
+        if self._waiting_for_tracks and self._track_count and self.mode in ("idle", "stopped"):
+            self._start_or_restart_playback(log_label="library")
+        return self._track_count
 
     def _play_track(self, path, start=0.0):
         """Plays one music file, from `start` seconds."""
@@ -2531,7 +2550,7 @@ class RadioDaemon:
             self._start_or_restart_playback()
 
         if self._cutoff_due(now) and not self.state.already_triggered_today("last_cutoff_trigger"):
-            if self.mode in ("idle", "stopped"):
+            if self.mode in ("idle", "stopped") or (self.mode == "music" and not self._current_track):
                 self._trigger_cutoff_from_idle()
             elif self.cfg["CUTOFF_MODE"] == "exact":
                 self._trigger_cutoff_event_exact()
@@ -2884,13 +2903,7 @@ class RadioDaemon:
                 self._set_user_volume(vol, source)
                 return {"ok": True, "volume": vol}
             if cmd == "rescan_music":
-                from config_and_scan import force_rescan
-                force_rescan(self.cfg["MUSIC_CACHE_FILE"])
-                # Read the list back now, or the interface shows the old count until the next track.
-                self._get_music_list()
-                log.info("Music rescanned: %d tracks", self._track_count)
-                self.stats.record("music_rescan", detail={"source": source})
-                return {"ok": True, "tracks": self._track_count}
+                return {"ok": True, "tracks": self._rescan_music(source)}
             if cmd == "get_status":
                 return {"ok": True, "data": self._build_status()}
             if cmd == "wait_change":
