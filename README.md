@@ -30,6 +30,10 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
   languages, light and dark themes.
 - **Easy to share**: guests join the Wi-Fi by scanning a QR code, queue
   songs and suggest new ones - with credits, so nobody takes over.
+- **For the evenings too**: it tells the time out loud, warns before it
+  stops, and turns into a party game - a blind test on your guests'
+  phones, a vote to skip the song, and RFID cards or barcodes that start
+  an album. A monthly and yearly recap tells you what you listened to.
 - **Made to run unattended**: it keeps the speaker connected, knows the
   time without Internet, skips unreadable files, watches its SD card, and
   says on screen when something needs attention.

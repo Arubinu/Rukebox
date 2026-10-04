@@ -31,6 +31,11 @@ della cassa o qualsiasi telefono collegato al Wi-Fi del Pi.
 - **Facile da condividere**: gli ospiti si collegano al Wi-Fi scansionando
   un QR code, mettono brani in coda e ne propongono di nuovi - con dei
   crediti, perché nessuno si impossessi della radio.
+- **Anche per la sera**: dice l'ora ad alta voce, avvisa prima di
+  spegnersi e diventa un gioco - un blind test sui telefoni dei tuoi
+  ospiti, un voto per saltare il brano e schede RFID o codici a barre che
+  avviano un album. Un bilancio del mese e dell'anno ti racconta cosa hai
+  ascoltato.
 - **Pensato per funzionare da solo**: tiene la cassa collegata, conosce
   l'ora senza Internet, salta i file illeggibili, sorveglia la sua scheda
   SD e segnala sullo schermo quando qualcosa richiede attenzione.

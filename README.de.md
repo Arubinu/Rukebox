@@ -33,6 +33,11 @@ Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
 - **Leicht zu teilen**: Gäste treten dem WLAN per QR-Code bei, reihen
   Titel ein und schlagen neue vor - mit Guthaben, damit niemand das Radio
   für sich allein beansprucht.
+- **Auch für den Abend**: es sagt die Uhrzeit an, warnt vor dem
+  Abschalten und wird zum Partyspiel - ein Blindtest auf den Handys deiner
+  Gäste, eine Abstimmung zum Überspringen und RFID-Karten oder Barcodes,
+  die ein Album starten. Ein Monats- und Jahresrückblick zeigt, was du
+  gehört hast.
 - **Läuft von allein**: hält den Lautsprecher verbunden, kennt die
   Uhrzeit ohne Internet, überspringt unlesbare Dateien, überwacht seine
   SD-Karte und zeigt an, wenn etwas deine Aufmerksamkeit braucht.

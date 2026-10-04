@@ -32,6 +32,11 @@ speaker of elke telefoon op de wifi van de Pi is genoeg.
 - **Makkelijk te delen**: gasten verbinden met de wifi via een QR-code,
   zetten nummers in de wachtrij en stellen nieuwe voor - met tegoed,
   zodat niemand de radio overneemt.
+- **Ook voor de avond**: hij zegt de tijd hardop, waarschuwt voordat hij
+  stopt en wordt een spel - een blinde test op de telefoons van je
+  gasten, een stemming om een nummer over te slaan en RFID-kaarten of
+  barcodes die een album starten. Een maand- en jaaroverzicht vertelt wat
+  je hebt beluisterd.
 - **Gemaakt om zelfstandig te draaien**: houdt de speaker verbonden, weet
   hoe laat het is zonder internet, slaat onleesbare bestanden over, houdt
   de SD-kaart in de gaten en meldt op het scherm wanneer iets aandacht

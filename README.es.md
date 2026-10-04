@@ -31,6 +31,11 @@ cualquier móvil conectado al Wi-Fi de la Pi.
 - **Fácil de compartir**: tus invitados se unen al Wi-Fi escaneando un
   código QR, ponen canciones en cola y proponen otras - con créditos, para
   que nadie acapare la radio.
+- **También para la noche**: dice la hora en voz alta, avisa antes de
+  apagarse y se convierte en un juego - un test a ciegas en los móviles de
+  tus invitados, una votación para saltar la canción y tarjetas RFID o
+  códigos de barras que inician un álbum. Un resumen del mes y del año te
+  cuenta lo que escuchaste.
 - **Pensada para funcionar sola**: mantiene el altavoz conectado, sabe la
   hora sin Internet, salta los archivos ilegibles, vigila su tarjeta SD y
   avisa en pantalla cuando algo necesita tu atención.

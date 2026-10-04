@@ -32,6 +32,11 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
 - **Facile à partager** : tes invités rejoignent le Wi-Fi en scannant un
   QR code, ajoutent des morceaux à la file et en proposent de nouveaux -
   avec des crédits, pour que personne ne monopolise la radio.
+- **Pour les soirées aussi** : il dit l'heure à voix haute, prévient avant
+  de s'arrêter et devient un jeu - un blind test sur les téléphones de tes
+  invités, un vote pour passer le morceau, et des cartes RFID ou des
+  codes-barres qui lancent un album. Un bilan du mois et de l'année te
+  raconte ce que tu as écouté.
 - **Pensé pour tourner seul** : il garde l'enceinte connectée, connaît
   l'heure sans Internet, ignore les fichiers illisibles, surveille sa
   carte SD et te prévient à l'écran quand quelque chose demande ton
