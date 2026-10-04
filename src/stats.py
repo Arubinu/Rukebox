@@ -14,6 +14,7 @@ log = logging.getLogger("stats")
 SCHEMA_VERSION = 1
 
 PENDING_DAY = "pending"
+DAILY_KEEP_DAYS = 1100
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_info (
@@ -54,6 +55,15 @@ CREATE TABLE IF NOT EXISTS daily (
     key   TEXT NOT NULL,
     value REAL NOT NULL DEFAULT 0,
     PRIMARY KEY (day, key)
+);
+
+CREATE TABLE IF NOT EXISTS monthly (
+    month   TEXT NOT NULL,       -- YYYY-MM, kept for good: what the recap reads
+    kind    TEXT NOT NULL,       -- track | first (the first song of a day)
+    name    TEXT NOT NULL,
+    count   REAL NOT NULL DEFAULT 0,
+    seconds REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (month, kind, name)
 );
 
 CREATE TABLE IF NOT EXISTS items (
@@ -136,6 +146,7 @@ class StatsRecorder:
             "INSERT OR IGNORE INTO schema_info(key, value) VALUES('created_at', ?)",
             (str(time.time()),),
         )
+        self._fill_monthly_from_events()
 
     @property
     def clock_source(self):
@@ -148,6 +159,28 @@ class StatsRecorder:
     @property
     def session_id(self):
         return self._session_id
+
+    def _fill_monthly_from_events(self):
+        """A database from before the monthly table: the events it still keeps fill it, once."""
+        try:
+            if self._conn.execute("SELECT 1 FROM schema_info WHERE key = 'monthly_filled'").fetchone():
+                return
+            self._conn.execute(
+                "INSERT OR IGNORE INTO monthly(month, kind, name, count, seconds) "
+                "SELECT strftime('%Y-%m', ts, 'unixepoch', 'localtime'), 'track', label, COUNT(*), "
+                "  COALESCE(SUM(json_extract(detail, '$.seconds')), 0) "
+                "FROM events WHERE type = 'track_played' AND clock_ok = 1 AND label IS NOT NULL "
+                "GROUP BY 1, 3")
+            self._conn.execute(
+                "INSERT OR IGNORE INTO monthly(month, kind, name, count) "
+                "SELECT strftime('%Y-%m', day), 'first', label, COUNT(*) FROM ("
+                "  SELECT date(ts, 'unixepoch', 'localtime') AS day, label, "
+                "  ROW_NUMBER() OVER (PARTITION BY date(ts, 'unixepoch', 'localtime') ORDER BY ts) AS rn "
+                "  FROM events WHERE type = 'track_played' AND clock_ok = 1 AND label IS NOT NULL"
+                ") WHERE rn = 1 GROUP BY 1, 3")
+            self._conn.execute("INSERT INTO schema_info(key, value) VALUES('monthly_filled', '1')")
+        except sqlite3.Error:
+            log.exception("Could not fill the monthly recap from the events")
 
     def _today(self):
         """Day bucket for a rollup: the real date once the clock is trusted,
@@ -183,6 +216,21 @@ class StatsRecorder:
             (kind, name, float(count), float(seconds), ts if ts is not None else time.time()),
         )
 
+    def _bump_monthly(self, name, seconds, daily):
+        """A song for the recap; the first one of its day is remembered too."""
+        month = date.today().strftime("%Y-%m")
+        self._conn.execute(
+            "INSERT INTO monthly(month, kind, name, count, seconds) VALUES(?, 'track', ?, 1, ?) "
+            "ON CONFLICT(month, kind, name) DO UPDATE SET count = count + 1, "
+            "seconds = seconds + excluded.seconds", (month, name, float(seconds or 0)))
+        played = self._conn.execute(
+            "SELECT value FROM daily WHERE day = ? AND key = 'tracks_played'",
+            (date.today().isoformat(),)).fetchone()
+        if (daily or {}).get("tracks_played") and played is not None and played["value"] <= 1:
+            self._conn.execute(
+                "INSERT INTO monthly(month, kind, name, count) VALUES(?, 'first', ?, 1) "
+                "ON CONFLICT(month, kind, name) DO UPDATE SET count = count + 1", (month, name))
+
     def record(self, event_type, label=None, detail=None, counters=None, daily=None,
                item=None, seconds=0.0):
         """Single entry point for "something happened"."""
@@ -209,6 +257,8 @@ class StatsRecorder:
                     if item:
                         kind, name = item
                         self._bump_item(kind, name, count=1.0, seconds=seconds, ts=now)
+                        if kind == "music" and name and self._clock_ok:
+                            self._bump_monthly(name, seconds, daily)
                     self._conn.execute("COMMIT")
                 except Exception:
                     self._conn.execute("ROLLBACK")
@@ -380,7 +430,8 @@ class StatsRecorder:
         try:
             with self._lock:
                 cutoff_ts = time.time() - self.retention_days * 86400
-                cutoff_day = date.fromtimestamp(cutoff_ts).isoformat()
+                cutoff_day = date.fromtimestamp(time.time() - max(self.retention_days, DAILY_KEEP_DAYS)
+                                                * 86400).isoformat()
                 self._conn.execute("BEGIN")
                 try:
                     self._conn.execute("DELETE FROM events WHERE ts < ?", (cutoff_ts,))
@@ -576,6 +627,7 @@ class StatsRecorder:
                         self._conn.execute("DELETE FROM counters")
                         self._conn.execute("DELETE FROM daily")
                         self._conn.execute("DELETE FROM items")
+                        self._conn.execute("DELETE FROM monthly")
                     if scope == "all":
                         self._conn.execute("DELETE FROM sessions")
                         self._session_id = None
@@ -756,6 +808,45 @@ class StatsRecorder:
                 "web_sessions": values.get("web_sessions", 0.0),
             })
         return series
+
+    def recap(self, first_day, last_day, limit=5):
+        """A period in figures: listening time, songs, days, the best day, the
+        most played songs, and the song that most often opened the day."""
+        if not self.enabled:
+            return None
+        start, end = first_day.isoformat(), last_day.isoformat()
+        months = (first_day.strftime("%Y-%m"), last_day.strftime("%Y-%m"))
+        try:
+            days = self._rows(
+                "SELECT day, key, value FROM daily WHERE day <> ? AND day BETWEEN ? AND ?",
+                (PENDING_DAY, start, end))
+            tracks = self._rows(
+                "SELECT name, SUM(count) AS n, SUM(seconds) AS s FROM monthly WHERE kind = 'track'"
+                " AND month BETWEEN ? AND ? GROUP BY name ORDER BY n DESC, s DESC", months)
+            first = self._rows(
+                "SELECT name, SUM(count) AS n FROM monthly WHERE kind = 'first'"
+                " AND month BETWEEN ? AND ? GROUP BY name ORDER BY n DESC LIMIT 1", months)
+        except Exception:  # noqa: BLE001
+            log.exception("Could not read the recap")
+            return None
+        music = {}
+        totals = {}
+        for row in days:
+            totals[row["key"]] = totals.get(row["key"], 0.0) + row["value"]
+            if row["key"] == "seconds_music":
+                music[row["day"]] = row["value"]
+        best = max(music.items(), key=lambda kv: kv[1]) if music else None
+        return {
+            "first_day": start,
+            "last_day": end,
+            "seconds_music": totals.get("seconds_music", 0.0),
+            "tracks_played": totals.get("tracks_played", 0.0),
+            "days": sum(1 for v in music.values() if v > 0),
+            "best_day": {"day": best[0], "seconds": best[1]} if best and best[1] > 0 else None,
+            "tracks": [{"name": r["name"], "count": r["n"], "seconds": r["s"]} for r in tracks],
+            "top_limit": int(limit),
+            "morning": {"name": first[0]["name"], "count": first[0]["n"]} if first else None,
+        }
 
     def today_summary(self, limit=3):
         """Today in a few figures, for everyone's Home."""

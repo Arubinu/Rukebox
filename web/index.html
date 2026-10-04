@@ -2031,6 +2031,31 @@
           <p class="hint" id="statsHint"></p>
         </section>
 
+        <section class="card card-wide" data-level="detail" id="statsRecapCard" data-page="recap" data-tab="stats" aria-labelledby="statsRecapTitle">
+          <h2 data-icon="award" id="statsRecapTitle"><span data-i18n="recap.title">Recap</span></h2>
+          <p class="hint help-text" data-i18n="recap.help" hidden>
+            A period in figures: what played, the artists and songs that came back the most, and the song
+            that opened the day most often. Kept month by month, for good.
+          </p>
+          <div class="field-row">
+            <label for="recapPeriod" data-i18n="recap.period">Period</label>
+            <select id="recapPeriod">
+              <option value="month" data-i18n="recap.month">This month</option>
+              <option value="last_month" data-i18n="recap.last_month">Last month</option>
+              <option value="year" data-i18n="recap.year">This year</option>
+              <option value="last_year" data-i18n="recap.last_year">Last year</option>
+              <option value="all" data-i18n="recap.all">Since the start</option>
+            </select>
+          </div>
+          <div class="kpi-grid" id="recapKpis"></div>
+          <ul class="recap-lines" id="recapLines"></ul>
+          <h3 class="recap-heading" data-i18n="recap.top_artists">Top artists</h3>
+          <ol class="device-list recap-list" id="recapArtists"></ol>
+          <h3 class="recap-heading" data-i18n="recap.top_tracks">Top songs</h3>
+          <ol class="device-list recap-list" id="recapTracks"></ol>
+          <p class="hint" id="recapEmpty" data-i18n="recap.empty" hidden>Nothing played in this period yet.</p>
+        </section>
+
         <section class="card card-wide" data-level="detail" id="statsTopsCard" data-page="tops" data-tab="stats" aria-labelledby="statsTopsTitle">
           <h2 data-icon="music" id="statsTopsTitle"><span data-i18n="stats.most_played_section">Most played &amp; announcements</span></h2>
           <div class="tops" id="topsBox"></div>

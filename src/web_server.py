@@ -5187,6 +5187,62 @@ def api_stats_daily():
     return jsonify({"ok": True, "data": stats.daily_series(days)})
 
 
+RECAP_PERIODS = ("month", "last_month", "year", "last_year", "all")
+
+
+def recap_range(period, today):
+    """(first day, last day) of a recap period."""
+    first_of_month = today.replace(day=1)
+    if period == "last_month":
+        last = first_of_month - timedelta(days=1)
+        return last.replace(day=1), last
+    if period == "year":
+        return today.replace(month=1, day=1), today
+    if period == "last_year":
+        return today.replace(year=today.year - 1, month=1, day=1), today.replace(year=today.year - 1, month=12, day=31)
+    if period == "all":
+        return today.replace(year=2000, month=1, day=1), today
+    return first_of_month, today
+
+
+@app.route("/api/journal/recap")
+def api_journal_recap():
+    """The period in figures, the songs named after their tags and grouped by artist."""
+    period = request.args.get("period", "month")
+    if period not in RECAP_PERIODS:
+        period = "month"
+    first, last = recap_range(period, datetime.now().date())
+    data = stats.recap(first, last)
+    if data is None:
+        return jsonify({"ok": True, "data": {"enabled": False}})
+    lib = _get_library()
+    artists = {}
+    named = []
+    for track in data.pop("tracks"):
+        item = lib.item_for_basename(track["name"]) or {}
+        title = item.get("title") or os.path.splitext(track["name"])[0]
+        artist = item.get("artist") or ""
+        named.append({"title": title, "artist": artist, "count": track["count"]})
+        if artist:
+            entry = artists.setdefault(library.fold(artist), {"artist": artist, "count": 0, "seconds": 0.0})
+            entry["count"] += track["count"]
+            entry["seconds"] += track["seconds"] or 0
+    limit = data.pop("top_limit")
+    data["top_tracks"] = named[:limit]
+    data["top_artists"] = sorted(artists.values(), key=lambda a: (-a["count"], a["artist"]))[:limit]
+    data["artists"] = len(artists)
+    if data.get("morning"):
+        item = lib.item_for_basename(data["morning"]["name"]) or {}
+        data["morning"].update(title=item.get("title") or os.path.splitext(data["morning"]["name"])[0],
+                               artist=item.get("artist") or "")
+    start = datetime.combine(first, datetime.min.time()).timestamp()
+    end = datetime.combine(last + timedelta(days=1), datetime.min.time()).timestamp()
+    data["likes"] = sum(1 for item in likes.load(cfg()["LIKES_FILE"])
+                        if isinstance(item.get("liked_at"), (int, float)) and start <= item["liked_at"] < end)
+    data["period"] = period
+    return jsonify({"ok": True, "data": data})
+
+
 @app.route("/api/journal/entries")
 def api_stats_events():
     try:

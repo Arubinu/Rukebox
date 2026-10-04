@@ -4157,6 +4157,58 @@ document.getElementById("btnGameStop").addEventListener("click", async () => {
 });
 
 refreshEvery(refreshGame, 1000, ["home/game"]);
+
+async function refreshRecap() {
+  const period = document.getElementById("recapPeriod").value;
+  const r = await apiGet("/api/journal/recap?period=" + encodeURIComponent(period));
+  if (!r.ok || !r.data || r.data.enabled === false) return;
+  const d = r.data;
+  const kpis = document.getElementById("recapKpis");
+  kpis.innerHTML = "";
+  kpis.append(
+    kpiTile("headphones", t("recap.listening"), formatDuration(d.seconds_music), null, { hero: true }),
+    kpiTile("music", t("recap.songs"), String(Math.round(d.tracks_played || 0))),
+    kpiTile("calendar", t("recap.days"), String(d.days || 0)),
+    kpiTile("users", t("recap.artists"), String(d.artists || 0)),
+  );
+  const lines = document.getElementById("recapLines");
+  lines.innerHTML = "";
+  const line = (text) => {
+    const li = document.createElement("li");
+    li.textContent = text;
+    lines.appendChild(li);
+  };
+  if (d.best_day) {
+    const day = new Date(d.best_day.day + "T12:00:00").toLocaleDateString(currentLang,
+      { weekday: "long", day: "numeric", month: "long" });
+    line(t("recap.best_day", { day, time: formatDuration(d.best_day.seconds) }));
+  }
+  if (d.morning) {
+    const song = d.morning.artist ? d.morning.title + " - " + d.morning.artist : d.morning.title;
+    line(t("recap.morning", { song, n: d.morning.count }));
+  }
+  if (d.likes) line(t("recap.likes", { n: d.likes }));
+  const list = (id, rows, text) => {
+    const box = document.getElementById(id);
+    box.innerHTML = "";
+    rows.forEach((row) => {
+      const li = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = text(row);
+      const n = document.createElement("span");
+      n.className = "recap-count";
+      n.textContent = t("recap.plays", { n: Math.round(row.count) });
+      li.append(name, n);
+      box.appendChild(li);
+    });
+    box.previousElementSibling.hidden = rows.length === 0;
+  };
+  list("recapArtists", d.top_artists || [], (a) => a.artist);
+  list("recapTracks", d.top_tracks || [], (s) => s.artist ? s.title + " - " + s.artist : s.title);
+  document.getElementById("recapEmpty").hidden = (d.tracks_played || 0) > 0;
+}
+document.getElementById("recapPeriod").addEventListener("change", refreshRecap);
+refreshEvery(refreshRecap, 300000, ["stats/recap"]);
 window.LANG_CHANGE_LISTENERS.push(() => {
   renderLikes();
   paintLikeButton();

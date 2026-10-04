@@ -1697,10 +1697,18 @@ corrected ones, as asked.
 
 ### Reading them
 
-Open the **Stats** area of the web interface (detailed view), five pages:
+Open the **Stats** area of the web interface (detailed view), six pages:
 
 - **Summary tiles** — cumulative totals since the beginning (or since
   the last reset);
+- **Recap** — a period (this month, last month, this year, last year, since
+  the start) in figures: the music played, the songs, the days with music
+  and the artists; the most musical day; the song that opened the day most
+  often; the songs liked; and the top five artists and songs. It reads a
+  `monthly` table that counts each song month by month and is never pruned,
+  and the per-day rollups, which are now kept three years whatever the
+  retention (a few thousand small rows a year). An installation from before
+  that table fills it once from the events it still keeps;
 - **Listening per day** — bar chart over 7 / 14 / 30 days; a day that
   also produced playback errors is drawn in red;
 - **Most played & announcements** — top tracks, and each announcement
