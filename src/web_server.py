@@ -166,6 +166,7 @@ _AUTH_EXEMPT_PREFIX = "/api/auth/"
 _GUEST_PATHS = frozenset({
     "/api/status",
     "/api/status/wait",
+    "/api/vote/skip",
     "/api/volume",
     "/api/action/single_click",
     "/api/action/double_click",
@@ -2430,6 +2431,8 @@ def api_status():
     else:
         data["next_track"] = None
     data["track_key"] = track_media.track_key(track_path)
+    data["skip_vote"] = _skip_vote_state(data["track_key"], _repeat_person()) \
+        if data.get("mode") == "music" else None
     info = track_media.tags(track_path) if track_path else {}
     data["track_title"] = info.get("title")
     data["track_artist"] = info.get("artist")
@@ -2489,6 +2492,66 @@ def api_action(name):
     result = control(name)
     status_code = 200 if result.get("ok") else 400
     return jsonify(result), status_code
+
+
+SKIP_VOTE_MIN = 2
+_skip_votes = {"key": None, "persons": set()}
+_skip_votes_lock = threading.Lock()
+
+
+def _skip_vote_state(key, person):
+    """{votes, needed, mine} for the song `key`; None when there is no vote to hold:
+    switched off, nothing playing, or fewer than two people with the page open."""
+    c = cfg()
+    if not c.get("SKIP_VOTE_ENABLED", True) or not key:
+        return None
+    try:
+        box = _suggestion_box()
+        present = {box.person_id(device_id) for device_id in _recently_seen()}
+    except Exception:  # noqa: BLE001
+        log.exception("Could not count who is here for the vote")
+        return None
+    present.add(person)
+    if len(present) < SKIP_VOTE_MIN:
+        return None
+    try:
+        share = max(1, min(100, int(c.get("SKIP_VOTE_SHARE", 50) or 50)))
+    except (TypeError, ValueError):
+        share = 50
+    needed = min(len(present), max(SKIP_VOTE_MIN, len(present) * share // 100 + 1))
+    with _skip_votes_lock:
+        if _skip_votes["key"] != key:
+            _skip_votes.update(key=key, persons=set())
+        return {"votes": len(_skip_votes["persons"]), "needed": needed,
+                "mine": person in _skip_votes["persons"]}
+
+
+@app.route("/api/vote/skip", methods=["POST"])
+def api_vote_skip():
+    """One vote per person and per song; enough of them, and the song changes."""
+    status = control("get_status")
+    data = (status.get("data") or {}) if status.get("ok") else {}
+    if data.get("mode") != "music":
+        return jsonify({"ok": False, "error": "not_playing_music"}), 409
+    key = track_media.track_key(data.get("current_track_path"))
+    person = _repeat_person()
+    state = _skip_vote_state(key, person)
+    if state is None:
+        return jsonify({"ok": False, "error": "vote_unavailable"}), 409
+    with _skip_votes_lock:
+        _skip_votes["persons"].add(person)
+        votes = len(_skip_votes["persons"])
+        reached = votes >= state["needed"]
+        if reached:
+            _skip_votes.update(key=None, persons=set())
+    if reached:
+        result = control("next_track", source="vote")
+        if not result.get("ok"):
+            return jsonify(result), 409
+        stats.record("skip_voted", label="%d / %d" % (votes, state["needed"]),
+                     detail={"votes": votes, "needed": state["needed"]})
+    return jsonify({"ok": True, "data": {"votes": votes, "needed": state["needed"], "mine": True,
+                                         "skipped": reached}})
 
 
 @app.route("/api/action/poweroff", methods=["POST"])

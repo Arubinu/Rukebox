@@ -603,3 +603,30 @@ test("a speaker known by its address only is said to need pairing, not just to b
   assert.equal(page.$("speakerBadge").textContent, "Not paired");
   assert.doesNotMatch(page.$("npNotices").textContent, /is not connected\./);
 });
+
+test("the speaker's battery shows beside it, and a low one is said on the player", async (t) => {
+  const { STATUS } = require("./harness");
+  const page = open(t, { routes: {
+    "GET /api/status": Object.assign({}, STATUS, { speaker_mac: "7C:E9:13:69:66:55",
+      speaker_connected: true, speaker_paired: true, speaker_battery: 12, speaker_battery_low: 15 }),
+  } });
+  await until(() => !page.$("speakerBattery").hidden);
+  assert.equal(page.$("speakerBattery").textContent, "Battery 12 %");
+  assert.equal(page.$("speakerBattery").dataset.state, "warn");
+  await until(() => /battery is low: 12 %/.test(page.$("npNotices").textContent));
+});
+
+test("a vote to skip shows the count, and a vote is sent once", async (t) => {
+  const { STATUS } = require("./harness");
+  let vote = { votes: 1, needed: 3, mine: false };
+  const page = open(t, { routes: {
+    "GET /api/status": () => Object.assign({}, STATUS, { mode: "music", skip_vote: vote }),
+    "POST /api/vote/skip": () => (vote = { votes: 2, needed: 3, mine: true, skipped: false }),
+  } });
+  await until(() => !page.$("skipVoteRow").hidden);
+  assert.equal(page.$("btnSkipVote").textContent, "Vote to skip (1/3)");
+  page.$("btnSkipVote").click();
+  await until(() => page.sent("POST", "/api/vote/skip").length === 1);
+  await until(() => page.$("btnSkipVote").textContent === "You voted (2/3)");
+  assert.equal(page.$("btnSkipVote").disabled, true);
+});

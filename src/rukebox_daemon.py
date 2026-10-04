@@ -2843,7 +2843,7 @@ class RadioDaemon:
         def handle_command(msg):
             cmd = msg.get("cmd")
             source = msg.get("source", "unknown")
-            if source not in ("flic", "gpio", "web", "speaker", "push", "unknown"):
+            if source not in ("flic", "gpio", "web", "speaker", "push", "vote", "unknown"):
                 source = "unknown"
             self._announcements()
 

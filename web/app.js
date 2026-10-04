@@ -161,6 +161,7 @@ let guestMode = false;
 const GUEST_API_PATHS = [
   "/api/status",
   "/api/status/wait",
+  "/api/vote/skip",
   "/api/volume",
   "/api/action/single_click",
   "/api/action/double_click",
@@ -1310,6 +1311,16 @@ function applySoundLine(d) {
   }
 }
 
+function paintSkipVote(vote) {
+  const row = document.getElementById("skipVoteRow");
+  row.hidden = !vote;
+  if (!vote) return;
+  const btn = document.getElementById("btnSkipVote");
+  btn.textContent = t(vote.mine ? "vote.voted" : "vote.skip", { votes: vote.votes, needed: vote.needed });
+  btn.disabled = !!vote.mine;
+  btn.setAttribute("aria-pressed", vote.mine ? "true" : "false");
+}
+
 async function refreshStatus() {
   const seq = ++statusRequestSeq;
 
@@ -1389,6 +1400,7 @@ async function refreshStatus() {
     : d.speaker_mac && d.speaker_paired === false ? t("speaker.not_paired") : t("speaker.not_connected");
   badge.classList.toggle("connected", d.speaker_connected);
   document.getElementById("speakerMacDisplay").textContent = d.speaker_mac || "—";
+  paintSkipVote(d.skip_vote);
   const battery = document.getElementById("speakerBattery");
   const level = d.speaker_connected && typeof d.speaker_battery === "number" ? d.speaker_battery : null;
   battery.hidden = level === null;
@@ -2905,6 +2917,17 @@ function updateClickSoundRows() {
 }
 document.querySelectorAll(".click-action-select").forEach((select) => {
   select.addEventListener("change", updateClickSoundRows);
+});
+
+document.getElementById("btnSkipVote").addEventListener("click", async () => {
+  const r = await apiPost("/api/vote/skip", {});
+  if (!r.ok) {
+    showError(r.error, t("vote.title"));
+    return;
+  }
+  if (r.data.skipped) showToast(t("vote.skipped"));
+  else paintSkipVote(r.data);
+  refreshStatus();
 });
 
 document.getElementById("btnSpeechTest").addEventListener("click", async () => {
@@ -7117,7 +7140,7 @@ function formatBytes(n) {
 const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shutdown",
   "clock_ready", "clock_unreliable", "clock_manual_set", "timezone_set", "click", "track_played",
   "meme_played", "announce_played", "playback_error", "playback_stalled",
-  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "ap_client_connected",
+  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "skip_voted", "ap_client_connected",
   "ap_client_disconnected", "web_session", "music_started", "music_list_stopped",
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",

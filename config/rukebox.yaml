@@ -559,6 +559,14 @@ network:
 # Web interface password (optional) and its GPIO reset
 # ---------------------------------------------------------------
 security:
+  # Everyone with the page open may vote to skip the song (free, one
+  # vote per person and per song). Offered from two people present.
+  skip_vote: true
+
+  # The song changes once MORE than this share (%) of the people with the
+  # page open voted, two votes at least.
+  skip_vote_share: 50
+
   # For this long after an action ends, the same kind of action from
   # someone else is not run (they get the first answer and pay nothing):
   # several people pressing Next together skip one song. 0 = off.

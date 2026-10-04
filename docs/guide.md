@@ -1324,6 +1324,15 @@ access point — so switching it on is a deliberate decision about what a
 visitor may do, and this project would rather you made it than have an
 update make it for you.
 
+**Vote to skip** (Network > Guest access, on by default): as soon as two
+people have the page open, the player offers "Vote to skip (1/3)". A vote is
+free and counts once per person (linked devices are one person) and per
+song; when **more** than `SKIP_VOTE_SHARE` percent (50 by default) of the
+people with the page open have voted - two votes at least - the next song
+plays and the event log says "Skipped by vote". Who is "here" is who made a
+request in the last two minutes, i.e. anyone whose page is open; a new song
+starts a new vote.
+
 ### Features
 
 - **Finding your way**: the bar at the bottom (a column on a wider screen)

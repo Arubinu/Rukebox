@@ -169,6 +169,9 @@
                         aria-pressed="false" data-i18n-title="home.loop_hint" title="Playback loop (this session)"><span data-i18n="home.loop_off">No loop</span></button>
                 <button type="button" class="btn btn-small" id="btnTimer" data-icon="timer"><span data-i18n="home.timer">Timer…</span></button>
               </div>
+              <div class="skip-vote" id="skipVoteRow" hidden>
+                <button type="button" class="btn btn-small" id="btnSkipVote" data-icon="users"></button>
+              </div>
               <p class="hint np-timers" id="npTimers" role="status" hidden></p>
               <p class="hint guest-credits" id="guestCredits" hidden></p>
 
@@ -1715,6 +1718,21 @@
               </div>
               <div class="codec-field" id="guestLocked" data-key="GUEST_LOCKED" data-min="0"
                    data-empty="guestlock.none" aria-describedby="guestLockedDesc"></div>
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="skipVoteToggle" data-i18n="skipvote.enabled">Vote to skip</label>
+                <p class="field-desc" data-i18n="skipvote.enabled_desc">Everyone with the page open can vote; the song changes once enough of them agree. Free, one vote per person.</p>
+              </div>
+              <input type="checkbox" id="skipVoteToggle" data-key="SKIP_VOTE_ENABLED" class="switch-input" role="switch">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="skipVoteShare" data-i18n="skipvote.share">Votes needed (%)</label>
+                <p class="field-desc" id="skipVoteShareDesc" data-i18n="skipvote.share_desc">More than this share of the people with the page open, 2 votes at least.</p>
+              </div>
+              <input type="number" id="skipVoteShare" min="1" max="100" step="5" data-key="SKIP_VOTE_SHARE"
+                     class="num-input" inputmode="numeric" aria-describedby="skipVoteShareDesc">
             </div>
             <div class="field-row">
               <div class="field-text">

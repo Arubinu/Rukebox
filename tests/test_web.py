@@ -1107,5 +1107,58 @@ class RepeatWindowSettingTest(unittest.TestCase):
         self.assertEqual(calls.count("toggle_pause"), 2, "with 0, every press runs")
 
 
+class SkipVoteTest(unittest.TestCase):
+    def setUp(self):
+        ws._skip_votes.update(key=None, persons=set())
+        ws._repeats.clear()
+        self.calls = []
+        self.present = {"a": 1.0, "b": 2.0, "c": 3.0}
+        self.addCleanup(unittest.mock.patch.stopall)
+        patch = unittest.mock.patch.object
+        patch(ws, "_require_auth", return_value=None).start()
+        patch(ws, "_quota_applies", return_value=False).start()
+        patch(ws, "_repeat_person", side_effect=lambda: ws.request.headers.get("X-Who", "a")).start()
+        patch(ws, "_recently_seen", side_effect=lambda: dict(self.present)).start()
+        patch(ws.track_media, "track_key", side_effect=lambda path: path and "key:" + path).start()
+        patch(ws, "stats").start()
+        self.track = "/m/a.mp3"
+
+        def control(cmd, **kw):
+            self.calls.append((cmd, kw))
+            return {"ok": True, "data": {"mode": "music", "current_track_path": self.track}}
+        patch(ws, "control", side_effect=control).start()
+        self.client = ws.app.test_client()
+
+    def vote(self, who):
+        return self.client.post("/api/vote/skip", json={}, headers={"X-Who": who})
+
+    def test_a_majority_skips_the_song_once(self):
+        first = self.vote("a").get_json()
+        self.assertEqual((first["data"]["votes"], first["data"]["needed"]), (1, 2))
+        self.assertFalse(first["data"]["skipped"])
+        self.assertEqual(self.vote("a").get_json()["data"]["votes"], 1, "one vote per person")
+        second = self.vote("b").get_json()
+        self.assertTrue(second["data"]["skipped"])
+        self.assertIn(("next_track", {"source": "vote"}), self.calls)
+
+    def test_a_new_song_starts_a_new_vote(self):
+        self.vote("a")
+        self.track = "/m/b.mp3"
+        self.assertEqual(self.vote("b").get_json()["data"]["votes"], 1)
+
+    def test_alone_there_is_nothing_to_vote(self):
+        self.present = {}
+        r = self.vote("a")
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.get_json()["error"], "vote_unavailable")
+
+    def test_the_share_is_more_than_the_setting(self):
+        self.present = {k: 1.0 for k in "abcd"}
+        with unittest.mock.patch.object(ws, "cfg", return_value=dict(ws.cfg(), SKIP_VOTE_SHARE=50)):
+            self.assertEqual(ws._skip_vote_state("k", "a")["needed"], 3, "more than half of four")
+        with unittest.mock.patch.object(ws, "cfg", return_value=dict(ws.cfg(), SKIP_VOTE_ENABLED=False)):
+            self.assertIsNone(ws._skip_vote_state("k", "a"))
+
+
 if __name__ == "__main__":
     unittest.main()

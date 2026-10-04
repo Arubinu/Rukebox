@@ -645,6 +645,18 @@ SETTINGS = [
         "Captive portal mode",
     ),
     Setting(
+        "SKIP_VOTE_ENABLED", "security", "skip_vote", "bool", "true",
+        "Everyone with the page open may vote to skip the song (free, one\n"
+        "vote per person and per song). Offered from two people present.",
+        "Vote to skip",
+    ),
+    Setting(
+        "SKIP_VOTE_SHARE", "security", "skip_vote_share", "int", "50",
+        "The song changes once MORE than this share (%) of the people with the\n"
+        "page open voted, two votes at least.",
+        "Votes needed (%)",
+    ),
+    Setting(
         "ACTION_REPEAT_SEC", "security", "action_repeat_sec", "float", "1",
         "For this long after an action ends, the same kind of action from\n"
         "someone else is not run (they get the first answer and pay nothing):\n"
