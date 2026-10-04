@@ -119,7 +119,7 @@ if [ -z "${RUKEBOX_STATE_DIR:-}" ]; then
 fi
 mkdir -p "$BACKUP_DIR"
 
-ALL_SERVICES="rukebox-daemon.service rukebox-web.service flic-bridge.service rukebox-speaker-buttons.service bt-connect.service home-wifi-connect.service"
+ALL_SERVICES="rukebox-daemon.service rukebox-web.service flic-bridge.service rukebox-speaker-buttons.service rukebox-card-reader.service bt-connect.service home-wifi-connect.service"
 RUNNING_SERVICES=""
 
 remember_running() {
@@ -437,6 +437,7 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
             /etc/systemd/system/rtkit-daemon.service.d/50-rukebox-quiet.conf 2>/dev/null || true
     fi
     systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
+    systemctl enable --now rukebox-card-reader.service 2>/dev/null || true
     systemctl enable --now home-wifi-connect.service 2>/dev/null || true
     loginctl enable-linger pi 2>/dev/null || true
     if ! command -v hwclock >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then

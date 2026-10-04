@@ -9,6 +9,7 @@ import time
 import announcements
 import config_file
 import config_schema
+import cards
 import hidden_tracks
 import likes
 import music_lists
@@ -44,6 +45,7 @@ def export_bundle(cfg, version=None, flic_buttons=None):
         "music_lists": music_lists.load(cfg.get("MUSIC_LISTS_FILE", "")),
         "likes": likes.load(cfg.get("LIKES_FILE", "")),
         "hidden": hidden_tracks.load(cfg.get("HIDDEN_FILE", "")),
+        "cards": list(cards.load(cfg.get("CARDS_FILE", "")).values()),
     }
     # The pairings themselves stay with the card: only how many there were travels.
     if flic_buttons is not None:
@@ -232,6 +234,9 @@ def import_bundle(data, cfg):
         items = _clean_tracks(data["hidden"], ("path", "title", "artist"), "hidden_at")
         hidden_tracks.save_all(cfg["HIDDEN_FILE"], items)
         summary["hidden"] = len(items)
+    if isinstance(data.get("cards"), list) and cfg.get("CARDS_FILE"):
+        cards.save_all(cfg["CARDS_FILE"], [c for c in data["cards"] if isinstance(c, dict)])
+        summary["cards"] = len(cards.load(cfg["CARDS_FILE"]))
     flic = data.get("flic_buttons")
     if isinstance(flic, int) and not isinstance(flic, bool) and flic > 0:
         try:

@@ -51,6 +51,7 @@ import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 import library  # noqa: E402
 import blind_test  # noqa: E402
+import cards  # noqa: E402
 import likes  # noqa: E402
 import music_lists  # noqa: E402
 import schedules  # noqa: E402
@@ -4541,6 +4542,7 @@ SYSTEM_SERVICES = (
     ("bt-connect", True),
     ("home-wifi-connect", True),
     ("rukebox-speaker-buttons", True),
+    ("rukebox-card-reader", True),
     ("rukebox-gpio-button", True),
     ("flicd", True),
     ("flic-bridge", True),
@@ -4897,6 +4899,41 @@ def api_likes():
                    for item in items],
         "keys": [item["key"] for item in items],
     }})
+
+
+@app.route("/api/cards")
+def api_cards():
+    """The RFID cards, by name."""
+    found = cards.load(cfg()["CARDS_FILE"])
+    return jsonify({"ok": True, "data": sorted(found.values(), key=lambda c: c["name"].lower())})
+
+
+@app.route("/api/cards", methods=["POST"])
+def api_cards_save():
+    try:
+        card = cards.save(cfg()["CARDS_FILE"], request.get_json(silent=True) or {})
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    stats.record("card_saved", label=card["name"], detail={"id": card["id"], "action": card["action"]})
+    return jsonify({"ok": True, "data": card})
+
+
+@app.route("/api/cards/<card_id>", methods=["DELETE"])
+def api_cards_delete(card_id):
+    try:
+        cards.delete(cfg()["CARDS_FILE"], card_id)
+    except KeyError:
+        return jsonify({"ok": False, "error": "card_unknown"}), 404
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    return jsonify({"ok": True})
+
+
+@app.route("/api/cards/<card_id>/play", methods=["POST"])
+def api_cards_play(card_id):
+    """Does what the card would do, without the card."""
+    result = control("card", id=card_id, source="web")
+    return jsonify(result), (200 if result.get("ok") else 409)
 
 
 @app.route("/api/memories")

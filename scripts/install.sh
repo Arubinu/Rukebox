@@ -228,6 +228,7 @@ systemctl enable rukebox-bt-radio.service
 systemctl enable rukebox-usb-gadget.service
 systemctl enable rukebox-act-led.service
 systemctl enable rukebox-speaker-buttons.service
+systemctl enable rukebox-card-reader.service
 
 echo "== Keeping the audio stack alive without a login session =="
 loginctl enable-linger pi || echo "WARNING: could not enable lingering for pi" >&2

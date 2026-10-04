@@ -18,6 +18,7 @@ import announcements  # noqa: E402
 import audio_diag  # noqa: E402
 import audio_output  # noqa: E402
 import bt_link  # noqa: E402
+import cards  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import hidden_tracks  # noqa: E402
@@ -129,6 +130,7 @@ class RadioDaemon:
         self._battery_step = None
         self._battery_warned = False
         self._game_return = None
+        self._last_card = None
         self._bt_start_done = False
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
@@ -1922,6 +1924,84 @@ class RadioDaemon:
         else:
             self._start_keepalive(mode, quiet=True)
 
+    CARD_SHOWN_SEC = 120
+
+    def _last_card_status(self):
+        card = self._last_card
+        if not card or time.monotonic() - card["mono"] > self.CARD_SHOWN_SEC:
+            return None
+        return {k: card[k] for k in ("id", "name", "known", "error")}
+
+    def _card(self, card_id, source):
+        """What the card held on the reader starts."""
+        card = cards.load(self.cfg.get("CARDS_FILE") or "").get(card_id)
+        self._last_card = {"id": card_id, "name": card["name"] if card else None, "known": bool(card),
+                           "error": None, "mono": time.monotonic()}
+        self.stats.record("card_read", label=card["name"] if card else card_id,
+                          detail={"id": card_id, "known": bool(card)})
+        error = "card_unknown" if not card else self._card_action(card, source)
+        self._last_card["error"] = error
+        self._bump_state()
+        return error
+
+    def _card_action(self, card, source):
+        action, target = card["action"], card.get("target") or ""
+        log.info("Card '%s': %s %s", card["name"], action, target)
+        if action == "list":
+            result = self._set_active_list(target or None, source, start=True)
+            return None if result.get("ok") else result.get("error")
+        if action == "folder":
+            return self._play_folder(target, source)
+        if action == "announcement":
+            item = next((i for i in self._custom_announcements if i["id"] == target), None)
+            if item is None:
+                return "unknown_announcement"
+            if self.mode not in ("music", "idle", "stopped"):
+                return "busy"
+            self._trigger_custom_announcement(item, on_demand=True)
+            return None
+        if target not in self.CLICK_ACTIONS:
+            return "card_bad_action"
+        if self.mode in ("idle", "stopped"):
+            if target in self.START_ACTIONS or target in ("next", "sound"):
+                self._start_or_restart_playback(log_label="card")
+                return None
+            if target == "time":
+                return self._speak("time", source)
+            if target == "poweroff":
+                self._power_off_now(reason="button")
+                return None
+            return "not_playing_music"
+        if self.mode != "music":
+            return "busy"
+        self._perform_click_action("card", source, target, "none")
+        return None
+
+    def _play_folder(self, folder, source):
+        """Plays one folder of the library, in order; the radio goes on afterwards."""
+        root = os.path.realpath(self.cfg["MUSIC_DIR"])
+        folder = os.path.realpath(os.path.join(root, folder) if not folder.startswith("/") else folder)
+        if folder != root and not folder.startswith(root + os.sep):
+            return "not_found"
+        tracks = [t for t in self._playable_tracks() if os.path.realpath(t).startswith(folder + os.sep)]
+        if not tracks:
+            return "not_found"
+        self.state.rebuild_queue(tracks, "ordered", self.cfg["MUSIC_DIR"])
+        self._loop_mode = "off"
+        self._forced_next = None
+        self.stats.record("folder_played", label=os.path.basename(folder),
+                          detail={"source": source, "tracks": len(tracks)})
+        if self.mode in ("idle", "stopped"):
+            self.mode = "idle"
+            self._start_or_restart_playback(log_label="card")
+        elif self.mode == "music":
+            self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
+            self._restore_base_volume()
+            self._play_next_track(user=True)
+        else:
+            return "busy"
+        return None
+
     def _check_cutoff_warning(self, now):
         """Says the cutoff is coming, CUTOFF_WARNING_MIN minutes ahead, once a day."""
         minutes = int(self.cfg.get("CUTOFF_WARNING_MIN", 0) or 0)
@@ -2839,6 +2919,7 @@ class RadioDaemon:
             "sound": sound,
             "sound_announcement": sound_label,
             "last_sound": self._last_sound_status(),
+            "last_card": self._last_card_status(),
             "upcoming_track_path": self._upcoming_track(),
             "track_count": self._track_count,
             "active_list": self._active_list_status(),
@@ -2891,7 +2972,7 @@ class RadioDaemon:
         def handle_command(msg):
             cmd = msg.get("cmd")
             source = msg.get("source", "unknown")
-            if source not in ("flic", "gpio", "web", "speaker", "push", "vote", "unknown"):
+            if source not in ("flic", "gpio", "web", "speaker", "push", "vote", "card", "unknown"):
                 source = "unknown"
             self._announcements()
 
@@ -3094,6 +3175,12 @@ class RadioDaemon:
                 if ready is not None:
                     ready.set()
                 return {"ok": True}
+            if cmd == "card":
+                card_id = str(msg.get("id") or "").strip()
+                if not card_id:
+                    return {"ok": False, "error": "card_bad_id"}
+                error = self._card(card_id, "card")
+                return {"ok": False, "error": error} if error else {"ok": True}
             if cmd == "game_clip":
                 try:
                     start = float(msg.get("start") or 0)

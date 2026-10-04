@@ -679,6 +679,35 @@ play/pause starts the music like a single click. Read by
 `rukebox-speaker-buttons.service`, which waits quietly while no speaker
 is connected.
 
+## RFID cards
+
+A cheap USB RFID reader (125 kHz or 13.56 MHz, the kind sold as a "USB ID
+reader") types the number of the card held on it, then Enter, like a
+keyboard. `rukebox-card-reader.service` (root, since `/dev/input` is) finds it
+by the name it announces - anything with "RFID", "ID&IC", "card reader" or
+"Sycreader" in it, or the part of a name set in **Card reader**
+(`hardware.rfid_reader`) - takes it for itself so the numbers never reach a
+console, and hands each card to the daemon. The same card held for a while
+counts once every 3 seconds.
+
+**Settings > RFID cards** (detailed view) lists the cards. Hold an unknown
+card on the reader and the page says "Unknown card read: 0012345678" with
+**Register it**; give it a name and what it does:
+
+- **Plays a list** (or the whole library) - like choosing it in Lists;
+- **Plays a folder** of the music library, in order from its first song;
+  the radio goes on with the rest afterwards - a card per album, the
+  Toniebox way;
+- **Plays an announcement**;
+- **Like a button**: any click action (next, pause, standby, say the time...).
+
+The ▶ of a row does what the card would do, without the card. Cards live in
+`/etc/rukebox/cards.json` (`paths.cards_file`), are read at every card (no
+restart), and travel with the configuration export. The USB port of a Pi
+Zero is the one the gadget uses: a reader needs `USB_PORT_MODE=host` (and a
+hub if a Bluetooth dongle is plugged too). **Not tried with a real reader
+yet.**
+
 ## GPIO button
 
 Instead of, or in addition to, the Flic button, you can wire a plain

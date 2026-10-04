@@ -672,6 +672,11 @@ suggestions:
 # The Pi itself
 # ---------------------------------------------------------------
 hardware:
+  # A USB RFID reader (one that types the card's number like a keyboard):
+  # part of the name it announces in /proc/bus/input/devices. Empty =
+  # the first device whose name says RFID or card reader.
+  rfid_reader: ""
+
   # The Pi's green activity LED:
   #   default -> its original behaviour (SD card activity)
   #   off     -> always off (a bedroom at night)
@@ -807,6 +812,10 @@ paths:
   # settings that only hold while the schedule runs. Read by the daemon
   # at every scheduler tick, so a change needs no restart.
   schedules_file: "/etc/rukebox/schedules.json"
+
+  # The RFID cards and what each one starts - see src/cards.py. Read at
+  # every card, so a change needs no restart.
+  cards_file: "/etc/rukebox/cards.json"
 
   # The tracks liked from the player - see src/likes.py. A song is
   # remembered by its library key, so the like survives a rescan; each

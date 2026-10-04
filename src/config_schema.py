@@ -826,6 +826,13 @@ SETTINGS = [
             "how long a pause on speaker loss can lag behind.",
             "Speaker check interval (sec)"),
     Setting(
+        "RFID_READER", "hardware", "rfid_reader", "str", "",
+        "A USB RFID reader (one that types the card's number like a keyboard):\n"
+        "part of the name it announces in /proc/bus/input/devices. Empty =\n"
+        "the first device whose name says RFID or card reader.",
+        "Card reader",
+    ),
+    Setting(
         "ACT_LED", "hardware", "act_led", "str", "default",
         "The Pi's green activity LED:\n"
         "  default -> its original behaviour (SD card activity)\n"
@@ -944,6 +951,13 @@ SETTINGS = [
         "settings that only hold while the schedule runs. Read by the daemon\n"
         "at every scheduler tick, so a change needs no restart.",
         "Schedules file",
+    ),
+    Setting(
+        "CARDS_FILE", "paths", "cards_file", "str",
+        "/etc/rukebox/cards.json",
+        "The RFID cards and what each one starts - see src/cards.py. Read at\n"
+        "every card, so a change needs no restart.",
+        "Cards file",
     ),
     Setting(
         "LIKES_FILE", "paths", "likes_file", "str",

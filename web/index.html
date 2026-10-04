@@ -859,6 +859,64 @@
           </form>
         </section>
 
+        <section class="card" id="cardsCard" data-page="cards" data-tab="settings" data-level="detail" aria-labelledby="cardsTitle">
+          <h2 data-icon="credit-card" id="cardsTitle"><span data-i18n="cards.title">RFID cards</span></h2>
+          <p class="hint help-text" data-i18n="cards.help" hidden>
+            A USB RFID reader types the number of the card held on it. Give each card something to start:
+            a list, a folder, an announcement or a button action. A card nobody registered shows up here.
+          </p>
+          <div class="card-last" id="cardLastRow" role="status" hidden>
+            <span id="cardLastText"></span>
+            <button type="button" class="btn btn-small" id="btnCardRegister" data-icon="plus" data-i18n="cards.register" hidden>Register it</button>
+          </div>
+          <ul class="device-list" id="cardsList"></ul>
+          <p class="hint" id="cardsEmpty" data-i18n="cards.empty">No card yet: hold one on the reader and it shows up here.</p>
+          <details class="subsection" id="cardFormSection">
+            <summary><span data-i18n="cards.add">Add a card</span></summary>
+            <form id="cardForm" class="settings-form">
+              <div class="field-row">
+                <label for="cardId" data-i18n="cards.number">Card number</label>
+                <input type="text" id="cardId" class="text-input" autocomplete="off" spellcheck="false" maxlength="32">
+              </div>
+              <div class="field-row">
+                <label for="cardName" data-i18n="cards.name">Name</label>
+                <input type="text" id="cardName" class="text-input" maxlength="60">
+              </div>
+              <div class="field-row">
+                <label for="cardAction" data-i18n="cards.action">What it does</label>
+                <select id="cardAction">
+                  <option value="list" data-i18n="cards.action_list">Plays a list</option>
+                  <option value="folder" data-i18n="cards.action_folder">Plays a folder</option>
+                  <option value="announcement" data-i18n="cards.action_announcement">Plays an announcement</option>
+                  <option value="action" data-i18n="cards.action_click">Like a button</option>
+                </select>
+              </div>
+              <div class="field-row" id="cardListRow">
+                <label for="cardList" data-i18n="cards.list">List</label>
+                <select id="cardList"></select>
+              </div>
+              <div class="field-row" id="cardFolderRow" hidden>
+                <label for="cardFolder" data-i18n="common.folder">Folder</label>
+                <div class="input-with-action">
+                  <input type="text" id="cardFolder" class="text-input" autocomplete="off" spellcheck="false">
+                  <button type="button" class="btn btn-icon" id="btnCardFolderBrowse" data-icon="folder" data-i18n-aria-label="browse.browse" data-i18n-title="browse.browse" aria-label="Browse…" title="Browse…"></button>
+                </div>
+              </div>
+              <div class="field-row" id="cardAnnRow" hidden>
+                <label for="cardAnn" data-i18n="cards.announcement">Announcement</label>
+                <select id="cardAnn"></select>
+              </div>
+              <div class="field-row" id="cardClickRow" hidden>
+                <label for="cardClick" data-i18n="cards.click">Action</label>
+                <select id="cardClick"></select>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
+        </section>
+
         <section class="card" data-page="buttons" data-tab="settings" aria-labelledby="buttonsTitle">
           <h2 data-icon="pointer" id="buttonsTitle"><span data-i18n="settings.buttons_title">Button actions</span></h2>
           <form id="buttonsForm" class="settings-form">
