@@ -1369,6 +1369,12 @@ access point — so switching it on is a deliberate decision about what a
 visitor may do, and this project would rather you made it than have an
 update make it for you.
 
+**Pages hidden from guests** (Network > Guest access, `GUEST_PAGES_OFF`):
+tick the Home pages a guest should not get - Up next, Recently played,
+Today, Library, Blind test, Suggestions. The page leaves the guest's menu and
+the server refuses what it asks for; Now playing always stays, and the owner
+still sees everything.
+
 **Vote to skip** (Network > Guest access, on by default): as soon as two
 people have the page open, the player offers "Vote to skip (1/3)". A vote is
 free and counts once per person (linked devices are one person) and per

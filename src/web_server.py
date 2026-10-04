@@ -204,10 +204,29 @@ _GUEST_PATHS = frozenset({
 })
 
 
+# A guest page and what it asks for: hiding the page refuses those too.
+GUEST_PAGE_PATHS = {
+    "upnext": {"/api/queue"},
+    "recent": {"/api/recent"},
+    "today": {"/api/today"},
+    "library": {"/api/library", "/api/library/facets"},
+    "game": {"/api/game", "/api/game/answer"},
+    "suggest": {"/api/suggestions", "/api/suggestions/vote", "/api/suggestions/delete",
+                "/api/suggestions/name"},
+}
+
+
+def _guest_pages_off():
+    wanted = {part.strip().lower() for part in str(cfg().get("GUEST_PAGES_OFF") or "").split(",")}
+    return sorted(wanted & set(GUEST_PAGE_PATHS))
+
+
 def _guest_allowed(path, method):
     if not cfg().get("GUEST_MODE_ENABLED"):
         return False
     if path not in _GUEST_PATHS:
+        return False
+    if any(path in GUEST_PAGE_PATHS[page] for page in _guest_pages_off()):
         return False
     if path == "/api/announcements" and method != "GET":
         return False
@@ -2435,6 +2454,7 @@ def api_status():
     else:
         data["next_track"] = None
     data["track_key"] = track_media.track_key(track_path)
+    data["guest_pages_off"] = _guest_pages_off() if _quota_applies() else []
     data["skip_vote"] = _skip_vote_state(data["track_key"], _repeat_person()) \
         if data.get("mode") == "music" else None
     info = track_media.tags(track_path) if track_path else {}

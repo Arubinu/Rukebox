@@ -984,6 +984,15 @@ class GuestLockTest(unittest.TestCase):
         unittest.mock.patch.object(ws, "_is_authenticated", return_value=True).start()
         self.assertNotEqual(self.client.post("/api/action/next_track").status_code, 403)
 
+    def test_a_page_hidden_from_guests_refuses_what_it_asks_for(self):
+        self.values["GUEST_PAGES_OFF"] = "game, today, nonsense"
+        self.assertEqual(ws._guest_pages_off(), ["game", "today"])
+        self.assertIn(self.client.get("/api/game").status_code, (401, 403))
+        self.assertIn(self.client.get("/api/today").status_code, (401, 403))
+        self.assertNotIn(self.client.get("/api/recent").status_code, (401, 403))
+        unittest.mock.patch.object(ws, "_is_authenticated", return_value=True).start()
+        self.assertNotIn(self.client.get("/api/today").status_code, (401, 403), "the owner sees every page")
+
 
 
 @unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")

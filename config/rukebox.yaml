@@ -622,6 +622,11 @@ security:
 
   guest_cost_output: 1
 
+  # Home pages a guest does not get, comma-separated: upnext, recent,
+  # today, library, game, suggest. Their requests are refused too.
+  # Empty = every page a guest may see.
+  guest_pages_off: ""
+
   # Guest commands locked whatever the credits, comma-separated: next,
   # previous, start, pause, sound, announce, volume, queue, play_now,
   # output (the names of the prices above). Empty = none.

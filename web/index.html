@@ -233,7 +233,7 @@
             scores one point, the fastest right answer two. The radio takes up its music afterwards.
           </p>
           <div id="gameLobby">
-            <p class="hint" id="gameWaiting" data-i18n="game.waiting">No game is on: the host starts one from here.</p>
+            <p class="hint game-waiting" id="gameWaiting" data-i18n="game.waiting">No game is on: the host starts one from here.</p>
             <form id="gameStartForm" class="settings-form" hidden>
               <div class="field-row">
                 <label for="gameRounds" data-i18n="game.rounds">Rounds</label>
@@ -284,8 +284,8 @@
         <section class="card" id="todayCard" data-page="today" data-tab="home" aria-labelledby="todayTitle" hidden>
           <h2 data-icon="sun" id="todayTitle"><span data-i18n="today.title">Today</span></h2>
           <dl class="today-grid" id="todayFigures"></dl>
-          <h3 class="health-sub" id="todayTopTitle" data-i18n="today.top" hidden>Most played</h3>
-          <ol class="today-top" id="todayTop"></ol>
+          <h3 class="recap-heading" id="todayTopTitle" data-i18n="today.top" hidden>Most played</h3>
+          <ol class="device-list recap-list" id="todayTop"></ol>
         </section>
 
         <section class="card" id="libraryCard" data-page="library" data-tab="home" aria-labelledby="libraryTitle" hidden>
@@ -422,8 +422,10 @@
           </p>
           <p class="suggest-me-line" id="suggestMeLine" hidden>
             <span data-i18n="suggest.you_are">You suggest as</span> <strong id="suggestMeName"></strong>
-            <button type="button" class="btn-link" id="suggestRenameBtn" data-i18n="suggest.change_name">change</button>
-            <button type="button" class="btn-link" id="suggestLinkBtn" data-i18n="suggest.link_btn">my devices</button>
+            <span class="suggest-me-actions">
+              <button type="button" class="btn-link" id="suggestRenameBtn" data-i18n="suggest.change_name">Change</button>
+              <button type="button" class="btn-link" id="suggestLinkBtn" data-i18n="suggest.link_btn">My devices</button>
+            </span>
             <span class="hint" id="suggestNameLocked" data-i18n="suggest.name_locked" hidden></span>
           </p>
           <form id="suggestNameForm" class="settings-form" hidden>
@@ -1818,6 +1820,14 @@
                 <option value="new_only" data-i18n="portal.new_only">New devices only: never again for a known one</option>
                 <option value="hold" data-i18n="portal.hold">Every time: the page comes back at each check</option>
               </select>
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label data-i18n="guestpages.label">Pages hidden from guests</label>
+                <p class="field-desc" id="guestPagesDesc" data-i18n="guestpages.desc">A guest sees neither the page nor what it asks for. Now playing always stays.</p>
+              </div>
+              <div class="codec-field" id="guestPagesOff" data-key="GUEST_PAGES_OFF" data-min="0"
+                   data-empty="guestpages.none" aria-describedby="guestPagesDesc"></div>
             </div>
             <div class="field-row">
               <div class="field-text">

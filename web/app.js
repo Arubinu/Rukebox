@@ -156,6 +156,8 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 });
 
 let guestMode = false;
+// The pages the owner keeps from guests, read in every status.
+let guestPagesOff = [];
 
 // Guest-allowed paths: keep in step with web_server.py's _GUEST_PATHS (a test compares them).
 const GUEST_API_PATHS = [
@@ -517,6 +519,7 @@ function cardOfPage(tab, page) {
 function pageIsAvailable(card) {
   if (!card || card.hasAttribute("hidden")) return false;
   if (guestMode && card.hasAttribute("data-owner")) return false;
+  if (guestMode && guestPagesOff.includes(card.dataset.page)) return false;
   return !(card.dataset.level === "detail" && currentView() === "simple");
 }
 
@@ -1546,6 +1549,12 @@ function applyGuestCredits(d) {
   const q = d.quota;
   guestQuota = q || null;
   guestLocked = Array.isArray(d.guest_locked) ? d.guest_locked : [];
+  const pagesOff = Array.isArray(d.guest_pages_off) ? d.guest_pages_off : [];
+  if (pagesOff.join() !== guestPagesOff.join()) {
+    guestPagesOff = pagesOff;
+    refreshPageMenus();
+    if (pagesOff.includes(document.body.dataset.page)) setActiveView("home", null);
+  }
   line.hidden = !q;
   paintCosts();
   if (!q) return;
@@ -2471,7 +2480,16 @@ const GUEST_LOCK_LABELS = {
   output: "quota.cost_output",
 };
 
+// The pages a guest can be kept away from, named after their own titles.
+const GUEST_PAGE_LABELS = {
+  upnext: "upnext.title", recent: "recent.title", today: "today.title",
+  library: "library.title", game: "game.title", suggest: "suggest.title",
+};
+
 function choiceLabels(el) {
+  if (el.dataset.key === "GUEST_PAGES_OFF") {
+    return Object.fromEntries(Object.entries(GUEST_PAGE_LABELS).map(([k, key]) => [k, t(key)]));
+  }
   if (el.dataset.key === "GUEST_LOCKED") {
     return Object.fromEntries(Object.entries(GUEST_LOCK_LABELS).map(([k, key]) => [k, t(key)]));
   }
@@ -4705,11 +4723,10 @@ async function refreshToday() {
   document.getElementById("todayTop").replaceChildren(...top.map((item) => {
     const li = document.createElement("li");
     const title = document.createElement("span");
-    title.className = "recent-title";
-    title.textContent = item.title + (item.artist ? " \u2014 " + item.artist : "");
+    title.textContent = item.title + (item.artist ? " - " + item.artist : "");
     const n = document.createElement("span");
-    n.className = "recent-when";
-    n.textContent = "\u00d7" + item.count;
+    n.className = "recap-count";
+    n.textContent = t(item.count === 1 ? "recap.plays_one" : "recap.plays", { n: item.count });
     li.append(title, n);
     return li;
   }));

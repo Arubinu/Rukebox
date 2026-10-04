@@ -656,3 +656,17 @@ test("the blind test: the host starts it, a player answers once, and sees the ri
   assert.ok(page.$("gameChoices").children[2].classList.contains("is-wrong"));
   assert.match(page.$("gameResult").textContent, /Wrong this time\. Fastest: Fox\./);
 });
+
+test("a page the owner hid from guests gets no tile on the guest's menu", async (t) => {
+  const { STATUS } = require("./harness");
+  const page = open(t, { hash: "#home", routes: {
+    "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
+                                guest_mode: true, auth_required: true, authenticated: false },
+    "GET /api/status": Object.assign({}, STATUS, { guest_pages_off: ["game"] }),
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  await until(() => !page.document.querySelector('.page-tile[data-page="game"]')
+    || page.document.querySelector('.page-tile[data-page="game"]').hidden);
+  const tile = page.document.querySelector('.page-tile[data-page="player"]');
+  assert.ok(tile && !tile.hidden, "the player stays");
+});

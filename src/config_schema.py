@@ -712,6 +712,13 @@ SETTINGS = [
     Setting("GUEST_COST_OUTPUT", "security", "guest_cost_output", "int", "1",
             "", "Price: Another audio output (planned one missing)"),
     Setting(
+        "GUEST_PAGES_OFF", "security", "guest_pages_off", "str", "",
+        "Home pages a guest does not get, comma-separated: upnext, recent,\n"
+        "today, library, game, suggest. Their requests are refused too.\n"
+        "Empty = every page a guest may see.",
+        "Pages hidden from guests",
+    ),
+    Setting(
         "GUEST_LOCKED", "security", "guest_locked", "str", "",
         "Guest commands locked whatever the credits, comma-separated: next,\n"
         "previous, start, pause, sound, announce, volume, queue, play_now,\n"

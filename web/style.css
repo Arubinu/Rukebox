@@ -898,6 +898,8 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 
 .suggest-me-line { margin: 4px 0 12px; color: var(--text-muted); text-align: center; }
 .suggest-me-line strong { color: var(--text); }
+.suggest-me-actions { display: flex; justify-content: center; gap: 18px; margin-top: 6px; }
+.game-waiting { text-align: center; }
 .suggest-list { max-height: none; }
 .suggest-list li.suggest-item { align-items: flex-start; }
 .suggest-main { flex: 1 1 14rem; min-width: 0; }
@@ -1788,9 +1790,6 @@ body[data-access="guest"] .vol-mute { pointer-events: none; }
 .today-grid > div { padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); text-align: center; }
 .today-grid dd { margin: 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .today-grid dt { font-size: 13px; color: var(--text-muted); }
-.today-top { list-style: decimal inside; margin: 0; padding: 0; display: grid; gap: 4px; }
-.today-top li { display: flex; gap: 8px; align-items: baseline; }
-.today-top li .recent-title { flex: 1 1 auto; min-width: 0; font-weight: 500; }
 
 .backup-size { margin-left: auto; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
