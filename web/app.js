@@ -6381,8 +6381,9 @@ function deviceUtcString(now) {
 }
 
 function clockWriteDetail(result) {
-  const written = result.data && result.data.written_to_rtc;
-  return [result.data && result.data.system_time, t(written ? "clock.rtc_written" : "clock.rtc_none")]
+  const data = result.data || {};
+  const rtc = data.written_to_rtc ? "clock.rtc_written" : data.has_rtc ? "clock.rtc_failed" : "clock.rtc_none";
+  return [data.system_time, t(rtc)]
     .filter(Boolean).join(" · ");
 }
 

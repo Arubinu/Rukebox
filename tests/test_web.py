@@ -139,6 +139,25 @@ class WebTest(unittest.TestCase):
         client.post("/api/auth/login", json={"password": "secret"})
         return client
 
+    def test_a_clock_module_that_was_not_written_is_not_called_written(self):
+        owner = self.owner()
+        real_exists = os.path.exists
+        calls = []
+
+        def run(cmd, **_kwargs):
+            calls.append(cmd)
+            # A recent Raspberry Pi OS without util-linux-extra: sudo finds no hwclock.
+            return types.SimpleNamespace(returncode=1 if "hwclock" in cmd else 0, stdout="", stderr="")
+
+        with unittest.mock.patch.object(ws.os.path, "exists",
+                                        side_effect=lambda p: p in ("/dev/rtc0", "/dev/rtc") or real_exists(p)), \
+                unittest.mock.patch.object(ws.subprocess, "run", side_effect=run):
+            answer = owner.post("/api/time", json={"utc": "2026-10-04 05:30:00"}).get_json()
+        self.assertTrue(answer["ok"])
+        self.assertTrue(answer["data"]["has_rtc"])
+        self.assertFalse(answer["data"]["written_to_rtc"])
+        self.assertIn(["sudo", "hwclock", "-w"], calls)
+
     def test_another_sites_page_cannot_post(self):
         owner = self.owner()
         foreign = owner.post("/api/mute", json={"on": True}, headers={"Origin": "https://evil.example"})

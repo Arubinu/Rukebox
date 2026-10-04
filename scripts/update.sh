@@ -439,6 +439,10 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
     systemctl enable --now home-wifi-connect.service 2>/dev/null || true
     loginctl enable-linger pi 2>/dev/null || true
+    if ! command -v hwclock >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+        apt-get install -y util-linux-extra >/dev/null 2>&1 \
+            || echo "WARNING: hwclock is missing (util-linux-extra): a time set by hand stays out of the clock module."
+    fi
 fi
 
 if [ -f "$INSTALL_DIR/config/sudoers-rukebox" ]; then

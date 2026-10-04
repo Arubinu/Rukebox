@@ -3078,8 +3078,16 @@ def api_set_time():
         return jsonify({"ok": False, "error": "time_set_failed", "detail": result.stderr.strip()}), 400
 
     has_rtc = os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc")
+    written = False
     if has_rtc:
-        subprocess.run(["sudo", "hwclock", "-w"], capture_output=True, text=True)
+        # hwclock is in util-linux-extra on recent Raspberry Pi OS: it can be missing.
+        try:
+            written = subprocess.run(["sudo", "hwclock", "-w"], capture_output=True,
+                                     text=True, timeout=10).returncode == 0
+        except (subprocess.TimeoutExpired, OSError):
+            written = False
+        if not written:
+            log.warning("The clock module could not be written (hwclock missing or refused)")
 
     offset = time.time() - before
     try:
@@ -3093,11 +3101,12 @@ def api_set_time():
     stats.attach_current_session()
     stats.record("clock_manual_set",
                  label=(utc_value or value),
-                 detail={"written_to_rtc": has_rtc, "utc": bool(utc_value)})
+                 detail={"written_to_rtc": written, "utc": bool(utc_value)})
 
     return jsonify({"ok": True, "data": {
         "system_time": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z"),
-        "written_to_rtc": has_rtc,
+        "written_to_rtc": written,
+        "has_rtc": has_rtc,
     }})
 
 
