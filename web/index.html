@@ -860,7 +860,7 @@
         </section>
 
         <section class="card" id="cardsCard" data-page="cards" data-tab="settings" data-level="detail" aria-labelledby="cardsTitle">
-          <h2 data-icon="credit-card" id="cardsTitle"><span data-i18n="cards.title">RFID cards</span></h2>
+          <h2 data-icon="scan-barcode" id="cardsTitle"><span data-i18n="cards.title">Cards &amp; barcodes</span></h2>
           <p class="hint help-text" data-i18n="cards.help" hidden>
             A USB RFID reader types the number of the card held on it. Give each card something to start:
             a list, a folder, an announcement or a button action. A card nobody registered shows up here.
@@ -872,10 +872,10 @@
           <ul class="device-list" id="cardsList"></ul>
           <p class="hint cards-empty" id="cardsEmpty" data-i18n="cards.empty">No card yet: hold one on the reader and it shows up here.</p>
           <details class="subsection" id="cardFormSection">
-            <summary><span data-i18n="cards.add">Add a card</span></summary>
+            <summary><span data-i18n="cards.add">Add a card or a barcode</span></summary>
             <form id="cardForm" class="settings-form">
               <div class="field-row">
-                <label for="cardId" data-i18n="cards.number">Card number</label>
+                <label for="cardId" data-i18n="cards.number">Card number or barcode</label>
                 <input type="text" id="cardId" class="text-input" autocomplete="off" spellcheck="false" maxlength="32">
               </div>
               <div class="field-row">

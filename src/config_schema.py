@@ -827,10 +827,10 @@ SETTINGS = [
             "Speaker check interval (sec)"),
     Setting(
         "RFID_READER", "hardware", "rfid_reader", "str", "",
-        "A USB RFID reader (one that types the card's number like a keyboard):\n"
+        "A USB RFID reader or barcode scanner (one that types like a keyboard):\n"
         "part of the name it announces in /proc/bus/input/devices. Empty =\n"
         "the first device whose name says RFID or card reader.",
-        "Card reader",
+        "Card or barcode reader",
     ),
     Setting(
         "ACT_LED", "hardware", "act_led", "str", "default",

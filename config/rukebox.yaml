@@ -672,7 +672,7 @@ suggestions:
 # The Pi itself
 # ---------------------------------------------------------------
 hardware:
-  # A USB RFID reader (one that types the card's number like a keyboard):
+  # A USB RFID reader or barcode scanner (one that types like a keyboard):
   # part of the name it announces in /proc/bus/input/devices. Empty =
   # the first device whose name says RFID or card reader.
   rfid_reader: ""

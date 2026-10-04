@@ -679,7 +679,7 @@ play/pause starts the music like a single click. Read by
 `rukebox-speaker-buttons.service`, which waits quietly while no speaker
 is connected.
 
-## RFID cards
+## Cards and barcodes (RFID reader, barcode scanner)
 
 A cheap USB RFID reader (125 kHz or 13.56 MHz, the kind sold as a "USB ID
 reader") types the number of the card held on it, then Enter, like a
@@ -692,7 +692,7 @@ counts once every 3 seconds. A USB **barcode scanner** works the same way (it is
 too, "barcode" or "scanner" in its name is enough): the code of a book, a CD or
 any box then plays what you gave it - letters and digits, 4 to 32 of them.
 
-**Settings > RFID cards** (detailed view) lists the cards. Hold an unknown
+**Settings > Cards & barcodes** (detailed view) lists the cards. Hold an unknown
 card on the reader and the page says "Unknown card read: 0012345678" with
 **Register it**; give it a name and what it does:
 
