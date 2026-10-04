@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Bridge from a USB RFID reader to the daemon.
+"""Bridge from a USB RFID reader (or a barcode scanner) to the daemon.
 
-Such a reader is a keyboard: it types the card's number and Enter. The device
+Such a reader is a keyboard: it types the card's number (or the barcode) and Enter. The device
 is grabbed, so those keys never reach anything else."""
 
 import logging
@@ -27,11 +27,13 @@ EVIOCGRAB = 0x40044590
 RESCAN_SEC = 5.0
 SAME_CARD_SEC = 3.0
 # Names the usual cheap readers announce themselves with.
-READER_HINTS = ("rfid", "id&ic", "id reader", "card reader", "sycreader")
+READER_HINTS = ("rfid", "id&ic", "id reader", "card reader", "sycreader", "barcode", "scanner")
 
 KEY_CHARS = {2: "1", 3: "2", 4: "3", 5: "4", 6: "5", 7: "6", 8: "7", 9: "8", 10: "9", 11: "0",
              79: "1", 80: "2", 81: "3", 75: "4", 76: "5", 77: "6", 71: "7", 72: "8", 73: "9", 82: "0",
-             30: "A", 48: "B", 46: "C", 32: "D", 18: "E", 33: "F"}
+             30: "A", 48: "B", 46: "C", 32: "D", 18: "E", 33: "F", 34: "G", 35: "H", 23: "I",
+             36: "J", 37: "K", 38: "L", 50: "M", 49: "N", 24: "O", 25: "P", 16: "Q", 19: "R",
+             31: "S", 20: "T", 22: "U", 47: "V", 17: "W", 45: "X", 21: "Y", 44: "Z"}
 KEY_ENTER = (28, 96)
 
 

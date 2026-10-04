@@ -39,6 +39,11 @@ class ReaderTest(unittest.TestCase):
         self.assertEqual(typed[-1], "001234")
         self.assertIsNone(decoder.feed(key(2, 0)), "a release is not a key")
         self.assertIsNone(decoder.feed(key(28)), "Enter alone is no card")
+        self.assertEqual([decoder.feed(key(c)) for c in (2, 3, 4, 46, 46, 28)][-1], "123CC")
+
+    def test_a_barcode_scanner_counts_too(self):
+        text = 'I: Bus=0003\nN: Name="Honeywell Barcode Scanner"\nH: Handlers=kbd event5\n'
+        self.assertEqual(card_reader.find_reader(text), "/dev/input/event5")
 
 
 class StoreTest(unittest.TestCase):

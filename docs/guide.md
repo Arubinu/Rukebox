@@ -688,7 +688,9 @@ by the name it announces - anything with "RFID", "ID&IC", "card reader" or
 "Sycreader" in it, or the part of a name set in **Card reader**
 (`hardware.rfid_reader`) - takes it for itself so the numbers never reach a
 console, and hands each card to the daemon. The same card held for a while
-counts once every 3 seconds.
+counts once every 3 seconds. A USB **barcode scanner** works the same way (it is a keyboard
+too, "barcode" or "scanner" in its name is enough): the code of a book, a CD or
+any box then plays what you gave it - letters and digits, 4 to 32 of them.
 
 **Settings > RFID cards** (detailed view) lists the cards. Hold an unknown
 card on the reader and the page says "Unknown card read: 0012345678" with
