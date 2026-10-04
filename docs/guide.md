@@ -878,6 +878,13 @@ disconnects"), all driven by that same check:
   was gone. The radio checks the speaker every `SPEAKER_WATCH_INTERVAL_SEC`
   (10 s), and at once whenever an open page sees it come or go - so with the
   interface open, the pause follows the "not connected" banner.
+- `SPEAKER_BATTERY_LOW` (15 %, 0 = off): when the speaker reports its
+  battery to BlueZ, the level shows next to its address, and once it falls
+  to that percentage the radio plays `BATTERY_LOW_SOUND` (a System sound)
+  and the player says so - once per discharge, given back after the speaker
+  has charged 10 points above the threshold. Each ten-percent step is kept
+  in the event log. Many speakers do not report their battery at all; the
+  line then simply does not appear.
 - `AUDIO_FALLBACK_OUTPUT` (Audio output card, "If the speaker is lost"):
   instead of pausing, keep playing on a wired output (`jack`, `usb`,
   `hdmi`) while the speaker is away; it takes the sound back when it

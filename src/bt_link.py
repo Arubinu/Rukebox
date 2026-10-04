@@ -13,6 +13,7 @@ import subprocess
 log = logging.getLogger("bt_link")
 
 _CONTROLLER_RE = re.compile(r"^Controller ([0-9A-Fa-f:]{17})\s*(.*)$")
+_BATTERY_RE = re.compile(r"\((\d{1,3})\)|^(0x[0-9A-Fa-f]+|\d{1,3})$")
 _MAC_RE = re.compile(r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 PLACEHOLDER = "XX:XX:XX:XX:XX:XX"
 INFO_TIMEOUT_SEC = 8
@@ -54,7 +55,7 @@ def parse_info(out):
     text = str(out or "")
     # An unpaired controller answers "Device AA:BB:.. not available".
     known = bool(text.strip()) and "not available" not in text
-    info = {"known": known, "connected": False, "paired": False, "name": ""}
+    info = {"known": known, "connected": False, "paired": False, "name": "", "battery": None}
     if not known:
         return info
     for line in text.splitlines():
@@ -68,7 +69,18 @@ def parse_info(out):
             info["paired"] = value == "yes"
         elif key in ("Name", "Alias") and value and not info["name"]:
             info["name"] = value
+        elif key == "Battery Percentage":
+            info["battery"] = _battery_level(value)
     return info
+
+
+def _battery_level(value):
+    """The percentage of "0x55 (85)", None when it is not one."""
+    match = _BATTERY_RE.search(value.strip())
+    if not match:
+        return None
+    level = int(match.group(1)) if match.group(1) else int(match.group(2), 0)
+    return level if 0 <= level <= 100 else None
 
 
 def controllers():
@@ -100,7 +112,8 @@ def locate(mac, adapter=""):
     as "disconnected"."""
     mac = str(mac or "").strip().upper()
     state = {"mac": mac, "connected": False, "controller": None, "expected": None,
-             "paired_here": False, "known_here": False, "name": "", "unknown": False}
+             "paired_here": False, "known_here": False, "name": "", "unknown": False,
+             "battery": None}
     if not _MAC_RE.match(mac) or mac == PLACEHOLDER:
         return state
 
@@ -121,8 +134,7 @@ def locate(mac, adapter=""):
         state["paired_here"] = here["paired"]
         state["name"] = here["name"]
         if here["connected"]:
-            state["connected"] = True
-            state["controller"] = expected
+            state.update(connected=True, controller=expected, battery=here["battery"])
             return state
 
     for address in others:
@@ -131,7 +143,7 @@ def locate(mac, adapter=""):
             continue
         answered = True
         if there["connected"]:
-            state.update(connected=True, controller=address,
+            state.update(connected=True, controller=address, battery=there["battery"],
                          name=state["name"] or there["name"])
             return state
 

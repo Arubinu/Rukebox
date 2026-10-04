@@ -1389,6 +1389,13 @@ async function refreshStatus() {
     : d.speaker_mac && d.speaker_paired === false ? t("speaker.not_paired") : t("speaker.not_connected");
   badge.classList.toggle("connected", d.speaker_connected);
   document.getElementById("speakerMacDisplay").textContent = d.speaker_mac || "—";
+  const battery = document.getElementById("speakerBattery");
+  const level = d.speaker_connected && typeof d.speaker_battery === "number" ? d.speaker_battery : null;
+  battery.hidden = level === null;
+  if (level !== null) {
+    battery.textContent = t("speaker.battery", { n: level });
+    battery.dataset.state = d.speaker_battery_low > 0 && level <= d.speaker_battery_low ? "warn" : "ok";
+  }
 
   // Connected, the button takes the link back: that is what cures a silent speaker.
   const connectBtn = document.getElementById("btnSpeakerConnect");
@@ -1683,6 +1690,10 @@ function applyNotices(d) {
     if (!d.speaker_mac) add("warn", "bluetooth", "notice.no_speaker");
     else if (d.speaker_paired === false) add("warn", "bluetooth", "notice.speaker_unpaired");
     else if (d.speaker_connected === false) add("warn", "bluetooth", "notice.speaker_off");
+  }
+  if (d.speaker_connected && typeof d.speaker_battery === "number" && d.speaker_battery_low > 0
+      && d.speaker_battery <= d.speaker_battery_low) {
+    add("warn", "battery", "notice.speaker_battery_low", { n: d.speaker_battery });
   }
   if (d.speaker_connected && d.speaker_controller && d.speaker_expected &&
       d.speaker_controller !== d.speaker_expected) {
@@ -7098,7 +7109,7 @@ function formatBytes(n) {
 const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shutdown",
   "clock_ready", "clock_unreliable", "clock_manual_set", "timezone_set", "click", "track_played",
   "meme_played", "announce_played", "playback_error", "playback_stalled",
-  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "ap_client_connected",
+  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "ap_client_connected",
   "ap_client_disconnected", "web_session", "music_started", "music_list_stopped",
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",

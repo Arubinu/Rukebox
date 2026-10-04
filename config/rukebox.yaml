@@ -59,6 +59,11 @@ bluetooth:
   # check (speaker_watch_sec), so within that many seconds.
   pause_on_speaker_loss: true
 
+  # Warn once (a sound and a line on the player) when the speaker says its
+  # battery is at or below this percentage. 0 = no warning. Only speakers
+  # that report their battery to BlueZ can be followed.
+  battery_low_percent: 15
+
   # Fade-in when the music resumes after the speaker came back.
   # 0 = resume at full volume straight away.
   resume_fade_sec: 3
@@ -109,6 +114,10 @@ folders:
   # Leave empty to disable. Uses the same disposable-mpv mechanism as the
   # clock sounds above, so it never interrupts music (see _play_cue_sound()).
   ap_connect_sound: "/home/pi/audio/system/ap_connect.wav"
+
+  # Played once when the speaker's battery falls to battery_low_percent.
+  # Leave empty to warn on the page only.
+  battery_low_sound: "/home/pi/audio/system/battery_low.wav"
 
 # ---------------------------------------------------------------
 # Playback

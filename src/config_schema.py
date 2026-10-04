@@ -94,6 +94,13 @@ SETTINGS = [
         "Pause when the speaker disconnects",
     ),
     Setting(
+        "SPEAKER_BATTERY_LOW", "bluetooth", "battery_low_percent", "int", "15",
+        "Warn once (a sound and a line on the player) when the speaker says its\n"
+        "battery is at or below this percentage. 0 = no warning. Only speakers\n"
+        "that report their battery to BlueZ can be followed.",
+        "Low battery warning (%)",
+    ),
+    Setting(
         "SPEAKER_RESUME_FADE_SEC", "bluetooth", "resume_fade_sec", "float", "3",
         "Fade-in when the music resumes after the speaker came back.\n"
         "0 = resume at full volume straight away.",
@@ -157,6 +164,13 @@ SETTINGS = [
         "Leave empty to disable. Uses the same disposable-mpv mechanism as the\n"
         "clock sounds above, so it never interrupts music (see _play_cue_sound()).",
         "Wi-Fi connection sound",
+    ),
+    Setting(
+        "BATTERY_LOW_SOUND", "folders", "battery_low_sound", "str",
+        "/home/pi/audio/system/battery_low.wav",
+        "Played once when the speaker's battery falls to battery_low_percent.\n"
+        "Leave empty to warn on the page only.",
+        "Low battery sound",
     ),
 
     Setting(
@@ -988,4 +1002,4 @@ GPIO_BUTTON_SETTINGS = frozenset({
 })
 
 SYSTEM_SOUNDS = ("CLOCK_OK_SOUND", "CLOCK_FALLBACK_SOUND", "AP_CONNECT_SOUND",
-                 "RESTART_SOUND", "KEEPALIVE_SOUND")
+                 "BATTERY_LOW_SOUND", "RESTART_SOUND", "KEEPALIVE_SOUND")

@@ -2434,6 +2434,8 @@ def api_status():
     data["speaker_connected"] = None if link["unknown"] else link["connected"]
     data["speaker_paired"] = None if link["unknown"] else bool(link["connected"] or link["paired_here"])
     data["speaker_controller"] = link["controller"] if link["connected"] else None
+    data["speaker_battery"] = link.get("battery") if link["connected"] else None
+    data["speaker_battery_low"] = int(cfg().get("SPEAKER_BATTERY_LOW", 0) or 0)
     data["speaker_controller_kind"] = _controller_kind(link["controller"])
     data["speaker_expected"] = link["expected"]
     data["speaker_expected_kind"] = _controller_kind(link["expected"])

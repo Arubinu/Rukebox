@@ -125,6 +125,8 @@ class RadioDaemon:
         self._paused_for_speaker = False
         self._speaker_lost_at = None
         self._speaker_ever_connected = False
+        self._battery_step = None
+        self._battery_warned = False
         self._bt_start_done = False
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
@@ -2176,6 +2178,7 @@ class RadioDaemon:
 
         if connected:
             self._speaker_ever_connected = True
+            self._note_speaker_battery(state.get("battery"))
 
         if self._speaker_was_connected is None:
             self._speaker_was_connected = audible
@@ -2197,6 +2200,27 @@ class RadioDaemon:
             self._check_speaker_lost_too_long()
         self._check_speaker_absent()
         return wait
+
+    def _note_speaker_battery(self, level):
+        """Records each ten-percent step of the speaker's battery, and warns once when it runs low."""
+        if level is None:
+            return
+        step = level // 10
+        if step != self._battery_step:
+            self._battery_step = step
+            self.stats.record("speaker_battery", label="%d %%" % level, detail={"level": level})
+        low = int(self.cfg.get("SPEAKER_BATTERY_LOW", 0) or 0)
+        if low <= 0:
+            return
+        if level <= low and not self._battery_warned:
+            self._battery_warned = True
+            log.warning("Speaker battery low: %d%%", level)
+            self.stats.record("speaker_battery_low", label="%d %%" % level, detail={"level": level})
+            sound = self.cfg.get("BATTERY_LOW_SOUND") or ""
+            if sound:
+                self._play_cue_sound(sound, "BATTERY_LOW_SOUND")
+        elif level >= low + 10:
+            self._battery_warned = False
 
     def _on_speaker_lost(self, mac, reason="disconnected"):
         if reason == "silent":

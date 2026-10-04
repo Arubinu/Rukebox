@@ -71,7 +71,7 @@ class ParseTest(unittest.TestCase):
     def test_info(self):
         self.assertEqual(bt_link.parse_info(CONNECTED),
                          {"known": True, "connected": True, "paired": True,
-                          "name": "soundcore Select 4 Go"})
+                          "name": "soundcore Select 4 Go", "battery": None})
         self.assertTrue(bt_link.parse_info(PAIRED_OFF)["known"])
         self.assertFalse(bt_link.parse_info(PAIRED_OFF)["connected"])
         self.assertFalse(bt_link.parse_info(ABSENT)["known"])
@@ -130,6 +130,20 @@ class LocateTest(PatchTest):
         self.assertFalse(bt_link.locate("", DONGLE)["connected"])
         self.assertFalse(bt_link.locate(bt_link.PLACEHOLDER, DONGLE)["connected"])
         self.assertEqual(fake.scripts, [], "nothing is asked about a placeholder")
+
+
+class BatteryTest(PatchTest):
+    def test_the_level_comes_with_the_connection(self):
+        answer = CONNECTED + "\tBattery Percentage: 0x55 (85)\n"
+        self.patch(Fake({DONGLE: answer, BUILTIN: ABSENT}))
+        self.assertEqual(bt_link.locate(SPEAKER, DONGLE)["battery"], 85)
+        self.patch(Fake({DONGLE: ABSENT, BUILTIN: answer}))
+        self.assertEqual(bt_link.locate(SPEAKER, DONGLE)["battery"], 85)
+
+    def test_a_speaker_that_says_nothing_has_no_level(self):
+        self.patch(Fake({DONGLE: CONNECTED, BUILTIN: ABSENT}))
+        self.assertIsNone(bt_link.locate(SPEAKER, DONGLE)["battery"])
+        self.assertIsNone(bt_link.parse_info(CONNECTED + "\tBattery Percentage: lots\n")["battery"])
 
 
 class ConnectTest(PatchTest):
