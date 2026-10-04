@@ -870,7 +870,7 @@
             <button type="button" class="btn btn-small" id="btnCardRegister" data-icon="plus" data-i18n="cards.register" hidden>Register it</button>
           </div>
           <ul class="device-list" id="cardsList"></ul>
-          <p class="hint" id="cardsEmpty" data-i18n="cards.empty">No card yet: hold one on the reader and it shows up here.</p>
+          <p class="hint cards-empty" id="cardsEmpty" data-i18n="cards.empty">No card yet: hold one on the reader and it shows up here.</p>
           <details class="subsection" id="cardFormSection">
             <summary><span data-i18n="cards.add">Add a card</span></summary>
             <form id="cardForm" class="settings-form">
@@ -2107,7 +2107,10 @@
             </select>
           </div>
           <div class="kpi-grid" id="recapKpis"></div>
-          <ul class="recap-lines" id="recapLines"></ul>
+          <h3 class="recap-heading" data-i18n="recap.best_day_title" hidden>The most musical day</h3>
+          <ol class="device-list recap-list" id="recapBestDay"></ol>
+          <h3 class="recap-heading" data-i18n="recap.morning_title" hidden>Opened the day most often</h3>
+          <ol class="device-list recap-list" id="recapMorning"></ol>
           <h3 class="recap-heading" data-i18n="recap.top_artists">Top artists</h3>
           <ol class="device-list recap-list" id="recapArtists"></ol>
           <h3 class="recap-heading" data-i18n="recap.top_tracks">Top songs</h3>

@@ -1498,7 +1498,7 @@ body.lyrics-fullscreen { overflow: hidden; }
 .game-scores li { display: flex; justify-content: space-between; gap: 12px; }
 .game-scores li.is-me { font-weight: 600; }
 .game-points { font-variant-numeric: tabular-nums; }
-.recap-lines { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 6px; }
+.cards-empty { text-align: center; }
 .recap-heading { font-size: 1rem; margin: 20px 0 8px; }
 .recap-list li { display: flex; justify-content: space-between; gap: 12px; }
 .memories { margin-bottom: 14px; }

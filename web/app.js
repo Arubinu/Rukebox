@@ -4171,25 +4171,9 @@ async function refreshRecap() {
     kpiTile("music", t("recap.songs"), String(Math.round(d.tracks_played || 0))),
     kpiTile("calendar", t("recap.days"), String(d.days || 0)),
     kpiTile("users", t("recap.artists"), String(d.artists || 0)),
+    kpiTile("heart", t("recap.liked"), String(d.likes || 0)),
   );
-  const lines = document.getElementById("recapLines");
-  lines.innerHTML = "";
-  const line = (text) => {
-    const li = document.createElement("li");
-    li.textContent = text;
-    lines.appendChild(li);
-  };
-  if (d.best_day) {
-    const day = new Date(d.best_day.day + "T12:00:00").toLocaleDateString(currentLang,
-      { weekday: "long", day: "numeric", month: "long" });
-    line(t("recap.best_day", { day, time: formatDuration(d.best_day.seconds) }));
-  }
-  if (d.morning) {
-    const song = d.morning.artist ? d.morning.title + " - " + d.morning.artist : d.morning.title;
-    line(t("recap.morning", { song, n: d.morning.count }));
-  }
-  if (d.likes) line(t("recap.likes", { n: d.likes }));
-  const list = (id, rows, text) => {
+  const list = (id, rows, text, count) => {
     const box = document.getElementById(id);
     box.innerHTML = "";
     rows.forEach((row) => {
@@ -4198,12 +4182,18 @@ async function refreshRecap() {
       name.textContent = text(row);
       const n = document.createElement("span");
       n.className = "recap-count";
-      n.textContent = t("recap.plays", { n: Math.round(row.count) });
+      const plays = Math.round(row.count);
+      n.textContent = count ? count(row) : t(plays === 1 ? "recap.plays_one" : "recap.plays", { n: plays });
       li.append(name, n);
       box.appendChild(li);
     });
     box.previousElementSibling.hidden = rows.length === 0;
   };
+  const dayName = (day) => new Date(day + "T12:00:00").toLocaleDateString(currentLang,
+    { weekday: "long", day: "numeric", month: "long" });
+  list("recapBestDay", d.best_day ? [d.best_day] : [], (b) => dayName(b.day), (b) => formatDuration(b.seconds));
+  list("recapMorning", d.morning ? [d.morning] : [], (m) => (m.artist ? m.title + " - " + m.artist : m.title),
+       (m) => t(Math.round(m.count) === 1 ? "recap.times_one" : "recap.times", { n: Math.round(m.count) }));
   list("recapArtists", d.top_artists || [], (a) => a.artist);
   list("recapTracks", d.top_tracks || [], (s) => s.artist ? s.title + " - " + s.artist : s.title);
   document.getElementById("recapEmpty").hidden = (d.tracks_played || 0) > 0;
