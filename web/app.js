@@ -2745,11 +2745,11 @@ refreshEvery(refreshSettingsIfIdle, 20000);
 let restartPending = false;
 let restartDirect = false;
 let restartTarget = "service";
-// Nothing playing: it happens at once, and each button says so; a song playing: at its end.
+// The label stays; a clock instead of the button's own icon says it waits for the end of the song.
 const RESTART_BUTTONS = {
-  service: { id: "btnRestartAfterSong", now: "system.restart_now", later: "system.restart_after_song",
+  service: { id: "btnRestartAfterSong", now: "system.restart_now", later: "system.restart_now",
              icon: "restart", planned: "system.restart_planned", idle: "system.restart_idle_detail" },
-  reboot: { id: "btnRebootAfterSong", now: "system.reboot_rukebox", later: "system.reboot_after_song",
+  reboot: { id: "btnRebootAfterSong", now: "system.reboot_rukebox", later: "system.reboot_rukebox",
             icon: "power", planned: "system.reboot_planned", idle: "system.reboot_idle_detail" },
 };
 function paintRestartAfterSong() {
