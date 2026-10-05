@@ -2380,7 +2380,7 @@ select {
 .battery-pill { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--surface-2);
   border: 1px solid var(--border); font-size: 12px; letter-spacing: 0; }
 /* The title does not take the whole line, so the pill sits right after it. */
-.card-player > h2 > span:first-of-type { flex: 0 1 auto; }
+.card > h2:has(.battery-pill) > span:first-of-type { flex: 0 1 auto; }
 
 @media (max-width: 639px) {
   .speaker-status { justify-content: center; text-align: center; }
