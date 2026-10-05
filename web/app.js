@@ -1440,6 +1440,10 @@ async function refreshStatus() {
   document.getElementById("audioRepairRow").hidden = !broken;
 
   document.getElementById("sshToggle").checked = !!d.ssh_active;
+  if (d.restart_target && d.restart_target !== restartTarget) {
+    restartTarget = d.restart_target;
+    paintRestartAfterSong();
+  }
   if (restartPending !== !!d.restart_pending || restartDirect !== !!d.restart_direct) {
     restartPending = !!d.restart_pending;
     restartDirect = !!d.restart_direct;
@@ -2740,26 +2744,41 @@ refreshEvery(refreshSettingsIfIdle, 20000);
 
 let restartPending = false;
 let restartDirect = false;
+let restartTarget = "service";
+// Nothing playing: it happens at once, and each button says so; a song playing: at its end.
+const RESTART_BUTTONS = {
+  service: { id: "btnRestartAfterSong", now: "system.restart_now", later: "system.restart_after_song",
+             icon: "restart", planned: "system.restart_planned", idle: "system.restart_idle_detail" },
+  reboot: { id: "btnRebootAfterSong", now: "system.reboot_rukebox", later: "system.reboot_after_song",
+            icon: "power", planned: "system.reboot_planned", idle: "system.reboot_idle_detail" },
+};
 function paintRestartAfterSong() {
-  const btn = document.getElementById("btnRestartAfterSong");
-  // Nothing playing: the daemon restarts at once, and the button says so.
-  btn.dataset.i18n = restartPending ? "system.restart_cancel"
-    : (restartDirect ? "system.restart_now" : "system.restart_after_song");
-  btn.dataset.icon = restartDirect && !restartPending ? "restart" : "clock";
-  btn.textContent = t(btn.dataset.i18n);
-  btn.classList.toggle("is-on", restartPending);
+  Object.entries(RESTART_BUTTONS).forEach(([target, b]) => {
+    const btn = document.getElementById(b.id);
+    const mine = restartPending && restartTarget === target;
+    btn.dataset.i18n = mine ? "system.restart_cancel" : (restartDirect ? b.now : b.later);
+    btn.dataset.icon = mine || !restartDirect ? "clock" : b.icon;
+    btn.textContent = t(btn.dataset.i18n);
+    btn.classList.toggle("is-on", mine);
+  });
 }
-document.getElementById("btnRestartAfterSong").addEventListener("click", async () => {
-  const want = !restartPending;
-  const r = await apiPost("/api/daemon/restart_after_song", { on: want });
-  if (!r.ok) {
-    showError(r.error);
-    return;
-  }
-  restartPending = !!(r.data && r.data.pending);
-  paintRestartAfterSong();
-  showToast(t(want ? (restartPending ? "system.restart_planned" : "system.restart_now_idle")
-                   : "system.restart_cancelled"));
+paintRestartAfterSong();
+Object.entries(RESTART_BUTTONS).forEach(([target, b]) => {
+  document.getElementById(b.id).addEventListener("click", async () => {
+    const want = !(restartPending && restartTarget === target);
+    if (want && target === "reboot" && restartDirect && !(await showConfirm(t("confirm.reboot_now")))) return;
+    const r = await apiPost("/api/daemon/restart_after_song", { on: want, target });
+    if (!r.ok) {
+      showError(r.error);
+      return;
+    }
+    restartPending = !!(r.data && r.data.pending);
+    restartTarget = target;
+    paintRestartAfterSong();
+    if (!want) showToast(t("system.restart_cancelled"));
+    else if (restartPending) showToast(t(b.planned));
+    else showToast(t("system.restart_idle_title"), t(b.idle));
+  });
 });
 
 async function restartDaemon() {
@@ -2802,10 +2821,6 @@ SETTINGS_FORMS.forEach((form) => {
   });
 });
 
-document.getElementById("btnRestartDaemon").addEventListener("click", async () => {
-  if (!(await showConfirm(t("confirm.restart_daemon")))) return;
-  restartDaemon();
-});
 
 let folderPickerTarget = null;
 let folderPickerPath = "";

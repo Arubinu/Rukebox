@@ -118,12 +118,17 @@ class TailPlayer:
             time.sleep(0.2)
 
     def play(self, volume):
+        """True once the player was told to go on; False leaves the song to play out."""
         try:
             self._ask(["set_property", "volume", max(0.0, min(100.0, float(volume)))])
             self._ask(["set_property", "pause", False])
             self.started = True
-        except (OSError, AttributeError):
-            log.warning("The crossfade player did not answer")
+            return True
+        except (OSError, AttributeError) as e:
+            alive = self.proc is not None and self.proc.poll() is None
+            log.warning("The crossfade player did not answer (%r, process %s)", e,
+                        "running" if alive else "gone: %s" % (self.proc.poll() if self.proc else None))
+            return False
 
     def stop(self):
         if self.proc is not None and self.proc.poll() is None:
@@ -188,6 +193,7 @@ class RadioDaemon:
         self._speaker_move_at = NEVER
         self._speaker_move_failed = False
         self._restart_pending = False
+        self._restart_target = "service"
         self._audio_device = None
         self._audio_output_checked = NEVER
         self._audio_output_missing = None
@@ -912,9 +918,10 @@ class RadioDaemon:
             tail = self._xfade_proc
             if tail is not None and not tail.started and pos >= end - fade:
                 if tail.ready and self._crossfade_ok():
-                    self._tail_done = True
                     self._crossfade_to_next(fade, tail)
-                    return
+                    if tail.started:
+                        self._tail_done = True
+                        return
                 log.info("Crossfade not ready in time: the song plays out")
                 self._stop_tail()
         if self._tail_at and not self._tail_done and pos >= self._tail_at:
@@ -958,7 +965,9 @@ class RadioDaemon:
     def _crossfade_to_next(self, fade, tail):
         """The end of this song goes on in the prepared player, fading out,
         while the main one moves to the next song and fades it in."""
-        tail.play(self._mpv_level())
+        if not tail.play(self._mpv_level()):
+            self._stop_tail()
+            return
         log.info("Crossfade over %.1fs into the next song", fade)
         self._xfade_in = fade
         self.mpv.set_volume(0)
@@ -1333,19 +1342,21 @@ class RadioDaemon:
         """Nothing is playing, so there is no song to wait for."""
         return self.mode in ("idle", "stopped") or self._paused
 
-    def _schedule_restart(self, on):
-        """"Restart the service at the end of the song" - or at once when
-        nothing is being played."""
+    def _schedule_restart(self, on, target="service"):
+        """"Restart the service (or the whole device) at the end of the song" -
+        or at once when nothing is being played."""
         if not on:
             self._restart_pending = False
             self._bump_state()
             return
+        self._restart_target = "reboot" if target == "reboot" else "service"
         if self._restart_is_direct():
             self._do_planned_restart()
             return
         self._restart_pending = True
         self._bump_state()
-        log.info("Service restart planned for the end of the song")
+        log.info("%s planned for the end of the song",
+                 "Reboot" if self._restart_target == "reboot" else "Service restart")
 
     def _do_planned_restart(self):
         """Plays RESTART_SOUND (optional, a System sound) then restarts the
@@ -1362,10 +1373,17 @@ class RadioDaemon:
         self._restart_now()
 
     def _restart_now(self):
-        log.info("Restarting the service (planned from the web interface)")
         self._end_play("restart")
+        if self._restart_target == "reboot":
+            log.info("Rebooting (planned from the web interface)")
+            self._powering_off = "reboot"
+            self._bump_state()
+            command = ["sudo", "systemctl", "reboot"]
+        else:
+            log.info("Restarting the service (planned from the web interface)")
+            command = ["sudo", "systemctl", "restart", "rukebox-daemon.service"]
         try:
-            subprocess.Popen(["sudo", "systemctl", "restart", "rukebox-daemon.service"],
+            subprocess.Popen(command,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError:
             log.exception("Could not restart the service")
@@ -3380,6 +3398,7 @@ class RadioDaemon:
             "music_started_today": self.state.already_triggered_today("last_music_start"),
             "version": self._state_version,
             "restart_pending": self._restart_pending,
+            "restart_target": self._restart_target,
             "restart_direct": self._restart_is_direct(),
             "powering_off": self._powering_off,
             "position": round(self._position, 1),
@@ -3708,7 +3727,7 @@ class RadioDaemon:
                 self._play_cue_sound(path, key)
                 return {"ok": True}
             if cmd == "schedule_restart":
-                self._schedule_restart(bool(msg.get("on", True)))
+                self._schedule_restart(bool(msg.get("on", True)), msg.get("target") or "service")
                 return {"ok": True, "data": {"pending": self._restart_pending}}
             if cmd == "speaker_button":
                 gesture = msg.get("gesture")

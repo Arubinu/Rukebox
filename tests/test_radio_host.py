@@ -219,6 +219,7 @@ class DaemonTest(unittest.TestCase):
 
             def play(self, volume):
                 self.started = True
+                return True
 
             def stop(self):
                 self.stopped = True

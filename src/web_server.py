@@ -2518,7 +2518,9 @@ def api_status():
         return jsonify({"ok": False, "error": result.get("error", "daemon_unreachable")}), 503
 
     data = result["data"]
-    data["going_down"] = _going_down or ("poweroff" if data.pop("powering_off", False) else None)
+    powering_off = data.pop("powering_off", False)
+    data["going_down"] = _going_down or (powering_off if isinstance(powering_off, str)
+                                         else ("poweroff" if powering_off else None))
     data["updating"] = update_in_progress(cfg())
     data["epoch"] = time.time()
     track_path = data.pop("current_track_path", None)
@@ -3329,7 +3331,8 @@ def api_daemon_restart_after_song():
     """Plans (on=true) or cancels (on=false) a restart of the service at the
     end of the song playing."""
     body = request.get_json(silent=True) or {}
-    result = control("schedule_restart", on=bool(body.get("on", True)))
+    target = "reboot" if body.get("target") == "reboot" else "service"
+    result = control("schedule_restart", on=bool(body.get("on", True)), target=target)
     if not result.get("ok"):
         return jsonify({"ok": False, "error": result.get("error", "daemon_unreachable")}), 503
     return jsonify(result)

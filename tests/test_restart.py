@@ -89,6 +89,23 @@ class RestartTest(unittest.TestCase):
         self.assertFalse(self.daemon._restart_pending)
         self.assertFalse(self.restart.called)
 
+    def test_the_whole_device_restarts_at_the_end_of_the_song_when_asked(self):
+        self.daemon.mode = "music"
+        self.daemon._paused = False
+        self.daemon._schedule_restart(True, "reboot")
+        self.assertTrue(self.daemon._restart_pending)
+        self.assertEqual(self.daemon._build_status()["restart_target"], "reboot")
+        self.daemon._play_next_track()
+        self.assertTrue(self.restart.called)
+
+    def test_a_reboot_runs_systemctl_reboot_and_says_so(self):
+        mock.patch.stopall()
+        popen = mock.patch.object(rukebox_daemon.subprocess, "Popen").start()
+        self.daemon._restart_target = "reboot"
+        self.daemon._restart_now()
+        self.assertEqual(popen.call_args[0][0], ["sudo", "systemctl", "reboot"])
+        self.assertEqual(self.daemon._build_status()["powering_off"], "reboot")
+
 
 if __name__ == "__main__":
     unittest.main()
