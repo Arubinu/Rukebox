@@ -577,7 +577,30 @@ code {
 .icon-toggle-btn::before { width: 20px; height: 20px; }
 
 #themeToggleBtn,
+#searchBtn,
 #logoutBtn { font-size: 0; padding: 0; }
+body[data-access="guest"] #searchBtn { display: none !important; }
+
+.search-box .text-input { width: 100%; }
+.search-results { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 4px;
+  max-height: min(60svh, 480px); overflow-y: auto; }
+.search-results button { display: grid; gap: 2px; width: 100%; padding: 10px 12px; text-align: left;
+  border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text);
+  font: inherit; cursor: pointer; }
+.search-results button:hover,
+.search-results button:focus-visible { background: var(--surface-2); border-color: var(--border); }
+.search-results .search-label { font-weight: 600; }
+.search-results .search-where { font-size: 12px; color: var(--muted); }
+.search-results .search-desc { font-size: 13px; color: var(--muted); }
+.search-empty { margin: 12px 0 0; text-align: center; }
+.search-hit { animation: search-hit 2.4s ease-out; border-radius: 10px; }
+@keyframes search-hit {
+  0%, 30% { box-shadow: 0 0 0 3px var(--accent-ring); background: var(--accent-soft); }
+  100% { box-shadow: 0 0 0 3px transparent; background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-hit { animation: none; outline: 3px solid var(--accent-ring); }
+}
 
 .tabbar {
   position: fixed;

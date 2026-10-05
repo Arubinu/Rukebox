@@ -719,3 +719,28 @@ test("a reminder is added in minutes or at a time, and listed", async (t) => {
   page.$("reminderWhen").dispatchEvent(new page.window.Event("change"));
   assert.equal(page.$("reminderAtRow").hidden, false);
 });
+
+test("the search finds an option by its words and opens its page", async (t) => {
+  const page = open(t, { view: "simple" });
+  await until(() => page.$("bootOverlay").hidden);
+  page.$("searchBtn").click();
+  await until(() => page.document.querySelector(".search-box input"));
+  const input = page.document.querySelector(".search-box input");
+  input.value = "fondu croise";
+  input.dispatchEvent(new page.window.Event("input"));
+  assert.equal(page.document.querySelectorAll(".search-results button").length, 0, "no French in an English page");
+  input.value = "crossfade";
+  input.dispatchEvent(new page.window.Event("input"));
+  const first = await until(() => page.document.querySelector(".search-results button"));
+  assert.match(first.textContent, /Crossfade/);
+  first.click();
+  await until(() => page.window.location.hash === "#settings/playback");
+  await until(() => page.$("crossfadeSec").closest(".field-row").classList.contains("search-hit"));
+  page.$("searchBtn").click();
+  const again = await until(() => page.document.querySelector(".search-box input"));
+  again.value = "action fade";
+  again.dispatchEvent(new page.window.Event("input"));
+  const hit = await until(() => page.document.querySelector(".search-results button"));
+  hit.click();
+  await until(() => page.document.documentElement.dataset.view === "detailed");
+});

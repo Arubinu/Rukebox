@@ -10257,4 +10257,133 @@ if (portalHoldsDevice && arrivedWithoutHash && !railMode()) {
 document.dispatchEvent(new CustomEvent("page-shown", {
   detail: { tab: document.body.dataset.tab || null, page: document.body.dataset.page || null },
 }));
+// The settings search: every option of every page, found by its words.
+function searchEntries() {
+  const out = [];
+  document.querySelectorAll(".card[data-page]").forEach((card) => {
+    if (card.hasAttribute("hidden") || (guestMode && card.hasAttribute("data-owner"))) return;
+    const titleEl = card.querySelector("h2 [data-i18n]");
+    const cardTitle = titleEl ? titleEl.textContent.trim() : "";
+    const where = t("tab." + card.dataset.tab) + " \u203a " + cardTitle;
+    out.push({ el: card, card, label: cardTitle, where: t("tab." + card.dataset.tab), desc: "", page: true });
+    card.querySelectorAll(".field-row, details.subsection > summary").forEach((row) => {
+      const hiddenBy = row.closest("[hidden]");
+      if (hiddenBy && hiddenBy !== card) return;
+      const labelEl = row.matches("summary") ? row : row.querySelector("label, .field-text > span");
+      const label = labelEl ? labelEl.textContent.replace(/\s+/g, " ").trim() : "";
+      if (!label) return;
+      const descEl = row.querySelector(".field-desc");
+      out.push({ el: row, card, label, where, desc: descEl ? descEl.textContent.trim() : "", page: false });
+    });
+  });
+  return out;
+}
+
+function searchMatches(query) {
+  const words = foldText(query).split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const found = [];
+  searchEntries().forEach((entry) => {
+    const label = foldText(entry.label);
+    const all = label + " " + foldText(entry.desc) + " " + foldText(entry.where);
+    if (!words.every((w) => all.includes(w))) return;
+    const score = (words.every((w) => label.includes(w)) ? 0 : 2) + (label.startsWith(words[0]) ? 0 : 1)
+      + (entry.page ? 0 : 0.5);
+    found.push({ entry, score });
+  });
+  found.sort((a, b) => a.score - b.score || a.entry.label.localeCompare(b.entry.label));
+  return found.slice(0, 40).map((f) => f.entry);
+}
+
+function goToOption(entry) {
+  const card = entry.card;
+  if ((card.dataset.level === "detail" || entry.el.closest('[data-level="detail"]')) && currentView() === "simple") {
+    showDetailed();
+  }
+  setActiveView(card.dataset.tab, card.dataset.page);
+  const fold = entry.el.closest("details");
+  if (fold) fold.open = true;
+  setTimeout(() => {
+    const target = entry.page ? card : entry.el;
+    target.scrollIntoView({ behavior: "smooth", block: entry.page ? "start" : "center" });
+    if (entry.page) return;
+    target.classList.remove("search-hit");
+    void target.offsetWidth;
+    target.classList.add("search-hit");
+    setTimeout(() => target.classList.remove("search-hit"), 2500);
+    const field = target.querySelector("input:not([type=hidden]), select, textarea, button");
+    if (field) field.focus({ preventScroll: true });
+  }, 120);
+}
+
+function openSearch() {
+  const box = document.createElement("div");
+  box.className = "search-box";
+  const input = document.createElement("input");
+  input.type = "search";
+  input.className = "text-input";
+  input.placeholder = t("search.placeholder");
+  input.setAttribute("aria-label", t("search.open"));
+  input.autocomplete = "off";
+  const list = document.createElement("ul");
+  list.className = "search-results";
+  const empty = document.createElement("p");
+  empty.className = "hint search-empty";
+  empty.textContent = t("search.hint");
+  box.append(input, list, empty);
+
+  let shown = [];
+  const paint = () => {
+    shown = searchMatches(input.value);
+    list.replaceChildren(...shown.map((entry) => {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      const label = document.createElement("span");
+      label.className = "search-label";
+      label.textContent = entry.page ? entry.label + " (" + t("search.page") + ")" : entry.label;
+      const where = document.createElement("span");
+      where.className = "search-where";
+      where.textContent = entry.where;
+      b.append(label, where);
+      if (entry.desc) {
+        const desc = document.createElement("span");
+        desc.className = "search-desc";
+        desc.textContent = entry.desc;
+        b.append(desc);
+      }
+      b.addEventListener("click", () => {
+        closeModal(false);
+        goToOption(entry);
+      });
+      li.append(b);
+      return li;
+    }));
+    empty.hidden = shown.length > 0;
+    empty.textContent = input.value.trim() ? t("search.empty") : t("search.hint");
+  };
+  input.addEventListener("input", paint);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && shown.length) {
+      e.preventDefault();
+      closeModal(false);
+      goToOption(shown[0]);
+    }
+  });
+  openModal({ title: t("search.title"), bodyNode: box, actions: false, modalClass: "modal-search" });
+  paint();
+  input.focus();
+}
+
+document.getElementById("searchBtn").addEventListener("click", () => {
+  setTopbarMenu(false);
+  openSearch();
+});
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && document.body.dataset.access !== "guest") {
+    e.preventDefault();
+    openSearch();
+  }
+});
+
 } // end of initApp()
