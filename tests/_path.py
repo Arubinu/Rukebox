@@ -21,6 +21,11 @@ import atexit  # noqa: E402
 import shutil  # noqa: E402
 import tempfile  # noqa: E402
 
+# The suite runs as the Pi, which is what the product is: a route or a card
+# that only exists there has to be exercised. tests/test_platform.py and the
+# container cases in tests/test_web.py force the other platforms on purpose.
+os.environ.setdefault("RUKEBOX_PLATFORM", "pi")
+
 import paths  # noqa: E402
 
 _SANDBOX = tempfile.mkdtemp(prefix="rukebox-tests-")

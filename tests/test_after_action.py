@@ -126,13 +126,13 @@ class AfterActionTest(unittest.TestCase):
         self.daemon.cfg.update({"SHUTDOWN_AFTER_CUTOFF": True, "SPEAKER_MAC": "7C:E9:13:69:66:55"})
         steps = mock.Mock()
         mock.patch.object(rukebox_daemon.time, "sleep", steps.sleep).start()
-        mock.patch.object(rukebox_daemon.subprocess, "run", steps.run).start()
+        mock.patch.object(rukebox_daemon.system_actions, "power_off", steps.power_off).start()
         mock.patch.object(self.daemon, "_bluetoothctl", steps.bluetoothctl).start()
         self.daemon._do_shutdown_sequence(tail=True)
-        self.assertEqual([call[0] for call in steps.mock_calls], ["sleep", "bluetoothctl", "run"],
+        self.assertEqual([call[0] for call in steps.mock_calls],
+                         ["sleep", "bluetoothctl", "power_off"],
                          "waited, then the speaker let go, then the power-off")
         self.assertEqual(steps.sleep.call_args[0][0], self.daemon.SHUTDOWN_TAIL_SEC)
-        self.assertEqual(steps.run.call_args[0][0], ["sudo", "systemctl", "poweroff"])
 
 
 class AfterActionFieldTest(unittest.TestCase):

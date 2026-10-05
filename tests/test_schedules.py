@@ -184,7 +184,7 @@ class DaemonTest(unittest.TestCase):
         })
         self.base = dict(cfg)
         mock.patch.object(rukebox_daemon, "load_config", lambda **kwargs: dict(self.base)).start()
-        mock.patch.object(rukebox_daemon.subprocess, "run").start()
+        mock.patch.object(rukebox_daemon.system_actions, "power_off").start()
         mock.patch.object(rukebox_daemon.time, "sleep").start()
         self.daemon = rukebox_daemon.RadioDaemon(cfg)
         self.daemon.mpv = FakeMpv()
@@ -257,7 +257,7 @@ class DaemonTest(unittest.TestCase):
         schedules.update(self.path, "morning", {"stop_action": "poweroff", "stop": "10:00"})
         self.tick(at(5, 10, 0))
         self.assertEqual(self.daemon.mode, "shutting_down")
-        rukebox_daemon.subprocess.run.assert_called_with(["sudo", "systemctl", "poweroff"], check=False)
+        rukebox_daemon.system_actions.power_off.assert_called()
 
     def test_a_disabled_schedule_does_nothing(self):
         self.add(enabled=False, settings={"BASE_VOLUME": 30})
@@ -359,7 +359,7 @@ class DaemonTest(unittest.TestCase):
         self.daemon._start_or_restart_playback()
         self.daemon._do_shutdown_sequence()
         self.assertEqual(self.daemon.mode, "idle")
-        rukebox_daemon.subprocess.run.assert_not_called()
+        rukebox_daemon.system_actions.power_off.assert_not_called()
         self.daemon._start_or_restart_playback()
         self.assertEqual(self.daemon.mode, "music", "and the music can start again")
         self.daemon._power_off_now("long_press")

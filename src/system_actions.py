@@ -62,15 +62,11 @@ def can_power_off():
 def can_set_clock():
     """The clock is the host's everywhere except on the Pi, which has no NTP
     and a hardware clock of its own to write."""
-    if sys.platform.startswith("win"):
-        return False
     return platform_mod.name() == platform_mod.PI
 
 
 def can_self_update():
     """Whether an update can replace the installed tree in place."""
-    if sys.platform.startswith("win"):
-        return False
     if platform_mod.name() == platform_mod.DOCKER:
         # The image is the unit of update: `docker pull`.
         return False
@@ -275,8 +271,11 @@ def timezone_name():
 
 
 def set_timezone(name):
-    return bool(_run(["timedatectl", "set-timezone", name], sudo=True, timeout=10)
-                is not None)
+    """Returns (ok, detail)."""
+    result = _run(["timedatectl", "set-timezone", name], sudo=True, timeout=10)
+    if result is None:
+        return False, "unsupported_here"
+    return result.returncode == 0, result.stderr.strip()
 
 
 def list_timezones():

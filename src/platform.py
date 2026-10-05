@@ -132,6 +132,9 @@ def _has_local_audio():
 
 
 def _has_rtc():
+    # The two names the kernel gives a Pi's RTC first, then anything else.
+    if os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc"):
+        return True
     return bool(glob.glob("/dev/rtc*"))
 
 

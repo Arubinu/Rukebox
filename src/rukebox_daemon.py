@@ -31,6 +31,7 @@ import schedules  # noqa: E402
 import speech  # noqa: E402
 from state import RadioState  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
+import system_actions  # noqa: E402
 import track_media  # noqa: E402
 import track_order  # noqa: E402
 
@@ -487,6 +488,10 @@ class RadioDaemon:
         os.makedirs(self.cfg["STATE_DIR"], exist_ok=True)
         self._install_signal_handlers()
         self.stats.open_session()
+        # In a container "off" ends this process instead of the machine, so the
+        # session has to be closed by the hook rather than by the shutdown
+        # sequence alone.
+        system_actions.on_exit(self._on_process_end)
         self._init_clock_sync()
         self.mpv.start()
         self._apply_audio_output(force=True)
@@ -532,6 +537,12 @@ class RadioDaemon:
                 signal.signal(sig, _on_term)
             except (ValueError, OSError):
                 log.warning("Could not install the handler for signal %s", sig)
+
+    def _on_process_end(self):
+        """Run when the platform ends this process on purpose."""
+        self._end_play("service_stop")
+        self.stats.end_session("service_stop")
+        self.stats.close()
 
     def _reload_config(self):
         """Applies a settings save without a restart."""
@@ -1394,13 +1405,11 @@ class RadioDaemon:
             log.info("Rebooting (planned from the web interface)")
             self._powering_off = "reboot"
             self._bump_state()
-            command = ["sudo", "systemctl", "reboot"]
-        else:
-            log.info("Restarting the service (planned from the web interface)")
-            command = ["sudo", "systemctl", "restart", "rukebox-daemon.service"]
+            system_actions.reboot()
+            return
+        log.info("Restarting the service (planned from the web interface)")
         try:
-            subprocess.Popen(command,
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            system_actions.restart_daemon()
         except OSError:
             log.exception("Could not restart the service")
             self.mode = "idle"
@@ -2067,7 +2076,7 @@ class RadioDaemon:
         if mac and mac != "XX:XX:XX:XX:XX:XX":
             log.info("Disconnecting Bluetooth from %s", mac)
             self._bluetoothctl("disconnect", mac, timeout=10)
-        subprocess.run(["sudo", "systemctl", "poweroff"], check=False)
+        system_actions.power_off()
 
     def _cutoff_standby(self):
         """The cutoff with SHUTDOWN_AFTER_CUTOFF off: the Pi stays on and waits

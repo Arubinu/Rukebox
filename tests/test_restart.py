@@ -100,11 +100,39 @@ class RestartTest(unittest.TestCase):
 
     def test_a_reboot_runs_systemctl_reboot_and_says_so(self):
         mock.patch.stopall()
-        popen = mock.patch.object(rukebox_daemon.subprocess, "Popen").start()
-        self.daemon._restart_target = "reboot"
-        self.daemon._restart_now()
-        self.assertEqual(popen.call_args[0][0], ["sudo", "systemctl", "reboot"])
+        run = mock.patch.object(rukebox_daemon.system_actions, "_run").start()
+        run.return_value = mock.Mock(returncode=0)
+        with mock.patch.object(rukebox_daemon.system_actions, "can_power_off",
+                               return_value=True):
+            self.daemon._restart_target = "reboot"
+            self.daemon._restart_now()
+        self.assertEqual(run.call_args[0][0], ["systemctl", "reboot"])
         self.assertEqual(self.daemon._build_status()["powering_off"], "reboot")
+
+    def test_a_service_restart_leaves_the_process(self):
+        """`systemctl restart` from inside the unit being restarted: the
+        daemon ends and systemd starts it again - and in a container there is
+        no systemctl at all, so that is the only way it can work."""
+        mock.patch.stopall()
+        with mock.patch.object(rukebox_daemon.system_actions, "is_container",
+                               return_value=True):
+            end = mock.patch.object(rukebox_daemon.system_actions,
+                                    "_end_this_process").start()
+            self.daemon._restart_target = "service"
+            self.daemon._restart_now()
+        self.assertTrue(end.called)
+
+    def test_a_container_never_asks_systemd_anything(self):
+        mock.patch.stopall()
+        with mock.patch.object(rukebox_daemon.system_actions, "is_container",
+                               return_value=True):
+            run = mock.patch.object(rukebox_daemon.system_actions, "_run").start()
+            end = mock.patch.object(rukebox_daemon.system_actions,
+                                    "_end_this_process").start()
+            self.daemon._restart_target = "reboot"
+            self.daemon._restart_now()
+        self.assertFalse(run.called)
+        self.assertTrue(end.called)
 
 
 if __name__ == "__main__":

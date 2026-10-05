@@ -17,6 +17,27 @@ class DetectionTest(unittest.TestCase):
     def setUp(self):
         host.reset()
         self.addCleanup(host.reset)
+        # Detection reads the environment, so a test that removes a variable
+        # has to put it back - the suite runs with RUKEBOX_PLATFORM set.
+        self.addCleanup(self._restore_environment,
+                        {name: os.environ.get(name)
+                         for name in ("RUKEBOX_PLATFORM", "container")})
+
+    @staticmethod
+    def _restore_environment(before):
+        for name, value in before.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+    def with_only_environment(self, **values):
+        """The environment detection sees, and nothing else: what the suite set
+        must not leak into a test about detection."""
+        for name in ("RUKEBOX_PLATFORM", "container"):
+            os.environ.pop(name, None)
+        os.environ.update(values)
+        host.reset()
 
     def test_a_forced_platform_wins(self):
         for name in (host.PI, host.LXC, host.DOCKER, host.HOST):
@@ -31,38 +52,26 @@ class DetectionTest(unittest.TestCase):
             self.assertIn(host.detect(), host.KNOWN)
 
     def test_the_docker_marker_file(self):
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("RUKEBOX_PLATFORM", None)
-            os.environ.pop("container", None)
-            host.reset()
-            with mock.patch.object(host.os.path, "exists",
-                                   side_effect=lambda p: p == "/.dockerenv"):
-                host.reset()
-                self.assertEqual(host.detect(), host.DOCKER)
-
-    def test_lxc_is_told_apart_from_docker(self):
-        with mock.patch.dict(os.environ, {"container": "lxc"}):
-            host.reset()
-            self.assertEqual(host.detect(), host.LXC)
-        with mock.patch.dict(os.environ, {"container": "docker"}):
-            host.reset()
+        self.with_only_environment()
+        with mock.patch.object(host.os.path, "exists",
+                               side_effect=lambda p: p == "/.dockerenv"):
             self.assertEqual(host.detect(), host.DOCKER)
 
+    def test_lxc_is_told_apart_from_docker(self):
+        self.with_only_environment(container="lxc")
+        self.assertEqual(host.detect(), host.LXC)
+        self.with_only_environment(container="docker")
+        self.assertEqual(host.detect(), host.DOCKER)
+
     def test_a_raspberry_pi_model_says_pi(self):
-        for name in ("RUKEBOX_PLATFORM", "container"):
-            self.addCleanup(os.environ.pop, name, None)
-            os.environ.pop(name, None)
-        host.reset()
+        self.with_only_environment()
         with mock.patch.object(host, "_read_first",
                                return_value="Raspberry Pi Zero 2 W Rev 1.0"):
             with mock.patch.object(host, "_cgroup_text", return_value=""):
                 self.assertEqual(host.detect(), host.PI)
 
     def test_an_ordinary_machine_is_host(self):
-        for name in ("RUKEBOX_PLATFORM", "container"):
-            self.addCleanup(os.environ.pop, name, None)
-            os.environ.pop(name, None)
-        host.reset()
+        self.with_only_environment()
         with mock.patch.object(host, "_read_first", return_value="Some Laptop"):
             with mock.patch.object(host, "_cgroup_text", return_value=""):
                 with mock.patch.object(host.os.path, "exists", return_value=False):

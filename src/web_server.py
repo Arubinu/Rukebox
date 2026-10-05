@@ -42,6 +42,8 @@ import captive_portal  # noqa: E402
 import config_schema  # noqa: E402
 import gpio_pins  # noqa: E402
 import gpio_reset  # noqa: E402
+import platform as platform_mod  # noqa: E402
+import system_actions  # noqa: E402
 import web_auth  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config, update_config_file  # noqa: E402
 from control_client import send_control_command  # noqa: E402
@@ -308,6 +310,21 @@ def _require_auth():
     if _guest_allowed(request.path, request.method):
         return None
     return jsonify({"ok": False, "error": "auth_required"}), 401
+
+
+@app.before_request
+def _refuse_what_this_machine_cannot_do():
+    """A route whose feature is not on this platform answers a code instead of
+    failing on a binary that is not installed. The interface hides the card as
+    well - this is the door behind it."""
+    needed = _ROUTE_CAPABILITIES.get(request.path)
+    if not needed:
+        return None
+    missing = [name for name, methods in needed.items()
+               if request.method in methods and not platform_mod.has(name)]
+    if missing:
+        return jsonify({"ok": False, "error": "unsupported_here", "missing": missing}), 501
+    return None
 
 
 @app.route("/api/auth/status")
@@ -707,6 +724,23 @@ ACTION_TOGGLES = {"/api/action/toggle_pause", "/api/action/start_music", "/api/a
                   "/api/mute", "/api/loop"}
 _repeats = {}
 _repeats_lock = threading.Lock()
+
+# What a route needs from the machine before it means anything, per HTTP
+# method: nothing here is about the network or about who is asking, it is what
+# a GPIO pin or a clock needs, and a container has none of it. The method
+# matters - /api/time/timezone is readable everywhere and only writable where
+# there is a clock to set.
+#
+# The access point is NOT here: /api/setup/pending reports what a first install
+# still has to pair and /api/wifi/ap reads a connection profile, both of which
+# answer fine anywhere. It is the page's own cards that are hidden.
+_ROUTE_CAPABILITIES = {
+    "/api/gpio/detect": {"gpio": ("POST",)},
+    "/api/gpio/pinout": {"gpio": ("GET",)},
+    "/api/time": {"set_clock": ("POST",)},
+    "/api/time/timezone": {"set_clock": ("POST",)},
+    "/api/system/reboot": {"power": ("POST",)},
+}
 
 
 def _repeat_request():
@@ -2563,6 +2597,9 @@ def api_status():
     data["flic_active"] = _status_probe("flic_active", lambda: _service_is_active("flic-bridge"))
     data["quota"] = _quota_status()
     data["guest_locked"] = _guest_locked() if _quota_applies() else []
+    # What this machine can do, so the page hides the cards that lead nowhere
+    # rather than offering buttons that answer unsupported_here.
+    data["capabilities"] = capabilities()
     return jsonify({"ok": True, "data": data})
 
 
@@ -3267,29 +3304,17 @@ def api_set_settings():
     except Exception:  # noqa: BLE001
         reload = {"ok": False}
     if "ACT_LED" in body:
-        try:
-            subprocess.run(["sudo", "systemctl", "start", "rukebox-act-led.service"],
-                           capture_output=True, text=True, timeout=15)
-        except (subprocess.TimeoutExpired, OSError):
+        if not system_actions.service_action("start", "rukebox-act-led"):
             log.warning("Could not apply the activity LED setting")
     if config_schema.GPIO_BUTTON_SETTINGS & set(body) and _service_is_active("rukebox-gpio-button"):
         for action in ("stop", "start"):
-            try:
-                subprocess.run(["sudo", "systemctl", action, GPIO_BUTTON_SERVICE],
-                               capture_output=True, text=True, timeout=15)
-            except (subprocess.TimeoutExpired, OSError):
+            if not system_actions.service_action(action, GPIO_BUTTON_SERVICE):
                 log.warning("Could not %s %s", action, GPIO_BUTTON_SERVICE)
     if "FLIC_HCI_DEVICE" in body and _service_is_active("flicd"):
-        try:
-            subprocess.run(["sudo", "-n", "systemctl", "restart", "flicd.service"],
-                           capture_output=True, text=True, timeout=20)
-        except (subprocess.TimeoutExpired, OSError):
+        if not system_actions.service_action("restart", "flicd"):
             log.warning("Could not restart flicd")
     if "SPEAKER_BT_ADAPTER" in body:
-        try:
-            subprocess.run(["sudo", "-n", "systemctl", "restart", "bt-connect.service"],
-                           capture_output=True, text=True, timeout=20)
-        except (subprocess.TimeoutExpired, OSError):
+        if not system_actions.service_action("restart", "bt-connect"):
             log.warning("Could not restart bt-connect")
     audio_reloaded = False
     if "BT_AUDIO_CODECS" in body:
@@ -3303,10 +3328,7 @@ def api_set_settings():
             log.warning("The new codecs apply at the next start of WirePlumber")
     reboot_needed = False
     if "USB_PORT_MODE" in body:
-        try:
-            subprocess.run(["sudo", "systemctl", "restart", "rukebox-usb-gadget.service"],
-                           capture_output=True, text=True, timeout=30)
-        except (subprocess.TimeoutExpired, OSError):
+        if not system_actions.service_action("restart", "rukebox-usb-gadget", timeout=30):
             log.warning("Could not apply the USB port mode")
         reboot_needed = True
     restart_needed = bool(config_schema.RESTART_REQUIRED & set(body))
@@ -3321,8 +3343,7 @@ def api_set_settings():
 @app.route("/api/system/reboot", methods=["POST"])
 def api_system_reboot():
     stats.record("system_reboot", label="interface")
-    subprocess.Popen(["sudo", "-n", "systemctl", "reboot"],
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    system_actions.reboot()
     return jsonify({"ok": True})
 
 
@@ -3341,12 +3362,10 @@ def api_daemon_restart_after_song():
 @app.route("/api/daemon/restart", methods=["POST"])
 def api_daemon_restart():
     stats.record("daemon_restart", label="web interface")
-    result = subprocess.run(
-        ["sudo", "systemctl", "restart", "rukebox-daemon.service"],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        return jsonify({"ok": False, "error": "restart_failed", "detail": result.stderr.strip()}), 500
+    try:
+        system_actions.restart_daemon()
+    except OSError as error:
+        return jsonify({"ok": False, "error": "restart_failed", "detail": str(error)}), 500
     return jsonify({"ok": True})
 
 
@@ -3359,25 +3378,12 @@ def api_set_time():
         return jsonify({"ok": False, "error": "missing_datetime"}), 400
 
     before = time.time()
-    if utc_value:
-        result = subprocess.run(["sudo", "date", "-u", "-s", utc_value],
-                                capture_output=True, text=True)
-    else:
-        result = subprocess.run(["sudo", "date", "-s", value], capture_output=True, text=True)
-    if result.returncode != 0:
-        return jsonify({"ok": False, "error": "time_set_failed", "detail": result.stderr.strip()}), 400
+    ok, detail = system_actions.set_clock(utc_value or value, utc=bool(utc_value))
+    if not ok:
+        return jsonify({"ok": False, "error": "time_set_failed", "detail": detail}), 400
 
-    has_rtc = os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc")
-    written = False
-    if has_rtc:
-        # hwclock is in util-linux-extra on recent Raspberry Pi OS: it can be missing.
-        try:
-            written = subprocess.run(["sudo", "hwclock", "-w"], capture_output=True,
-                                     text=True, timeout=10).returncode == 0
-        except (subprocess.TimeoutExpired, OSError):
-            written = False
-        if not written:
-            log.warning("The clock module could not be written (hwclock missing or refused)")
+    has_rtc = system_actions.has_rtc()
+    written = system_actions.write_rtc() if has_rtc else False
 
     offset = time.time() - before
     try:
@@ -3405,24 +3411,10 @@ _timezone_cache = {"at": 0.0, "name": "", "list": None}
 
 
 def _timezone_name():
-    """The Pi's timezone, e.g."""
+    """The machine's timezone, e.g."""
     if _timezone_cache["name"] and time.time() - _timezone_cache["at"] < _TIMEZONE_CACHE_SECONDS:
         return _timezone_cache["name"]
-    name = ""
-    try:
-        result = subprocess.run(
-            ["timedatectl", "show", "-p", "Timezone", "--value"],
-            capture_output=True, text=True, timeout=5,
-        )
-        name = result.stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        name = ""
-    if not name:
-        try:
-            with open("/etc/timezone", "r", encoding="utf-8") as handle:
-                name = handle.read().strip()
-        except OSError:
-            name = ""
+    name = system_actions.timezone_name()
     _timezone_cache["name"] = name
     _timezone_cache["at"] = time.time()
     return name
@@ -3433,15 +3425,7 @@ def _list_timezones():
     cached = _timezone_cache["list"]
     if cached is not None:
         return cached
-    zones = []
-    try:
-        result = subprocess.run(
-            ["timedatectl", "list-timezones"],
-            capture_output=True, text=True, timeout=10,
-        )
-        zones = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    except (OSError, subprocess.SubprocessError):
-        zones = []
+    zones = system_actions.list_timezones()
     _timezone_cache["list"] = zones
     return zones
 
@@ -3462,12 +3446,9 @@ def api_set_timezone():
     if zones and value not in zones:
         return jsonify({"ok": False, "error": "bad_timezone"}), 400
 
-    result = subprocess.run(["sudo", "timedatectl", "set-timezone", value],
-                            capture_output=True, text=True)
-    if result.returncode != 0:
-        return jsonify({
-            "ok": False, "error": "timezone_failed", "detail": result.stderr.strip(),
-        }), 400
+    ok, detail = system_actions.set_timezone(value)
+    if not ok:
+        return jsonify({"ok": False, "error": "timezone_failed", "detail": detail}), 400
     _timezone_cache["name"] = ""
     _timezone_cache["at"] = 0.0
     stats.record("timezone_set", label=value)
@@ -3712,14 +3693,12 @@ def api_flic_enable():
             return jsonify({"ok": False, "error": "flic_no_controller"}), 400
         if (c.get("AUDIO_OUTPUT") or "bluetooth") == "bluetooth" and speaker is flic:
             return jsonify({"ok": False, "error": "bt_adapter_conflict"}), 400
-    action = ["enable", "--now"] if on else ["disable", "--now"]
-    try:
-        r = subprocess.run(["sudo", "-n", "systemctl"] + action + ["flicd.service", "flic-bridge.service"],
-                           capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
+    enable_ok = system_actions.service_action("enable" if on else "disable", "flicd")
+    run_ok = system_actions.service_action("start" if on else "stop", "flicd")
+    bridge_ok = system_actions.service_action("enable" if on else "disable", "flic-bridge")
+    bridge_run_ok = system_actions.service_action("start" if on else "stop", "flic-bridge")
+    if not (enable_ok and run_ok and bridge_ok and bridge_run_ok):
         return jsonify({"ok": False, "error": "service_failed"}), 500
-    if r.returncode != 0:
-        return jsonify({"ok": False, "error": "service_failed", "detail": r.stderr.strip()[-300:]}), 500
     stats.record("flic_enabled" if on else "flic_disabled")
     return jsonify({"ok": True})
 
@@ -4021,21 +4000,17 @@ def _controller_kind(address, controllers=None):
 
 
 def _service_is_active(name):
-    try:
-        return subprocess.run(
-            ["systemctl", "is-active", "--quiet", name], timeout=10,
-        ).returncode == 0
-    except (subprocess.TimeoutExpired, OSError):
-        return False
+    return system_actions.service_is_active(name)
 
 
 def _service_is_enabled(name):
-    try:
-        return subprocess.run(
-            ["systemctl", "is-enabled", "--quiet", name], timeout=10,
-        ).returncode == 0
-    except (subprocess.TimeoutExpired, OSError):
-        return False
+    return system_actions.service_is_enabled(name)
+
+
+def capabilities():
+    """What this machine can do, read fresh: the interface hides what is not
+    there and the routes below answer `unsupported_here` for it."""
+    return platform_mod.caps()
 
 
 BT_SCAN_SECONDS = 15
@@ -4677,13 +4652,12 @@ _SERVICE_PROPS = ("Id", "LoadState", "ActiveState", "SubState", "UnitFileState",
 
 def _services_state():
     """One `systemctl show` for every unit: [{name, state, sub, enabled, since."""
+    if not system_actions.local_service_units():
+        # No systemd here: a container's services are its supervisor's children.
+        return []
     units = [name + ".service" for name, _ in SYSTEM_SERVICES]
-    try:
-        out = subprocess.run(
-            ["systemctl", "show", "--no-pager", "-p", ",".join(_SERVICE_PROPS)] + units,
-            capture_output=True, text=True, timeout=5,
-        ).stdout
-    except (OSError, subprocess.TimeoutExpired):
+    out = system_actions.service_show(units, props=_SERVICE_PROPS)
+    if not out:
         return []
     blocks, current = [], {}
     for line in out.splitlines() + [""]:
@@ -4736,18 +4710,13 @@ def api_system_service_restart(name):
     service = next((s for s in _services_state() if s["name"] == name), None)
     if not service or not service["restartable"]:
         return jsonify({"ok": False, "error": "service_not_in_use"}), 400
-    command = ["sudo", "systemctl", "restart", name + ".service"]
     if name == "rukebox-web":
-        threading.Timer(0.8, lambda: subprocess.run(command, capture_output=True, timeout=30)).start()
+        # The answer has to leave before the server it comes from is replaced.
+        threading.Timer(0.8, system_actions.restart_web_server).start()
         return jsonify({"ok": True, "data": {"reload": True}})
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
+    if not system_actions.service_action("restart", name, timeout=30):
+        log.warning("Restarting %s failed", name)
         return jsonify({"ok": False, "error": "service_restart_failed"}), 500
-    if result.returncode != 0:
-        log.warning("Restarting %s failed: %s", name, result.stderr.strip())
-        return jsonify({"ok": False, "error": "service_restart_failed",
-                        "detail": result.stderr.strip()[-200:]}), 500
     return jsonify({"ok": True})
 
 
@@ -5326,12 +5295,11 @@ def _do_ap_save(iface, ssid, open_network, password):
 def api_ssh_toggle():
     body = request.get_json(silent=True) or {}
     enable = bool(body.get("enabled"))
-    action_enable = "enable" if enable else "disable"
-    action_run = "start" if enable else "stop"
-    r1 = subprocess.run(["sudo", "systemctl", action_enable, "ssh"], capture_output=True, text=True)
-    r2 = subprocess.run(["sudo", "systemctl", action_run, "ssh"], capture_output=True, text=True)
-    if r1.returncode != 0 or r2.returncode != 0:
-        return jsonify({"ok": False, "error": (r1.stderr + r2.stderr).strip()}), 500
+    unit = "ssh.service"
+    enable_ok = system_actions.service_action("enable" if enable else "disable", unit)
+    run_ok = system_actions.service_action("start" if enable else "stop", unit)
+    if not (enable_ok and run_ok):
+        return jsonify({"ok": False, "error": "ssh_toggle_failed"}), 500
     stats.record("ssh_toggle", label="enabled" if enable else "disabled")
     return jsonify({"ok": True, "enabled": enable})
 
@@ -5849,8 +5817,7 @@ def api_backup_restore():
             pass
     stats.record("backup_restored", label=",".join(sorted(done)))
     if done.get("stats"):
-        subprocess.Popen(["sudo", "-n", "systemctl", "restart", "rukebox-daemon.service"],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        system_actions.restart_daemon()
     return jsonify({"ok": True, "data": {
         "parts": sorted(done),
         "settings_changed": (done.get("config") or {}).get("settings_changed", 0),
@@ -6267,10 +6234,7 @@ def api_gpio_detect():
         pins = gpio_pins.selectable_bcm()
         was_active = _service_is_active(GPIO_BUTTON_SERVICE)
         if was_active:
-            subprocess.run(
-                ["sudo", "systemctl", "stop", GPIO_BUTTON_SERVICE],
-                capture_output=True, timeout=15,
-            )
+            system_actions.service_action("stop", GPIO_BUTTON_SERVICE)
 
         if _pinctrl(["set", "%d-%d" % (min(pins), max(pins)), "ip", "pu"], timeout=10) is None:
             return jsonify({"ok": False, "error": "pinctrl_failed"}), 500
@@ -6299,34 +6263,18 @@ def api_gpio_detect():
         log.warning("GPIO detection failed: %s", e)
         return jsonify({"ok": False, "error": "detect_failed"}), 500
     finally:
-        if was_active:
-            try:
-                subprocess.run(
-                    ["sudo", "systemctl", "start", GPIO_BUTTON_SERVICE],
-                    capture_output=True, timeout=15,
-                )
-            except (subprocess.TimeoutExpired, OSError):
-                log.exception("Could not restart %s after detection", GPIO_BUTTON_SERVICE)
+        if was_active and not system_actions.service_action("start", GPIO_BUTTON_SERVICE):
+            log.warning("Could not restart %s after detection", GPIO_BUTTON_SERVICE)
         _gpio_detect_lock.release()
 
 
 _going_down = None
 _going_down_event = threading.Event()
-_SYSTEM_TARGETS = (("poweroff.target", "poweroff"), ("halt.target", "poweroff"),
-                   ("reboot.target", "reboot"), ("kexec.target", "reboot"))
 
 
 def _system_going_down():
     """"poweroff" / "reboot" when systemd has that job queued."""
-    try:
-        jobs = subprocess.run(["systemctl", "list-jobs", "--no-legend", "--no-pager"],
-                              capture_output=True, text=True, timeout=3).stdout
-    except (subprocess.SubprocessError, OSError):
-        return None
-    for target, kind in _SYSTEM_TARGETS:
-        if target in jobs:
-            return kind
-    return None
+    return system_actions.going_down()
 
 
 def _on_sigterm(signum, frame):
