@@ -1407,13 +1407,9 @@ async function refreshStatus() {
   document.getElementById("speakerMacDisplay").textContent = d.speaker_mac || "—";
   paintSkipVote(d.skip_vote);
   paintLastCard(d.last_card);
-  const battery = document.getElementById("speakerBattery");
   const level = d.speaker_connected && typeof d.speaker_battery === "number" ? d.speaker_battery : null;
-  battery.hidden = level === null;
-  if (level !== null) {
-    battery.textContent = t("speaker.battery", { n: level });
-    battery.dataset.state = d.speaker_battery_low > 0 && level <= d.speaker_battery_low ? "warn" : "ok";
-  }
+  ["speakerBattery", "npBattery"].forEach((id) => paintBattery(document.getElementById(id), level,
+    d.speaker_battery_low));
 
   // Connected, the button takes the link back: that is what cures a silent speaker.
   const connectBtn = document.getElementById("btnSpeakerConnect");
@@ -7113,6 +7109,17 @@ let scanPoller = null;
 let scanPollInFlight = false;
 let scanning = false;
 let lastScanSignature = "";
+
+function paintBattery(el, level, low) {
+  el.hidden = level === null;
+  if (level === null) return;
+  const n = Math.max(0, Math.min(100, Math.round(level)));
+  el.style.setProperty("--battery-level", n + "%");
+  el.querySelector(".battery-gauge-pct").textContent = n + " %";
+  el.dataset.state = low > 0 && n <= low ? "warn" : n <= 30 ? "mid" : "ok";
+  el.setAttribute("aria-label", t("speaker.battery", { n }));
+  el.title = t("speaker.battery", { n });
+}
 
 let lastKnownSpeakerMac = "";
 

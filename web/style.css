@@ -2365,8 +2365,18 @@ select {
   color: var(--text-muted);
 }
 .speaker-status .audio-output.warning { color: var(--warning-text); font-weight: 600; }
-.speaker-battery { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
-.speaker-battery[data-state="warn"] { color: var(--warning-text); font-weight: 600; }
+/* The fill is the level: a glance says more than the word "battery". */
+.battery-gauge { --battery-color: var(--success); display: inline-flex; align-items: center; gap: 5px;
+  font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.battery-gauge[data-state="mid"] { --battery-color: var(--warning-text); }
+.battery-gauge[data-state="warn"] { --battery-color: var(--danger); color: var(--danger); }
+.battery-gauge-body { position: relative; box-sizing: border-box; width: 22px; height: 11px; padding: 1.5px;
+  border: 1.5px solid currentColor; border-radius: 3px; opacity: 0.9; }
+.battery-gauge-body::after { content: ""; position: absolute; right: -4px; top: 50%; width: 2px; height: 5px;
+  border-radius: 0 1px 1px 0; background: currentColor; transform: translateY(-50%); }
+.battery-gauge-fill { display: block; height: 100%; width: var(--battery-level, 0%); border-radius: 1px;
+  background: var(--battery-color); transition: width 0.4s ease; }
+.np-battery { margin-left: 8px; vertical-align: middle; font-size: 12px; }
 
 @media (max-width: 639px) {
   .speaker-status { justify-content: center; text-align: center; }

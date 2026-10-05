@@ -611,8 +611,11 @@ test("the speaker's battery shows beside it, and a low one is said on the player
       speaker_connected: true, speaker_paired: true, speaker_battery: 12, speaker_battery_low: 15 }),
   } });
   await until(() => !page.$("speakerBattery").hidden);
-  assert.equal(page.$("speakerBattery").textContent, "Battery 12 %");
+  assert.equal(page.$("speakerBattery").textContent, "12 %");
+  assert.equal(page.$("speakerBattery").getAttribute("aria-label"), "Battery 12 %");
   assert.equal(page.$("speakerBattery").dataset.state, "warn");
+  assert.equal(page.$("speakerBattery").style.getPropertyValue("--battery-level"), "12%");
+  assert.equal(page.$("npBattery").hidden, false, "shown on the player too");
   await until(() => /battery is low: 12 %/.test(page.$("npNotices").textContent));
 });
 
