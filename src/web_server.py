@@ -4266,7 +4266,8 @@ def api_bt_connect():
             break
     ok = info["connected"]
 
-    if accepted and body.get("set_as_speaker"):
+    # The choice stands even when the link does not come up now: bt-connect keeps trying.
+    if body.get("set_as_speaker"):
         update_config_file({"SPEAKER_MAC": mac})
         notify_daemon("reload_config")
 
