@@ -45,6 +45,8 @@ class ConfigFileTest(unittest.TestCase):
         self.assertEqual(config_file._shell_quote("it's"), "'it'\\''s'")
 
     def test_repository_template_is_current(self):
+        # The template carries the Pi's own paths whatever machine renders it:
+        # moving a root applies to the defaults, not to the documented layout.
         self.assertEqual(_path.read("config", "rukebox.yaml").replace("\r\n", "\n"),
                          config_file.render_template().replace("\r\n", "\n"),
                          "regenerate: python3 src/config_file.py template > config/rukebox.yaml")

@@ -20,7 +20,6 @@ class Setting:
     def __repr__(self):
         return "<Setting %s (%s)>" % (self.env, self.path)
 
-
 SECTIONS = [
     ("audio", "Audio output: Bluetooth speaker, headphone jack, USB or HDMI"),
     ("bluetooth", "Bluetooth: speaker, and which controller does what"),
@@ -790,14 +789,16 @@ SETTINGS = [
         "Delay between two name changes (min)",
     ),
     Setting(
-        "LIBRARY_DB_FILE", "paths", "library_db", "str", "/var/lib/rukebox/library.db",
+        "LIBRARY_DB_FILE", "paths", "library_db", "str",
+        "/var/lib/rukebox/library.db",
         "The music library's catalogue (titles, artists, albums, genres), read\n"
         "once per file by the web server - searching the library and telling\n"
         "whether a suggested song is already there (SQLite).",
         "Library catalogue",
     ),
     Setting(
-        "SUGGESTIONS_DB_FILE", "suggestions", "database", "str", "/var/lib/rukebox/suggestions.db",
+        "SUGGESTIONS_DB_FILE", "suggestions", "database", "str",
+        "/var/lib/rukebox/suggestions.db",
         "Where the suggestions, votes and names are kept (SQLite).",
         "Suggestions database",
     ),
@@ -861,7 +862,8 @@ SETTINGS = [
         "resettable from the web interface. Nothing ever leaves the Pi.",
         "Statistics enabled",
     ),
-    Setting("STATS_DB_FILE", "statistics", "database", "str", "/var/lib/rukebox/stats.db",
+    Setting("STATS_DB_FILE", "statistics", "database", "str",
+            "/var/lib/rukebox/stats.db",
             "", "Statistics database"),
     Setting(
         "STATS_RETENTION_DAYS", "statistics", "retention_days", "float", "90",
@@ -957,16 +959,25 @@ SETTINGS = [
         "Allow updates from the web",
     ),
     Setting("UPDATE_VERSION_FILE", "updates", "version_file", "str",
-            "/var/lib/rukebox/version.json", "", "Version file"),
+            "/var/lib/rukebox/version.json",
+            "", "Version file"),
     Setting("UPDATE_BACKUP_KEEP", "updates", "backup_keep", "int", "3",
             "How many pre-update backups of /opt/rukebox to keep for rollback.",
             "Backups kept"),
 
-    Setting("STATE_DIR", "paths", "state_dir", "str", "/var/lib/rukebox", "", "State directory"),
+    Setting(
+        "STATE_DIR", "paths", "state_dir", "str",
+        "/var/lib/rukebox",
+        "Everything that is not configuration: the statistics database, the\n"
+        "library catalogue, the queue, the likes. Defaults to /var/lib/rukebox\n"
+        "on a Pi, and to whatever RUKEBOX_STATE_DIR names elsewhere - the\n"
+        "container image points it at its own /data volume.",
+        "State directory"),
     Setting("MPV_SOCKET", "paths", "mpv_socket", "str", "/tmp/mpvsocket", "", "mpv IPC socket"),
     Setting("CONTROL_SOCKET", "paths", "control_socket", "str", "/tmp/rukebox_control.sock",
             "", "Control socket"),
-    Setting("MUSIC_CACHE_FILE", "paths", "music_cache", "str", "/var/lib/rukebox/music_cache.json",
+    Setting("MUSIC_CACHE_FILE", "paths", "music_cache", "str",
+            "/var/lib/rukebox/music_cache.json",
             "", "Music scan cache"),
     Setting(
         "ANNOUNCEMENTS_FILE", "paths", "announcements_file", "str",
@@ -1035,7 +1046,52 @@ SETTINGS = [
 BY_ENV = {s.env: s for s in SETTINGS}
 BY_PATH = {s.path: s for s in SETTINGS}
 
+
+def _environment_paths():
+    """{ENV_KEY: path} for the roots this machine actually runs with.
+
+    The defaults written in SETTINGS above are the Raspberry Pi's own, so the
+    checkout's rukebox.yaml and the documentation around it read as the Pi's
+    layout. This is what moves them for a machine that set RUKEBOX_CONFIG_DIR,
+    RUKEBOX_STATE_DIR, RUKEBOX_MUSIC_DIR or RUKEBOX_INSTALL_DIR - the
+    container image puts them under /config, /data and /music - without
+    rewriting a single line of YAML.
+
+    `paths` is imported here, not at the top: it imports nothing of ours, but
+    keeping it out of the module's own imports says that nothing above this
+    point depends on a root."""
+    import paths
+
+    return {
+        "ANNOUNCEMENTS_FILE": paths.resolve("ANNOUNCEMENTS_FILE", paths.config("announcements.json")),
+        "AP_CONNECT_SOUND": paths.resolve("AP_CONNECT_SOUND", paths.music("system", "ap_connect.wav")),
+        "BATTERY_LOW_SOUND": paths.resolve("BATTERY_LOW_SOUND", paths.music("system", "battery_low.wav")),
+        "CARDS_FILE": paths.resolve("CARDS_FILE", paths.config("cards.json")),
+        "CLOCK_FALLBACK_SOUND": paths.resolve(
+            "CLOCK_FALLBACK_SOUND", paths.music("system", "clock_fallback.wav")),
+        "CLOCK_OK_SOUND": paths.resolve("CLOCK_OK_SOUND", paths.music("system", "clock_ok.wav")),
+        "CUTOFF_ANNOUNCE_DIR": paths.resolve(
+            "CUTOFF_ANNOUNCE_DIR", paths.music("cutoff_announcements")),
+        "HIDDEN_FILE": paths.resolve("HIDDEN_FILE", paths.state("hidden.json")),
+        "KEEPALIVE_SOUND": paths.resolve("KEEPALIVE_SOUND", paths.music("system", "keepalive.wav")),
+        "LIBRARY_DB_FILE": paths.resolve("LIBRARY_DB_FILE", paths.state("library.db")),
+        "LIKES_FILE": paths.resolve("LIKES_FILE", paths.state("likes.json")),
+        "MEME_DIR": paths.resolve("MEME_DIR", paths.music("memes")),
+        "MUSIC_CACHE_FILE": paths.resolve("MUSIC_CACHE_FILE", paths.state("music_cache.json")),
+        "MUSIC_DIR": paths.resolve("MUSIC_DIR", paths.music("music")),
+        "MUSIC_LISTS_FILE": paths.resolve("MUSIC_LISTS_FILE", paths.config("music_lists.json")),
+        "RESTART_SOUND": paths.resolve("RESTART_SOUND", paths.music("system", "restart.wav")),
+        "SCHEDULES_FILE": paths.resolve("SCHEDULES_FILE", paths.config("schedules.json")),
+        "STATE_DIR": paths.resolve("STATE_DIR", paths.state_dir()),
+        "STATS_DB_FILE": paths.resolve("STATS_DB_FILE", paths.state("stats.db")),
+        "SUGGESTIONS_DB_FILE": paths.resolve("SUGGESTIONS_DB_FILE", paths.state("suggestions.db")),
+        "TRACK_ORDER_FILE": paths.resolve("TRACK_ORDER_FILE", paths.config("track_order.json")),
+        "UPDATE_VERSION_FILE": paths.resolve("UPDATE_VERSION_FILE", paths.state("version.json")),
+    }
+
+
 DEFAULTS = {s.env: s.default for s in SETTINGS}
+DEFAULTS.update(_environment_paths())
 
 BOOL_TRUE = ("1", "true", "yes", "on")
 

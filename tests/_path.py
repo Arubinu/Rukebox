@@ -2,7 +2,12 @@
 
 The tests import `src/` directly (no package). RUKEBOX_SRC points them at
 another copy - the installed one on a Pi (/opt/rukebox/src), where Flask
-is there for the web tests. Imported first by every test module."""
+is there for the web tests. Imported first by every test module.
+
+It also moves the project's four roots into a throwaway directory, before
+config_schema builds its defaults from them. On an installed Pi those roots
+name the real configuration and the real speaker, and a test would then move
+its volume."""
 import os
 import sys
 
@@ -16,14 +21,22 @@ import atexit  # noqa: E402
 import shutil  # noqa: E402
 import tempfile  # noqa: E402
 
-import config_file  # noqa: E402
+import paths  # noqa: E402
 
-# Never the machine's own configuration: on an installed Pi it names the real
-# speaker, and a test would then move its volume.
 _SANDBOX = tempfile.mkdtemp(prefix="rukebox-tests-")
 atexit.register(shutil.rmtree, _SANDBOX, ignore_errors=True)
-config_file.YAML_FILE_CANDIDATES = [os.path.join(_SANDBOX, "rukebox.yaml")]
-config_file.ENV_FILE = os.path.join(_SANDBOX, "rukebox.env")
+
+# Rebinding the module's roots rather than the environment: the environment is
+# also what load_config() reads as an override, and a test that passes its own
+# cfg dictionary must keep the last word.
+for _name in ("CONFIG_DIR", "STATE_DIR", "MUSIC_DIR"):
+    _path = os.path.join(_SANDBOX, _name.lower())
+    setattr(paths, "DEFAULT_" + _name, _path)
+    os.makedirs(_path, exist_ok=True)
+
+import config_file  # noqa: E402
+
+config_file._refresh_paths(force=True)
 
 
 def repo_file(*parts):

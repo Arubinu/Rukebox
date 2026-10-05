@@ -827,6 +827,10 @@ paths:
   # whether a suggested song is already there (SQLite).
   library_db: "/var/lib/rukebox/library.db"
 
+  # Everything that is not configuration: the statistics database, the
+  # library catalogue, the queue, the likes. Defaults to /var/lib/rukebox
+  # on a Pi, and to whatever RUKEBOX_STATE_DIR names elsewhere - the
+  # container image points it at its own /data volume.
   state_dir: "/var/lib/rukebox"
 
   mpv_socket: "/tmp/mpvsocket"

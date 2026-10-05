@@ -10,11 +10,44 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config_schema import (  # noqa: E402
     BY_ENV, DEFAULTS, SETTINGS, sections_with_settings, to_raw,
 )
+import paths  # noqa: E402
 
 log = logging.getLogger("config")
 
-YAML_FILE_CANDIDATES = ["/etc/rukebox/rukebox.yaml", "/etc/rukebox/rukebox.yml"]
-ENV_FILE = "/etc/rukebox/rukebox.env"
+# The root every path setting is resolved against, so the YAML is looked for
+# under RUKEBOX_CONFIG_DIR (/etc/rukebox by default). Recomputed at every
+# entry point rather than captured once, and never as a default argument: the
+# test suite moves the root after the import, and a value captured at import
+# would ignore it.
+YAML_FILE_CANDIDATES = []
+ENV_FILE = ""
+# The environment the two globals above are a snapshot of; None forces the
+# first call to compute them.
+_resolved_env = None
+
+
+def _path_env():
+    """The environment a root is resolved from."""
+    return (paths.config_dir(), os.environ.get("RUKEBOX_ENV_FILE"),
+            os.environ.get("RUKEBOX_YAML_FILE"))
+
+
+def _refresh_paths(force=False):
+    """Recomputes the two paths when the root moved.
+
+    Only when it actually moved: the tests point the root at their own
+    sandbox by rebinding the globals below, and recomputing on every call
+    would throw that away."""
+    global ENV_FILE, YAML_FILE_CANDIDATES, _resolved_env
+    current = _path_env()
+    if not force and current == _resolved_env:
+        return
+    _resolved_env = current
+    YAML_FILE_CANDIDATES = paths.yaml_candidates()
+    ENV_FILE = paths.env_file()
+
+
+_refresh_paths()
 
 HEADER = """\
 # ============================================================
@@ -43,6 +76,7 @@ def _yaml_module():
 def find_yaml_file(path=None):
     if path:
         return path
+    _refresh_paths()
     for candidate in YAML_FILE_CANDIDATES:
         if os.path.exists(candidate):
             return candidate
@@ -73,7 +107,6 @@ def _render_setting(setting, values, blank_line=False):
     if blank_line:
         out.append("\n")
     return out
-
 
 def render_template(values=None):
     """The full, commented YAML document."""
@@ -109,8 +142,10 @@ def _read_with_pyyaml(path, yaml):
     return values
 
 
-def read_env_file(path=ENV_FILE):
+def read_env_file(path=None):
     """The generated flat file."""
+    _refresh_paths()
+    path = path or ENV_FILE
     values = {}
     if not os.path.exists(path):
         return values
@@ -423,6 +458,7 @@ def _main(argv):
     config_file.py template                print the documented template
     """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    _refresh_paths()
     command = argv[1] if len(argv) > 1 else ""
 
     if command == "set":
