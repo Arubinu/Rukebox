@@ -1011,6 +1011,8 @@ class DedicationAndReminderTest(unittest.TestCase):
         unittest.mock.patch.object(ws, "cfg", side_effect=fake_cfg).start()
         unittest.mock.patch.object(ws, "_path_for_key", return_value="/music/a.mp3").start()
         unittest.mock.patch.object(ws, "_this_device", return_value={"id": "d1", "person": "p1", "name": "Renard"}).start()
+        # The device base lives in /var/lib/rukebox, which a CI runner cannot create.
+        unittest.mock.patch.object(ws, "_suggestion_box", return_value=None).start()
         self.control = unittest.mock.patch.object(ws, "control", return_value={"ok": True, "data": {}}).start()
         self.client = ws.app.test_client()
 
