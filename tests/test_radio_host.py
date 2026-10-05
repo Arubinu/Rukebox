@@ -221,6 +221,9 @@ class DaemonTest(unittest.TestCase):
                 self.started = True
                 return True
 
+            def output(self):
+                return "-"
+
             def stop(self):
                 self.stopped = True
         self.daemon._tail_player_cls = FakeTail
@@ -241,7 +244,9 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual(len(made), 1, "prepared ahead, paused")
         self.assertIn("--start=196.00", made[0].command)
         self.assertIn("--pause", made[0].command)
-        self.assertTrue(any("afade=t=out" in part for part in made[0].command))
+        # On the song's own clock: a fade reset to 0 made mpv drop every frame.
+        self.assertTrue(any("afade=t=out:st=196.00:" in part for part in made[0].command))
+        self.assertFalse(any("asetpts" in part for part in made[0].command))
         self.assertFalse(made[0].started)
         self.move_to(196.1)
         self.assertTrue(made[0].started)

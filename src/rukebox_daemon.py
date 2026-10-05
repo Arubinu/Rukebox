@@ -8,6 +8,7 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from datetime import datetime
@@ -78,13 +79,15 @@ class TailPlayer:
         self.sock = None
         self.ready = False
         self.started = False
+        self.log = None
 
     def start(self):
         try:
             if os.path.exists(self.socket_path):
                 os.remove(self.socket_path)
+            self.log = tempfile.TemporaryFile()
             self.proc = subprocess.Popen(self.command, stdout=subprocess.DEVNULL,
-                                         stderr=subprocess.DEVNULL, env=audio_env())
+                                         stderr=self.log, env=audio_env())
         except OSError:
             log.exception("Could not prepare the crossfade")
             return False
@@ -126,16 +129,25 @@ class TailPlayer:
             return True
         except (OSError, AttributeError) as e:
             alive = self.proc is not None and self.proc.poll() is None
-            log.warning("The crossfade player did not answer (%r, process %s)", e,
-                        "running" if alive else "gone: %s" % (self.proc.poll() if self.proc else None))
+            log.warning("The crossfade player did not answer (%r, process %s): %s", e,
+                        "running" if alive else "gone: %s" % (self.proc.poll() if self.proc else None),
+                        self.output())
             return False
+
+    def output(self):
+        try:
+            self.log.seek(0)
+            return self.log.read()[-600:].decode("utf-8", "replace").strip() or "-"
+        except (OSError, AttributeError, ValueError):
+            return "-"
 
     def stop(self):
         if self.proc is not None and self.proc.poll() is None:
             self.proc.terminate()
-        if self.sock is not None:
+        for f in (self.sock, self.log):
             try:
-                self.sock.close()
+                if f is not None:
+                    f.close()
             except OSError:
                 pass
 
@@ -922,7 +934,7 @@ class RadioDaemon:
                     if tail.started:
                         self._tail_done = True
                         return
-                log.info("Crossfade not ready in time: the song plays out")
+                log.info("Crossfade not ready in time: the song plays out (%s)", tail.output())
                 self._stop_tail()
         if self._tail_at and not self._tail_done and pos >= self._tail_at:
             self._tail_done = True
@@ -949,15 +961,19 @@ class RadioDaemon:
         """A disposable mpv, paused on the last seconds of this song: starting
         one takes seconds on a Pi Zero, so it is ready before it is needed."""
         self._stop_tail()
-        graph = ",".join(c for c in (self._audio_chain(), "asetpts=PTS-STARTPTS",
-                                     "afade=t=out:st=0:d=%.2f" % fade) if c)
-        command = ["mpv", "--no-terminal", "--really-quiet", "--no-video", "--pause",
+        # The fade is placed on the song's own clock: reset to 0, every frame
+        # would sit before --start and mpv would drop them all.
+        start = max(0.0, start)
+        graph = ",".join(c for c in (self._audio_chain(),
+                                     "afade=t=out:st=%.2f:d=%.2f" % (start, fade)) if c)
+        command = ["mpv", "--no-terminal", "--msg-level=all=warn", "--no-video", "--pause",
                    "--input-ipc-server=" + self.XFADE_SOCKET,
                    "--audio-device=" + (self._audio_device or "auto"),
                    "--volume=%.1f" % self._mpv_level(),
                    "--replaygain=%s" % (self.cfg.get("REPLAYGAIN_MODE") or "no"),
-                   "--start=%.2f" % max(0.0, start), "--length=%.2f" % fade,
+                   "--start=%.2f" % start, "--length=%.2f" % fade,
                    "--af=lavfi=[%s]" % graph, self._play_path]
+        log.info("Crossfade prepared: %s", " ".join(command[3:-1]))
         self._xfade_proc = self._tail_player_cls(command, self.XFADE_SOCKET)
         if not self._xfade_proc.start():
             self._xfade_proc = None
