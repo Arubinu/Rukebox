@@ -45,3 +45,27 @@ class NetworkCacheTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OwnNameTest(unittest.TestCase):
+    def setUp(self):
+        import os
+        import tempfile
+        self.dir = tempfile.mkdtemp()
+        self.path = os.path.join(self.dir, "portal.conf")
+
+    def test_the_access_point_answers_this_device_s_names(self):
+        text = captive_portal.dnsmasq_config("10.42.0.1", "rukebox")
+        self.assertIn("address=/rukebox.local/10.42.0.1", text)
+        self.assertIn("address=/rukebox/10.42.0.1", text)
+        self.assertIn("address=/captive.apple.com/10.42.0.1", text)
+        self.assertNotIn("bad/name", captive_portal.dnsmasq_config("10.42.0.1", "bad/name"))
+
+    def test_a_refresh_keeps_the_address_and_follows_the_name(self):
+        self.assertFalse(captive_portal.refresh_dnsmasq(self.path, "rukebox"), "no access point, nothing written")
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write(captive_portal.dnsmasq_config("10.42.5.1"))
+        self.assertTrue(captive_portal.refresh_dnsmasq(self.path, "salon"))
+        text = open(self.path, encoding="utf-8").read()
+        self.assertIn("address=/salon.local/10.42.5.1", text)
+        self.assertFalse(captive_portal.refresh_dnsmasq(self.path, "salon"), "unchanged: not rewritten")

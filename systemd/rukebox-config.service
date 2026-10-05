@@ -1,6 +1,6 @@
 [Unit]
 Description=Prepares the radio configuration (YAML -> flat env file for the other units)
-Before=rukebox-daemon.service rukebox-web.service flicd.service flic-bridge.service bt-connect.service home-wifi-connect.service
+Before=rukebox-daemon.service rukebox-web.service flicd.service flic-bridge.service bt-connect.service home-wifi-connect.service NetworkManager.service
 DefaultDependencies=no
 After=local-fs.target
 Requires=local-fs.target
@@ -11,6 +11,8 @@ RemainAfterExit=yes
 ExecStart=/usr/bin/python3 /opt/rukebox/src/config_file.py ensure
 # WirePlumber reads the offered Bluetooth codecs from a drop-in of its own.
 ExecStart=/usr/bin/python3 /opt/rukebox/src/bt_codec.py write
+# The access point's own DNS answers this device's name (the hostname may have changed).
+ExecStart=-/usr/bin/python3 /opt/rukebox/src/captive_portal.py refresh
 
 [Install]
 WantedBy=multi-user.target

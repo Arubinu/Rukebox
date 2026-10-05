@@ -217,20 +217,56 @@ def start(ap_interface, web_port):
     return server
 
 
-def dnsmasq_config():
-    """The dnsmasq drop-in that points the probe hostnames at this Pi."""
+DNSMASQ_FILE = "/etc/NetworkManager/dnsmasq-shared.d/rukebox-captive-portal.conf"
+AP_DEFAULT_ADDRESS = "10.42.0.1"
+_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$")
+
+
+def dnsmasq_config(address, hostname=None):
+    """The dnsmasq drop-in that points the probe hostnames - and this
+    device's own names - at this Pi."""
     lines = [
         "# Rukebox captive portal - generated, see src/captive_portal.py",
         "# Only these probe hostnames are redirected, so devices on the",
         "# hotspot keep normal internet access when the Pi has some.",
     ]
-    lines += ["address=/%s/%s" % (domain, "%s") for domain in PROBE_DOMAINS]
+    lines += ["address=/%s/%s" % (domain, address) for domain in PROBE_DOMAINS]
+    if hostname and _HOSTNAME_RE.match(hostname):
+        # Answered here at once: a browser otherwise takes the DNS "no such
+        # name" for <host>.local before the mDNS answer arrives.
+        lines += ["address=/%s.local/%s" % (hostname, address), "address=/%s/%s" % (hostname, address)]
     return "\n".join(lines) + "\n"
 
 
+def refresh_dnsmasq(path=DNSMASQ_FILE, hostname=None):
+    """Rewrites the drop-in with this device's current name, keeping the
+    address it already holds; only an access point already set up has one.
+    True when the file changed."""
+    import os
+    import socket
+    try:
+        with open(path, encoding="utf-8") as f:
+            current = f.read()
+    except OSError:
+        return False
+    found = re.search(r"^address=/[^/]+/([0-9.]+)$", current, re.MULTILINE)
+    wanted = dnsmasq_config(found.group(1) if found else AP_DEFAULT_ADDRESS,
+                            hostname or socket.gethostname())
+    if wanted == current:
+        return False
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(wanted)
+    os.replace(tmp, path)
+    return True
+
+
 if __name__ == "__main__":
+    import socket
     import sys
     if len(sys.argv) == 3 and sys.argv[1] == "dnsmasq":
-        sys.stdout.write(dnsmasq_config() % tuple([sys.argv[2]] * len(PROBE_DOMAINS)))
+        sys.stdout.write(dnsmasq_config(sys.argv[2], socket.gethostname()))
+    elif len(sys.argv) == 2 and sys.argv[1] == "refresh":
+        refresh_dnsmasq()
     else:
-        print("Usage: captive_portal.py dnsmasq <address>")
+        print("Usage: captive_portal.py dnsmasq <address> | refresh")
