@@ -516,8 +516,27 @@ function cardOfPage(tab, page) {
   return areaCards(tab).find((card) => card.dataset.page === page) || null;
 }
 
+/* What this machine can do, from /api/status. A card carries data-needs="a b"
+   and is dropped from the menus as soon as one of the two is not there; a
+   single row can carry the same attribute and is hidden outright. On a
+   container there is no access point, no GPIO pin, no USB gadget and no
+   clock to set. Declared up here because pageIsAvailable() reads it before
+   the first status answer has even been asked for. */
+let capabilities = null;
+
+function canDo(need) {
+  if (!need) return true;
+  if (!capabilities) return true;
+  return need.split(/\s+/).every((name) => capabilities[name] !== false);
+}
+
+function capabilityHidden(card) {
+  return !canDo(card.dataset.needs);
+}
+
 function pageIsAvailable(card) {
   if (!card || card.hasAttribute("hidden")) return false;
+  if (capabilityHidden(card)) return false;
   if (guestMode && card.hasAttribute("data-owner")) return false;
   if (guestMode && guestPagesOff.includes(card.dataset.page)) return false;
   return !(card.dataset.level === "detail" && currentView() === "simple");
@@ -1519,6 +1538,7 @@ function applyTrackProgress(d) {
   applyNowMeta(d);
   applyNotices(d);
   applyGuestCredits(d);
+  applyCapabilities(d);
   applyMute(d);
   applyFallback(d);
 }
@@ -1565,6 +1585,25 @@ function applyGuestCredits(d) {
 
 let guestLocked = [];
 let dedicationsOn = false;
+
+function applyCapabilities(d) {
+  const caps = d.capabilities || null;
+  const before = capabilities ? JSON.stringify(capabilities) : "";
+  capabilities = caps;
+  const on = Object.keys(caps || {}).filter((name) => caps[name] !== false && name !== "platform");
+  document.body.setAttribute("data-caps", on.join(" "));
+  // The card is hidden by CSS, which cannot compare two attributes; a row
+  // inside a card has no page of its own, so it is toggled here.
+  document.querySelectorAll("[data-needs]").forEach((el) => {
+    if (!el.classList.contains("card")) el.hidden = !canDo(el.dataset.needs);
+  });
+  if (JSON.stringify(caps) === before) return;
+  if (document.body.dataset.page && !pageIsAvailable(
+        cardOfPage(document.body.dataset.tab, document.body.dataset.page))) {
+    setActiveView(document.body.dataset.tab, null, { hash: false });
+  }
+  refreshPageMenus();
+}
 
 function paintCost(el) {
   const locked = guestLocked.includes(el.dataset.costAction);
@@ -9153,6 +9192,15 @@ async function refreshUpdate() {
 
   const box = document.getElementById("gitUpdateBox");
   box.hidden = !(d.git_configured && d.web_updates_allowed);
+
+  // A container has no tree to replace: the image is the version, so the card
+  // shows the one line that updates it. Its own rows are hidden by CSS.
+  const containerBox = document.getElementById("containerUpdateBox");
+  containerBox.hidden = d.self_update !== false;
+  if (!containerBox.hidden) {
+    const image = d.docker_image || "ghcr.io/arubinu/rukebox";
+    document.getElementById("containerPullCmd").textContent = "docker pull " + image;
+  }
   if (!box.hidden) {
     document.getElementById("gitRepoDisplay").textContent =
       d.git_url + (d.git_branch ? " (" + d.git_branch + ")" : "");

@@ -470,16 +470,14 @@ class RadioDaemon:
         # Measured before `date -s`: the statistics correct the wrong-clock timestamps with it.
         offset = dt.timestamp() - time.time()
         formatted = dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
-        result = subprocess.run(
-            ["sudo", "date", "-s", formatted], capture_output=True, text=True
-        )
-        if result.returncode == 0:
+        ok, detail = system_actions.set_clock(formatted)
+        if ok:
             log.info("System time set via Bluetooth: %s (offset %+.1fs)", formatted, offset)
             self.stats.set_clock("bluetooth", offset_sec=offset)
             self._signal_clock_outcome(True)
             self._clock_ready.set()
         else:
-            log.error("Failed to set system time: %s", result.stderr.strip())
+            log.error("Failed to set system time: %s", detail)
             self.stats.set_clock("none", trusted=False)
             self._signal_clock_outcome(False)
             self._clock_ready.set()
@@ -2782,13 +2780,9 @@ class RadioDaemon:
     FLIC_FLAG = "flic_held"
 
     def _flic_flag(self, verb):
-        """systemctl's own answer for flicd ("enabled", "active"...), or ""."""
-        try:
-            done = subprocess.run(["systemctl", verb, "flicd.service"],
-                                  capture_output=True, text=True, timeout=10)
-        except (OSError, subprocess.TimeoutExpired):
-            return ""
-        return done.stdout.strip()
+        """systemd's own answer for flicd ("enabled", "active"...), or ""."""
+        ok, out, _err = system_actions.systemctl(verb, "flicd.service", timeout=10)
+        return out if ok else ""
 
     def _watch_flic(self):
         """Puts the Flic button on hold while the radio cannot spare a
@@ -2810,16 +2804,15 @@ class RadioDaemon:
 
     def _set_flic_services(self, action):
         """Starts or stops both Flic units, through the narrow sudoers grant."""
-        try:
-            done = subprocess.run(["sudo", "-n", "systemctl", action] + list(self.FLIC_UNITS),
-                                  capture_output=True, text=True, timeout=30)
-        except (OSError, subprocess.TimeoutExpired):
-            done = None
-        if done is None or done.returncode != 0:
+        failures = []
+        for unit in self.FLIC_UNITS:
+            ok, _out, err = system_actions.systemctl(action, unit, timeout=30, sudo=True)
+            if not ok:
+                failures.append("%s: %s" % (unit, err[-120:] or "no answer"))
+        if failures:
             if not self._flic_warned:
                 self._flic_warned = True
-                log.warning("Could not %s the Flic services: %s", action,
-                            (done.stderr or "").strip()[-200:] if done else "no answer")
+                log.warning("Could not %s the Flic services: %s", action, "; ".join(failures))
             return False
         self.state.set_flag(self.FLIC_FLAG, action == "stop")
         if action == "start":

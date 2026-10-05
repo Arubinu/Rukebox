@@ -815,6 +815,12 @@ updates:
 
   version_file: "/var/lib/rukebox/version.json"
 
+  # The image a container updates FROM: not an update mechanism, but the
+  # one line the Update card shows there, since pulling a new image and
+  # recreating the container is the only way a container gets a new
+  # version. Ignored on a Pi, where update.sh replaces the tree.
+  docker_image: "ghcr.io/arubinu/rukebox"
+
   # How many pre-update backups of /opt/rukebox to keep for rollback.
   backup_keep: 3
 

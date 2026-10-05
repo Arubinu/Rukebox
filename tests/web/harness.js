@@ -15,6 +15,10 @@ const STATUS = {
   speaker_connected: true, system_time: "2026-10-02 10:00:00 CEST", epoch: 1790928000,
   timezone: "Europe/Paris", clock_established: true, loop_mode: "off", timers: {},
   audio_output: { server: true, sink: "Speaker", output: "bluetooth", missing: false },
+  // The Pi, which is what every test but tests/web/platform.test.js describes.
+  capabilities: { platform: "pi", access_point: true, bluetooth: true, captive_portal: true,
+                  gpio: true, local_audio: true, power: true, rtc: true, self_update: true,
+                  set_clock: true, usb_gadget: true, wireless: true },
 };
 
 const DEFAULTS = {

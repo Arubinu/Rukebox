@@ -1189,7 +1189,7 @@
                 What the speaker's own buttons do, when the speaker sends them.
               </p>
             </details>
-            <details data-level="detail" class="subsection">
+            <details data-level="detail" class="subsection" data-needs="gpio">
               <summary><span data-i18n="settings.gpio_section">Physical GPIO button</span></summary>
               <div class="field-row">
                 <label for="gpioButtonPin" data-i18n="settings.gpio_button_pin">GPIO button pin</label>
@@ -1610,14 +1610,14 @@
             <label for="sshToggle" data-i18n="system.ssh">SSH server</label>
             <input type="checkbox" id="sshToggle" class="switch-input" role="switch">
           </div>
-          <div data-level="detail" class="field-row">
+          <div data-level="detail" class="field-row" data-needs="gpio">
             <div class="field-text">
               <label for="actLedToggle" data-i18n="system.act_led">Activity LED</label>
               <p class="field-desc" id="actLedDesc" data-i18n="system.act_led_desc">Off: the green light stays dark, restarts included.</p>
             </div>
             <input type="checkbox" id="actLedToggle" class="switch-input" role="switch" aria-describedby="actLedDesc">
           </div>
-          <div data-level="detail" class="field-row">
+          <div data-level="detail" class="field-row" data-needs="usb_gadget">
             <div class="field-text">
               <label for="usbPortMode" data-i18n="system.usb_port">USB port</label>
               <p class="field-desc" id="usbPortDesc" data-i18n="system.usb_port_desc">Network to a computer, or USB devices (Bluetooth dongle, sound card...) through an OTG adapter.</p>
@@ -1680,7 +1680,7 @@
             you are reading it on.
           </p>
 
-          <details data-level="detail" class="subsection" id="manualTimeSection">
+          <details data-level="detail" class="subsection" id="manualTimeSection" data-needs="set_clock">
             <summary><span data-i18n="clock.set_manually">Set time manually</span></summary>
             <form id="timeForm" class="inline-form">
               <label class="sr-only" for="timeInput" data-i18n="clock.set_manually">Set time manually</label>
@@ -1769,7 +1769,8 @@
           </details>
         </section>
 
-        <section class="card" data-page="accesspoint" data-tab="network" aria-labelledby="apTitle">
+        <section class="card" data-page="accesspoint" data-tab="network" data-needs="access_point"
+                   aria-labelledby="apTitle">
           <h2 data-icon="antenna" id="apTitle"><span data-i18n="ap.title">Access Point</span></h2>
           <p class="hint" id="apStatus"></p>
           <form id="apForm" class="settings-form">
@@ -1794,7 +1795,8 @@
           </form>
         </section>
 
-        <section class="card" id="shareCard" data-page="share" data-tab="network" aria-labelledby="shareTitle">
+        <section class="card" id="shareCard" data-page="share" data-tab="network" data-needs="access_point"
+                   aria-labelledby="shareTitle">
           <h2 data-icon="link" id="shareTitle"><span data-i18n="share.title">Share access</span></h2>
           <p class="hint help-text" data-i18n="share.help" hidden>
             A phone camera pointed at the first code joins the Wi-Fi; the second opens this interface. Handy on a PC where the welcome page does not appear, or printed next to the radio.
@@ -1822,7 +1824,8 @@
           <p class="hint picker-note" data-note="share.print_note" hidden></p>
         </section>
 
-        <section class="card" id="wifiClientsCard" data-page="clients" data-tab="network" aria-labelledby="clientsTitle">
+        <section class="card" id="wifiClientsCard" data-page="clients" data-tab="network" data-needs="access_point"
+                   aria-labelledby="clientsTitle">
           <h2 data-icon="monitor-smartphone" id="clientsTitle"><span data-i18n="clients.title">Connected devices</span></h2>
           <p class="hint" id="clientsSummary"></p>
           <div class="library-search">
@@ -1833,7 +1836,7 @@
           <ul class="device-list client-list" id="clientList"></ul>
         </section>
 
-        <section class="card" id="previousClientsCard" data-page="previous" data-tab="network"
+        <section class="card" id="previousClientsCard" data-page="previous" data-tab="network" data-needs="access_point"
                  aria-labelledby="previousTitle">
           <h2 data-icon="history" id="previousTitle"><span data-i18n="clients.previous_title">Previously connected</span></h2>
           <p class="hint" id="previousSummary"></p>
@@ -1848,7 +1851,8 @@
                   data-icon="trash" data-i18n="clients.forget_unnamed" hidden>Delete the unnamed ones</button>
         </section>
 
-        <section class="card" id="bannedClientsCard" data-page="banned" data-tab="network" aria-labelledby="bannedTitle">
+        <section class="card" id="bannedClientsCard" data-page="banned" data-tab="network" data-needs="access_point"
+                   aria-labelledby="bannedTitle">
           <h2 data-icon="ban" id="bannedTitle"><span data-i18n="clients.banned">Banned</span></h2>
           <p class="hint" id="bannedSummary"></p>
           <div class="library-search">
@@ -1859,7 +1863,8 @@
           <ul class="device-list client-list" id="bannedList"></ul>
         </section>
 
-        <section class="card" data-level="detail" id="guestCard" data-page="guest" data-tab="network" aria-labelledby="guestTitle">
+        <section class="card" data-level="detail" id="guestCard" data-page="guest" data-tab="network" data-needs="access_point"
+                   aria-labelledby="guestTitle">
           <h2 data-icon="user" id="guestTitle"><span data-i18n="guest.title">Guest access</span></h2>
           <p class="hint help-text" data-i18n="guest.section_hint" hidden>
             Only has an effect while a password is set.
@@ -2015,7 +2020,8 @@
           </form>
         </section>
 
-        <section class="card" data-level="detail" id="homeWifiCard" data-page="homewifi" data-tab="network" aria-labelledby="wifiTitle" hidden>
+        <section class="card" data-level="detail" id="homeWifiCard" data-page="homewifi" data-tab="network" data-needs="wireless"
+                   aria-labelledby="wifiTitle" hidden>
           <h2 data-icon="wifi" id="wifiTitle"><span data-i18n="wifi.title">Personal Wi-Fi</span></h2>
           <p class="hint help-text" data-i18n="wifi.hint" hidden>
             Connects to your personal network in addition to the access point.
@@ -2043,7 +2049,7 @@
           <p class="hint" id="updateSource"></p>
           <p class="hint" id="updateOs"></p>
 
-          <details class="subsection">
+          <details class="subsection" data-needs="self_update">
             <summary><span data-i18n="update.how_section">How to update</span></summary>
             <p class="hint help-text" data-i18n="update.how_hint1" hidden>
               From the computer holding the project, with the Pi connected by USB:
@@ -2070,7 +2076,7 @@
             </p>
           </details>
 
-          <div id="releaseBox">
+          <div id="releaseBox" data-needs="self_update">
             <form id="releaseRepoForm" class="settings-form">
               <div class="field-row">
                 <div class="field-text">
@@ -2100,7 +2106,7 @@
             </div>
           </div>
 
-          <div id="gitUpdateBox" hidden>
+          <div id="gitUpdateBox" data-needs="self_update" hidden>
             <div class="field-row">
               <span class="field-label" data-i18n="update.git_repo">Git repository</span>
               <span class="mac" id="gitRepoDisplay">-</span>
@@ -2110,6 +2116,20 @@
             </div>
           </div>
           <p class="hint" id="gitUpdateHint" role="status"></p>
+
+          <div id="containerUpdateBox" hidden>
+            <p class="hint help-text" data-i18n="update.container_hint" hidden>
+              A container takes its version from the image: pulling a newer one and recreating the container is the whole update.
+            </p>
+            <div class="cmd-list">
+              <div class="cmd-row">
+                <span class="cmd-os" data-i18n="update.cmd_pull">Pull the image</span>
+                <code class="cmd-text" id="containerPullCmd">docker compose pull</code>
+                <button type="button" class="btn btn-icon btn-small cmd-copy" data-icon="copy"
+                        data-i18n-aria-label="update.copy" aria-label="Copy the command" data-i18n-title="update.copy" title="Copy the command"></button>
+              </div>
+            </div>
+          </div>
           <pre class="code-block" id="updateLog" hidden></pre>
         </section>
 

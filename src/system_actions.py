@@ -42,6 +42,13 @@ def is_container():
 
 
 def _systemctl_available():
+    """Whether there is a systemd to talk to.
+
+    The Pi profile answers yes without looking: everything under systemd/*.service
+    is installed there, and a test that says "this is a Pi" must not be told
+    otherwise by the machine it happens to run on."""
+    if platform_mod.name() in (platform_mod.PI, platform_mod.HOST):
+        return True
     if sys.platform.startswith("win"):
         return False
     for directory in os.environ.get("PATH", "").split(os.pathsep):
@@ -120,6 +127,19 @@ def service_show(units, props=("LoadState", "ActiveState", "SubState", "UnitFile
     result = _run(["systemctl", "show", "--no-pager", "-p", ",".join(props)] + list(units),
                   timeout=timeout)
     return result.stdout if result is not None and result.returncode == 0 else ""
+
+
+def systemctl(*args, timeout=15, sudo=False):
+    """Systemd's own answer for a verb, as (ok, stdout, stderr).
+
+    For the callers that need the words systemd prints rather than a yes or a
+    no - `is-enabled` answers "enabled", "disabled", "static"... and the
+    daemon reacts differently to each. `ok` is False when there is no systemd
+    at all, which is what keeps a container out of every one of these."""
+    result = _run(["systemctl"] + list(args), timeout=timeout, sudo=sudo)
+    if result is None:
+        return False, "", ""
+    return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
 
 
 def local_service_units():

@@ -1635,6 +1635,8 @@ const I18N = {
 
     "update.title": "Update",
     "update.how_section": "How to update",
+    "update.container_hint": "A container takes its version from the image: pulling a newer one and recreating the container is the whole update.",
+    "update.cmd_pull": "Pull the image",
     "update.how_hint1": "From the computer holding the project, with the Pi connected by USB:",
     "update.how_hint2": "Settings, music and statistics are preserved. The Pi keeps a backup and rolls back on its own if the new version does not come up.",
     "update.os_pending": "{n} system packages can be upgraded (according to the local cache)",
@@ -3561,6 +3563,8 @@ const I18N = {
 
     "update.title": "Mise à jour",
     "update.how_section": "Comment mettre à jour",
+    "update.container_hint": "Un conteneur tient sa version de l'image : en récupérer une plus récente et recréer le conteneur, c'est toute la mise à jour.",
+    "update.cmd_pull": "Récupérer l'image",
     "update.how_hint1": "Depuis l'ordinateur qui contient le projet, avec le Pi connecté par USB :",
     "update.how_hint2": "Réglages, musique et statistiques sont conservés. Le Pi garde une sauvegarde et revient en arrière tout seul si la nouvelle version ne démarre pas.",
     "update.os_pending": "{n} paquets système peuvent être mis à jour (d'après le cache local)",
@@ -5487,6 +5491,8 @@ const I18N = {
 
     "update.title": "Update",
     "update.how_section": "So aktualisierst du",
+    "update.container_hint": "Ein Container bezieht seine Version aus dem Image: ein neueres holen und den Container neu erstellen ist die ganze Aktualisierung.",
+    "update.cmd_pull": "Image holen",
     "update.how_hint1": "Vom Computer mit dem Projekt aus, mit dem per USB verbundenen Pi:",
     "update.how_hint2": "Einstellungen, Musik und Statistiken bleiben erhalten. Der Pi behält eine Sicherung und stellt sie automatisch wieder her, falls die neue Version nicht hochfährt.",
     "update.os_pending": "{n} Systempakete können aktualisiert werden (laut lokalem Cache)",
@@ -7413,6 +7419,8 @@ const I18N = {
 
     "update.title": "Actualización",
     "update.how_section": "Cómo actualizar",
+    "update.container_hint": "Un contenedor toma su versión de la imagen: descargar una más reciente y recrear el contenedor es toda la actualización.",
+    "update.cmd_pull": "Descargar la imagen",
     "update.how_hint1": "Desde el ordenador que tiene el proyecto, con la Pi conectada por USB:",
     "update.how_hint2": "Los ajustes, la música y las estadísticas se conservan. La Pi guarda una copia de seguridad y revierte por sí sola si la nueva versión no arranca.",
     "update.os_pending": "{n} paquetes del sistema se pueden actualizar (según la caché local)",
@@ -9339,6 +9347,8 @@ const I18N = {
 
     "update.title": "Aggiornamento",
     "update.how_section": "Come aggiornare",
+    "update.container_hint": "Un container prende la versione dall'immagine: scaricarne una più recente e ricreare il container è tutto l'aggiornamento.",
+    "update.cmd_pull": "Scarica l'immagine",
     "update.how_hint1": "Dal computer che contiene il progetto, con il Pi collegato via USB:",
     "update.how_hint2": "Impostazioni, musica e statistiche vengono conservate. Il Pi mantiene un backup e torna automaticamente indietro se la nuova versione non si avvia.",
     "update.os_pending": "{n} pacchetti di sistema aggiornabili (secondo la cache locale)",
@@ -11265,6 +11275,8 @@ const I18N = {
 
     "update.title": "Update",
     "update.how_section": "Zo update je",
+    "update.container_hint": "Een container haalt zijn versie uit de image: een nieuwere ophalen en de container opnieuw aanmaken is de hele update.",
+    "update.cmd_pull": "Image ophalen",
     "update.how_hint1": "Vanaf de computer met het project, met de Pi via USB verbonden:",
     "update.how_hint2": "Instellingen, muziek en statistieken blijven bewaard. De Pi houdt een back-up bij en herstelt die zelf als de nieuwe versie niet opstart.",
     "update.os_pending": "{n} systeempakketten kunnen worden bijgewerkt (volgens de lokale cache)",

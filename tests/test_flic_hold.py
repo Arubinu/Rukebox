@@ -56,7 +56,19 @@ class FakeSystemctl:
         return SimpleNamespace(returncode=0, stdout=answer + "\n", stderr="")
 
     def actions(self):
-        return [call[3] for call in self.calls if call[0] == "sudo"]
+        """The distinct verbs asked of the services, in the order they were
+        first asked: one per unit, and the two units share a verb."""
+        seen = []
+        for call in self.calls:
+            if call[0] != "sudo":
+                continue
+            verb = next((part for part in call[2:] if not part.startswith("-")), "")
+            if verb and verb not in seen:
+                seen.append(verb)
+        return seen
+
+    def units(self):
+        return [call[-1] for call in self.calls if call[0] == "sudo"]
 
 
 class FlicHoldTest(unittest.TestCase):
@@ -80,7 +92,10 @@ class FlicHoldTest(unittest.TestCase):
         daemon.mpv = FakeMpv()
         daemon._clock_ready = threading.Event()
         self.systemctl = FakeSystemctl(**systemd)
-        mock.patch.object(rukebox_daemon.subprocess, "run", self.systemctl).start()
+        # One patch for both: the daemon and system_actions share the sys.modules
+        # entry, and the hold goes through src/system_actions.py now.
+        mock.patch.object(rukebox_daemon.system_actions.subprocess, "run",
+                          self.systemctl).start()
         self.addCleanup(mock.patch.stopall)
         if hciconfig is not None:
             mock.patch.object(audio_diag, "_run", hciconfig).start()
@@ -130,7 +145,9 @@ class FlicHoldTest(unittest.TestCase):
         self.held("single_controller")
         daemon._watch_flic()
         daemon._watch_flic()
-        self.assertEqual(self.systemctl.actions(), ["stop", "stop"], "it keeps trying")
+        self.assertEqual(self.systemctl.actions(), ["stop"], "it keeps trying")
+        self.assertEqual(len(self.systemctl.units()), 4,
+                         "both units, on both watch turns")
         self.assertFalse(daemon.state.flag("flic_held"), "nothing was held")
         self.assertTrue(daemon._flic_warned)
 

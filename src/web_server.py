@@ -5968,6 +5968,9 @@ def api_update_status():
 
     return jsonify({"ok": True, "data": {
         "version": version,
+        "platform": capabilities()["platform"],
+        "self_update": system_actions.can_self_update(),
+        "docker_image": c.get("UPDATE_DOCKER_IMAGE") or "",
         "interrupted": interrupted,
         "git_configured": bool(c["UPDATE_GIT_URL"]),
         "git_url": c["UPDATE_GIT_URL"],

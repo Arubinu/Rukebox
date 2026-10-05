@@ -961,6 +961,14 @@ SETTINGS = [
     Setting("UPDATE_VERSION_FILE", "updates", "version_file", "str",
             "/var/lib/rukebox/version.json",
             "", "Version file"),
+    Setting(
+        "UPDATE_DOCKER_IMAGE", "updates", "docker_image", "str", "ghcr.io/arubinu/rukebox",
+        "The image a container updates FROM: not an update mechanism, but the\n"
+        "one line the Update card shows there, since pulling a new image and\n"
+        "recreating the container is the only way a container gets a new\n"
+        "version. Ignored on a Pi, where update.sh replaces the tree.",
+        "Container image",
+    ),
     Setting("UPDATE_BACKUP_KEEP", "updates", "backup_keep", "int", "3",
             "How many pre-update backups of /opt/rukebox to keep for rollback.",
             "Backups kept"),
