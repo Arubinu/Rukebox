@@ -4291,6 +4291,21 @@ def api_bt_connect():
     return jsonify({"ok": True})
 
 
+@app.route("/api/bluetooth/forget", methods=["POST"])
+def api_bt_forget():
+    """{mac}: the bond removed, so the device can be paired again - the only
+    way out when one side forgot the other."""
+    mac = str((request.get_json(silent=True) or {}).get("mac") or "")
+    if not _MAC_RE.match(mac):
+        return jsonify({"ok": False, "error": "missing_mac"}), 400
+    _bt_script([f"remove {mac}"], timeout=10)
+    _bt_info_cache.pop(mac, None)
+    if _bt_device_info(mac)["paired"]:
+        return jsonify({"ok": False, "error": "bt_forget_failed"})
+    stats.record("bluetooth_forget", label=mac, detail={"source": "web"})
+    return jsonify({"ok": True})
+
+
 @app.route("/api/bluetooth/disconnect", methods=["POST"])
 def api_bt_disconnect():
     body = request.get_json(silent=True) or {}

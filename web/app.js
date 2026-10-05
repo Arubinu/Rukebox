@@ -7207,17 +7207,27 @@ function deviceRow(dev, running) {
   }
 
   const pairBtn = document.createElement("button");
-  pairBtn.className = "btn";
-  pairBtn.textContent = t("speaker.pair");
+  pairBtn.className = dev.paired ? "btn btn-warning-outline" : "btn";
+  pairBtn.textContent = t(dev.paired ? "speaker.forget" : "speaker.pair");
 
-  pairBtn.disabled = dev.paired;
   pairBtn.addEventListener("click", async () => {
+    if (dev.paired) {
+      if (!await showConfirm(t("speaker.forget_confirm", { name: dev.name }))) return;
+      pairBtn.disabled = true;
+      const result = await apiPost("/api/bluetooth/forget", { mac: dev.mac });
+      pairBtn.disabled = false;
+      if (!result.ok) showToolError(t("common.failed"), result);
+      else showToast(t("speaker.forgotten", { name: dev.name }), t("speaker.forgotten_hint"));
+      lastScanSignature = "";
+      refreshScanList();
+      return;
+    }
     pairBtn.disabled = true;
 
     const bubble = showToast(t("speaker.pair_wait_title"), t("speaker.pair_wait_hint"), { sticky: true });
     const result = await apiPost("/api/bluetooth/pair", { mac: dev.mac });
     dismissToast(bubble);
-    pairBtn.disabled = dev.paired;
+    pairBtn.disabled = false;
     if (!result.ok) showToolError(t("speaker.pair_failed"), result);
     else if (result.data && result.data.already) showToast(t("speaker.already_paired"));
     else showToast(t("speaker.paired_alert"));
@@ -7623,7 +7633,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "counters_reset", "music_upload", "playback_pause", "portal_released", "stats_rows_deleted",
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "device_renamed", "device_name_locked", "portal_reset", "device_forgotten",
-  "devices_linked", "device_unlinked", "dedication_played", "reminder_said",
+  "devices_linked", "device_unlinked", "dedication_played", "reminder_said", "bluetooth_forget",
   "schedule_started", "schedule_ended", "schedule_stop",
   "schedule_added", "schedule_changed", "schedule_removed",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
