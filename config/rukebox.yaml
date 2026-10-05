@@ -33,6 +33,26 @@ audio:
   # returns. Only used when output is bluetooth.
   fallback_output: ""
 
+  # Serve what the radio plays over HTTP, so any device on the network can
+  # listen to it - the "Listen here" button on the player, VLC, or a
+  # network speaker. This is the only way to hear a Rukebox in a container,
+  # which has no sound card of its own; see the Docker section of
+  # docs/guide.md. Off by default: it costs an ffmpeg process, which a Pi
+  # Zero would rather not run. The library has to be playable by whoever
+  # can reach this page, so think about the password first.
+  stream_enabled: false
+
+  # The codec the stream is encoded with: opus (default), mp3, aac or
+  # vorbis. Empty picks the best one this ffmpeg knows, which is what the
+  # image installs. Opus is what every browser plays and what the little
+  # bandwidth of a Pi Zero carries comfortably.
+  stream_encoder: ""
+
+  # The PipeWire monitor to encode, as `pactl list short sources` names it.
+  # Empty finds the default output's own monitor, which is what the radio
+  # plays to. Only set this when the stream has to follow another sink.
+  stream_source: ""
+
 # ---------------------------------------------------------------
 # Bluetooth: speaker, and which controller does what
 # ---------------------------------------------------------------

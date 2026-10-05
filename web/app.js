@@ -1539,6 +1539,7 @@ function applyTrackProgress(d) {
   applyNotices(d);
   applyGuestCredits(d);
   applyCapabilities(d);
+  applyListen(d);
   applyMute(d);
   applyFallback(d);
 }
@@ -1925,6 +1926,63 @@ function timerChoiceBody(groups, intro) {
   }
   return wrap;
 }
+
+/* The network output: the same radio, heard on the device reading this page.
+   Nothing here starts the encoder - the server does that - and an <audio>
+   element pointed at the URL is all a browser needs for a stream that never
+   ends. A phone that locks the screen stops the sound, which is the phone's
+   decision, not ours. */
+let listenAudio = null;
+let listenUrl = "";
+
+function paintListen(playing) {
+  const btn = document.getElementById("btnListen");
+  if (!btn) return;
+  const on = playing !== undefined ? playing : !!(listenAudio && !listenAudio.paused);
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+  const key = on ? "stream.stop" : "stream.listen";
+  btn.dataset.i18n = key;
+  btn.querySelector("span").dataset.i18n = key;
+  btn.querySelector("span").textContent = t(key);
+}
+
+function applyListen(d) {
+  const btn = document.getElementById("btnListen");
+  if (!btn) return;
+  const stream = d.stream || {};
+  const available = !!stream.available && !!stream.url;
+  btn.hidden = !available;
+  if (!available) return;
+  listenUrl = stream.url;
+  btn.dataset.i18nTitle = "stream.listen_hint";
+  btn.title = t("stream.listen_hint");
+}
+
+document.getElementById("btnListen").addEventListener("click", async () => {
+  if (listenAudio) {
+    listenAudio.pause();
+    listenAudio.src = "";
+    listenAudio = null;
+    paintListen(false);
+    return;
+  }
+  if (!listenUrl) return;
+  listenAudio = new Audio(listenUrl);
+  listenAudio.addEventListener("playing", () => paintListen(true));
+  listenAudio.addEventListener("error", () => {
+    showToast(t("stream.failed"));
+    listenAudio = null;
+    paintListen(false);
+  });
+  try {
+    await listenAudio.play();
+    paintListen(true);
+  } catch (error) {
+    showToast(t("stream.failed"));
+    listenAudio = null;
+    paintListen(false);
+  }
+});
 
 document.getElementById("btnTimer").addEventListener("click", async () => {
   const d = playerStatus || {};
@@ -7683,7 +7741,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "update_started", "update_applied", "update_rolled_back",
   "announcement_type_added", "announcement_type_updated",
   "announcement_type_removed", "custom_announce_triggered",
-  "ap_config_changed", "web_login", "web_password_changed",
+  "ap_config_changed", "web_login", "web_password_changed", "stream_listened",
 
   "track_skipped", "sound_skipped",
   "track_previous", "timed_pause", "sleep_timer", "loop_mode",

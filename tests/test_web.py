@@ -888,6 +888,52 @@ class QuietReadsTest(unittest.TestCase):
         self.assertTrue(self.kept('10.42.0.5 - - [03/Oct/2026 10:08:46] "GET / HTTP/1.1" 200 -'))
 
 
+@unittest.skipUnless(flask, "Flask is not installed")
+class StreamRouteTest(unittest.TestCase):
+    """The network output's two doors: where it is, and the audio itself."""
+
+    def setUp(self):
+        self.addCleanup(ws.forget_stream)
+        ws.forget_stream()
+
+    def test_it_is_off_by_default_and_says_so(self):
+        answer = ws.app.test_client().get("/api/stream").get_json()
+        self.assertTrue(answer["ok"])
+        self.assertFalse(answer["data"]["enabled"])
+        self.assertFalse(answer["data"]["available"])
+        self.assertEqual(answer["data"]["url"], "")
+
+    def test_the_audio_door_refuses_when_the_stream_is_off(self):
+        answer = ws.app.test_client().get("/stream.opus")
+        self.assertEqual(answer.status_code, 503)
+        self.assertEqual(answer.get_json()["error"], "stream_unavailable")
+
+    def test_a_ready_stream_is_offered_with_its_url(self):
+        with unittest.mock.patch.object(ws.stream_mod, "encoders_available",
+                                        return_value=["opus"]):
+            ready = ws.stream_mod.build(
+                {"STREAM_ENABLED": True, "STREAM_SOURCE": "s.monitor"}, probe=False)
+            with unittest.mock.patch.object(ws, "stream_server", return_value=ready):
+                answer = ws.app.test_client().get("/api/stream").get_json()["data"]
+        self.assertTrue(answer["available"])
+        self.assertEqual(answer["encoder"], "opus")
+        self.assertEqual(answer["content_type"], "audio/ogg")
+        self.assertTrue(answer["url"].endswith("/stream.opus"), answer["url"])
+
+    def test_the_status_carries_the_stream_for_the_player_button(self):
+        """The player's button reads it from the status it already polls, so a
+        device that cannot listen is never offered one. /api/status also reads
+        the audio output, which needs a POSIX machine - hence the patch."""
+        status = {"ok": True, "data": {"mode": "music", "epoch": 1}}
+        with unittest.mock.patch.object(ws, "control", return_value=status):
+            with unittest.mock.patch.object(ws, "stream_server", return_value=None):
+                with unittest.mock.patch.object(ws, "_audio_output_state",
+                                                return_value={"output": "bluetooth"}):
+                    data = ws.app.test_client().get("/api/status").get_json()["data"]
+        self.assertIn("stream", data)
+        self.assertFalse(data["stream"]["available"])
+
+
 
 @unittest.skipUnless(flask, "Flask is not installed")
 class SpeakerNudgeTest(unittest.TestCase):

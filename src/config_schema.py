@@ -63,6 +63,32 @@ SETTINGS = [
         "Fallback output",
     ),
     Setting(
+        "STREAM_ENABLED", "audio", "stream_enabled", "bool", "false",
+        "Serve what the radio plays over HTTP, so any device on the network can\n"
+        "listen to it - the \"Listen here\" button on the player, VLC, or a\n"
+        "network speaker. This is the only way to hear a Rukebox in a container,\n"
+        "which has no sound card of its own; see the Docker section of\n"
+        "docs/guide.md. Off by default: it costs an ffmpeg process, which a Pi\n"
+        "Zero would rather not run. The library has to be playable by whoever\n"
+        "can reach this page, so think about the password first.",
+        "Network audio stream",
+    ),
+    Setting(
+        "STREAM_ENCODER", "audio", "stream_encoder", "str", "",
+        "The codec the stream is encoded with: opus (default), mp3, aac or\n"
+        "vorbis. Empty picks the best one this ffmpeg knows, which is what the\n"
+        "image installs. Opus is what every browser plays and what the little\n"
+        "bandwidth of a Pi Zero carries comfortably.",
+        "Stream codec",
+    ),
+    Setting(
+        "STREAM_SOURCE", "audio", "stream_source", "str", "",
+        "The PipeWire monitor to encode, as `pactl list short sources` names it.\n"
+        "Empty finds the default output's own monitor, which is what the radio\n"
+        "plays to. Only set this when the stream has to follow another sink.",
+        "Stream source",
+    ),
+    Setting(
         "SPEAKER_MAC", "bluetooth", "speaker_mac", "str", "",
         "MAC address of the \"master\" speaker (the other speaker of a stereo\n"
         "pair is handled by the speakers themselves, not our concern here).\n"
@@ -629,8 +655,7 @@ SETTINGS = [
         "Web interface port",
     ),
     Setting(
-        "WEB_EXTRA_HOSTS", "network", "web_extra_hosts", "str", "",
-        "Other names the interface may be opened under (comma-separated).\n"
+        "WEB_EXTRA_HOSTS", "network", "web_extra_hosts", "str", "",        "Other names the interface may be opened under (comma-separated).\n"
         "Its address and its own name on a local network (rukebox,\n"
         "rukebox.local, .lan, .home, .internal...) are always accepted; any\n"
         "other name pointing at the Pi has to be listed here, or the interface\n"
@@ -1154,6 +1179,8 @@ RESTART_REQUIRED = frozenset({
     "STATE_DIR", "MPV_SOCKET", "CONTROL_SOCKET", "MUSIC_CACHE_FILE",
     "ANNOUNCEMENTS_FILE", "TRACK_ORDER_FILE", "SPEAKER_BT_ADAPTER",
     "FLIC_HCI_DEVICE", "WEB_PORT",
+    # The stream's encoder is started once, on the first listener.
+    "STREAM_ENABLED", "STREAM_ENCODER", "STREAM_SOURCE",
 })
 
 GPIO_BUTTON_SETTINGS = frozenset({

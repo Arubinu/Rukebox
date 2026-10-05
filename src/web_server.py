@@ -43,6 +43,7 @@ import config_schema  # noqa: E402
 import gpio_pins  # noqa: E402
 import gpio_reset  # noqa: E402
 import platform as platform_mod  # noqa: E402
+import stream as stream_mod  # noqa: E402
 import system_actions  # noqa: E402
 import web_auth  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config, update_config_file  # noqa: E402
@@ -233,6 +234,38 @@ def _guest_allowed(path, method):
     if path == "/api/announcements" and method != "GET":
         return False
     return True
+
+
+@app.route("/api/stream")
+def api_stream():
+    """Where the network output is, and whether there is one to offer."""
+    return jsonify({"ok": True, "data": _stream_status()})
+
+
+@app.route("/stream")
+@app.route("/stream.<ext>")
+def stream_audio(ext=None):
+    """The encoded audio itself: one response per listener, never buffered.
+
+    `direct_passthrough` is what keeps Flask from collecting the stream in
+    memory - there is no end to it, and the reader has to start hearing the
+    first second before the next one is encoded."""
+    server = stream_server()
+    if server is None or not server.source:
+        return jsonify({"ok": False, "error": "stream_unavailable"}), 503
+    headers = {
+        "Content-Type": server.content_type,
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "X-Accel-Buffering": "no",
+        # What an Icecast client reads to call this a live stream.
+        "icy-name": "Rukebox",
+        "icy-pub": "0",
+    }
+    response = Response(server.chunks(), headers=headers, direct_passthrough=True)
+    response.timeout = None
+    stats.record("stream_listened", label="web", detail={"encoder": server.encoder})
+    return response
 
 
 _PRE_LOGIN_PATHS = frozenset({"/api/portal/status"})
@@ -2600,6 +2633,9 @@ def api_status():
     # What this machine can do, so the page hides the cards that lead nowhere
     # rather than offering buttons that answer unsupported_here.
     data["capabilities"] = capabilities()
+    # The network output, when there is one: the player's "Listen here" button
+    # is the reason it is here rather than only on /api/stream.
+    data["stream"] = _stream_status()
     return jsonify({"ok": True, "data": data})
 
 
@@ -4011,6 +4047,45 @@ def capabilities():
     """What this machine can do, read fresh: the interface hides what is not
     there and the routes below answer `unsupported_here` for it."""
     return platform_mod.caps()
+
+
+# --------------------------------------------------------------------------
+# The network output: what the radio plays, encoded and served here
+# --------------------------------------------------------------------------
+
+_stream_lock = threading.Lock()
+_stream = {"server": None}
+
+
+def stream_server():
+    """The encoder, started on first use: `pactl` is asked once per process,
+    not on every status poll, and the stream settings need a restart (they are
+    in config_schema.RESTART_REQUIRED)."""
+    with _stream_lock:
+        server = _stream["server"]
+        if server is None:
+            server = stream_mod.build(cfg())
+            _stream["server"] = server
+        if server is not None and server.source and not server.alive():
+            server.start()
+        return server
+
+
+def forget_stream():
+    """The tests' door, and what a settings import needs: the next status
+    rebuilds the encoder."""
+    with _stream_lock:
+        server, _stream["server"] = _stream["server"], None
+    if server is not None:
+        server.stop()
+
+
+def _stream_status():
+    server = stream_server()
+    url = ""
+    if server is not None and server.source:
+        url = request.host_url.rstrip("/") + "/stream." + server.suffix
+    return stream_mod.status(server, url=url)
 
 
 BT_SCAN_SECONDS = 15

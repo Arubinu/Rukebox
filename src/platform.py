@@ -127,7 +127,8 @@ def _has_bluetooth():
 def _has_local_audio():
     if os.path.isdir("/dev/snd"):
         return True
-    runtime = os.environ.get("XDG_RUNTIME_DIR") or "/run/user/%d" % os.getuid()
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or "/run/user/%d" % \
+        getattr(os, "getuid", lambda: 0)()
     return os.path.exists(os.path.join(runtime, "pipewire-0"))
 
 
