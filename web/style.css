@@ -4048,6 +4048,7 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   .topbar.menu-open .topbar-controls { display: flex; }
   .topbar-controls .icon-toggle-btn,
   .topbar-controls #themeToggleBtn,
+  .topbar-controls #searchBtn,
   .topbar-controls #logoutBtn {
     width: auto;
     justify-content: flex-start;
