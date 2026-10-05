@@ -3,6 +3,7 @@
 
 import json
 import logging
+import math
 import os
 import signal
 import socket
@@ -67,6 +68,12 @@ def announcement_target(msg):
     return source, item_id, chooser
 
 
+def _crossfade_in_curve(share):
+    """mpv's volume is cubic: this makes the incoming song's loudness rise as a
+    sine, the mirror of the outgoing one's quarter-sine fade (constant power)."""
+    return math.sin(math.pi / 2 * share) ** (1.0 / 3.0)
+
+
 class TailPlayer:
     """The end of a song played by a second, disposable mpv for a crossfade:
     started paused, told to play once it is ready."""
@@ -80,6 +87,7 @@ class TailPlayer:
         self.sock = None
         self.ready = False
         self.started = False
+        self.handing = False
         self.log = None
 
     def start(self):
@@ -120,6 +128,34 @@ class TailPlayer:
             except OSError:
                 pass
             time.sleep(0.2)
+
+    def _time(self):
+        """Its own position, read from its answers (events in between skipped)."""
+        self._ask(["get_property", "time-pos"])
+        end = time.monotonic() + 1.0
+        while time.monotonic() < end:
+            for line in self.sock.recv(65536).split(b"\n"):
+                try:
+                    msg = json.loads(line)
+                except ValueError:
+                    continue
+                if "event" not in msg and isinstance(msg.get("data"), (int, float)):
+                    return float(msg["data"])
+        return None
+
+    def cue(self, at):
+        """Moves, still paused, to `at` seconds; True once it is there."""
+        try:
+            self._ask(["seek", float(at), "absolute+exact"])
+            end = time.monotonic() + 1.5
+            while time.monotonic() < end:
+                now = self._time()
+                if now is not None and abs(now - at) < 0.06:
+                    return True
+                time.sleep(0.03)
+        except (OSError, AttributeError, ValueError):
+            pass
+        return False
 
     def play(self, volume):
         """True once the player was told to go on; False leaves the song to play out."""
@@ -937,10 +973,10 @@ class RadioDaemon:
                 if self._crossfade_ok():
                     self._prepare_tail(end - fade, fade)
             tail = self._xfade_proc
-            if tail is not None and not tail.started and pos >= end - fade:
+            if tail is not None and not tail.handing and pos >= end - fade:
                 if tail.ready and self._crossfade_ok():
                     self._crossfade_to_next(fade, tail)
-                    if tail.started:
+                    if tail.handing:
                         self._tail_done = True
                         return
                 log.info("Crossfade not ready in time: the song plays out (%s)", tail.output())
@@ -974,7 +1010,7 @@ class RadioDaemon:
         # would sit before --start and mpv would drop them all.
         start = max(0.0, start)
         graph = ",".join(c for c in (self._audio_chain(),
-                                     "afade=t=out:st=%.2f:d=%.2f" % (start, fade)) if c)
+                                     "afade=t=out:st=%.2f:d=%.2f:curve=qsin" % (start, fade)) if c)
         command = ["mpv", "--no-terminal", "--msg-level=all=warn", "--no-video", "--pause",
                    "--input-ipc-server=" + self.XFADE_SOCKET,
                    "--audio-device=" + (self._audio_device or "auto"),
@@ -987,11 +1023,40 @@ class RadioDaemon:
         if not self._xfade_proc.start():
             self._xfade_proc = None
 
+    XFADE_LEAD_SEC = 0.5
+
     def _crossfade_to_next(self, fade, tail):
         """The end of this song goes on in the prepared player, fading out,
-        while the main one moves to the next song and fades it in."""
-        if not tail.play(self._mpv_level()):
-            self._stop_tail()
+        while the main one moves to the next song and fades it in. Done in a
+        thread: reading the main player's position waits on the very thread
+        that delivers its events."""
+        tail.handing = True
+        self._start_hand_over(fade, tail, self._play_path)
+
+    def _start_hand_over(self, *args):
+        threading.Thread(target=self._hand_over, args=args, daemon=True).start()
+
+    def _main_time(self):
+        reply = self.mpv.request(["get_property", "time-pos"], timeout=1.0)
+        data = reply.get("data") if isinstance(reply, dict) else None
+        return float(data) if isinstance(data, (int, float)) else self._position
+
+    def _hand_over(self, fade, tail, path):
+        # The tail takes over at the exact point the main player has reached:
+        # starting it at "end - fade" repeated, or skipped, a fraction of a second.
+        at = self._main_time() + self.XFADE_LEAD_SEC
+        if tail.cue(at):
+            wait = at - self._main_time()
+            if 0 < wait < 2:
+                time.sleep(wait)
+        else:
+            log.info("Crossfade could not be lined up: the song plays out (%s)", tail.output())
+            at = None
+        moved_on = self._xfade_proc is not tail or self._play_path != path or self._paused
+        if at is None or moved_on or not tail.play(self._mpv_level()):
+            if self._xfade_proc is tail:
+                self._stop_tail()
+            self._tail_done = False
             return
         log.info("Crossfade over %.1fs into the next song", fade)
         self._xfade_in = fade
@@ -1003,10 +1068,10 @@ class RadioDaemon:
         self._stop_volume_glide()
         self._current_volume = 0
         self._shown_volume = target
-        if self._speaker_volume_linked():
-            self._write_level(target)
+        # Linked, the speaker already holds the volume: writing it again would
+        # put mpv back at full volume for a moment - the step that was heard.
         self.mpv.set_volume(0)
-        self._glide_volume(target, fade)
+        self._glide_volume(target, fade, curve=_crossfade_in_curve)
 
     def _stop_tail(self):
         """The end of the previous song, still fading out, silenced."""
@@ -1478,7 +1543,7 @@ class RadioDaemon:
         self._volume_glide_gen += 1
         self._volume_glide_target = None
 
-    def _glide_volume(self, target, duration_sec):
+    def _glide_volume(self, target, duration_sec, curve=None):
         """From where the volume is to `target` over duration_sec, in its own
         thread: the control command answers at once (a slider drag sends a
         request every 150ms), and the next request. When the speaker carries
@@ -1498,7 +1563,8 @@ class RadioDaemon:
                 time.sleep(duration_sec / steps)
                 if gen != self._volume_glide_gen:
                     return
-                vol = round(start + (end - start) * i / steps, 1)
+                share = curve(i / steps) if curve else i / steps
+                vol = round(start + (end - start) * share, 1)
                 if not linked:
                     self._current_volume = vol
                 self.mpv.set_volume(vol)

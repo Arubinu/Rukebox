@@ -1,5 +1,6 @@
 """The songs introduced out loud, dedications, reminders, taking turns, the
 silence at the end of a song, the crossfade and the sound profiles."""
+import math
 import os
 import shutil
 import tempfile
@@ -21,6 +22,10 @@ class FakeMpv:
     def __init__(self):
         self.files = []
         self.calls = []
+        self.volumes = []
+
+    def set_volume(self, volume):
+        self.volumes.append(volume)
 
     def loadfile(self, path):
         self.files.append(path)
@@ -212,7 +217,12 @@ class DaemonTest(unittest.TestCase):
         class FakeTail:
             def __init__(self, command, socket_path):
                 self.command, self.ready, self.started, self.stopped = command, ready, False, False
+                self.handing, self.cued = False, []
                 made.append(self)
+
+            def cue(self, at):
+                self.cued.append(at)
+                return True
 
             def start(self):
                 return True
@@ -227,6 +237,10 @@ class DaemonTest(unittest.TestCase):
             def stop(self):
                 self.stopped = True
         self.daemon._tail_player_cls = FakeTail
+        # The hand-over runs in the test's own thread, so its result is there at once.
+        mock.patch.object(self.daemon, "_start_hand_over",
+                          side_effect=lambda *a: self.daemon._hand_over(*a)).start()
+        mock.patch.object(rukebox_daemon.time, "sleep").start()
         return made
 
     def move_to(self, *positions):
@@ -245,15 +259,35 @@ class DaemonTest(unittest.TestCase):
         self.assertIn("--start=196.00", made[0].command)
         self.assertIn("--pause", made[0].command)
         # On the song's own clock: a fade reset to 0 made mpv drop every frame.
-        self.assertTrue(any("afade=t=out:st=196.00:" in part for part in made[0].command))
+        self.assertTrue(any("afade=t=out:st=196.00:d=4.00:curve=qsin" in part for part in made[0].command))
         self.assertFalse(any("asetpts" in part for part in made[0].command))
         self.assertFalse(made[0].started)
         self.move_to(196.1)
         self.assertTrue(made[0].started)
+        self.assertEqual(made[0].cued, [196.1 + self.daemon.XFADE_LEAD_SEC],
+                         "taken over where the main player is, not at end - fade")
         self.assertEqual(self.daemon.mpv.calls, ["seek_end"])
         self.end_song()
         self.assertEqual(self.played()[-1], "b.mp3")
         self.assertFalse(made[0].stopped, "the end fades out over the next song")
+
+    def test_the_next_song_rises_from_silence_even_with_the_speaker_volume_linked(self):
+        self.daemon.cfg.update({"CROSSFADE_SEC": 4, "SPEAKER_VOLUME_LINK": True})
+        self.tail_players()
+        self.daemon._play_next_track()
+        self.daemon._duration = 200.0
+        self.move_to(188.5, 196.1)
+        with mock.patch.object(self.daemon, "_glide_volume") as glide:
+            self.daemon.mpv.volumes.clear()
+            self.end_song()
+        self.assertEqual(self.daemon.mpv.volumes, [0], "no full-volume moment before the rise")
+        self.assertIs(glide.call_args.kwargs["curve"], rukebox_daemon._crossfade_in_curve)
+
+    def test_the_two_fades_keep_the_loudness_even(self):
+        for share in (0.0, 0.25, 0.5, 0.75, 1.0):
+            incoming = rukebox_daemon._crossfade_in_curve(share) ** 3
+            outgoing = math.sin(math.pi / 2 * (1 - share))
+            self.assertAlmostEqual(incoming ** 2 + outgoing ** 2, 1.0, places=6)
 
     def test_a_player_not_ready_in_time_lets_the_song_play_out(self):
         self.daemon.cfg["CROSSFADE_SEC"] = 4
