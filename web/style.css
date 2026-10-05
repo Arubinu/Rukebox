@@ -582,11 +582,13 @@ code {
 body[data-access="guest"] #searchBtn { display: none !important; }
 
 .search-box .text-input { width: 100%; }
-.search-results { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 4px;
+.search-results { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 0;
   max-height: min(60svh, 480px); overflow-y: auto; }
 .search-results button { display: grid; gap: 2px; width: 100%; padding: 10px 12px; text-align: left;
   border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text);
   font: inherit; cursor: pointer; }
+.search-results li + li { border-top: 1px solid var(--border); }
+.search-results li { padding: 3px 0; }
 .search-results button:hover,
 .search-results button:focus-visible { background: var(--surface-2); border-color: var(--border); }
 .search-results .search-label { font-weight: 600; }
