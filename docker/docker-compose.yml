@@ -1,0 +1,65 @@
+# Rukebox in a container - the four variants, one per combination of sound
+# and Bluetooth. Copy the one you need, or start from the first and read the
+# comments of the others.
+#
+#   docker compose up -d
+#
+# The interface is then on http://<this machine>:8080. There is no screen and
+# no access point: a container has neither, so the Network cards are hidden and
+# what is left is the radio itself.
+
+services:
+  rukebox:
+    image: ghcr.io/arubinu/rukebox:latest
+    # Variant 1 - the network stream, and nothing else.
+    #
+    # This is the one that always works: no sound card, no Bluetooth, no
+    # privileges. The radio still plays; you hear it with "Listen here" on the
+    # page, in VLC (open http://<host>:8080/stream.opus), or on a network
+    # speaker. Turn the stream on in Settings > Audio first, or in the
+    # /config/rukebox.yaml the container writes on its first start.
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - /chemin/vers/la/musique:/music:ro
+
+    # Variant 2 - a sound card, plugged into THIS machine.
+    #
+    # Uncomment to give the container the card itself. `aplay -l` lists them;
+    # /dev/snd is usually enough, and ALSA needs the group that owns it (audio
+    # is 29 on Debian and Raspberry Pi OS).
+    #
+    # devices:
+    #   - /dev/snd:/dev/snd
+    # group_add:
+    #   - "29"
+
+    # Variant 3 - the PipeWire of the host.
+    #
+    # The container then plays to whatever the machine plays to, through the
+    # socket of the sound server already running there. Nothing is started
+    # inside the container (the supervisor notices and steps aside). Useful on
+    # a desktop where PipeWire is already set up.
+    #
+    # volumes:
+    #   - /run/user/1000/pipewire-0:/run/rukebox/pipewire-0
+    #   - /run/user/1000/pulse:/run/rukebox/pulse
+    # environment:
+    #   PIPEWIRE_RUNTIME_DIR: /run/rukebox
+    #   PULSE_SERVER: unix:/run/rukebox/pulse/native
+
+    # Variant 4 - Bluetooth, through the host's BlueZ.
+    #
+    # The container asks the D-Bus of the host to connect the speaker, so
+    # `network_mode: host` is required (the kernel refuses Bluetooth sockets in
+    # any other network namespace) and so is the system bus. The host must
+    # have bluez running. Stop the host's own Rukebox services first, or the
+    # two will fight over the speaker.
+    #
+    # network_mode: host
+    # volumes:
+    #   - /var/run/dbus:/var/run/dbus
+    #   - /run/dbus:/run/dbus

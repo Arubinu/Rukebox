@@ -62,31 +62,72 @@ RESTART_DELAY_SEC = 1.0
 
 
 def probe_source(env=None, timeout=6):
-    """The monitor to encode, or "" when this machine has no PipeWire.
+    """The monitor to encode, or "" when this machine has no sound server.
 
-    Two answers: the default sink's own monitor, which is what the radio is
-    playing to, and failing that any monitor PipeWire knows about - a container
-    whose default sink is not the one mpv was pointed at still streams
-    something rather than nothing."""
-    for command in (["pactl", "get-default-sink"],
-                    ["pactl", "list", "short", "sources"]):
-        try:
-            done = subprocess.run(command, capture_output=True, text=True,
-                                  timeout=timeout, env=env)
-        except (OSError, subprocess.SubprocessError):
+    `pactl` first - it is the compatibility layer of PipeWire, and it has been
+    the one that answers everywhere this was tried, including inside the
+    container where `pw-dump` cannot reach the daemon at all. `pw-dump` second,
+    for a machine running bare PipeWire with no Pulse layer at all.
+
+    The default output's own monitor first, then any monitor there is."""
+    from_pactl = _probe_with_pactl(env, timeout)
+    if from_pactl is not None:
+        return from_pactl
+    return _probe_with_pw_dump(env, timeout)
+
+
+def _probe_with_pactl(env, timeout):
+    """("" when there is no monitor) or None when pactl is not usable."""
+    try:
+        done = subprocess.run(["pactl", "list", "short", "sources"],
+                              capture_output=True, text=True, timeout=timeout, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    monitors = []
+    for line in (done.stdout or "").splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1].endswith(".monitor"):
+            monitors.append(parts[1])
+    if not monitors:
+        return ""
+    try:
+        default = subprocess.run(["pactl", "get-default-sink"], capture_output=True,
+                                 text=True, timeout=timeout, env=env)
+        name = (default.stdout or "").strip().splitlines()
+        if name:
+            wanted = name[0].strip() + ".monitor"
+            if wanted in monitors:
+                return wanted
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return monitors[0]
+
+
+def _probe_with_pw_dump(env, timeout):
+    import json
+
+    try:
+        done = subprocess.run(["pw-dump"], capture_output=True, text=True,
+                              timeout=timeout, env=env)
+        dump = json.loads(done.stdout or "[]")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return ""
+    sinks, monitors = [], []
+    for obj in dump if isinstance(dump, list) else []:
+        props = ((obj or {}).get("info") or {}).get("props") or {}
+        name = props.get("node.name") or ""
+        if not name:
             continue
-        if done.returncode != 0:
-            continue
-        text = (done.stdout or "").strip()
-        if command[1] == "get-default-sink":
-            if text:
-                return text.splitlines()[0].strip() + ".monitor"
-            continue
-        for line in text.splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and "monitor" in " ".join(parts):
-                return parts[1]
-    return ""
+        if props.get("media.class") == "Audio/Sink":
+            sinks.append(name)
+        elif props.get("media.class") == "Audio/Source" and name.endswith(".monitor"):
+            monitors.append(name)
+    for sink in sinks:
+        if sink + ".monitor" in monitors:
+            return sink + ".monitor"
+    return monitors[0] if monitors else ""
 
 
 def encoders_available(ffmpeg="ffmpeg", timeout=10):

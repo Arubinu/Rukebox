@@ -167,6 +167,40 @@ class FilesTest(unittest.TestCase):
     def test_sudoers_is_lf(self):
         self.assertNotIn("\r", _path.read("config", "sudoers-rukebox"))
 
+    def test_the_container_files_are_lf_too(self):
+        """A shell script or a Dockerfile with CRLF does not run: the image
+        builds on Linux, from a checkout made anywhere."""
+        for parts in (("docker", "entrypoint.sh"), ("docker", "supervisor.py"),
+                      ("docker", "pipewire-container.conf"), ("Dockerfile",),
+                      ("docker", "compose.stream.yml")):
+            self.assertNotIn("\r", _path.read(*parts), "/".join(parts))
+
+    def test_every_root_the_container_uses_is_a_documented_one(self):
+        """The image moves the four roots by name; a typo there would silently
+        leave the container writing to /etc/rukebox."""
+        dockerfile = _path.read("Dockerfile")
+        for name in ("RUKEBOX_CONFIG_DIR", "RUKEBOX_STATE_DIR", "RUKEBOX_MUSIC_DIR",
+                     "RUKEBOX_INSTALL_DIR", "RUKEBOX_PLATFORM"):
+            self.assertIn(name, dockerfile, name)
+
+    def test_the_compose_variants_all_use_the_published_image(self):
+        import glob as globmod
+
+        variants = sorted(os.path.basename(p) for p in
+                          globmod.glob(_path.repo_file("docker", "compose.*.yml")))
+        self.assertEqual(len(variants), 4, variants)
+        for name in variants:
+            text = _path.read("docker", name)
+            self.assertIn("ghcr.io/arubinu/rukebox", text, name)
+            self.assertIn("/config:/config", text, name)
+            self.assertIn("/data:/data", text, name)
+
+    def test_every_readme_says_a_container_is_possible(self):
+        for lang in ("", ".fr", ".de", ".es", ".it", ".nl"):
+            text = _path.read("README%s.md" % lang)
+            self.assertIn("docker compose", text, lang)
+            self.assertIn("docs/guide.md#running-in-a-container-docker", text, lang)
+
     def test_push_scripts_exclude_the_same(self):
         """Four lists, one archive: an update and a first install pack the
         same tree, from a shell or from PowerShell."""

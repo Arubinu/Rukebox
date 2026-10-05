@@ -75,6 +75,18 @@ git clone https://github.com/Arubinu/Rukebox.git && cd Rukebox
 sudo ./scripts/install.sh
 ```
 
+**Niente Raspberry Pi?** Rukebox gira anche in un container (un NAS, un
+mini-PC, un server) con Docker, senza access point, GPIO e orologio
+hardware:
+
+```bash
+docker compose -f docker/compose.stream.yml up -d
+```
+
+La musica si ascolta con «Ascolta qui» nell'interfaccia, in VLC o su un
+diffusore di rete. Vedi
+[Eseguire in un container](docs/guide.md#running-in-a-container-docker).
+
 ## 🎛️ Nell'uso quotidiano
 
 | Gesto | Di default |

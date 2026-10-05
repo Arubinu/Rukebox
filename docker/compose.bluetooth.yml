@@ -1,0 +1,28 @@
+# Rukebox in a container - Variant 4: Bluetooth, through the host's BlueZ.
+#
+#   docker compose -f docker/compose.bluetooth.yml up -d
+#
+# The container asks the D-Bus of the host to connect the speaker, so
+# `network_mode: host` is required - the kernel refuses Bluetooth sockets in
+# any other network namespace - and so is the system bus. The host must have
+# bluez running and a free controller.
+#
+# The interface is on port 80 here, NOT 8080: with the host's network there is
+# no port mapping, so WEB_PORT decides. Set it in config/rukebox.yaml, or
+# change the `ports` of the other variants to "80:80" instead.
+#
+# Pair the speaker once from the interface (Audio > Bluetooth). Stop the
+# host's own Rukebox services first: two daemons fighting over one speaker
+# both lose.
+services:
+  rukebox:
+    image: ghcr.io/arubinu/rukebox:latest
+    container_name: rukebox
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+      - /run/dbus:/run/dbus
+      - ./config:/config
+      - ./data:/data
+      - ${RUKEBOX_MUSIC:-./music}:/music:ro

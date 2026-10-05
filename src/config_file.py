@@ -109,8 +109,13 @@ def _render_setting(setting, values, blank_line=False):
     return out
 
 def render_template(values=None):
-    """The full, commented YAML document."""
-    values = values or {}
+    """The full, commented YAML document.
+
+    With no `values`, the documented defaults are written - the Pi's own, which
+    is what the checkout's config/rukebox.yaml holds. A first start passes
+    DEFAULTS instead, so the file a machine writes for itself carries the paths
+    that machine actually uses (RUKEBOX_CONFIG_DIR and the other three roots)."""
+    values = values if values is not None else {}
     out = [HEADER]
     for name, description, settings in sections_with_settings():
         out.append("\n# ---------------------------------------------------------------\n")
@@ -437,8 +442,10 @@ def ensure_file(yaml_path=None, env_path=None):
     env_path = env_path or ENV_FILE
     yaml_path = find_yaml_file(yaml_path)
     if not os.path.exists(yaml_path):
-        _atomic_write(yaml_path, render_template())
-        write_env_file(yaml_path, env_path)
+        # DEFAULTS, not the bare Setting defaults: the file this machine writes
+        # for itself names the paths this machine uses.
+        _atomic_write(yaml_path, render_template(DEFAULTS))
+        write_env_file(yaml_path, env_path, values=dict(DEFAULTS))
         seed_announcements(yaml_path, env_path)
         return "created", 0
     added = merge_missing(yaml_path, env_path)

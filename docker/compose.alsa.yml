@@ -1,0 +1,25 @@
+# Rukebox in a container - Variant 2: a sound card, plugged into THIS machine.
+#
+#   docker compose -f docker/compose.alsa.yml up -d
+#
+# `aplay -l` lists the cards; /dev/snd is usually enough, and ALSA needs the
+# group that owns it (audio is 29 on Debian and Raspberry Pi OS - check with
+# `getent group audio`).
+#
+# In the interface, choose Settings > Audio > output: "jack" for the analog
+# output, "usb" for a USB card, "hdmi" for the screen's.
+services:
+  rukebox:
+    image: ghcr.io/arubinu/rukebox:latest
+    container_name: rukebox
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - "29"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - ${RUKEBOX_MUSIC:-./music}:/music:ro

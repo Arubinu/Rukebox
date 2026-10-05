@@ -77,6 +77,17 @@ git clone https://github.com/Arubinu/Rukebox.git && cd Rukebox
 sudo ./scripts/install.sh
 ```
 
+**Geen Raspberry Pi?** Rukebox draait met Docker ook in een container (een
+NAS, een mini-pc, een server) - zonder accesspoint, GPIO en hardwareklok:
+
+```bash
+docker compose -f docker/compose.stream.yml up -d
+```
+
+De muziek hoor je met "Hier luisteren" in de interface, in VLC of op een
+netwerkspeaker. Zie
+[In een container draaien](docs/guide.md#running-in-a-container-docker).
+
 ## 🎛️ In het dagelijks gebruik
 
 | Gebaar | Standaard |

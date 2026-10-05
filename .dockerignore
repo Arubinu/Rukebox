@@ -1,0 +1,21 @@
+# What `docker build` must not send: the whole development tree is not the
+# image, and a music library never is.
+.git
+.github
+.venv
+node_modules
+graphify-out
+dist
+bootstrap
+docs
+tests
+**/__pycache__
+*.pyc
+*.pyo
+*.log
+CLAUDE.md
+PLAN.md
+TODO.md
+package.json
+package-lock.json
+.probe

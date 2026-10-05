@@ -1,0 +1,21 @@
+# Rukebox in a container - Variant 1: the network stream, and nothing else.
+#
+#   docker compose -f docker/compose.stream.yml up -d
+#
+# This is the one that always works: no sound card, no Bluetooth, no
+# privileges. The radio still plays; you hear it with "Listen here" on the
+# page, in VLC (open http://<host>:8080/stream.opus), or on a network speaker.
+#
+# Turn the stream on first: Settings > Audio > Network audio stream, or the
+# /config/rukebox.yaml the container writes on its first start.
+services:
+  rukebox:
+    image: ghcr.io/arubinu/rukebox:latest
+    container_name: rukebox
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - ${RUKEBOX_MUSIC:-./music}:/music:ro

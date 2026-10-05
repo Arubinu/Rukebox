@@ -24,6 +24,10 @@ src/track_order.py          Saved order of announcement folders
 src/config_schema.py        Every setting, with its default and documentation
 src/config_file.py          Reads/writes rukebox.yaml, generates rukebox.env
 src/config_bundle.py        Configuration export / import
+src/paths.py                The four roots (/config, /data, /music) and how they move
+src/platform.py             What the machine is and what it can do
+src/system_actions.py       Services, power and the clock: one call per platform
+src/stream.py               The network output: encoded and served over HTTP
 src/stats.py                Usage statistics (SQLite)
 src/suggestions.py          Suggestion box, devices, nicknames and votes
 src/audio_output.py         Audio outputs (Bluetooth, jack, USB, HDMI)
@@ -48,6 +52,8 @@ scripts/update.sh           Updater: USB, Git or GitHub release, with rollback
 scripts/firstboot.sh        Automatic installation on the first boot
 scripts/*.sh                Access point, USB gadget, Bluetooth, LED, Wi-Fi helpers
 systemd/*.service           One unit per component
+docker/                     The container: supervisor, compose files, PipeWire sink
+Dockerfile                  The image (ghcr.io/arubinu/rukebox)
 config/                     Configuration template and sudo grants
 bootstrap/                  Card preparation and pushes from a computer
 tests/                      Unit tests (python3 -m unittest discover -s tests)
@@ -368,6 +374,87 @@ the interface saves applies at once; a hand edit is read when the services
 restart (`sudo systemctl restart rukebox-daemon.service`). See
 "Configuration" below for how this file works and how it relates to the web
 interface's settings form.
+
+## Running in a container (Docker)
+
+Rukebox runs on anything with Docker — a NAS, a mini-PC, a server — with a
+different set of features, because a container has no access point, no GPIO
+pin, no hardware clock and no USB gadget. The interface hides the cards that
+would lead nowhere (see "What a machine can do" below); what is left is the
+radio, its music, its schedules, its statistics and its web interface.
+
+The image is `ghcr.io/arubinu/rukebox`, published for `amd64`, `arm64` and
+`armv7` — a Pi Zero 2 W runs the armv7 one. Four `docker compose` files in
+`docker/` are the four ways of hearing it:
+
+```bash
+# 1. The network stream, and nothing else. Always works.
+docker compose -f docker/compose.stream.yml up -d
+
+# 2. A sound card of THIS machine, given to the container
+docker compose -f docker/compose.alsa.yml up -d
+
+# 3. The PipeWire already running on this machine
+docker compose -f docker/compose.pipewire.yml up -d
+
+# 4. Bluetooth, through the host's BlueZ (network_mode: host)
+docker compose -f docker/compose.bluetooth.yml up -d
+```
+
+Then open `http://<this machine>:8080` (port 80 in variant 4, which shares
+the host's network). The three volumes are the three roots the project uses
+everywhere, moved by the environment rather than by a rewritten file:
+
+| In the container | What it holds | On a Pi |
+|---|---|---|
+| `/config` | `rukebox.yaml`, the JSON files it manages | `/etc/rukebox` |
+| `/data` | statistics, library catalogue, queue, likes | `/var/lib/rukebox` |
+| `/music` | the audio tree, mounted read-only if you like | `/home/pi/audio` |
+
+`RUKEBOX_CONFIG_DIR`, `RUKEBOX_STATE_DIR`, `RUKEBOX_MUSIC_DIR` and
+`RUKEBOX_INSTALL_DIR` move them; inside the container they are set by the
+image. The configuration is written on the first start, with those paths in
+it — there is nothing to prepare and nothing to edit before the first `up`.
+
+### Variant 1: hearing it at all
+
+A container with no sound card still plays: it plays into a **virtual
+output** of its own (`docker/pipewire-container.conf`, a PipeWire null sink
+named `rukebox_output`), and the network stream encodes that output's
+monitor. That is what "Listen here" on the player plays, and what VLC or a
+network speaker plays from `http://<host>:8080/stream.opus`.
+
+Turn it on in **Settings → Audio → Network audio stream** (it is off by
+default, because it costs an ffmpeg process — a Pi Zero would rather not run
+one). `STREAM_ENCODER` picks the codec (`opus` by default, which every
+browser plays), and the same page offers a **codec** row for Bluetooth only
+when there is Bluetooth.
+
+**Think about the password first**: anyone who can reach the page can listen
+to the library. `WEB_PASSWORD_HASH` is the only thing in the way, and on a
+container the network around it is usually not a private access point.
+
+### What a machine can do
+
+`src/platform.py` decides, once, what the machine is (`pi`, `lxc`, `docker`,
+`host`) and what it can do — an access point, Bluetooth, GPIO, a hardware
+clock, a local sound card, switching itself off, updating itself in place.
+`/api/status` publishes that list, the interface hides what is missing, and
+the routes behind those cards answer `unsupported_here` rather than failing
+on a binary that is not installed.
+
+`RUKEBOX_PLATFORM` forces the answer, which is how the test suite runs as a
+Pi by default and as a container in `tests/web/platform.test.js` and
+`tests/test_platform.py`.
+
+Two consequences worth knowing before you look for a card:
+
+- **"Switch off" ends the container's processes**, and `restart:
+  unless-stopped` in the compose file is what brings them back — so "Restart
+  the service" and the evening cutoff both work, without a systemd.
+- **"Update"** cannot replace the tree in place: the image is the unit of
+  update. The card shows the one line to run (`docker compose pull`), and
+  `UPDATE_DOCKER_IMAGE` is the image it names.
 
 ## Admin access point
 
@@ -3041,6 +3128,15 @@ starts later if both fallbacks fail).
   `systemd/` wholesale. Anything you added by hand inside `/opt/rukebox` is lost on
   update (it is in the backup, but not restored automatically). Keep
   local changes in the project you push, not on the Pi.
+- **In a container**, the network around it is not the private access point
+  the security model assumes: the "Guest access" quotas, the portal and the
+  device bans are all about that access point, so put a password on and mind
+  who can reach the port. The stream is served to anyone who can reach it -
+  the audio itself is not behind the password, only the button that offers
+  the address is.
+- **In a container**, "switch off" ends its processes and the restart policy
+  brings them back: `restart: no` in the compose file is what makes the
+  evening cutoff leave the container down until you start it.
 - Updating from Git needs the Pi to have temporary network access. With
   no network it fails cleanly, changing nothing, and points at
   `setup_home_wifi.sh`.

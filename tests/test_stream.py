@@ -7,6 +7,7 @@ behind follows the present rather than the past, and that an encoder which
 cannot start is given up on rather than restarted for ever. ffmpeg and pactl
 are faked: there is no PipeWire under this test."""
 import io
+import json
 import os
 import time
 import unittest
@@ -23,33 +24,64 @@ def fake_run(stdout="", returncode=0):
 
 
 class ProbeSourceTest(unittest.TestCase):
+    """`pactl` answers first, `pw-dump` when there is no Pulse layer."""
+
+    def pactl(self, sources="", default="", fails=False):
+        def run(command, **_kwargs):
+            if command[0] != "pactl":
+                return mock.Mock(returncode=127, stdout="", stderr="")
+            if fails:
+                return mock.Mock(returncode=1, stdout="", stderr="connection refused")
+            if command[1] == "get-default-sink":
+                return mock.Mock(returncode=0, stdout=default, stderr="")
+            return mock.Mock(returncode=0, stdout=sources, stderr="")
+        return mock.patch.object(stream.subprocess, "run", side_effect=run)
+
     def test_the_default_sinks_monitor_is_preferred(self):
-        with mock.patch.object(stream.subprocess, "run",
-                               side_effect=fake_run(stdout="alsa_output.pci.analog\n")):
-            self.assertEqual(stream.probe_source(), "alsa_output.pci.analog.monitor")
+        sources = ("32\talsa_output.usb.monitor\tPipeWire\tfloat32le\n"
+                   "33\talsa_output.pci.monitor\tPipeWire\tfloat32le\n")
+        with self.pactl(sources=sources, default="alsa_output.pci\n"):
+            self.assertEqual(stream.probe_source(), "alsa_output.pci.monitor")
 
     def test_any_monitor_is_the_fallback(self):
+        sources = "32\tbluez_output.speaker.monitor\tPipeWire\tfloat32le\n"
+        with self.pactl(sources=sources, default="something.else\n"):
+            self.assertEqual(stream.probe_source(), "bluez_output.speaker.monitor")
+
+    def test_the_first_monitor_when_pactl_cannot_name_the_default(self):
+        sources = "32\trukebox_output.monitor\tPipeWire\tfloat32le\n"
+        with self.pactl(sources=sources, default=""):
+            self.assertEqual(stream.probe_source(), "rukebox_output.monitor")
+
+    def test_no_monitor_at_all_is_an_empty_source(self):
+        with self.pactl(sources="32\talsa_input.mic\tPipeWire\tfloat32le\n"):
+            self.assertEqual(stream.probe_source(), "")
+
+    def test_a_pactl_that_cannot_connect_falls_through_to_pw_dump(self):
+        dump = json.dumps([{"info": {"props": {"node.name": "snd.monitor",
+                                               "media.class": "Audio/Source"}}}])
         calls = []
 
         def run(command, **_kwargs):
-            calls.append(command)
-            if command[1] == "get-default-sink":
-                return mock.Mock(returncode=1, stdout="", stderr="no server")
-            return mock.Mock(returncode=0,
-                             stdout="42\talsa_output.usb.monitor\tmodule\tRUNNING\n",
-                             stderr="")
+            calls.append(command[0])
+            if command[0] == "pactl":
+                return mock.Mock(returncode=1, stdout="", stderr="connection refused")
+            return mock.Mock(returncode=0, stdout=dump, stderr="")
 
         with mock.patch.object(stream.subprocess, "run", side_effect=run):
-            self.assertEqual(stream.probe_source(), "alsa_output.usb.monitor")
-        self.assertEqual(len(calls), 2)
+            self.assertEqual(stream.probe_source(), "snd.monitor")
+        self.assertEqual(calls, ["pactl", "pw-dump"],
+                         "a pactl that cannot connect is not asked twice")
 
-    def test_no_pipewire_is_an_empty_source_not_a_crash(self):
+    def test_no_sound_server_at_all_is_an_empty_source_not_a_crash(self):
         with mock.patch.object(stream.subprocess, "run", side_effect=OSError):
             self.assertEqual(stream.probe_source(), "")
 
-    def test_a_sink_that_answers_nothing_falls_through(self):
-        with mock.patch.object(stream.subprocess, "run", side_effect=fake_run(stdout="")):
-            self.assertEqual(stream.probe_source(), "")
+    def test_a_dump_that_is_not_json_falls_through(self):
+        with self.pactl(fails=True):
+            with mock.patch.object(stream.subprocess, "run",
+                                   side_effect=fake_run(stdout="oops")):
+                self.assertEqual(stream.probe_source(), "")
 
 
 class EncodersTest(unittest.TestCase):

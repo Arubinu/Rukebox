@@ -1,0 +1,27 @@
+# Rukebox in a container - Variant 3: the PipeWire of the host.
+#
+#   docker compose -f docker/compose.pipewire.yml up -d
+#
+# The container plays to whatever the machine plays to, through the socket of
+# the sound server already running there. Nothing is started inside (the
+# supervisor notices the socket and steps aside). Useful on a desktop where
+# PipeWire is already set up.
+#
+# Replace 1000 with your own user id (`id -u`): /run/user/<id> is where the
+# socket lives, and it is a per-user path.
+services:
+  rukebox:
+    image: ghcr.io/arubinu/rukebox:latest
+    container_name: rukebox
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PIPEWIRE_RUNTIME_DIR: /run/rukebox
+      PULSE_SERVER: unix:/run/rukebox/pulse/native
+    volumes:
+      - /run/user/1000/pipewire-0:/run/rukebox/pipewire-0
+      - /run/user/1000/pulse:/run/rukebox/pulse
+      - ./config:/config
+      - ./data:/data
+      - ${RUKEBOX_MUSIC:-./music}:/music:ro
