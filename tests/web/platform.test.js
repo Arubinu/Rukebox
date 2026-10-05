@@ -16,11 +16,13 @@ const DOCKER = { platform: "docker", access_point: false, bluetooth: true,
                  wireless: false };
 
 function withCaps(caps, options = {}) {
-  return load(Object.assign({}, options, {
-    routes: Object.assign({}, options.routes, {
-      "GET /api/status": Object.assign({}, STATUS, { capabilities: caps }),
-    }),
-  }));
+  // A caller that brings its own status keeps it: this only fills in the
+  // capabilities when the test has nothing more specific to say.
+  const routes = Object.assign({}, options.routes);
+  if (!routes["GET /api/status"]) {
+    routes["GET /api/status"] = Object.assign({}, STATUS, { capabilities: caps });
+  }
+  return load(Object.assign({}, options, { routes }));
 }
 
 function rowsOf(document) {
@@ -87,6 +89,50 @@ test("an area with nothing left is not a tab any more", async (t) => {
   assert.ok(network.hasAttribute("data-empty"));
   const audio = page.document.querySelector('.tab-btn[data-tab="audio"]');
   assert.equal(audio.hidden, false, "a container still has its sound card and Bluetooth");
+  await page.close();
+});
+
+test("a stream that is off says so instead of offering a silent button", async (t) => {
+  t.diagnostic("\"nothing plays\" has several causes, and a browser cannot see any of them");
+  const page = withCaps(PI, {
+    routes: { "GET /api/status": Object.assign({}, STATUS, {
+      capabilities: PI,
+      stream: { enabled: false, available: false, url: "", encoder: "",
+                content_type: "", listeners: 0, source: "", why: "off" },
+    }) },
+  });
+  await until(() => page.document.body.dataset.caps !== undefined);
+  assert.equal(page.$("btnListen").hidden, true, "no button when there is nothing to hear");
+  const hint = page.$("listenWhy");
+  assert.equal(hint.hidden, false, "the line carries the reason");
+  assert.match(hint.textContent, /Network audio stream/i,
+               "and it says where to turn it on");
+  await page.close();
+});
+
+test("a stream that is ready shows the button and no excuse", async (t) => {
+  t.diagnostic("with the stream on, nothing to explain: the button is just there");
+  const page = withCaps(PI, {
+    routes: { "GET /api/status": Object.assign({}, STATUS, {
+      capabilities: PI,
+      stream: { enabled: true, available: true, url: "http://x/stream.opus", encoder: "opus",
+                content_type: "audio/ogg", listeners: 0, source: "sink.monitor", why: "" },
+    }) },
+  });
+  await until(() => page.document.body.dataset.caps !== undefined);
+  assert.equal(page.$("btnListen").hidden, false);
+  assert.equal(page.$("listenWhy").hidden, true);
+  await page.close();
+});
+
+test("a status that says nothing about the stream is not an accusation", async (t) => {
+  t.diagnostic("an older daemon answers the same address: the page keeps quiet");
+  const withoutStream = Object.assign({}, STATUS);
+  delete withoutStream.stream;
+  const page = load({ routes: { "GET /api/status": withoutStream } });
+  await until(() => page.document.body.dataset.caps !== undefined);
+  assert.equal(page.$("listenWhy").hidden, true);
+  assert.equal(page.$("listenWhy").textContent, "");
   await page.close();
 });
 

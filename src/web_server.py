@@ -252,7 +252,11 @@ def stream_audio(ext=None):
     first second before the next one is encoded."""
     server = stream_server()
     if server is None or not server.source:
-        return jsonify({"ok": False, "error": "stream_unavailable"}), 503
+        # VLC gets a code rather than silence, and the page says the same thing
+        # in words: the stream can simply be off, and that is not a bug.
+        why = "off" if server is None else stream_mod.why_unavailable(
+            env=stream_mod.audio_env())
+        return jsonify({"ok": False, "error": "stream_unavailable", "why": why}), 503
     headers = {
         "Content-Type": server.content_type,
         "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -4085,7 +4089,11 @@ def _stream_status():
     url = ""
     if server is not None and server.source:
         url = request.host_url.rstrip("/") + "/stream." + server.suffix
-    return stream_mod.status(server, url=url)
+    data = stream_mod.status(server, url=url)
+    if data["enabled"] and not data["available"]:
+        # Say WHICH cause it is: no tools, no sound server, no source at all.
+        data["why"] = stream_mod.why_unavailable(env=stream_mod.audio_env())
+    return data
 
 
 BT_SCAN_SECONDS = 15

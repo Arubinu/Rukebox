@@ -424,19 +424,29 @@ named `rukebox_output`), and the network stream encodes that output's
 monitor. That is what "Listen here" on the player plays, and what VLC or a
 network speaker plays from `http://<host>:8080/stream.opus`.
 
-**It is a real output, in the list like any other.** The first start writes
-`AUDIO_OUTPUT=docker` into the configuration, which the **Audio output** card
-shows as *Network stream* — so the card says where the sound goes, the daemon
-points mpv at that sink, and the card's own line explains that it is heard
-rather than played. Choosing another output there works exactly as on a Pi;
-the file is the single source of truth from then on (not an environment
-variable, which would win over the file and undo the choice at the next
-restart).
+**It is a real output, in the list like any other, and it is the container's
+own.** The first start writes `AUDIO_OUTPUT=docker` into the configuration,
+which the **Audio output** card shows as *Network stream* — so the card says
+where the sound goes, the daemon points mpv at the virtual sink, and the
+card's own line explains that it is heard rather than played. Choosing another
+output there works exactly as on a Pi; the file is the single source of truth
+from then on (not an environment variable, which would win over the file and
+undo the choice at the next restart).
+
+**On a Pi there is no virtual output**, and the card's list does not pretend
+otherwise: the Pi's network stream encodes whichever output is *already*
+selected (the Bluetooth speaker, the jack, a USB card), so it is heard over
+the network without changing where the sound goes. That is the useful shape
+there — no extra sink to create, nothing that can steal the default output,
+and no way to end up with a radio nobody can hear. Two devices can then listen
+to the same speaker at once, which on a Pi is the point.
 
 Turn the stream on in the same card (**Network audio stream** — it is on by
-default in the image, because on a container it *is* the output).
-`STREAM_ENCODER` picks the codec (`opus` by default, which every browser
-plays).
+default in the image, because on a container it *is* the output; a Pi leaves
+it off, since it costs an ffmpeg process). `STREAM_ENCODER` picks the codec
+(`opus` by default, which every browser plays). If nothing comes out, the line
+under the player says which of the causes it is: the stream is off, ffmpeg is
+missing, or the sound server answers nothing.
 
 **Think about the password first**: anyone who can reach the page can listen
 to the library. `WEB_PASSWORD_HASH` is the only thing in the way, and on a

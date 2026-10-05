@@ -1948,31 +1948,56 @@ function timerChoiceBody(groups, intro) {
    Nothing here starts the encoder - the server does that - and an <audio>
    element pointed at the URL is all a browser needs for a stream that never
    ends. A phone that locks the screen stops the sound, which is the phone's
-   decision, not ours. */
+   decision, not ours.
+
+   When there is nothing to play, the button says WHY: "the stream is off" and
+   "there is no sound server" are very different answers, and a browser cannot
+   see either of them. The codes come from src/stream.py's why_unavailable(). */
 let listenAudio = null;
 let listenUrl = "";
+let listenWhy = "";
 
 function paintListen(playing) {
   const btn = document.getElementById("btnListen");
-  if (!btn) return;
+  const tell = document.getElementById("listenWhy");
+  const label = btn && btn.querySelector("span");
+  if (!btn || !tell || !label) return;
   const on = playing !== undefined ? playing : !!(listenAudio && !listenAudio.paused);
   btn.setAttribute("aria-pressed", on ? "true" : "false");
   const key = on ? "stream.stop" : "stream.listen";
   btn.dataset.i18n = key;
-  btn.querySelector("span").dataset.i18n = key;
-  btn.querySelector("span").textContent = t(key);
+  label.dataset.i18n = key;
+  label.textContent = t(key);
+  const whyKey = on || !listenWhy ? "" : "stream.why_" + listenWhy;
+  tell.dataset.i18n = whyKey;
+  tell.textContent = whyKey ? t(whyKey) : "";
+  tell.hidden = !whyKey;
 }
 
 function applyListen(d) {
   const btn = document.getElementById("btnListen");
-  if (!btn) return;
+  const tell = document.getElementById("listenWhy");
+  // Both, not just the button: a status can arrive before the line below the
+  // player is parsed, and paintListen() reads it.
+  if (!btn || !tell) return;
   const stream = d.stream || {};
+  // A status that says nothing about the stream (an older daemon, or another
+  // server answering the same address) leaves the page as it is, rather than
+  // accusing this machine of having no source.
+  if (!("enabled" in stream)) return;
   const available = !!stream.available && !!stream.url;
+  listenUrl = stream.url || "";
+  listenWhy = available ? "" : (stream.why || "no_source");
   btn.hidden = !available;
-  if (!available) return;
-  listenUrl = stream.url;
+  if (!available) {
+    // Nothing to offer: the button goes, and the line beside the player says
+    // what is missing - it is the only place the reason can be read.
+    paintListen(false);
+    return;
+  }
   btn.dataset.i18nTitle = "stream.listen_hint";
   btn.title = t("stream.listen_hint");
+  paintListen();
 }
 
 document.getElementById("btnListen").addEventListener("click", async () => {

@@ -448,6 +448,13 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         apt-get install -y libttspico-utils espeak-ng >/dev/null 2>&1 \
             || echo "WARNING: no speech program (libttspico-utils, espeak-ng): the radio cannot say the time."
     fi
+    # `pactl` is how the network stream finds the output to encode, and how the
+    # audio diagnostic reports it. An installation from before this release has
+    # neither pipewire-pulse nor pulseaudio-utils.
+    if ! command -v pactl >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+        apt-get install -y pipewire-pulse pulseaudio-utils >/dev/null 2>&1 \
+            || echo "WARNING: pactl is missing (pipewire-pulse, pulseaudio-utils): the network stream may find no output to encode."
+    fi
 fi
 
 if [ -f "$INSTALL_DIR/config/sudoers-rukebox" ]; then

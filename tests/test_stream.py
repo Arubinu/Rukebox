@@ -273,6 +273,7 @@ class StatusTest(unittest.TestCase):
         self.assertFalse(data["enabled"])
         self.assertFalse(data["available"])
         self.assertEqual(data["url"], "")
+        self.assertEqual(data["why"], "off")
 
     def test_a_server_with_no_source_is_not_offered(self):
         with mock.patch.object(stream, "encoders_available", return_value=["opus"]):
@@ -281,6 +282,7 @@ class StatusTest(unittest.TestCase):
         self.assertTrue(data["enabled"])
         self.assertFalse(data["available"])
         self.assertEqual(data["url"], "", "a URL that plays silence is worse than none")
+        self.assertEqual(data["why"], "no_source")
 
     def test_a_ready_server_carries_its_url_and_codec(self):
         server = build_server()
@@ -290,6 +292,45 @@ class StatusTest(unittest.TestCase):
         self.assertEqual(data["encoder"], "opus")
         self.assertEqual(data["content_type"], "audio/ogg")
         self.assertEqual(data["listeners"], 0)
+        self.assertEqual(data["why"], "")
+
+
+class WhyUnavailableTest(unittest.TestCase):
+    """"Nothing plays over the network" has several causes, and a browser
+    cannot tell them apart: each one gets its own code."""
+
+    def with_tools(self, present, monitors=None):
+        def has(name):
+            return name in present
+
+        patchers = [mock.patch.object(stream, "_has_program", side_effect=has)]
+        if monitors is not None:
+            patchers.append(mock.patch.object(stream, "_all_sources",
+                                              return_value=monitors))
+        for patcher in patchers:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_no_tools_at_all(self):
+        self.with_tools(set(), [])
+        self.assertEqual(stream.why_unavailable(), "no_tools")
+
+    def test_no_ffmpeg(self):
+        self.with_tools({"pw-dump"}, [])
+        self.assertEqual(stream.why_unavailable(), "no_ffmpeg")
+
+    def test_no_sound_server(self):
+        self.with_tools({"pw-dump", "ffmpeg"}, None)
+        self.assertEqual(stream.why_unavailable(), "no_sound_server")
+
+    def test_a_sound_server_with_nothing_to_encode(self):
+        """The container before its virtual sink exists."""
+        self.with_tools({"pw-dump", "ffmpeg"}, [])
+        self.assertEqual(stream.why_unavailable(), "no_source")
+
+    def test_a_monitor_is_there(self):
+        self.with_tools({"pw-dump", "ffmpeg"}, ["sink.monitor"])
+        self.assertEqual(stream.why_unavailable(), "unknown")
 
 
 if __name__ == "__main__":

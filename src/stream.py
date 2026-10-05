@@ -67,7 +67,8 @@ def probe_source(env=None, timeout=6):
     `pactl` first - it is the compatibility layer of PipeWire, and it has been
     the one that answers everywhere this was tried, including inside the
     container where `pw-dump` cannot reach the daemon at all. `pw-dump` second,
-    for a machine running bare PipeWire with no Pulse layer at all.
+    for a machine running bare PipeWire with no Pulse layer at all (a Pi
+    without pipewire-pulse, where pw-dump works and pactl is not installed).
 
     The default output's own monitor first, then any monitor there is."""
     from_pactl = _probe_with_pactl(env, timeout)
@@ -76,20 +77,68 @@ def probe_source(env=None, timeout=6):
     return _probe_with_pw_dump(env, timeout)
 
 
-def _probe_with_pactl(env, timeout):
-    """("" when there is no monitor) or None when pactl is not usable."""
+def why_unavailable(env=None):
+    """A code saying why there is no monitor, for the interface to show.
+
+    "Nothing plays over the network" has several very different causes, and
+    they are not diagnosable from a browser: the stream can be off, the sound
+    server can be absent, or it can have no source to encode (a container
+    without its virtual sink). Each gets its own code, so the page can say
+    which one it is instead of leaving a silent button."""
+    if not _has_program("pw-dump") and not _has_program("pactl"):
+        return "no_tools"
+    if not _has_program("ffmpeg"):
+        return "no_ffmpeg"
+    sources = _all_sources(env)
+    if sources is None:
+        return "no_sound_server"
+    if not sources:
+        return "no_source"
+    return "unknown"
+
+
+def _has_program(name):
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        if directory and os.path.exists(os.path.join(directory, name)):
+            return True
+    return False
+
+
+def _all_sources(env=None):
+    """What can be encoded, or None when the sound server cannot be asked.
+
+    A monitor source when PipeWire advertises one, and the default sink's name
+    plus `.monitor` otherwise: PipeWire lets a capture client attach that way
+    even when the monitor node is not listed, which is what makes this work on
+    a machine where nothing has listed the sources yet (a Pi whose pactl was
+    just installed, before anything has asked)."""
+    from_pactl = _monitors_from_pactl(env, 6)
+    if from_pactl is not None:
+        return from_pactl or _sinks_from_pactl(env, 6)
+    dump = _pw_dump(env, 6)
+    if dump is None:
+        return None
+    monitors, sinks = _nodes_from_dump(dump)
+    return monitors or sinks
+
+
+def _sinks_from_pactl(env, timeout=6):
     try:
-        done = subprocess.run(["pactl", "list", "short", "sources"],
+        done = subprocess.run(["pactl", "list", "short", "sinks"],
                               capture_output=True, text=True, timeout=timeout, env=env)
     except (OSError, subprocess.SubprocessError):
-        return None
+        return []
     if done.returncode != 0:
+        return []
+    return [line.split()[1] for line in (done.stdout or "").splitlines()
+            if len(line.split()) >= 2]
+
+
+def _probe_with_pactl(env, timeout):
+    """("" when there is no monitor) or None when pactl is not usable."""
+    monitors = _monitors_from_pactl(env, timeout)
+    if monitors is None:
         return None
-    monitors = []
-    for line in (done.stdout or "").splitlines():
-        parts = line.split()
-        if len(parts) >= 2 and parts[1].endswith(".monitor"):
-            monitors.append(parts[1])
     if not monitors:
         return ""
     try:
@@ -105,29 +154,74 @@ def _probe_with_pactl(env, timeout):
     return monitors[0]
 
 
+def _monitors_from_pactl(env, timeout=6):
+    """["sink.monitor", ...] or None when pactl cannot be asked."""
+    try:
+        done = subprocess.run(["pactl", "list", "short", "sources"],
+                              capture_output=True, text=True, timeout=timeout, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    monitors = []
+    for line in (done.stdout or "").splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1].endswith(".monitor"):
+            monitors.append(parts[1])
+    return monitors
+
+
 def _probe_with_pw_dump(env, timeout):
+    dump = _pw_dump(env, timeout)
+    if dump is None:
+        return ""
+    monitors, sinks = _nodes_from_dump(dump)
+    for sink in sinks:
+        if sink + ".monitor" in monitors:
+            return sink + ".monitor"
+    if monitors:
+        return monitors[0]
+    # Nothing advertises a monitor: PipeWire still lets a capture client
+    # attach to the sink's own monitor by name, which is what the stream needs.
+    return (sinks[0] + ".monitor") if sinks else ""
+
+
+def _monitors_from_pw_dump(env, timeout=6):
+    """["sink.monitor", ...] or None when pw-dump cannot be asked."""
+    dump = _pw_dump(env, timeout)
+    if dump is None:
+        return None
+    return _nodes_from_dump(dump)[0]
+
+
+def _nodes_from_dump(dump):
+    """(monitors, sinks): one pass in one dump, never two `pw-dump` calls."""
+    monitors, sinks = [], []
+    for props in _node_props(dump):
+        name = props["node.name"]
+        if props.get("media.class") == "Audio/Sink":
+            sinks.append(name)
+        elif props.get("media.class") == "Audio/Source" and name.endswith(".monitor"):
+            monitors.append(name)
+    return monitors, sinks
+
+
+def _pw_dump(env, timeout=6):
     import json
 
     try:
         done = subprocess.run(["pw-dump"], capture_output=True, text=True,
                               timeout=timeout, env=env)
-        dump = json.loads(done.stdout or "[]")
+        return json.loads(done.stdout or "[]")
     except (OSError, subprocess.SubprocessError, ValueError):
-        return ""
-    sinks, monitors = [], []
+        return None
+
+
+def _node_props(dump):
     for obj in dump if isinstance(dump, list) else []:
         props = ((obj or {}).get("info") or {}).get("props") or {}
-        name = props.get("node.name") or ""
-        if not name:
-            continue
-        if props.get("media.class") == "Audio/Sink":
-            sinks.append(name)
-        elif props.get("media.class") == "Audio/Source" and name.endswith(".monitor"):
-            monitors.append(name)
-    for sink in sinks:
-        if sink + ".monitor" in monitors:
-            return sink + ".monitor"
-    return monitors[0] if monitors else ""
+        if props.get("node.name"):
+            yield props
 
 
 def encoders_available(ffmpeg="ffmpeg", timeout=10):
@@ -362,16 +456,23 @@ def uid():
 
 
 def status(server, url=""):
-    """What /api/stream answers: enough for the page to offer or refuse."""
+    """What /api/stream answers: enough for the page to offer or refuse.
+
+    `why` is the code saying what is missing, and it is only filled when
+    something IS missing: an interface that offers a button leading nowhere
+    has to say which of the causes it is."""
     if server is None:
         return {"enabled": False, "available": False, "url": "", "encoder": "",
-                "content_type": "", "listeners": 0, "source": ""}
+                "content_type": "", "listeners": 0, "source": "",
+                "why": "off"}
+    available = bool(server.source)
     return {
         "enabled": True,
-        "available": bool(server.source),
-        "url": url if server.source else "",
-        "encoder": server.encoder if server.source else "",
-        "content_type": server.content_type if server.source else "",
+        "available": available,
+        "url": url if available else "",
+        "encoder": server.encoder if available else "",
+        "content_type": server.content_type if available else "",
         "listeners": server.listener_count(),
         "source": server.source,
+        "why": "" if available else "no_source",
     }

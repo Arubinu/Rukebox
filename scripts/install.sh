@@ -165,7 +165,12 @@ apt-get update
 # util-linux-extra carries hwclock, which writes a time set by hand into the clock module.
 apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit util-linux-extra \
     espeak-ng \
-    pipewire pipewire-bin wireplumber pipewire-audio
+    pipewire pipewire-bin wireplumber pipewire-audio \
+    pipewire-pulse pulseaudio-utils
+# pipewire-pulse and pulseaudio-utils carry `pactl`, which the network stream
+# uses to find the output to encode (and which the audio diagnostic reports
+# with). `pactl` answers where `pw-dump` cannot - notably inside a container -
+# so having both is what keeps the stream findable everywhere.
 # pico2wave is the nicer French voice and not in every Debian (trixie dropped
 # it): src/speech.py tries it first and then uses espeak-ng, so its absence is
 # not a reason to stop the installation.

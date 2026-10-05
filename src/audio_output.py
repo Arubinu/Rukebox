@@ -10,8 +10,9 @@ KINDS = ("bluetooth", "jack", "usb", "hdmi", "docker")
 
 # The virtual sink the container plays into, and the one
 # docker/pipewire-container.conf creates for it. Named for what it is rather
-# than for the container: a Pi can be given the same one (see the Audio
-# output card), and the network stream is what makes it audible.
+# than for the container, because it is offered as an output like any other -
+# but ONLY the container has it: on a Pi the network stream encodes the output
+# that is already there (the speaker, the jack) and hears it over the network.
 VIRTUAL_SINK = "rukebox_output"
 
 
