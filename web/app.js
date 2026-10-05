@@ -647,6 +647,23 @@ function refreshPageMenus() {
       });
     }
   });
+  paintAreaTabs();
+}
+
+/* An area whose every page needs something this machine has not got is not an
+   area any more: on a container the whole Network tab is the access point, the
+   connected devices and the personal Wi-Fi. Its button goes, and a page that
+   was open in it lands back on Home rather than on an empty grid. */
+function paintAreaTabs() {
+  document.querySelectorAll(".tab-btn[data-tab]").forEach((btn) => {
+    const empty = availablePages(btn.dataset.tab).length === 0;
+    btn.hidden = empty;
+    btn.toggleAttribute("data-empty", empty);
+  });
+  const tab = document.body.dataset.tab;
+  if (tab && availablePages(tab).length === 0) {
+    setActiveView(DEFAULT_VIEW.tab, null, { hash: false });
+  }
 }
 
 /* Empty cells fill the last row: the separators are the grid's own background showing through. */

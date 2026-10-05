@@ -78,6 +78,44 @@ test("a card the machine cannot honour leaves the area's menu", async (t) => {
   await page.close();
 });
 
+test("an area with nothing left is not a tab any more", async (t) => {
+  t.diagnostic("on a container the Network area IS the access point and its clients");
+  const page = withCaps(DOCKER);
+  await until(() => page.document.body.dataset.caps !== undefined);
+  const network = page.document.querySelector('.tab-btn[data-tab="network"]');
+  assert.equal(network.hidden, true, "its button goes");
+  assert.ok(network.hasAttribute("data-empty"));
+  const audio = page.document.querySelector('.tab-btn[data-tab="audio"]');
+  assert.equal(audio.hidden, false, "a container still has its sound card and Bluetooth");
+  await page.close();
+});
+
+test("a page left open in an area that emptied falls back to Home", async (t) => {
+  t.diagnostic("never an empty grid: the landing page is Home");
+  const page = withCaps(DOCKER);
+  await until(() => page.document.body.dataset.caps !== undefined);
+  page.window.location.hash = "#network/accesspoint";
+  page.window.dispatchEvent(new page.window.Event("hashchange"));
+  await until(() => page.document.body.dataset.tab === "home");
+  const cards = Array.from(page.document.querySelectorAll('.card[data-tab="network"]'))
+    .filter((card) => page.window.getComputedStyle(card).display !== "none"
+                      && !card.classList.contains("tab-hidden"));
+  assert.equal(cards.length, 0, "and no network card is left on screen");
+  await page.close();
+});
+
+test("the Pi keeps its areas", async (t) => {
+  t.diagnostic("the Stats button is a detail one and only shows in the full view");
+  const page = withCaps(PI);
+  await until(() => page.document.body.dataset.caps !== undefined);
+  const buttons = Array.from(page.document.querySelectorAll(".tab-btn[data-tab]"))
+    .filter((btn) => btn.dataset.level !== "detail");
+  assert.deepEqual(buttons.filter((btn) => btn.hidden).map((btn) => btn.dataset.tab), []);
+  assert.equal(page.document.querySelector('.tab-btn[data-tab="network"]').hasAttribute("data-empty"),
+               false);
+  await page.close();
+});
+
 test("a capability the machine has keeps its page", async (t) => {
   t.diagnostic("the same pages, on a machine that can do them");
   const page = withCaps(PI);
