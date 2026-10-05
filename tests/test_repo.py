@@ -195,6 +195,37 @@ class FilesTest(unittest.TestCase):
             self.assertIn("/config:/config", text, name)
             self.assertIn("/data:/data", text, name)
 
+    def test_the_community_scripts_are_present_and_well_formed(self):
+        """Three files, written to community-scripts' rules: the day this is
+        proposed upstream they are copied, not rewritten. They cannot be run
+        from here - there is no Proxmox host in the test suite - so what is
+        checked is that they are there, complete and JSON-valid."""
+        import json as jsonmod
+
+        for parts in (("community-scripts", "ct", "rukebox.sh"),
+                      ("community-scripts", "install", "rukebox-install.sh"),
+                      ("community-scripts", "json", "rukebox.json"),
+                      ("community-scripts", "README.md")):
+            self.assertTrue(os.path.exists(_path.repo_file(*parts)), "/".join(parts))
+
+        ct = _path.read("community-scripts", "ct", "rukebox.sh")
+        for needle in ('APP="Rukebox"', "header_info", "var_cpu=", "var_ram=",
+                       "var_disk=", "start", "build_container", "description",
+                       "function update_script"):
+            self.assertIn(needle, ct, needle)
+        install = _path.read("community-scripts", "install", "rukebox-install.sh")
+        for needle in ("setting_up_container", "network_check", "update_os",
+                       "motd_ssh", "customize", "cleanup_lxc", "RUKEBOX_PROFILE=lxc"):
+            self.assertIn(needle, install, needle)
+
+        fiche = jsonmod.loads(_path.read("community-scripts", "json", "rukebox.json"))
+        self.assertEqual(fiche["name"], "Rukebox")
+        self.assertEqual(fiche["slug"], "rukebox")
+        self.assertEqual(fiche["type"], "ct")
+        self.assertIn("install_methods", fiche)
+        # The JSON points at the script the ct/ file installs.
+        self.assertIn("rukebox-install", _path.read("community-scripts", "ct", "rukebox.sh"))
+
     def test_every_readme_says_a_container_is_possible(self):
         for lang in ("", ".fr", ".de", ".es", ".it", ".nl"):
             text = _path.read("README%s.md" % lang)

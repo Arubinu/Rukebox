@@ -8,6 +8,53 @@ fi
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# ---------------------------------------------------------------------------
+# Which machine is this?
+#
+# A Raspberry Pi gets everything. An LXC container (Proxmox, or any host with
+# lxc) keeps systemd, the units, the updater and the web interface, and loses
+# what a container cannot have: the access point, the USB gadget, the hardware
+# clock, GPIO, the activity LED. src/platform.py reaches the same conclusion
+# at run time, from the same two signs - this is the installer's own copy, for
+# the things that are decided before anything runs.
+#
+# RUKEBOX_PROFILE=pi|lxc forces it, which is what the tests use.
+# ---------------------------------------------------------------------------
+if [ -n "${RUKEBOX_PROFILE:-}" ]; then
+    PROFILE="$RUKEBOX_PROFILE"
+elif [ -e /dev/lxc ] || [ "${container:-}" = "lxc" ]; then
+    PROFILE="lxc"
+else
+    PROFILE="pi"
+fi
+if [ "$PROFILE" != "pi" ] && [ "$PROFILE" != "lxc" ]; then
+    echo "RUKEBOX_PROFILE must be 'pi' or 'lxc' (got '$PROFILE')." >&2
+    exit 2
+fi
+
+# The account the services run as. On a Pi that is the image's own user; in a
+# container it is a system account created below, and root is not one of them.
+if [ "$PROFILE" = "pi" ]; then
+    RUN_USER="${RUKEBOX_USER:-pi}"
+    AUDIO_ROOT="${RUKEBOX_AUDIO_ROOT:-/home/pi/audio}"
+    RTC_REQUIRED=1
+else
+    RUN_USER="${RUKEBOX_USER:-rukebox}"
+    AUDIO_ROOT="${RUKEBOX_AUDIO_ROOT:-/srv/rukebox/audio}"
+    # A container shares the host's clock and has no I2C bus of its own.
+    RTC_REQUIRED=0
+fi
+
+if [ "$PROFILE" = "lxc" ]; then
+    echo "== Container installation (LXC profile) =="
+    echo "This keeps the daemon, the web interface, the schedules, the"
+    echo "statistics and the updater. It does NOT install the access point,"
+    echo "the USB gadget, the hardware clock, GPIO or the activity LED: a"
+    echo "container has none of them. Set RUKEBOX_PROFILE=pi to insist."
+    echo ""
+fi
+
+if [ "$PROFILE" = "pi" ]; then
 echo "== Boot tweaks (optional) =="
 echo "These change the OS (not Rukebox), and are all reversible:"
 echo "  - boot to console instead of the desktop  (headless device)"
@@ -95,6 +142,14 @@ for leftover in user-data meta-data network-config; do
     [ -f "$BOOT_DIR/$leftover" ] && rm -f "$BOOT_DIR/$leftover"
 done
 
+else
+    # The container profile: none of the above means anything in there, and
+    # none of it can be undone with the SD card in another computer.
+    echo "== Skipping the Pi's boot configuration =="
+    echo "  boot target, cloud-init, config.txt, the RTC overlay, the Imager"
+    echo "  files on the boot partition: none of these exist in a container."
+fi
+
 echo "== Checking Internet access (needed once, for apt/pip) =="
 if ! timeout 5 bash -c 'cat < /dev/null > /dev/tcp/deb.debian.org/443' 2>/dev/null; then
     echo "ERROR: no Internet access detected (could not reach deb.debian.org:443)." >&2
@@ -109,8 +164,13 @@ apt-get update
 # rtkit gives the audio server realtime priority, so a busy moment does not make the sound stutter.
 # util-linux-extra carries hwclock, which writes a time set by hand into the clock module.
 apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit util-linux-extra \
-    libttspico-utils espeak-ng \
+    espeak-ng \
     pipewire pipewire-bin wireplumber pipewire-audio
+# pico2wave is the nicer French voice and not in every Debian (trixie dropped
+# it): src/speech.py tries it first and then uses espeak-ng, so its absence is
+# not a reason to stop the installation.
+apt-get install -y libttspico-utils \
+    || echo ">> pico2wave (libttspico-utils) is not in this release: announcements will use espeak-ng."
 # WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/wireplumber-bluez.conf" \
     /etc/wireplumber/wireplumber.conf.d/10-rukebox-bluez.conf
@@ -121,8 +181,12 @@ install -D -m 644 -o root -g root "$PROJECT_ROOT/config/journald-rukebox.conf" \
     /etc/systemd/journald.conf.d/50-rukebox.conf
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/rtkit-quiet.conf" \
     /etc/systemd/system/rtkit-daemon.service.d/50-rukebox-quiet.conf
-systemctl restart systemd-journald && journalctl --flush || true
-systemctl daemon-reload
+# A container has no journald of its own to reload (and `journalctl --flush`
+# there waits for a bus that is not coming).
+if [ "$PROFILE" = "pi" ]; then
+    systemctl restart systemd-journald && journalctl --flush || true
+fi
+systemctl daemon-reload 2>/dev/null || true
 pip3 install bleak flask --break-system-packages
 
 if [ -n "${RUKEBOX_SYSTEM_UPGRADE:-}" ]; then
@@ -145,7 +209,12 @@ fi
 
 echo "== Creating folders =="
 mkdir -p /opt/rukebox /etc/rukebox /var/lib/rukebox
-mkdir -p /home/pi/audio/{music,memes,morning_announcements,cutoff_announcements,doubleclick_announcements,system}
+mkdir -p "$AUDIO_ROOT"/{music,memes,morning_announcements,cutoff_announcements,doubleclick_announcements,system}
+
+if [ "$PROFILE" = "lxc" ] && ! id -u "$RUN_USER" > /dev/null 2>&1; then
+    echo "== Creating the '$RUN_USER' account the services run as =="
+    useradd --system --create-home --home-dir "/home/$RUN_USER" --shell /usr/sbin/nologin "$RUN_USER"
+fi
 
 echo "== Copying files =="
 cp -r "$PROJECT_ROOT/src" /opt/rukebox/
@@ -155,7 +224,7 @@ cp -r "$PROJECT_ROOT/config" /opt/rukebox/
 chmod +x /opt/rukebox/scripts/*.sh /opt/rukebox/src/*.py
 
 echo "== Copying confirmation sounds =="
-cp "$PROJECT_ROOT"/assets/sounds/*.wav /home/pi/audio/system/
+cp "$PROJECT_ROOT"/assets/sounds/*.wav "$AUDIO_ROOT/system/"
 
 action=$(python3 -c "
 import sys
@@ -169,11 +238,26 @@ case "$action" in
     *)             echo ">> /etc/rukebox/rukebox.yaml already present, left untouched." ;;
 esac
 
+if [ "$PROFILE" = "lxc" ]; then
+    # The template documents the Pi's own folders; this machine's are elsewhere.
+    python3 "$PROJECT_ROOT/src/config_file.py" set \
+        "MUSIC_DIR=$AUDIO_ROOT/music" \
+        "MEME_DIR=$AUDIO_ROOT/memes" \
+        "CUTOFF_ANNOUNCE_DIR=$AUDIO_ROOT/cutoff_announcements" \
+        "KEEPALIVE_SOUND=$AUDIO_ROOT/system/keepalive.wav" \
+        "CLOCK_OK_SOUND=$AUDIO_ROOT/system/clock_ok.wav" \
+        "CLOCK_FALLBACK_SOUND=$AUDIO_ROOT/system/clock_fallback.wav" \
+        "RESTART_SOUND=$AUDIO_ROOT/system/restart.wav" \
+        "AP_CONNECT_SOUND=" \
+        "BATTERY_LOW_SOUND=" > /dev/null
+    echo ">> Audio folders moved to $AUDIO_ROOT (the template documents the Pi's)."
+fi
+
 # WirePlumber reads the offered codecs from a drop-in generated from the config.
 python3 "$PROJECT_ROOT/src/bt_codec.py" write >/dev/null 2>&1 \
     || echo "WARNING: could not write the Bluetooth codec drop-in." >&2
 
-chown -R pi:pi /opt/rukebox /var/lib/rukebox /home/pi/audio /etc/rukebox
+chown -R "$RUN_USER:$RUN_USER" /opt/rukebox /var/lib/rukebox "$AUDIO_ROOT" /etc/rukebox
 
 echo "== Passwordless sudo for shutdown, clock, and web admin =="
 SUDOERS_FILE=/etc/sudoers.d/rukebox-poweroff
@@ -203,36 +287,66 @@ if [ ! -d /opt/fliclib-linux-hci ]; then
     /usr/local/sbin/rukebox-flic-sdk || echo "   Flic SDK not downloaded (no Internet?) - possible later from the web interface."
 fi
 
-echo "== Adding user pi to the bluetooth group (for bluetoothctl without sudo) =="
-usermod -aG bluetooth pi || true
+echo "== Adding $RUN_USER to the bluetooth group (for bluetoothctl without sudo) =="
+getent group bluetooth > /dev/null 2>&1 && usermod -aG bluetooth "$RUN_USER" || true
 
 echo "== Recording the installed version =="
 # The setup page stamps the release it was built from; a plain checkout has none.
 RELEASE_TAG="$(cat "$PROJECT_ROOT/RELEASE" 2>/dev/null || true)"
 python3 "$PROJECT_ROOT/src/version.py" write /var/lib/rukebox/version.json "$PROJECT_ROOT" install \
     ${RELEASE_TAG:+"$RELEASE_TAG"} > /dev/null
-chown pi:pi /var/lib/rukebox/version.json
+chown "$RUN_USER:$RUN_USER" /var/lib/rukebox/version.json
 
 echo "== Installing systemd services =="
 install -m 644 "$PROJECT_ROOT/systemd/"*.service /etc/systemd/system/
-systemctl daemon-reload
+# The units are written for the Pi's own user; this machine may not have one.
+if [ "$RUN_USER" != "pi" ]; then
+    for unit in /etc/systemd/system/rukebox-*.service /etc/systemd/system/bt-connect.service \
+                /etc/systemd/system/flic*.service /etc/systemd/system/home-wifi-connect.service \
+                /etc/systemd/system/create-uap0.service; do
+        [ -f "$unit" ] || continue
+        sed -i "s|^User=pi$|User=$RUN_USER|" "$unit"
+    done
+    echo ">> Services run as $RUN_USER."
+fi
+# A container may have systemd running (Proxmox, and most LXC images) or not
+# at all: enabling a unit is never a reason to stop the installation.
+systemctl daemon-reload 2>/dev/null || true
 
-systemctl enable rukebox-config.service
-systemctl enable rukebox-gpio-reset.service
-systemctl enable bt-connect.service
-systemctl enable home-wifi-connect.service
-systemctl enable rukebox-daemon.service
-systemctl enable rukebox-web.service
-systemctl enable create-uap0.service
-systemctl enable rukebox-bt-radio.service
-systemctl enable rukebox-usb-gadget.service
-systemctl enable rukebox-act-led.service
-systemctl enable rukebox-speaker-buttons.service
-systemctl enable rukebox-card-reader.service
+# What a container has no use for, and what it keeps. Enabling a unit whose
+# hardware is absent only gives a red line at every boot.
+LXC_UNITS="create-uap0.service rukebox-bt-radio.service rukebox-usb-gadget.service
+           rukebox-act-led.service rukebox-gpio-reset.service home-wifi-connect.service
+           rukebox-card-reader.service flicd.service flic-bridge.service"
+PI_UNITS="rukebox-gpio-reset.service bt-connect.service home-wifi-connect.service
+          create-uap0.service rukebox-bt-radio.service rukebox-usb-gadget.service
+          rukebox-act-led.service rukebox-card-reader.service rukebox-speaker-buttons.service"
 
-echo "== Keeping the audio stack alive without a login session =="
-loginctl enable-linger pi || echo "WARNING: could not enable lingering for pi" >&2
+systemctl enable rukebox-config.service 2>/dev/null || true
+systemctl enable rukebox-daemon.service 2>/dev/null || true
+systemctl enable rukebox-web.service 2>/dev/null || true
+if [ "$PROFILE" = "lxc" ]; then
+    for unit in $LXC_UNITS; do
+        systemctl disable "$unit" 2>/dev/null || true
+    done
+    echo ">> Skipped the units a container cannot use (access point, USB gadget,"
+    echo "   LED, GPIO, hardware clock, personal Wi-Fi, the Flic button)."
+else
+    for unit in $PI_UNITS; do
+        systemctl enable "$unit" 2>/dev/null || true
+    done
+fi
 
+if [ "$PROFILE" = "lxc" ]; then
+    echo "== Not enabling lingering =="
+    echo "   A container has no login session to keep alive; PipeWire is run by"
+    echo "   the host, or by the stream alone."
+else
+    echo "== Keeping the audio stack alive without a login session =="
+    loginctl enable-linger "$RUN_USER" || echo "WARNING: could not enable lingering for $RUN_USER" >&2
+fi
+
+if [ "$PROFILE" = "pi" ]; then
 echo ""
 echo "== Wi-Fi regulatory domain (country) =="
 if [ -n "${RUKEBOX_WIFI_COUNTRY:-}" ]; then
@@ -264,7 +378,6 @@ fi
 echo ""
 echo "== Admin Wi-Fi access point =="
 systemctl enable --now create-uap0.service
-
 echo ""
 echo "== Bluetooth radio =="
 systemctl enable --now rukebox-bt-radio.service
@@ -295,6 +408,16 @@ if [ "${RUKEBOX_AP_SKIP:-0}" = "1" ]; then
     echo "Access point already set up by the first-boot installation - left as is."
 else
     "$PROJECT_ROOT/scripts/setup_ap.sh" "$AP_SSID" "$AP_PASSWORD"
+fi
+
+else
+    # No radio to share: the container is reached on the host's own address.
+    echo ""
+    echo "== No access point, no Wi-Fi country =="
+    echo "   A container has no radio of its own. Reach the interface on"
+    echo "   http://<this host's address>:${WEB_PORT:-80} - see docs/guide.md,"
+    echo "   'Running in a container'."
+    AP_SSID=""
 fi
 
 echo ""
@@ -332,8 +455,37 @@ print(web_auth.hash_password(sys.argv[1]))
 else
     echo "No web interface password (the access point remains the only gate)."
 fi
-unset AP_PASSWORD WEB_PASSWORD WEB_PASSWORD_HASH
+unset AP_PASSWORD WEB_PASSWORD WEB_PASSWORD_HASH 2>/dev/null || true
 
+if [ "$PROFILE" = "lxc" ]; then
+echo ""
+echo "== Done =="
+echo ""
+# shellcheck disable=SC1091
+[ -f /etc/rukebox/rukebox.env ] && source /etc/rukebox/rukebox.env
+echo "Reach the interface at http://<this host's address>:${WEB_PORT:-80}"
+echo "There is no access point to join and no password by default: put one on"
+echo "(Security card) if anything else can reach this address."
+echo ""
+echo "Next steps:"
+echo "1. Edit /etc/rukebox/rukebox.yaml (times, folders) - or do it all from"
+echo "   the web interface once you can reach it"
+echo "2. Drop your audio files in $AUDIO_ROOT/ (subfolders accepted)"
+echo "3. Sound: a container has no card of its own. Either give it one (a USB"
+echo "   card passed through to it) or turn on the network stream and listen"
+echo "   with 'Listen here', VLC or a network speaker:"
+echo "     Settings > Audio > Network audio stream"
+echo "4. Bluetooth works through the host's BlueZ, if the container was given"
+echo "   the D-Bus socket. See docs/guide.md, 'Running in a container'."
+echo "5. Start the radio and the web interface:"
+echo "     systemctl start rukebox-daemon.service rukebox-web.service"
+echo "6. Check the logs:"
+echo "     journalctl -u rukebox-daemon.service -f"
+echo ""
+echo "To update later, from a Git repository (needs network):"
+echo "     sudo rukebox-update --from-git https://github.com/you/your-repo.git"
+echo "   Rollback:  sudo rukebox-update --rollback"
+else
 echo ""
 echo "== Done =="
 echo "!! IMPORTANT: this Pi has no Wi-Fi -> a hardware RTC module (DS3231)"
@@ -381,3 +533,4 @@ echo "     bootstrap\\push_update.cmd           (Windows)"
 echo "   Or on the Pi itself, from a Git repository (needs network):"
 echo "     sudo rukebox-update --from-git https://github.com/you/your-repo.git"
 echo "   Rollback:  sudo rukebox-update --rollback"
+fi

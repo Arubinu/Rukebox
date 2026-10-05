@@ -456,6 +456,60 @@ Two consequences worth knowing before you look for a card:
   update. The card shows the one line to run (`docker compose pull`), and
   `UPDATE_DOCKER_IMAGE` is the image it names.
 
+## Running in an LXC container (Proxmox, or any host with lxc)
+
+The same installer that runs on a Pi takes a **container profile**, which
+keeps systemd, the units, `update.sh`, the daemon, the web interface, the
+schedules and the statistics, and leaves out what a container cannot have.
+It is chosen by itself — `/dev/lxc` or `container=lxc` — and can be forced:
+
+```bash
+git clone https://github.com/Arubinu/Rukebox.git && cd Rukebox
+sudo RUKEBOX_PROFILE=lxc ./scripts/install.sh
+```
+
+What changes, compared with a Pi:
+
+| | Pi | Container |
+|---|---|---|
+| Services run as | `pi` | `rukebox` (created by the installer) |
+| Audio folders | `/home/pi/audio` | `/srv/rukebox/audio` |
+| Access point, Wi-Fi country | installed | skipped |
+| USB gadget, GPIO, activity LED | installed | skipped |
+| Hardware clock (RTC), boot tweaks, `config.txt` | installed | skipped |
+| Flic button | available | disabled (no controller of its own) |
+| Daemon, web interface, schedules, statistics, updater | yes | yes |
+
+`RUKEBOX_USER` and `RUKEBOX_AUDIO_ROOT` override the account and the audio
+folder; the installer moves the paths in the generated YAML to match.
+
+**Sound** is the part to think about before starting: a container has no card
+of its own. Either pass a USB sound card through to it, or let it play into a
+virtual output and listen over the network — the same choice the Docker
+section above describes, and `docker/pipewire-container.conf` is the
+PipeWire drop-in that does it.
+
+**Bluetooth** works through the host's BlueZ, from inside the container, if
+the host's D-Bus socket is passed to it. Without that, pair the speaker on
+the host.
+
+### The Proxmox helper scripts
+
+`community-scripts/` holds the three files a
+[community-scripts](https://github.com/community-scripts/ProxmoxVE) proposal
+needs — `ct/rukebox.sh`, `install/rukebox-install.sh` and the JSON fiche —
+written to their rules and hosted here for now:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Arubinu/Rukebox/main/community-scripts/ct/rukebox.sh)"
+```
+
+On a Proxmox host, as root. The `ct/` script creates the container (2 cores,
+1 GB, 4 GB, Debian 13) and the install script runs this project's own
+installer with `RUKEBOX_PROFILE=lxc` inside it. See
+`community-scripts/README.md` for what is deliberately not in there yet and
+what has to happen before it is proposed upstream.
+
 ## Admin access point
 
 Created automatically by `install.sh` (SSID and an optional password,

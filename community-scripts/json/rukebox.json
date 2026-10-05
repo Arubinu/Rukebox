@@ -1,0 +1,47 @@
+{
+  "name": "Rukebox",
+  "slug": "rukebox",
+  "categories": [
+    8
+  ],
+  "date_created": "2026-10-05",
+  "type": "ct",
+  "updateable": true,
+  "privileged": false,
+  "interface_port": 80,
+  "documentation": "https://github.com/Arubinu/Rukebox/blob/main/docs/guide.md",
+  "website": "https://github.com/Arubinu/Rukebox",
+  "logo": "https://raw.githubusercontent.com/Arubinu/Rukebox/main/assets/icons/logo.png",
+  "description": "Rukebox turns a container into a small radio: it plays music on a schedule, reacts to a Bluetooth button, announces the time and the messages you write, and is administered from a web interface. This container keeps the daemon, the web interface, the schedules, the statistics and the updater, and leaves out the Raspberry Pi's own parts (access point, USB gadget, GPIO, hardware clock). With no sound card, the network output is what you hear - in the interface, in VLC or on a network speaker.",
+  "install_methods": [
+    {
+      "type": "default",
+      "script": "ct/rukebox.sh",
+      "config": {
+        "cpu": 2,
+        "ram": 1024,
+        "disk": 4,
+        "os": "debian",
+        "version": "13"
+      }
+    }
+  ],
+  "default_credentials": {
+    "username": null,
+    "password": null
+  },
+  "notes": [
+    {
+      "text": "There is no password on the web interface by default: put one on from the Security card if anything else can reach this container.",
+      "type": "warning"
+    },
+    {
+      "text": "The music lives outside the container - mount a share, or copy the files to /srv/rukebox/audio/music.",
+      "type": "info"
+    },
+    {
+      "text": "Bluetooth works through the host's BlueZ, if the container was given the D-Bus socket. The access point, GPIO, the hardware clock and the USB gadget are Raspberry Pi features and are not part of this container.",
+      "type": "info"
+    }
+  ]
+}
