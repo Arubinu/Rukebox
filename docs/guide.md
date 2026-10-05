@@ -495,10 +495,10 @@ the host.
 
 ### The Proxmox helper scripts
 
-`community-scripts/` holds the three files a
+`community-scripts/` holds what a
 [community-scripts](https://github.com/community-scripts/ProxmoxVE) proposal
-needs — `ct/rukebox.sh`, `install/rukebox-install.sh` and the JSON fiche —
-written to their rules and hosted here for now:
+needs — `ct/rukebox.sh`, `install/rukebox-install.sh` and a draft of the
+metadata — written to their rules and hosted here for now:
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Arubinu/Rukebox/main/community-scripts/ct/rukebox.sh)"
@@ -506,9 +506,12 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Arubinu/Rukebox/main/com
 
 On a Proxmox host, as root. The `ct/` script creates the container (2 cores,
 1 GB, 4 GB, Debian 13) and the install script runs this project's own
-installer with `RUKEBOX_PROFILE=lxc` inside it. See
-`community-scripts/README.md` for what is deliberately not in there yet and
-what has to happen before it is proposed upstream.
+installer with `RUKEBOX_PROFILE=lxc` inside it.
+
+Read `community-scripts/README.md` before proposing them: a **new** script
+goes to their DevScripts repository, never straight to ProxmoxVE, the
+metadata is managed on their website rather than in a file, and neither of
+those two scripts has been run on a real Proxmox host yet.
 
 ## Admin access point
 
