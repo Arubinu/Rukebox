@@ -21,6 +21,10 @@ audio:
   #                the Zero)
   #   usb       -> a USB sound card, whichever is plugged in
   #   hdmi      -> the HDMI screen or receiver
+  #   docker    -> a virtual output, heard over the network: this is the
+  #                container's own output, where there is no sound card
+  #                at all, and it only makes a sound once the network
+  #                audio stream is on and something is listening to it
   # A wired output is found again whenever it comes and goes; while it
   # is missing, the sound goes to the default output instead. With a
   # wired output, losing the Bluetooth speaker no longer pauses the

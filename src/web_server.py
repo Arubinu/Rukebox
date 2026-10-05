@@ -4480,7 +4480,17 @@ _audio_state = {"at": 0.0, "data": None}
 
 
 def _user_runtime_dir():
-    """Where `pi`'s user session lives, or None if there is no session at all."""
+    """Where the sound server's session lives, or None if there is none.
+
+    `XDG_RUNTIME_DIR` (or `PIPEWIRE_RUNTIME_DIR`) first when it is set and
+    real, then the per-user directory of a normal login - a container is run
+    as root with the socket somewhere of its own choosing (`/run/rukebox` in
+    the image), and looking only at /run/user/<uid> made the interface report
+    no sound server at all while the radio played perfectly well."""
+    for name in ("PIPEWIRE_RUNTIME_DIR", "XDG_RUNTIME_DIR"):
+        chosen = os.environ.get(name)
+        if chosen and os.path.isdir(chosen):
+            return chosen
     runtime = os.path.join("/run/user", str(os.getuid()))
     return runtime if os.path.isdir(runtime) else None
 
@@ -4527,8 +4537,9 @@ def _audio_output_state():
     kind = cfg().get("AUDIO_OUTPUT", "bluetooth")
     state["output"] = kind
     state["missing"] = False
-    if state["server"] and kind in ("jack", "usb", "hdmi"):
-        sink = audio_output.find(kind, audio_output.list_sinks(env=_user_session_env()))
+    if state["server"] and kind in audio_output.KINDS and kind != "bluetooth":
+        sinks = audio_output.list_sinks(env=_user_session_env())
+        sink = audio_output.find(kind, sinks)
         state["sink"] = sink["description"] if sink else None
         state["missing"] = sink is None
 
@@ -4563,6 +4574,13 @@ def api_audio_test():
     if kind == "bluetooth":
         sink = audio_output.find("bluetooth", sinks)
         device = "pipewire/" + sink["name"] if sink else "auto"
+    elif kind == "docker":
+        # Nothing to hear unless something is listening: the chime would go
+        # into the virtual sink and stop there.
+        state = _stream_status()
+        if not state["available"]:
+            return jsonify({"ok": False, "error": "stream_unavailable"}), 404
+        return jsonify({"ok": True, "data": {"listeners": state["listeners"]}})
     else:
         device, found = audio_output.mpv_device(kind, sinks)
         if not found:

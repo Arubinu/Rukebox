@@ -933,6 +933,45 @@ class StreamRouteTest(unittest.TestCase):
         self.assertIn("stream", data)
         self.assertFalse(data["stream"]["available"])
 
+    def virtual_sink(self):
+        return {"name": "rukebox_output", "description": "Rukebox output",
+                "kind": "docker", "codec": None, "address": None}
+
+    def test_the_virtual_output_is_offered_as_a_choice(self):
+        """It is what a container plays to: the card has to be able to say so,
+        and to name the sink PipeWire reports."""
+        client = ws.app.test_client()
+        with unittest.mock.patch.object(ws.audio_output, "list_sinks",
+                                        return_value=[self.virtual_sink()]):
+            with unittest.mock.patch.object(ws, "_user_session_env", return_value={}):
+                data = client.get("/api/audio/outputs").get_json()["data"]
+        self.assertIn("docker", [item["kind"] for item in data["outputs"]])
+
+    def test_testing_the_virtual_output_needs_a_listener_not_a_chime(self):
+        """Playing the test sound into it would stop in the void: what the
+        button can answer is whether the stream is there at all."""
+        client = ws.app.test_client()
+        with unittest.mock.patch.object(ws, "_user_session_env", return_value={}):
+            with unittest.mock.patch.object(ws.audio_output, "list_sinks",
+                                            return_value=[self.virtual_sink()]):
+                with unittest.mock.patch.object(ws, "_stream_status",
+                                                return_value={"available": False}):
+                    answer = client.post("/api/audio/test", json={"output": "docker"})
+        self.assertEqual(answer.status_code, 404)
+        self.assertEqual(answer.get_json()["error"], "stream_unavailable")
+
+    def test_testing_the_virtual_output_when_the_stream_is_up(self):
+        client = ws.app.test_client()
+        with unittest.mock.patch.object(ws, "_user_session_env", return_value={}):
+            with unittest.mock.patch.object(ws.audio_output, "list_sinks",
+                                            return_value=[self.virtual_sink()]):
+                with unittest.mock.patch.object(ws, "_stream_status",
+                                                return_value={"available": True,
+                                                              "listeners": 2}):
+                    answer = client.post("/api/audio/test", json={"output": "docker"})
+        self.assertTrue(answer.get_json()["ok"])
+        self.assertEqual(answer.get_json()["data"]["listeners"], 2)
+
 
 
 @unittest.skipUnless(flask, "Flask is not installed")

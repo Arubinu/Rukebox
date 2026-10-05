@@ -1,4 +1,4 @@
-"""Audio outputs by kind (Bluetooth, jack, USB, HDMI), found with pw-dump."""
+"""Audio outputs by kind (Bluetooth, jack, USB, HDMI, virtual), found with pw-dump."""
 
 import json
 import logging
@@ -6,7 +6,13 @@ import subprocess
 
 log = logging.getLogger("audio_output")
 
-KINDS = ("bluetooth", "jack", "usb", "hdmi")
+KINDS = ("bluetooth", "jack", "usb", "hdmi", "docker")
+
+# The virtual sink the container plays into, and the one
+# docker/pipewire-container.conf creates for it. Named for what it is rather
+# than for the container: a Pi can be given the same one (see the Audio
+# output card), and the network stream is what makes it audible.
+VIRTUAL_SINK = "rukebox_output"
 
 
 def classify(props):
@@ -14,6 +20,8 @@ def classify(props):
     name = str(props.get("node.name") or "")
     low = (name + " " + str(props.get("alsa.card_name") or "") + " "
            + str(props.get("node.description") or "")).lower()
+    if name == VIRTUAL_SINK:
+        return "docker"
     if props.get("device.api") == "bluez5" or name.startswith("bluez_"):
         return "bluetooth"
     if props.get("device.bus") == "usb" or name.startswith("alsa_output.usb-"):
@@ -68,6 +76,18 @@ def mpv_device(kind, sinks):
     if kind not in KINDS or kind == "bluetooth":
         return "auto", True
     sink = find(kind, sinks)
+    if sink is None:
+        return "auto", False
+    return "pipewire/" + sink["name"], True
+
+
+def any_device(sinks):
+    """(mpv audio-device, found) for a kind nobody named: the virtual sink
+    first, then anything PipeWire is willing to play to.
+
+    This is what a machine that never chose an output plays to - a container,
+    whose only sink is the virtual one the stream encodes."""
+    sink = find("docker", sinks) or next(iter(sinks), None)
     if sink is None:
         return "auto", False
     return "pipewire/" + sink["name"], True

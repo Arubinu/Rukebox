@@ -3999,6 +3999,13 @@ function paintAudioDetected() {
   const kind = document.getElementById("audioOutputSelect").value;
   const line = document.getElementById("audioOutputDetected");
   const found = audioOutputs.find((o) => o.kind === kind);
+  if (kind === "docker") {
+    // The virtual output is heard, not played: saying where it is means
+    // saying what has to be listening on the other end.
+    line.textContent = t(found ? "audioout.network_found" : "audioout.network_missing");
+    line.classList.toggle("warning", !found);
+    return;
+  }
   if (found) {
     line.textContent = t("audioout.found", { name: found.description });
     line.classList.remove("warning");

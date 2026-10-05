@@ -14,7 +14,8 @@ ENV PYTHONUNBUFFERED=1 \
     RUKEBOX_STATE_DIR=/data \
     RUKEBOX_MUSIC_DIR=/music \
     XDG_RUNTIME_DIR=/run/rukebox \
-    PIPEWIRE_RUNTIME_DIR=/run/rukebox
+    PIPEWIRE_RUNTIME_DIR=/run/rukebox \
+    AUDIO_OUTPUT=docker
 
 # mpv plays the music, ffmpeg encodes the network stream, pipewire and
 # wireplumber are the sound server the rest of the project already talks to,

@@ -357,8 +357,17 @@ class RadioDaemon:
                 self._output_override = None
                 self._bump_state()
         kind = self._output_kind()
-        sinks = audio_output.list_sinks(env=audio_env()) if self._wired_output() else []
-        device, found = audio_output.mpv_device(kind, sinks)
+        if kind == "bluetooth":
+            device, found = audio_output.mpv_device(kind, [])
+        else:
+            # Every other kind names a sink, so the list has to be read even
+            # for a kind this version does not know: that is what makes the
+            # virtual sink of a container reachable at all.
+            sinks = audio_output.list_sinks(env=audio_env())
+            if kind in audio_output.KINDS:
+                device, found = audio_output.mpv_device(kind, sinks)
+            else:
+                device, found = audio_output.any_device(sinks)
         if not found and self._audio_output_missing != kind:
             log.warning("Audio output '%s' not found, using the default output", kind)
         self._audio_output_missing = None if found else kind

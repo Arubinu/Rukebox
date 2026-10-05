@@ -424,11 +424,19 @@ named `rukebox_output`), and the network stream encodes that output's
 monitor. That is what "Listen here" on the player plays, and what VLC or a
 network speaker plays from `http://<host>:8080/stream.opus`.
 
-Turn it on in **Settings → Audio → Network audio stream** (it is off by
-default, because it costs an ffmpeg process — a Pi Zero would rather not run
-one). `STREAM_ENCODER` picks the codec (`opus` by default, which every
-browser plays), and the same page offers a **codec** row for Bluetooth only
-when there is Bluetooth.
+**It is a real output, in the list like any other.** The first start writes
+`AUDIO_OUTPUT=docker` into the configuration, which the **Audio output** card
+shows as *Network stream* — so the card says where the sound goes, the daemon
+points mpv at that sink, and the card's own line explains that it is heard
+rather than played. Choosing another output there works exactly as on a Pi;
+the file is the single source of truth from then on (not an environment
+variable, which would win over the file and undo the choice at the next
+restart).
+
+Turn the stream on in the same card (**Network audio stream** — it is on by
+default in the image, because on a container it *is* the output).
+`STREAM_ENCODER` picks the codec (`opus` by default, which every browser
+plays).
 
 **Think about the password first**: anyone who can reach the page can listen
 to the library. `WEB_PASSWORD_HASH` is the only thing in the way, and on a

@@ -133,7 +133,7 @@ def children():
                            ("pipewire-pulse", ["pipewire-pulse"])):
             started.append(Child(name, argv, ready=_pipewire_socket))
     started.append(Child("daemon", [sys.executable, os.path.join(SRC, "rukebox_daemon.py")],
-                         ready=_pipewire_socket))
+                         ready=_audio_ready))
     started.append(Child("web", [sys.executable, os.path.join(SRC, "web_server.py")]))
     return started
 
@@ -145,6 +145,24 @@ def _runtime_dir():
 
 def _pipewire_socket():
     return os.path.exists(os.path.join(_runtime_dir(), "pipewire-0"))
+
+
+def _audio_ready():
+    """PipeWire has its socket AND something to play to.
+
+    The socket comes first by a moment: a daemon started on the socket alone
+    finds no sink, gives mpv "auto", and only corrects itself on its next
+    output check 30 seconds later - which is what made the virtual sink work
+    on a first start and not after a restart. Waiting for one Audio/Sink here
+    is the whole fix; if none ever appears the daemon starts anyway and says
+    so itself."""
+    if not _pipewire_socket():
+        return False
+    try:
+        done = subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return True
+    return '"media.class": "Audio/Sink"' in (done.stdout or "")
 
 
 def _needs_local_pipewire():
