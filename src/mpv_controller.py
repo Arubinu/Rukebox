@@ -25,6 +25,25 @@ def compression_filter(mode):
     return COMPRESSION_FILTERS.get(str(mode or "").strip().lower(), "")
 
 
+# Before the compression, so its limiter still guards the boosted bands.
+EQUALIZER_FILTERS = {
+    "bass": "bass=g=6:f=100:w=0.6",
+    "voice": "highpass=f=90,equalizer=f=2800:t=q:w=1.2:g=4,bass=g=-2",
+    "bright": "treble=g=4:f=6000,bass=g=2",
+    "night": "bass=g=-6:f=120,treble=g=-2,acompressor=threshold=0.1:ratio=3:makeup=1.5",
+}
+
+
+def equalizer_filter(mode):
+    """The filter chain for a sound profile, "" when it is off or unknown."""
+    return EQUALIZER_FILTERS.get(str(mode or "").strip().lower(), "")
+
+
+def audio_chain(equalizer, compression):
+    """The whole chain mpv applies: the profile, then the compression."""
+    return ",".join(c for c in (equalizer_filter(equalizer), compression_filter(compression)) if c)
+
+
 def audio_env():
     """The environment mpv needs to reach the audio server, or None to inherit
     the current one unchanged."""
@@ -162,6 +181,10 @@ class MPVController:
     def seek(self, seconds: float):
         """Jumps to `seconds` from the start of the file."""
         self._send(["seek", max(0.0, float(seconds)), "absolute"])
+
+    def seek_end(self):
+        """Jumps to the end: mpv ends the file as if it had played out."""
+        self._send(["seek", 100, "absolute-percent"])
 
     def stop_playback(self):
         """Unloads the current file: silence, the process stays up."""

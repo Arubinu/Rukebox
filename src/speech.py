@@ -98,6 +98,62 @@ def cutoff_sentence(minutes, lang):
     }[lang]
 
 
+def clean_text(text, limit=160):
+    """Free text made safe to say: one line, no control characters, at most
+    `limit` characters."""
+    text = "".join(c if c.isprintable() else " " for c in str(text or ""))
+    return " ".join(text.split())[:limit].strip()
+
+
+def _stop(text):
+    return text if text[-1:] in ".!?…" else text + "."
+
+
+def track_sentence(title, artist, lang):
+    """"Up next: title, by artist." - a radio host's introduction."""
+    lang = language(lang)
+    title = clean_text(title, 120)
+    artist = clean_text(artist, 80)
+    if not title:
+        return ""
+    head = {"en": "Up next: ", "fr": "Et maintenant : ", "de": "Und jetzt: ",
+            "es": "Y ahora: ", "it": "E ora: ", "nl": "En nu: "}[lang]
+    by = {"en": ", by ", "fr": ", de ", "de": " von ", "es": ", de ", "it": ", di ", "nl": ", van "}[lang]
+    return _stop(head + title + (by + artist if artist else ""))
+
+
+def dedication_sentence(title, sender, message, lang):
+    """The message someone left with a song, then the song's name."""
+    lang = language(lang)
+    message = clean_text(message)
+    sender = clean_text(sender, 40)
+    title = clean_text(title, 120)
+    if not message:
+        return ""
+    if sender:
+        head = {"en": "A dedication from %s: ", "fr": "Une dédicace de %s : ",
+                "de": "Eine Widmung von %s: ", "es": "Una dedicatoria de %s: ",
+                "it": "Una dedica da %s: ", "nl": "Een opdracht van %s: "}[lang] % sender
+    else:
+        head = {"en": "A dedication: ", "fr": "Une dédicace : ", "de": "Eine Widmung: ",
+                "es": "Una dedicatoria: ", "it": "Una dedica: ", "nl": "Een opdracht: "}[lang]
+    tail = ""
+    if title:
+        tail = " " + {"en": "Here is %s.", "fr": "Voici %s.", "de": "Hier ist %s.",
+                      "es": "Aquí está %s.", "it": "Ecco %s.", "nl": "Hier is %s."}[lang] % title
+    return _stop(head + message) + tail
+
+
+def reminder_sentence(text, lang):
+    lang = language(lang)
+    text = clean_text(text)
+    if not text:
+        return ""
+    head = {"en": "Reminder: ", "fr": "Rappel : ", "de": "Erinnerung: ",
+            "es": "Recordatorio: ", "it": "Promemoria: ", "nl": "Herinnering: "}[lang]
+    return _stop(head + text)
+
+
 def sentence(kind, when, lang, minutes=None):
     """The words for `kind` (time, time_date, cutoff), or "" for none."""
     lang = language(lang)

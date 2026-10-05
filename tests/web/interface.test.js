@@ -670,3 +670,49 @@ test("a page the owner hid from guests gets no tile on the guest's menu", async 
   const tile = page.document.querySelector('.page-tile[data-page="player"]');
   assert.ok(tile && !tile.hidden, "the player stays");
 });
+
+test("a song put up next may carry a message, shown in Up next with a way to remove it", async (t) => {
+  const { STATUS } = require("./harness");
+  let items = [{ key: "k2", title: "Fly", artist: "Hilary Duff", requested: true,
+                 dedication: { from: "Fox", text: "For Marie" } }];
+  const page = open(t, { hash: "#home/upnext", routes: {
+    "GET /api/status": Object.assign({}, STATUS, { mode: "music", dedications: true }),
+    "GET /api/memories": [{ key: "k1", title: "Paradise", artist: "Coldplay", years: 1 }],
+    "GET /api/queue": () => ({ enabled: true, items }),
+    "POST /api/library/queue": { started: false, position: 1 },
+    "POST /api/dedications/delete": () => { items = [Object.assign({}, items[0], { dedication: null })]; return {}; },
+  } });
+  await until(() => page.document.querySelector(".upnext-dedication"));
+  assert.match(page.document.querySelector(".upnext-dedication").textContent, /For Marie.*from Fox/);
+  await until(() => page.document.querySelector("#memoriesList .library-next"));
+  page.document.querySelector("#memoriesList .library-next").click();
+  await until(() => !page.$("modalOverlay").hidden);
+  page.document.querySelector("#modalBody textarea").value = "  Happy birthday ";
+  page.$("modalChoices").children[0].click();
+  await until(() => page.sent("POST", "/api/library/queue").length === 1);
+  assert.deepEqual(page.sent("POST", "/api/library/queue")[0].body, { key: "k1", message: "Happy birthday" });
+  page.document.querySelector(".upnext-dedication .btn-link").click();
+  await until(() => page.sent("POST", "/api/dedications/delete").length === 1);
+  await until(() => !page.document.querySelector(".upnext-dedication"));
+});
+
+test("a reminder is added in minutes or at a time, and listed", async (t) => {
+  const items = [];
+  const page = open(t, { hash: "#home/reminders", routes: {
+    "GET /api/reminders": () => ({ items }),
+    "POST /api/reminders": (r) => {
+      items.push({ id: "r1", at: Date.now() / 1000 + 600, text: r.body.text });
+      return { id: "r1" };
+    },
+  } });
+  await until(() => page.$("reminderWhen").options.length > 5);
+  assert.equal(page.$("reminderWhen").value, "10");
+  page.$("reminderText").value = "The cake";
+  page.$("reminderForm").dispatchEvent(new page.window.Event("submit", { cancelable: true }));
+  await until(() => page.sent("POST", "/api/reminders").length === 1);
+  assert.deepEqual(page.sent("POST", "/api/reminders")[0].body, { text: "The cake", minutes: 10 });
+  await until(() => page.$("reminderList").children.length === 1);
+  page.$("reminderWhen").value = "at";
+  page.$("reminderWhen").dispatchEvent(new page.window.Event("change"));
+  assert.equal(page.$("reminderAtRow").hidden, false);
+});

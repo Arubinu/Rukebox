@@ -269,6 +269,34 @@
           <p class="hint" id="likesEmpty" data-i18n="likes.empty" hidden>No liked track yet.</p>
         </section>
 
+        <section class="card" id="remindersCard" data-page="reminders" data-tab="home" data-owner aria-labelledby="remindersTitle">
+          <h2 data-icon="bell" id="remindersTitle"><span data-i18n="reminders.title">Reminders</span></h2>
+          <p class="hint help-text" data-i18n="reminders.help" hidden>
+            The radio says the sentence out loud at the time chosen; the music goes quieter while it does.
+            A reminder missed while the radio was off is dropped.
+          </p>
+          <form id="reminderForm" class="settings-form">
+            <div class="field-row">
+              <label for="reminderText" data-i18n="reminders.text">What to say</label>
+              <input type="text" id="reminderText" class="text-input" maxlength="160" required
+                     data-i18n-placeholder="reminders.text_placeholder" placeholder="Take the cake out of the oven">
+            </div>
+            <div class="field-row">
+              <label for="reminderWhen" data-i18n="reminders.when">When</label>
+              <select id="reminderWhen"></select>
+            </div>
+            <div class="field-row" id="reminderAtRow" hidden>
+              <label for="reminderAt" data-i18n="reminders.at">Time</label>
+              <input type="time" id="reminderAt" class="time-input">
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="plus" data-i18n="reminders.add">Add the reminder</button>
+            </div>
+          </form>
+          <ol class="device-list recent-list" id="reminderList"></ol>
+          <p class="hint" id="reminderEmpty" data-i18n="reminders.empty" hidden>No reminder waiting.</p>
+        </section>
+
         <section class="card" data-level="detail" id="duplicatesCard" data-page="duplicates" data-tab="home" aria-labelledby="duplicatesTitle" hidden>
           <h2 data-icon="copy" id="duplicatesTitle"><span data-i18n="duplicates.title">Duplicate tracks</span></h2>
           <p class="hint help-text" data-i18n="duplicates.help" hidden>
@@ -619,6 +647,14 @@
                         data-i18n-aria-label="settings.speech_test" aria-label="Hear it" data-i18n-title="settings.speech_test" title="Hear it"></button>
               </div>
             </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="djEvery" data-i18n="settings.dj_every">Introduce the songs (every N)</label>
+                <p class="field-desc" id="djEveryDesc" data-i18n="settings.dj_every_desc">Like a radio host: "Up next: title, by artist", between two songs. 0 = never.</p>
+              </div>
+              <input type="number" id="djEvery" min="0" max="20" step="1" data-key="DJ_ANNOUNCE_EVERY"
+                     class="num-input" inputmode="numeric" aria-describedby="djEveryDesc">
+            </div>
             <div data-level="detail" class="field-row">
               <label for="cutoffMode" data-i18n="settings.cutoff_mode">Cutoff mode</label>
               <select id="cutoffMode" data-key="CUTOFF_MODE">
@@ -683,6 +719,22 @@
             <div class="field-row">
               <label for="musicLoopToggle" data-i18n="settings.loop">Loop the list</label>
               <input type="checkbox" id="musicLoopToggle" data-key="MUSIC_LOOP" class="switch-input" role="switch">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="crossfadeSec" data-i18n="settings.crossfade">Crossfade (sec)</label>
+                <p class="field-desc" id="crossfadeDesc" data-i18n="settings.crossfade_desc">The end of a song fades out under the start of the next. 0 = off.</p>
+              </div>
+              <input type="number" id="crossfadeSec" min="0" max="10" step="1" data-key="CROSSFADE_SEC"
+                     class="num-input" inputmode="decimal" aria-describedby="crossfadeDesc">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="skipSilenceToggle" data-i18n="settings.skip_silence">Skip the silence at the end</label>
+                <p class="field-desc" id="skipSilenceDesc" data-i18n="settings.skip_silence_desc">The next song starts as soon as only silence is left.</p>
+              </div>
+              <input type="checkbox" id="skipSilenceToggle" data-key="SKIP_TRAILING_SILENCE" class="switch-input" role="switch"
+                     aria-describedby="skipSilenceDesc">
             </div>
             <div data-level="detail" class="field-row">
               <label for="musicKeepProgressToggle" data-i18n="settings.keep_progress">Keep progress between launches</label>
@@ -817,6 +869,19 @@
                 <option value="off" data-i18n="compression.off">Off - exactly what the files contain</option>
                 <option value="soft" data-i18n="compression.soft">Soft</option>
                 <option value="strong" data-i18n="compression.strong">Strong</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="audioEqualizer" data-i18n="settings.equalizer">Sound profile</label>
+                <p class="field-desc" id="audioEqualizerDesc" data-i18n="settings.equalizer_desc">Shapes the sound before the volume boost.</p>
+              </div>
+              <select id="audioEqualizer" data-key="AUDIO_EQUALIZER" aria-describedby="audioEqualizerDesc">
+                <option value="off" data-i18n="eq.off">Off - the files as they are</option>
+                <option value="bass" data-i18n="eq.bass">More bass</option>
+                <option value="voice" data-i18n="eq.voice">Clear voices</option>
+                <option value="bright" data-i18n="eq.bright">More treble</option>
+                <option value="night" data-i18n="eq.night">Night (soft, even)</option>
               </select>
             </div>
 
@@ -1805,6 +1870,22 @@
             <div class="field-row">
               <label for="suggestionsToggle" data-i18n="suggest.enabled">Suggestion box</label>
               <input type="checkbox" id="suggestionsToggle" data-key="SUGGESTIONS_ENABLED" class="switch-input" role="switch">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="dedicationsToggle" data-i18n="guest.dedications">Dedications</label>
+                <p class="field-desc" id="dedicationsDesc" data-i18n="guest.dedications_desc">Whoever puts a song up next may add a short message, said out loud just before it.</p>
+              </div>
+              <input type="checkbox" id="dedicationsToggle" data-key="DEDICATIONS_ENABLED" class="switch-input" role="switch"
+                     aria-describedby="dedicationsDesc">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="queueFairToggle" data-i18n="guest.queue_fair">Take turns between people</label>
+                <p class="field-desc" id="queueFairDesc" data-i18n="guest.queue_fair_desc">Songs asked for alternate, one per person, instead of first come, first served.</p>
+              </div>
+              <input type="checkbox" id="queueFairToggle" data-key="QUEUE_FAIR" class="switch-input" role="switch"
+                     aria-describedby="queueFairDesc">
             </div>
             <div class="field-row">
               <label for="renameInterval" data-i18n="suggest.rename_interval">Delay between two name changes (min)</label>

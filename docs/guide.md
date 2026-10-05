@@ -1044,6 +1044,30 @@ es, it, nl), next to the cutoff, with a button to hear it. The setup page sets
 it to the language it was used in. What is said never counts in the
 statistics' top sounds; the event log keeps one "Spoken" line each time.
 
+### The radio host, dedications and reminders
+
+The same voice can do three more things.
+
+- **Introduce the songs** (Settings > Schedules, Every day, **Introduce the songs
+  (every N)**, `schedule.dj_announce_every`, 0 = never): every N songs, the
+  next one is announced between the two - "Up next: Paradise, by Coldplay".
+  Only when a song ends by itself: a "next" asked for goes straight to the
+  song, and the first song of a start (which fades in from silence) is not
+  introduced.
+- **Dedications** (Network > Guest access, **Dedications**,
+  `security.dedications`, off by default): whoever puts a song up next is
+  asked for an optional message, said just before the song - "A dedication
+  from Blue fox: happy birthday Marie. Here is Fly." The name is the one the
+  device chose in the suggestion box. Up next shows the message under its
+  song, and the owner can remove it before it is said. A message is at most
+  160 characters, on one line.
+- **Reminders** (Home > Reminders, owner only): a sentence to say in N
+  minutes or at a time, within the next seven days - "Reminder: take the
+  cake out of the oven." The music goes on under it at the level of **Music
+  under announcements**, or at 25 % when that is off. A reminder missed by
+  more than ten minutes (the radio was off) is dropped rather than said late.
+  Twenty can wait at once; they survive a restart.
+
 ## Admin web interface
 
 A complete web interface, accessible from your phone (or any device),
@@ -1346,6 +1370,14 @@ answering SSH and the web interface.
 A Pi updated from an older version gets the second card the next time
 the gadget is built (at boot, or `sudo systemctl restart
 rukebox-usb-gadget` - which briefly drops the USB link).
+
+### Taking turns in the queue
+
+With **Take turns between people** (Network > Guest access,
+`security.queue_fair`, on by default) the songs asked for alternate between
+people - one each, then the next round - instead of first come, first
+served: three songs from Anne then one from Bob play as Anne, Bob, Anne,
+Anne. A person is a device, or the devices linked as one person.
 
 ### Guest access
 
@@ -2438,6 +2470,27 @@ echo '{"cmd":"reload_config"}' | nc -U /tmp/rukebox_control.sock
 If the mpv on the Pi was built without those filters, the daemon says so in
 the log (`journalctl -u rukebox-daemon`) and plays without them rather than
 staying silent.
+
+### Sound profile, crossfade and the silence at the end
+
+- **Sound profile** (Settings > Volume, `playback.audio_equalizer`): `bass`
+  (more low end, for a small speaker), `voice` (clearer voices, less rumble),
+  `bright` (more treble) or `night` (soft bass and tamed peaks, for listening
+  quietly). It is applied before the volume boost, so the boost's limiter
+  still keeps the boosted bands from clipping. Applied without a restart.
+- **Crossfade** (Settings > Playback, `fades.crossfade_sec`, 0 = off, 10 at
+  most): the end of a song fades out under the start of the next. A second
+  player is prepared, paused, eight seconds before the end - starting one
+  takes a second or two on a Pi Zero - and the fade only happens if it is
+  ready in time; otherwise the song simply plays out. No crossfade before a
+  spoken introduction or a dedication, nor when the cutoff, a planned
+  restart or the end of a non-looping list comes next.
+- **Skip the silence at the end** (Settings > Playback,
+  `playback.skip_trailing_silence`, on by default): many files end on two to
+  four seconds of nothing. The library looks at the last 30 seconds of each
+  file once, in the background (about 1.5 s a file on a Pi Zero), and the
+  radio moves on as soon as only silence is left. A silence in the middle of
+  a song - before a hidden track - is not an ending, so it is played.
 
 ### One volume instead of two: the speaker's own
 

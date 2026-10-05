@@ -176,19 +176,83 @@ class RadioState:
             self.data["requests"] = [p for p in self.data["requests"] if p != path]
             self._save()
 
-    def enqueue_request(self, path):
-        """A song asked for ("Next")."""
+    def enqueue_request(self, path, person=None, fair=False):
+        """A song asked for ("Next"). `fair`: the asked-for songs take turns
+        between people - one each, then the next round - rather than first
+        come, first served."""
         with self._lock:
             queue = [p for p in self.data["play_queue"] if p != path]
             wanted = set(self.data["requests"])
-            at = 0
-            while at < len(queue) and queue[at] in wanted:
-                at += 1
+            count = 0
+            while count < len(queue) and queue[count] in wanted:
+                count += 1
+            by = dict(self.data.get("request_by") or {})
+            at = count
+            if fair and person:
+                seen, rounds = {}, []
+                for p in queue[:count]:
+                    who = by.get(p) or p
+                    rounds.append(seen.get(who, 0))
+                    seen[who] = seen.get(who, 0) + 1
+                mine = seen.get(person, 0)
+                at = 0
+                for i, r in enumerate(rounds):
+                    if r <= mine:
+                        at = i + 1
             queue.insert(at, path)
             self.data["play_queue"] = queue
-            self.data["requests"] = queue[:at + 1]
+            self.data["requests"] = queue[:count + 1]
+            by = {p: by[p] for p in self.data["requests"] if p in by}
+            if person:
+                by[path] = person
+            self.data["request_by"] = by
             self._save()
             return at
+
+    def set_dedication(self, path, entry):
+        """A message to say before `path` plays ({"from", "text"})."""
+        with self._lock:
+            self.data.setdefault("dedications", {})[path] = entry
+            self._save()
+
+    def pop_dedication(self, path):
+        with self._lock:
+            entry = (self.data.get("dedications") or {}).pop(path, None)
+            if entry is not None:
+                self._save()
+            return entry
+
+    def dedications(self):
+        return dict(self.data.get("dedications") or {})
+
+    REMINDERS_MAX = 20
+
+    def reminders(self):
+        return sorted((dict(r) for r in self.data.get("reminders") or [] if isinstance(r, dict)),
+                      key=lambda r: r.get("at", 0))
+
+    def add_reminder(self, at, text):
+        """A sentence to say at `at` (epoch seconds); its id, or None when
+        there are too many already."""
+        with self._lock:
+            items = list(self.data.get("reminders") or [])
+            if len(items) >= self.REMINDERS_MAX:
+                return None
+            rid = "%x" % int(time.time() * 1000)
+            while any(r.get("id") == rid for r in items):
+                rid += "x"
+            items.append({"id": rid, "at": float(at), "text": text})
+            self.data["reminders"] = items
+            self._save()
+            return rid
+
+    def remove_reminder(self, rid):
+        with self._lock:
+            items = list(self.data.get("reminders") or [])
+            kept = [r for r in items if r.get("id") != rid]
+            self.data["reminders"] = kept
+            self._save()
+            return len(kept) != len(items)
 
     def requested_paths(self):
         """The asked-for songs still waiting."""

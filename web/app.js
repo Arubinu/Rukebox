@@ -1549,6 +1549,7 @@ function applyGuestCredits(d) {
   const q = d.quota;
   guestQuota = q || null;
   guestLocked = Array.isArray(d.guest_locked) ? d.guest_locked : [];
+  dedicationsOn = !!d.dedications;
   const pagesOff = Array.isArray(d.guest_pages_off) ? d.guest_pages_off : [];
   if (pagesOff.join() !== guestPagesOff.join()) {
     guestPagesOff = pagesOff;
@@ -1563,6 +1564,7 @@ function applyGuestCredits(d) {
 }
 
 let guestLocked = [];
+let dedicationsOn = false;
 
 function paintCost(el) {
   const locked = guestLocked.includes(el.dataset.costAction);
@@ -4774,8 +4776,14 @@ function libraryButton(item, next) {
   b.dataset.costAction = next ? "queue" : "play_now";
   paintCost(b);
   b.addEventListener("click", async () => {
+    const body = { key: item.key };
+    if (next && dedicationsOn) {
+      const message = await askDedication();
+      if (message === null) return;
+      if (message) body.message = message;
+    }
     b.disabled = true;
-    const r = await apiPost(next ? "/api/library/queue" : "/api/library/play", { key: item.key });
+    const r = await apiPost(next ? "/api/library/queue" : "/api/library/play", body);
     b.disabled = false;
     if (!r.ok) {
       showToolError(t("home.transport_failed"), r);
@@ -4793,6 +4801,52 @@ function libraryButton(item, next) {
   return b;
 }
 
+// null: the reader closed the dialog, nothing is queued.
+async function askDedication() {
+  const box = document.createElement("div");
+  box.className = "dedication-box";
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = t("dedication.hint");
+  const area = document.createElement("textarea");
+  area.className = "text-input";
+  area.maxLength = 160;
+  area.rows = 3;
+  area.placeholder = t("dedication.placeholder");
+  area.setAttribute("aria-label", t("dedication.title"));
+  box.append(hint, area);
+  const choice = await openModal({
+    title: t("dedication.title"), bodyNode: box,
+    choices: [{ label: t("dedication.with"), value: "with" }, { label: t("dedication.without"), value: "without" }],
+  });
+  if (!choice) return null;
+  return choice === "with" ? area.value.trim() : "";
+}
+
+function dedicationLine(item) {
+  const d = item.dedication;
+  const p = document.createElement("span");
+  p.className = "upnext-dedication";
+  p.textContent = "\u201c" + d.text + "\u201d" + (d.from ? " - " + t("dedication.from", { name: d.from }) : "");
+  if (document.body.dataset.access !== "guest") {
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "btn-link";
+    drop.textContent = t("dedication.remove");
+    drop.addEventListener("click", async () => {
+      const r = await apiPost("/api/dedications/delete", { key: item.key });
+      if (!r.ok) {
+        showToolError(t("common.failed"), r);
+        return;
+      }
+      showToast(t("dedication.removed"));
+      refreshUpnext();
+    });
+    p.append(drop);
+  }
+  return p;
+}
+
 async function refreshUpnext() {
   const card = document.getElementById("upnextCard");
   const result = await apiGet("/api/queue");
@@ -4808,7 +4862,9 @@ async function refreshUpnext() {
     const rank = document.createElement("span");
     rank.className = "upnext-rank";
     rank.textContent = String(i + 1);
-    li.append(rank, trackMain(item));
+    const main = trackMain(item);
+    if (item.dedication && item.dedication.text) main.append(dedicationLine(item));
+    li.append(rank, main);
 
     if (item.requested) {
       li.classList.add("is-requested");
@@ -4823,6 +4879,86 @@ async function refreshUpnext() {
   document.getElementById("upnextEmpty").hidden = items.length > 0;
 }
 refreshEvery(refreshUpnext, 60000, ["home/upnext"]);
+
+const reminderWhen = document.getElementById("reminderWhen");
+const REMINDER_MINUTES = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180];
+
+function fillReminderWhen() {
+  const keep = reminderWhen.value || "10";
+  const options = REMINDER_MINUTES.map((n) => {
+    const o = document.createElement("option");
+    o.value = String(n);
+    o.textContent = n >= 60 && n % 60 === 0 ? t("reminders.in_hours", { n: n / 60 }) : t("reminders.in_min", { n });
+    return o;
+  });
+  const at = document.createElement("option");
+  at.value = "at";
+  at.textContent = t("reminders.at_time");
+  reminderWhen.replaceChildren(...options, at);
+  reminderWhen.value = keep;
+}
+fillReminderWhen();
+window.LANG_CHANGE_LISTENERS.push(fillReminderWhen);
+reminderWhen.addEventListener("change", () => {
+  document.getElementById("reminderAtRow").hidden = reminderWhen.value !== "at";
+});
+
+function reminderTime(at) {
+  const when = new Date(at * 1000);
+  const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return when.toDateString() === new Date().toDateString() ? time : t("reminders.tomorrow", { time });
+}
+
+async function refreshReminders() {
+  const r = await apiGet("/api/reminders");
+  if (!r.ok) return;
+  const items = (r.data && r.data.items) || [];
+  document.getElementById("reminderList").replaceChildren(...items.map((item) => {
+    const li = document.createElement("li");
+    const main = document.createElement("span");
+    main.className = "recent-main";
+    const when = document.createElement("span");
+    when.className = "reminder-when";
+    when.textContent = reminderTime(item.at);
+    const text = document.createElement("span");
+    text.textContent = item.text;
+    main.append(when, text);
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "btn btn-icon btn-small";
+    drop.dataset.icon = "trash";
+    drop.setAttribute("aria-label", t("reminders.delete"));
+    drop.title = t("reminders.delete");
+    drop.addEventListener("click", async () => {
+      const done = await apiDelete("/api/reminders/" + encodeURIComponent(item.id));
+      if (!done.ok) showToolError(t("common.failed"), done);
+      else showToast(t("reminders.deleted"));
+      refreshReminders();
+    });
+    li.append(main, drop);
+    return li;
+  }));
+  document.getElementById("reminderEmpty").hidden = items.length > 0;
+}
+refreshEvery(refreshReminders, 30000, ["home/reminders"]);
+
+document.getElementById("reminderForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const textField = document.getElementById("reminderText");
+  const body = { text: textField.value.trim() };
+  if (reminderWhen.value === "at") body.time = document.getElementById("reminderAt").value;
+  else body.minutes = Number(reminderWhen.value);
+  const r = await apiPost("/api/reminders", body);
+  if (!r.ok) {
+    showToolError(t("common.failed"), r);
+    return;
+  }
+  textField.value = "";
+  const list = await apiGet("/api/reminders");
+  const added = list.ok && list.data ? (list.data.items || []).find((i) => i.id === (r.data && r.data.id)) : null;
+  showToast(added ? t("reminders.added", { time: reminderTime(added.at) }) : t("common.ok"));
+  refreshReminders();
+});
 
 async function refreshMemories() {
   const box = document.getElementById("memoriesList");
@@ -7487,7 +7623,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "counters_reset", "music_upload", "playback_pause", "portal_released", "stats_rows_deleted",
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "device_renamed", "device_name_locked", "portal_reset", "device_forgotten",
-  "devices_linked", "device_unlinked",
+  "devices_linked", "device_unlinked", "dedication_played", "reminder_said",
   "schedule_started", "schedule_ended", "schedule_stop",
   "schedule_added", "schedule_changed", "schedule_removed",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",

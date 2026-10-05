@@ -1580,6 +1580,13 @@ def _library_loop():
                     break
                 for path in batch:
                     _library.store(path, library.read_tags(path), c["MUSIC_DIR"])
+            # The endings are quick (30 seconds of each file), so before the loudness.
+            while not _library_wake.is_set():
+                batch = _library.untailed(10)
+                if not batch:
+                    break
+                for path, duration in batch:
+                    _library.store_tail(path, library.read_tail(path, duration))
             # After the tags, which the page needs first: one ffmpeg pass per file, once.
             while not _library_wake.is_set():
                 batch = _library.unmeasured(5)
@@ -1632,15 +1639,83 @@ def _path_for_key(key):
                  if isinstance(e, dict) and e.get("path") and track_media.track_key(e["path"]) == key), None)
 
 
+DEDICATION_MAX = 160
+
+
 @app.route("/api/library/queue", methods=["POST"])
 def api_library_queue():
-    """{key}: the song waits its turn after the current one and the songs
-    already asked for."""
+    """{key, message?}: the song waits its turn after the current one and the
+    songs asked for (taking turns between people); the message is said just
+    before it."""
+    body = request.get_json(silent=True) or {}
+    path = _path_for_key(body.get("key"))
+    if not path:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    person, name = None, None
+    try:
+        device = _this_device(_suggestion_box())
+        person, name = device.get("person"), device.get("name")
+    except Exception:  # noqa: BLE001 - no device base: first come, first served
+        pass
+    extra = {}
+    message = " ".join(str(body.get("message") or "").split())[:DEDICATION_MAX]
+    if message:
+        if not cfg().get("DEDICATIONS_ENABLED"):
+            return jsonify({"ok": False, "error": "dedications_off"}), 403
+        extra["dedication"] = {"from": name, "text": message}
+    result = control("queue_track", path=path, person=person, **extra)
+    return jsonify(result), (200 if result.get("ok") else 400)
+
+
+@app.route("/api/dedications/delete", methods=["POST"])
+def api_dedication_delete():
+    """{key}: the message waiting with this song is not said."""
     path = _path_for_key((request.get_json(silent=True) or {}).get("key"))
     if not path:
         return jsonify({"ok": False, "error": "not_found"}), 404
-    result = control("queue_track", path=path)
+    result = control("drop_dedication", path=path)
+    return jsonify(result), (200 if result.get("ok") else 404)
+
+
+@app.route("/api/reminders")
+def api_reminders():
+    result = control("get_reminders")
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error", "daemon_unreachable")}), 503
+    return jsonify(result)
+
+
+@app.route("/api/reminders", methods=["POST"])
+def api_reminder_add():
+    """{text, minutes} or {text, time: "HH:MM"} (today, or tomorrow when the
+    time has passed)."""
+    body = request.get_json(silent=True) or {}
+    now = datetime.now()
+    if body.get("time"):
+        try:
+            hour, minute = (int(x) for x in str(body["time"]).split(":"))
+            when = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "reminder_bad_time"}), 400
+        if when <= now:
+            when += timedelta(days=1)
+        at = when.timestamp()
+    else:
+        try:
+            minutes = float(body.get("minutes"))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "reminder_bad_time"}), 400
+        if not 1 <= minutes <= 24 * 60:
+            return jsonify({"ok": False, "error": "reminder_bad_time"}), 400
+        at = time.time() + minutes * 60
+    result = control("add_reminder", at=at, text=str(body.get("text") or ""))
     return jsonify(result), (200 if result.get("ok") else 400)
+
+
+@app.route("/api/reminders/<rid>", methods=["DELETE"])
+def api_reminder_delete(rid):
+    result = control("delete_reminder", id=rid)
+    return jsonify(result), (200 if result.get("ok") else 404)
 
 
 @app.route("/api/library/play", methods=["POST"])
@@ -1673,6 +1748,8 @@ def api_queue():
     lib = _get_library()
     items = []
     requested = set((result.get("data") or {}).get("requested") or [])
+    dedications = (result.get("data") or {}).get("dedications") or {}
+    show_dedications = bool(cfg().get("DEDICATIONS_ENABLED"))
     for path in (result.get("data") or {}).get("paths") or []:
         item = lib.item_for_path(path)
         if item is None:
@@ -1681,6 +1758,9 @@ def api_queue():
                     "artist": tags.get("artist"), "album": tags.get("album")}
         item["name"] = os.path.splitext(os.path.basename(path))[0]
         item["requested"] = path in requested
+        if show_dedications and isinstance(dedications.get(path), dict):
+            item["dedication"] = {"from": dedications[path].get("from"),
+                                  "text": dedications[path].get("text")}
         items.append(item)
     return jsonify({"ok": True, "data": {"enabled": True, "items": items}})
 
@@ -2455,6 +2535,7 @@ def api_status():
         data["next_track"] = None
     data["track_key"] = track_media.track_key(track_path)
     data["guest_pages_off"] = _guest_pages_off() if _quota_applies() else []
+    data["dedications"] = bool(cfg().get("DEDICATIONS_ENABLED"))
     data["skip_vote"] = _skip_vote_state(data["track_key"], _repeat_person()) \
         if data.get("mode") == "music" else None
     info = track_media.tags(track_path) if track_path else {}

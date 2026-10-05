@@ -30,6 +30,9 @@ CREATE INDEX IF NOT EXISTS tracks_artist ON tracks(artist);
 PROBE_TIMEOUT_SEC = 20
 LOUDNESS_TIMEOUT_SEC = 300
 _LOUDNESS_RE = re.compile(r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", re.MULTILINE)
+_SILENCE_RE = re.compile(r"silence_(start|end):\s*(-?\d+(?:\.\d+)?)")
+TAIL_WINDOW_SEC = 30
+TAIL_MIN_SILENCE_SEC = 2
 _LEADING_NUMBER = re.compile(r"^\s*\d{1,3}\s*[-._)]\s*")
 # A genre tag can hold several genres at once.
 _GENRE_SEPARATORS = re.compile(r"[;,/|]")
@@ -125,6 +128,43 @@ def read_loudness(path):
     return value if value is not None and value > -70 else None
 
 
+def trailing_silence(stderr, duration, window=TAIL_WINDOW_SEC):
+    """Where the silence that runs to the end begins, in seconds from the
+    start of the file, from silencedetect's report on the last `window`
+    seconds; None when the song does not end in silence."""
+    if not duration or duration <= 0:
+        return None
+    clip = min(float(window), float(duration))
+    events = [(kind, float(value)) for kind, value in _SILENCE_RE.findall(stderr)]
+    starts = [i for i, (kind, _) in enumerate(events) if kind == "start"]
+    if not starts:
+        return None
+    last = starts[-1]
+    begin = events[last][1]
+    after = [value for kind, value in events[last + 1:] if kind == "end"]
+    if after and after[0] < clip - 0.5:
+        return None
+    tail = round(float(duration) - clip + max(0.0, begin), 2)
+    return tail if tail > 0 else None
+
+
+def read_tail(path, duration):
+    """The trailing silence of a file (see trailing_silence), read from its
+    last seconds only."""
+    if not duration:
+        return None
+    cmd = ["ffmpeg", "-nostats", "-hide_banner", "-sseof", "-%d" % TAIL_WINDOW_SEC, "-i", path,
+           "-map", "0:a:0", "-af", "silencedetect=noise=-50dB:d=%d" % TAIL_MIN_SILENCE_SEC,
+           "-f", "null", "-"]
+    if os.name == "posix":
+        cmd = ["nice", "-n", "19"] + cmd
+    try:
+        err = subprocess.run(cmd, capture_output=True, timeout=PROBE_TIMEOUT_SEC * 3).stderr
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return trailing_silence(err.decode("utf-8", errors="replace"), duration)
+
+
 class Library:
     def __init__(self, db_path, key_fn):
         """key_fn(path) gives the opaque key the web interface uses for a
@@ -138,6 +178,10 @@ class Library:
             self._db.execute("ALTER TABLE tracks ADD COLUMN loudness REAL")
         if "measured" not in known:
             self._db.execute("ALTER TABLE tracks ADD COLUMN measured INTEGER NOT NULL DEFAULT 0")
+        if "tail" not in known:
+            self._db.execute("ALTER TABLE tracks ADD COLUMN tail REAL")
+        if "tail_read" not in known:
+            self._db.execute("ALTER TABLE tracks ADD COLUMN tail_read INTEGER NOT NULL DEFAULT 0")
         self._db.commit()
         self._lock = threading.Lock()
         self._key_fn = key_fn
@@ -208,6 +252,24 @@ class Library:
         with self._lock:
             self._db.execute("UPDATE tracks SET loudness = ?, measured = 1 WHERE path = ?", (value, path))
             self._db.commit()
+
+    def untailed(self, limit=20):
+        """Read files whose ending has not been looked at yet, with their duration."""
+        with self._lock:
+            return [(r["path"], r["duration"]) for r in self._db.execute(
+                "SELECT path, duration FROM tracks WHERE probed = 1 AND tail_read = 0"
+                " ORDER BY path LIMIT ?", (limit,))]
+
+    def store_tail(self, path, value):
+        with self._lock:
+            self._db.execute("UPDATE tracks SET tail = ?, tail_read = 1 WHERE path = ?", (value, path))
+            self._db.commit()
+
+    def tail_for(self, path):
+        """Where the trailing silence of `path` begins, or None."""
+        with self._lock:
+            row = self._db.execute("SELECT tail FROM tracks WHERE path = ?", (path,)).fetchone()
+        return row["tail"] if row else None
 
     def loudness_for(self, paths):
         """{path: LUFS} for the paths already measured."""

@@ -23,7 +23,7 @@ from config_and_scan import DEFAULTS, get_music_list, load_config  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import hidden_tracks  # noqa: E402
 import library  # noqa: E402
-from mpv_controller import MPVController, audio_env, compression_filter  # noqa: E402
+from mpv_controller import MPVController, audio_chain, audio_env, compression_filter  # noqa: E402
 import music_lists  # noqa: E402
 import playlist  # noqa: E402
 import schedules  # noqa: E402
@@ -63,6 +63,76 @@ def announcement_target(msg):
         item_id = source[len("custom:"):]
         source = None
     return source, item_id, chooser
+
+
+class TailPlayer:
+    """The end of a song played by a second, disposable mpv for a crossfade:
+    started paused, told to play once it is ready."""
+
+    READY_WAIT_SEC = 20
+
+    def __init__(self, command, socket_path):
+        self.command = command
+        self.socket_path = socket_path
+        self.proc = None
+        self.sock = None
+        self.ready = False
+        self.started = False
+
+    def start(self):
+        try:
+            if os.path.exists(self.socket_path):
+                os.remove(self.socket_path)
+            self.proc = subprocess.Popen(self.command, stdout=subprocess.DEVNULL,
+                                         stderr=subprocess.DEVNULL, env=audio_env())
+        except OSError:
+            log.exception("Could not prepare the crossfade")
+            return False
+        threading.Thread(target=self._wait_ready, daemon=True).start()
+        return True
+
+    def _ask(self, command):
+        self.sock.sendall((json.dumps({"command": command}) + "\n").encode())
+
+    def _wait_ready(self):
+        """Ready once the file is loaded at its start position."""
+        end = time.monotonic() + self.READY_WAIT_SEC
+        while time.monotonic() < end and self.proc and self.proc.poll() is None:
+            try:
+                if self.sock is None:
+                    sock = socket.socket(socket.AF_UNIX)
+                    sock.settimeout(1.0)
+                    sock.connect(self.socket_path)
+                    self.sock = sock
+                self._ask(["get_property", "time-pos"])
+                for line in self.sock.recv(65536).split(b"\n"):
+                    try:
+                        msg = json.loads(line)
+                    except ValueError:
+                        continue
+                    if "error" in msg and isinstance(msg.get("data"), (int, float)):
+                        self.ready = True
+                        return
+            except OSError:
+                pass
+            time.sleep(0.2)
+
+    def play(self, volume):
+        try:
+            self._ask(["set_property", "volume", max(0.0, min(100.0, float(volume)))])
+            self._ask(["set_property", "pause", False])
+            self.started = True
+        except (OSError, AttributeError):
+            log.warning("The crossfade player did not answer")
+
+    def stop(self):
+        if self.proc is not None and self.proc.poll() is None:
+            self.proc.terminate()
+        if self.sock is not None:
+            try:
+                self.sock.close()
+            except OSError:
+                pass
 
 
 class RadioDaemon:
@@ -135,6 +205,13 @@ class RadioDaemon:
         self._quick_until = 0.0
         self._duck_factor = 1.0
         self._duck_proc = None
+        self._tail_at = None
+        self._tail_done = False
+        self._xfade_checked = False
+        self._xfade_proc = None
+        self._tail_player_cls = TailPlayer
+        self._xfade_in = 0.0
+        self._dj_count = 0
         self._bt_start_done = False
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
@@ -470,7 +547,7 @@ class RadioDaemon:
                 self.mpv.set_replaygain(self.cfg["REPLAYGAIN_MODE"])
             except Exception:  # noqa: BLE001
                 log.exception("Could not apply the ReplayGain mode")
-        if "AUDIO_COMPRESSION" in applied:
+        if "AUDIO_COMPRESSION" in applied or "AUDIO_EQUALIZER" in applied:
             self._apply_compression()
         if "SPEAKER_VOLUME_LINK" in applied:
             self._apply_volume_link()
@@ -637,15 +714,18 @@ class RadioDaemon:
         self._bump_state()
         return {"ok": True, "data": {"active": self.state.active_list(), "tracks": len(tracks)}}
 
+    def _audio_chain(self):
+        return audio_chain(self.cfg.get("AUDIO_EQUALIZER"), self.cfg["AUDIO_COMPRESSION"])
+
     def _apply_compression(self):
-        """Pushes the loudness filter to mpv, which holds it across every
-        loadfile; an empty chain clears it."""
-        mode = self.cfg["AUDIO_COMPRESSION"]
-        chain = compression_filter(mode)
+        """Pushes the sound profile and the loudness filter to mpv, which holds
+        them across every loadfile; an empty chain clears it."""
+        chain = self._audio_chain()
         if chain and not self.mpv.set_audio_filter(chain):
-            log.warning("This mpv build does not take the %s compression filter,"
-                        " playing without it", mode)
-            self.mpv.set_audio_filter("")
+            fallback = compression_filter(self.cfg["AUDIO_COMPRESSION"])
+            log.warning("This mpv build does not take the filter %s, trying %s", chain, fallback or "none")
+            if not fallback or not self.mpv.set_audio_filter(fallback):
+                self.mpv.set_audio_filter("")
             return False
         if not chain:
             self.mpv.set_audio_filter("")
@@ -659,9 +739,12 @@ class RadioDaemon:
             return
         user = user or self._next_is_user
         self._next_is_user = False
+        # Not at a start (the music fades in from silence) nor after an announcement.
+        introduce = self.mode in ("music", "meme")
+        natural = self.mode == "music" and not user
         forced, self._forced_next = self._forced_next, None
         if forced and os.path.exists(forced):
-            self._play_track(forced)
+            self._play_with_intro(forced, introduce, natural)
             return
         last = self._last_music_track
         if last and self._loop_mode != "off" and os.path.exists(last):
@@ -693,7 +776,74 @@ class RadioDaemon:
             if track is None:
                 return
 
-        self._play_track(track)
+        self._play_with_intro(track, introduce, natural)
+
+    def _library(self):
+        if self._list_library is None:
+            self._list_library = library.Library(self.cfg["LIBRARY_DB_FILE"], track_media.track_key)
+        return self._list_library
+
+    def _track_info(self, path):
+        """The song's title and artist, from the library, else its file name."""
+        try:
+            item = self._library().item_for_path(path)
+        except Exception:  # noqa: BLE001
+            item = None
+        title = (item or {}).get("title") or os.path.splitext(os.path.basename(path))[0]
+        return {"title": title, "artist": (item or {}).get("artist")}
+
+    def _dj_every(self):
+        try:
+            return max(0, int(self.cfg.get("DJ_ANNOUNCE_EVERY", 0) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    def _intro_due(self, path):
+        """Whether `path` will be introduced out loud before it plays."""
+        if self.cfg.get("DEDICATIONS_ENABLED") and path in self.state.dedications():
+            return True
+        every = self._dj_every()
+        return every > 0 and self._dj_count + 1 >= every
+
+    def _intro_text(self, track, introduce, natural):
+        dedication = self.state.pop_dedication(track)
+        if not introduce:
+            return ""
+        lang = self.cfg.get("SPEECH_LANGUAGE")
+        info = self._track_info(track)
+        if dedication and self.cfg.get("DEDICATIONS_ENABLED"):
+            text = speech.dedication_sentence(info["title"], dedication.get("from"),
+                                              dedication.get("text"), lang)
+            if text:
+                self.stats.record("dedication_played", label=os.path.basename(track),
+                                  detail={"from": dedication.get("from")})
+                return text
+        every = self._dj_every()
+        if every > 0 and natural:
+            self._dj_count += 1
+            if self._dj_count >= every:
+                self._dj_count = 0
+                return speech.track_sentence(info["title"], info["artist"], lang)
+        return ""
+
+    def _play_with_intro(self, track, introduce=False, natural=False):
+        """Plays `track`, said out loud first when a dedication or the radio
+        host asks for it."""
+        text = self._intro_text(track, introduce, natural)
+        path = self._speech_text_file(text) if text else None
+        if not path:
+            self._play_track(track)
+            return
+        log.info("Before the song: %s", text)
+        if self._sound_volume is not None:
+            self._restore_base_volume()
+        self._xfade_in = 0.0
+        self._forced_next = track
+        self._resume_mode = "music"
+        self._resume_track = None
+        self._next_is_user = False
+        self.mode = "meme"
+        self._begin_play("speech", path)
 
     def _rescan_music(self, source):
         """Reads the music folder again; music that was waiting for it starts."""
@@ -720,7 +870,115 @@ class RadioDaemon:
         self._begin_play("music", path)
         if self._pending_seek:
             self._position = self._pending_seek
+        self._tail_at = self._tail_for(path)
+        self._tail_done = False
+        self._xfade_checked = False
+        fade_in, self._xfade_in = self._xfade_in, 0.0
+        if fade_in:
+            self._fade_in_after_crossfade(fade_in)
         self._hold_music_without_speaker()
+
+    def _tail_for(self, path):
+        if not self.cfg.get("SKIP_TRAILING_SILENCE"):
+            return None
+        try:
+            return self._library().tail_for(path)
+        except Exception:  # noqa: BLE001 - the end is then played out, as before
+            return None
+
+    def _crossfade_sec(self):
+        try:
+            return min(10.0, max(0.0, float(self.cfg.get("CROSSFADE_SEC", 0) or 0)))
+        except (TypeError, ValueError):
+            return 0.0
+
+    XFADE_PRELOAD_SEC = 8
+
+    def _near_end(self):
+        """Called as the position moves: the trailing silence skipped, or the
+        crossfade into the next song prepared, then started."""
+        if self._play_kind != "music" or self._paused or self.mode != "music":
+            return
+        end = self._tail_at or self._duration
+        if not end:
+            return
+        pos = self._position
+        fade = self._crossfade_sec()
+        if fade and end > fade * 3:
+            if not self._xfade_checked and pos >= end - fade - self.XFADE_PRELOAD_SEC:
+                self._xfade_checked = True
+                if self._crossfade_ok():
+                    self._prepare_tail(end - fade, fade)
+            tail = self._xfade_proc
+            if tail is not None and not tail.started and pos >= end - fade:
+                if tail.ready and self._crossfade_ok():
+                    self._tail_done = True
+                    self._crossfade_to_next(fade, tail)
+                    return
+                log.info("Crossfade not ready in time: the song plays out")
+                self._stop_tail()
+        if self._tail_at and not self._tail_done and pos >= self._tail_at:
+            self._tail_done = True
+            log.info("Silence until the end of the song: moving on")
+            self.mpv.seek_end()
+
+    def _crossfade_ok(self):
+        if self._restart_pending or self._speaker_lost_at is not None or self._duck_proc is not None:
+            return False
+        if self.state.is_pending_cutoff():
+            return False
+        following = self._upcoming_track()
+        return bool(following) and not self._intro_due(following)
+
+    def _mpv_level(self):
+        if self._speaker_volume_linked():
+            return self._music_gain() * self._duck_factor
+        return (self._current_volume if self._current_volume is not None else self._target_volume()) \
+            * self._duck_factor
+
+    XFADE_SOCKET = "/tmp/rukebox_xfade.sock"
+
+    def _prepare_tail(self, start, fade):
+        """A disposable mpv, paused on the last seconds of this song: starting
+        one takes seconds on a Pi Zero, so it is ready before it is needed."""
+        self._stop_tail()
+        graph = ",".join(c for c in (self._audio_chain(), "asetpts=PTS-STARTPTS",
+                                     "afade=t=out:st=0:d=%.2f" % fade) if c)
+        command = ["mpv", "--no-terminal", "--really-quiet", "--no-video", "--pause",
+                   "--input-ipc-server=" + self.XFADE_SOCKET,
+                   "--audio-device=" + (self._audio_device or "auto"),
+                   "--volume=%.1f" % self._mpv_level(),
+                   "--replaygain=%s" % (self.cfg.get("REPLAYGAIN_MODE") or "no"),
+                   "--start=%.2f" % max(0.0, start), "--length=%.2f" % fade,
+                   "--af=lavfi=[%s]" % graph, self._play_path]
+        self._xfade_proc = self._tail_player_cls(command, self.XFADE_SOCKET)
+        if not self._xfade_proc.start():
+            self._xfade_proc = None
+
+    def _crossfade_to_next(self, fade, tail):
+        """The end of this song goes on in the prepared player, fading out,
+        while the main one moves to the next song and fades it in."""
+        tail.play(self._mpv_level())
+        log.info("Crossfade over %.1fs into the next song", fade)
+        self._xfade_in = fade
+        self.mpv.set_volume(0)
+        self.mpv.seek_end()
+
+    def _fade_in_after_crossfade(self, fade):
+        target = self._target_volume()
+        self._stop_volume_glide()
+        self._current_volume = 0
+        self._shown_volume = target
+        if self._speaker_volume_linked():
+            self._write_level(target)
+        self.mpv.set_volume(0)
+        self._glide_volume(target, fade)
+
+    def _stop_tail(self):
+        """The end of the previous song, still fading out, silenced."""
+        tail, self._xfade_proc = self._xfade_proc, None
+        if tail is not None:
+            tail.stop()
 
     def _resume_position(self, path):
         """Where to take a song up again: only the first one after a start or
@@ -868,6 +1126,8 @@ class RadioDaemon:
     def _begin_play(self, kind, path):
         """Loads a file and starts counting its listening time."""
         self._end_play("replaced")
+        if self._xfade_proc is not None and (kind != "music" or not self._xfade_proc.started):
+            self._stop_tail()
         self._current_track = path
         if self._wired_output():
             self._apply_audio_output()
@@ -1226,6 +1486,7 @@ class RadioDaemon:
 
     def _fade_out_and_pause(self, duration_sec):
         """Helper shared by ALL actions that stop the music."""
+        self._stop_tail()
         self._fade_out_to_zero(duration_sec)
         self.mpv.set_pause(True)
         self._end_play("interrupted")
@@ -1892,7 +2153,11 @@ class RadioDaemon:
 
     def _speech_file(self, kind, minutes=None):
         """A WAV of `kind` said now, named after its own words; None when it cannot be said."""
-        text = speech.sentence(kind, datetime.now(), self.cfg.get("SPEECH_LANGUAGE"), minutes)
+        return self._speech_text_file(
+            speech.sentence(kind, datetime.now(), self.cfg.get("SPEECH_LANGUAGE"), minutes))
+
+    def _speech_text_file(self, text):
+        """A WAV of `text`, named after its own words; None when it cannot be said."""
         if not text:
             return None
         folder = self._speech_dir()
@@ -1914,12 +2179,17 @@ class RadioDaemon:
         path = self._speech_file(kind, minutes)
         if not path:
             return "speech_unavailable"
-        log.info("Saying: %s", os.path.splitext(os.path.basename(path))[0])
         self.stats.record("speech_played", label=kind, detail={"source": source})
+        return self._say_path(path)
+
+    REMINDER_UNDER = 25
+
+    def _say_path(self, path, under=None):
+        log.info("Saying: %s", os.path.splitext(os.path.basename(path))[0])
         if self.mode != "music" or self._paused:
             self._play_cue_sound(path)
             return None
-        if self._play_ducked("speech", [path]):
+        if self._play_ducked("speech", [path], under=under):
             return None
         resume = (self._last_music_track, self._position)
         self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
@@ -2060,8 +2330,9 @@ class RadioDaemon:
         except (TypeError, ValueError):
             return 0
 
-    def _duck_possible(self, files):
-        return (self._music_under() > 0 and bool(files) and self.mode == "music"
+    def _duck_possible(self, files, under=None):
+        level = self._music_under() if under is None else under
+        return (level > 0 and bool(files) and self.mode == "music"
                 and not self._paused and self._duck_proc is None)
 
     def _set_duck(self, factor, seconds=0.8):
@@ -2075,19 +2346,21 @@ class RadioDaemon:
             self.mpv.set_volume(round(base * self._duck_factor, 1))
             time.sleep(seconds / steps)
 
-    def _play_ducked(self, kind, files, volume_key=None, after=None):
+    def _play_ducked(self, kind, files, volume_key=None, after=None, under=None):
         """Plays `files` over the music, the music kept under them; True when
         it does (False: the caller pauses the music as before)."""
-        if not self._duck_possible(files):
+        if not self._duck_possible(files, under):
             return False
+        level = self._music_under() if under is None else under
         volume = self._source_volume(volume_key) if volume_key else None
-        log.info("Playing over the music (kept at %d%%): %s", self._music_under(),
+        log.info("Playing over the music (kept at %d%%): %s", level,
                  ", ".join(os.path.basename(f) for f in files))
         self._duck_proc = "starting"
+        self._stop_tail()
 
         def run():
             try:
-                self._set_duck(self._music_under() / 100.0)
+                self._set_duck(level / 100.0)
                 for path in files:
                     if self._duck_proc is None:
                         break
@@ -2143,6 +2416,32 @@ class RadioDaemon:
         if hasattr(proc, "terminate"):
             proc.terminate()
         return True
+
+    REMINDER_LATE_SEC = 600
+
+    def _check_reminders(self):
+        """Says the reminders that are due; one missed by more than ten
+        minutes (the radio was off) is dropped."""
+        now = time.time()
+        for item in self.state.reminders():
+            if item.get("at", 0) > now:
+                break
+            if now - item["at"] > self.REMINDER_LATE_SEC:
+                log.info("Reminder missed, dropped: %s", item.get("text"))
+                self.state.remove_reminder(item["id"])
+                continue
+            if self.mode not in ("music", "idle", "stopped") or self._duck_proc is not None:
+                return
+            text = speech.reminder_sentence(item.get("text"), self.cfg.get("SPEECH_LANGUAGE"))
+            path = self._speech_text_file(text)
+            self.state.remove_reminder(item["id"])
+            self._bump_state()
+            if not path:
+                log.warning("Reminder could not be said: %s", item.get("text"))
+                continue
+            self.stats.record("reminder_said", label=speech.clean_text(item.get("text"), 80))
+            self._say_path(path, under=self._music_under() or self.REMINDER_UNDER)
+            return
 
     def _check_cutoff_warning(self, now):
         """Says the cutoff is coming, CUTOFF_WARNING_MIN minutes ahead, once a day."""
@@ -2341,6 +2640,11 @@ class RadioDaemon:
             data = msg.get("data")
             if name == "time-pos" and isinstance(data, (int, float)):
                 self._position = float(data)
+                if self._play_kind == "music":
+                    try:
+                        self._near_end()
+                    except Exception:  # noqa: BLE001 - the song then plays out
+                        log.exception("Could not handle the end of the song")
             elif name == "duration" and isinstance(data, (int, float)):
                 self._duration = float(data)
             elif name == "pause":
@@ -2641,6 +2945,8 @@ class RadioDaemon:
         if paused == self._paused:
             return None
         fade = min(max(float(self.cfg.get("PAUSE_FADE_SEC", 0) or 0), 0.0), 5.0)
+        if paused:
+            self._stop_tail()
         if self.mode == "music" and paused:
             if fade > 0:
                 self._fade_out_to_zero(fade)
@@ -2942,6 +3248,7 @@ class RadioDaemon:
 
         with self._command_lock:
             self._check_cutoff_warning(now)
+            self._check_reminders()
 
         if self._cutoff_due(now) and not self.state.already_triggered_today("last_cutoff_trigger"):
             if self.mode in ("idle", "stopped") or (self.mode == "music" and not self._current_track):
@@ -3225,14 +3532,29 @@ class RadioDaemon:
                 path = self._library_path(msg.get("path"))
                 if not path:
                     return {"ok": False, "error": "not_found"}
+                dedication = msg.get("dedication") if isinstance(msg.get("dedication"), dict) else None
+                text = speech.clean_text((dedication or {}).get("text"))
+                if text and self.cfg.get("DEDICATIONS_ENABLED"):
+                    self.state.set_dedication(path, {
+                        "from": speech.clean_text((dedication or {}).get("from"), 40) or None,
+                        "text": text})
                 if self.mode in ("idle", "stopped"):
                     self._forced_next = path
-                    self._start_or_restart_playback(log_label="request")
+                    if text and self.cfg.get("DEDICATIONS_ENABLED"):
+                        # Said before the song, so no fade-in from silence under it.
+                        self._prepare_music_start("request")
+                        self._restore_base_volume()
+                        self._forced_next = None
+                        self.mode = "meme"
+                        self._play_with_intro(path, introduce=True)
+                    else:
+                        self._start_or_restart_playback(log_label="request")
                     self.state.take_from_queue(path)
                     self.stats.record("track_queued", label=os.path.basename(path),
                                       detail={"source": source, "started": True})
                     return {"ok": True, "data": {"started": True}}
-                position = self.state.enqueue_request(path)
+                position = self.state.enqueue_request(
+                    path, msg.get("person") or None, bool(self.cfg.get("QUEUE_FAIR")))
                 self.stats.record("track_queued", label=os.path.basename(path), detail={"source": source})
                 self._bump_state()
                 return {"ok": True, "data": {"started": False, "position": position + 1}}
@@ -3242,7 +3564,36 @@ class RadioDaemon:
                 except (TypeError, ValueError):
                     count = 10
                 return {"ok": True, "data": {"paths": self._next_tracks(count),
-                                             "requested": self.state.requested_paths()}}
+                                             "requested": self.state.requested_paths(),
+                                             "dedications": self.state.dedications()}}
+            if cmd == "drop_dedication":
+                if self.state.pop_dedication(str(msg.get("path") or "")) is None:
+                    return {"ok": False, "error": "not_found"}
+                self._bump_state()
+                return {"ok": True}
+            if cmd == "get_reminders":
+                return {"ok": True, "data": {"items": self.state.reminders()}}
+            if cmd == "add_reminder":
+                text = speech.clean_text(msg.get("text"))
+                try:
+                    at = float(msg.get("at"))
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "reminder_bad_time"}
+                if not text:
+                    return {"ok": False, "error": "reminder_text_required"}
+                if not time.time() - 60 <= at <= time.time() + 7 * 86400:
+                    return {"ok": False, "error": "reminder_bad_time"}
+                rid = self.state.add_reminder(at, text)
+                if rid is None:
+                    return {"ok": False, "error": "reminder_too_many"}
+                log.info("Reminder at %s: %s", datetime.fromtimestamp(at).strftime("%H:%M"), text)
+                self._bump_state()
+                return {"ok": True, "data": {"id": rid}}
+            if cmd == "delete_reminder":
+                if not self.state.remove_reminder(str(msg.get("id") or "")):
+                    return {"ok": False, "error": "not_found"}
+                self._bump_state()
+                return {"ok": True}
             if cmd == "set_output_override":
                 kind = msg.get("output")
                 if kind is not None and kind not in audio_output.KINDS:

@@ -286,6 +286,22 @@ SETTINGS = [
         "Volume boost (compression)",
     ),
     Setting(
+        "AUDIO_EQUALIZER", "playback", "audio_equalizer", "str", "off",
+        "A sound profile, applied before the volume boost:\n"
+        "  off    -> the files as they are (the default)\n"
+        "  bass   -> more low end, for a small speaker\n"
+        "  voice  -> clearer voices, less rumble (talk, podcasts)\n"
+        "  bright -> more treble\n"
+        "  night  -> soft bass and tamed peaks, for listening quietly\n"
+        "Applied without a restart.",
+        "Sound profile",
+    ),
+    Setting("SKIP_TRAILING_SILENCE", "playback", "skip_trailing_silence", "bool", "true",
+            "Move on as soon as a song's last seconds are only silence, rather\n"
+            "than playing them out. The silence is found once per file, in the\n"
+            "background, from its last 30 seconds.",
+            "Skip the silence at the end"),
+    Setting(
         "VOLUME_CHANGE", "playback", "volume_change", "str", "instant",
         "How a volume change from the web interface (or a button) is heard:\n"
         "  instant -> at once\n"
@@ -519,6 +535,10 @@ SETTINGS = [
             "espeak-ng (installed with the radio).",
             "Spoken language"),
 
+    Setting("DJ_ANNOUNCE_EVERY", "schedule", "dj_announce_every", "int", "0",
+            "Like a radio host: every N songs, the next one is introduced out\n"
+            "loud (\"Up next: title, by artist\") between the two. 0 = never.",
+            "Introduce the songs (every N)"),
     Setting("ANNOUNCE_MUSIC_UNDER", "fades", "music_under_announcements", "int", "0",
             "Keep the music playing under an announcement (the spoken time\n"
             "included), at this percentage of its volume. 0 = the music pauses\n"
@@ -544,6 +564,11 @@ SETTINGS = [
             "Before stopping the music and switching the Pi off (long press, the\n"
             "interface's Stop & shutdown, the speaker gone for too long).",
             "Fade before switching off (sec)"),
+    Setting("CROSSFADE_SEC", "fades", "crossfade_sec", "float", "0",
+            "The end of a song fades out while the next one fades in, over this\n"
+            "many seconds. 0 = one after the other, as before. 10 at most.\n"
+            "Not before a spoken introduction, the cutoff or a planned restart.",
+            "Crossfade (sec)"),
     Setting("START_FADE_SEC", "fades", "start_sec", "float", "0",
             "When the music starts (at boot, at the set time, when the speaker\n"
             "connects, or on a press), the first song rises from silence to the\n"
@@ -711,6 +736,16 @@ SETTINGS = [
             "", "Price: Play a song of Up next now"),
     Setting("GUEST_COST_OUTPUT", "security", "guest_cost_output", "int", "1",
             "", "Price: Another audio output (planned one missing)"),
+    Setting("DEDICATIONS_ENABLED", "security", "dedications", "bool", "false",
+            "Someone putting a song up next may add a short message, said out\n"
+            "loud just before the song (\"For Marie, from Blue fox: ...\").\n"
+            "The owner can remove a message from Up next before it is said.",
+            "Dedications"),
+    Setting("QUEUE_FAIR", "security", "queue_fair", "bool", "true",
+            "Songs asked for take turns between people - one each, then the\n"
+            "next round - instead of first come, first served, so one person\n"
+            "cannot fill the whole queue.",
+            "Take turns between people"),
     Setting(
         "GUEST_PAGES_OFF", "security", "guest_pages_off", "str", "",
         "Home pages a guest does not get, comma-separated: upnext, recent,\n"

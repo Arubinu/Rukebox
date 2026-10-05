@@ -19,6 +19,7 @@ import time
 import types
 import unittest
 import unittest.mock
+from datetime import datetime
 
 import _path  # noqa: F401
 
@@ -993,6 +994,49 @@ class GuestLockTest(unittest.TestCase):
         unittest.mock.patch.object(ws, "_is_authenticated", return_value=True).start()
         self.assertNotIn(self.client.get("/api/today").status_code, (401, 403), "the owner sees every page")
 
+
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class DedicationAndReminderTest(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(unittest.mock.patch.stopall)
+        self.values = {"WEB_PASSWORD_HASH": "", "DEDICATIONS_ENABLED": False, "ACTION_REPEAT_SEC": 0}
+        real = ws.cfg
+
+        def fake_cfg():
+            values = dict(real())
+            values.update(self.values)
+            return values
+
+        unittest.mock.patch.object(ws, "cfg", side_effect=fake_cfg).start()
+        unittest.mock.patch.object(ws, "_path_for_key", return_value="/music/a.mp3").start()
+        unittest.mock.patch.object(ws, "_this_device", return_value={"id": "d1", "person": "p1", "name": "Renard"}).start()
+        self.control = unittest.mock.patch.object(ws, "control", return_value={"ok": True, "data": {}}).start()
+        self.client = ws.app.test_client()
+
+    def test_a_message_needs_dedications_on(self):
+        r = self.client.post("/api/library/queue", json={"key": "k", "message": "hello"})
+        self.assertEqual((r.status_code, r.get_json()["error"]), (403, "dedications_off"))
+        self.client.post("/api/library/queue", json={"key": "k"})
+        self.assertEqual(self.control.call_args.kwargs, {"path": "/music/a.mp3", "person": "p1"})
+
+    def test_a_message_goes_with_the_song_and_its_sender(self):
+        self.values["DEDICATIONS_ENABLED"] = True
+        r = self.client.post("/api/library/queue", json={"key": "k", "message": "  for   you  "})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.control.call_args.kwargs["dedication"], {"from": "Renard", "text": "for you"})
+
+    def test_a_reminder_in_minutes_or_at_a_time(self):
+        before = time.time()
+        self.client.post("/api/reminders", json={"text": "cake", "minutes": 20})
+        at = self.control.call_args.kwargs["at"]
+        self.assertAlmostEqual(at - before, 1200, delta=5)
+        self.client.post("/api/reminders", json={"text": "cake", "time": "07:30"})
+        when = datetime.fromtimestamp(self.control.call_args.kwargs["at"])
+        self.assertEqual((when.hour, when.minute), (7, 30))
+        self.assertGreater(when.timestamp(), time.time())
+        self.assertEqual(self.client.post("/api/reminders", json={"text": "x", "minutes": 0}).status_code, 400)
+        self.assertEqual(self.client.post("/api/reminders", json={"text": "x", "time": "25:99x"}).status_code, 400)
 
 
 @unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")

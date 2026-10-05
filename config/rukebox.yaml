@@ -219,6 +219,20 @@ playback:
   # Applied without a restart.
   audio_compression: "off"
 
+  # A sound profile, applied before the volume boost:
+  #   off    -> the files as they are (the default)
+  #   bass   -> more low end, for a small speaker
+  #   voice  -> clearer voices, less rumble (talk, podcasts)
+  #   bright -> more treble
+  #   night  -> soft bass and tamed peaks, for listening quietly
+  # Applied without a restart.
+  audio_equalizer: "off"
+
+  # Move on as soon as a song's last seconds are only silence, rather
+  # than playing them out. The silence is found once per file, in the
+  # background, from its last 30 seconds.
+  skip_trailing_silence: true
+
   # How a volume change from the web interface (or a button) is heard:
   #   instant -> at once
   #   fade    -> gliding to the new level over volume_fade_sec
@@ -423,6 +437,10 @@ schedule:
   # espeak-ng (installed with the radio).
   speech_language: "en"
 
+  # Like a radio host: every N songs, the next one is introduced out
+  # loud ("Up next: title, by artist") between the two. 0 = never.
+  dj_announce_every: 0
+
 # ---------------------------------------------------------------
 # Fade durations - every stop is progressive, never abrupt
 # ---------------------------------------------------------------
@@ -445,6 +463,11 @@ fades:
   # Before stopping the music and switching the Pi off (long press, the
   # interface's Stop & shutdown, the speaker gone for too long).
   long_press_sec: 4
+
+  # The end of a song fades out while the next one fades in, over this
+  # many seconds. 0 = one after the other, as before. 10 at most.
+  # Not before a spoken introduction, the cutoff or a planned restart.
+  crossfade_sec: 0
 
   # When the music starts (at boot, at the set time, when the speaker
   # connects, or on a press), the first song rises from silence to the
@@ -621,6 +644,16 @@ security:
   guest_cost_play_now: 1
 
   guest_cost_output: 1
+
+  # Someone putting a song up next may add a short message, said out
+  # loud just before the song ("For Marie, from Blue fox: ...").
+  # The owner can remove a message from Up next before it is said.
+  dedications: false
+
+  # Songs asked for take turns between people - one each, then the
+  # next round - instead of first come, first served, so one person
+  # cannot fill the whole queue.
+  queue_fair: true
 
   # Home pages a guest does not get, comma-separated: upnext, recent,
   # today, library, game, suggest. Their requests are refused too.
