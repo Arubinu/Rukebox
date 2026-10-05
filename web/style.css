@@ -2366,7 +2366,7 @@ select {
 }
 .speaker-status .audio-output.warning { color: var(--warning-text); font-weight: 600; }
 /* The fill is the level: a glance says more than the word "battery". */
-.battery-gauge { --battery-color: var(--success); display: inline-flex; align-items: center; gap: 5px;
+.battery-gauge { --battery-color: var(--success); display: inline-flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
 .battery-gauge[data-state="mid"] { --battery-color: var(--warning-text); }
 .battery-gauge[data-state="warn"] { --battery-color: var(--danger); color: var(--danger); }
@@ -2376,7 +2376,11 @@ select {
   border-radius: 0 1px 1px 0; background: currentColor; transform: translateY(-50%); }
 .battery-gauge-fill { display: block; height: 100%; width: var(--battery-level, 0%); border-radius: 1px;
   background: var(--battery-color); transition: width 0.4s ease; }
-.np-battery { margin-left: 8px; vertical-align: middle; font-size: 12px; }
+.battery-gauge-pct { line-height: 1; }
+.battery-pill { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--surface-2);
+  border: 1px solid var(--border); font-size: 12px; letter-spacing: 0; }
+/* The title does not take the whole line, so the pill sits right after it. */
+.card-player > h2 > span:first-of-type { flex: 0 1 auto; }
 
 @media (max-width: 639px) {
   .speaker-status { justify-content: center; text-align: center; }
