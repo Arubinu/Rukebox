@@ -874,6 +874,11 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 .recent-list li.is-current { border-color: var(--accent); background: var(--accent-soft); }
 .recent-list li.is-current .recent-when { color: var(--accent); font-weight: 600; }
 #recentEmpty { text-align: center; }
+/* The empty and summary lines read as captions, centred like "Add music" - and
+   a pair takes it together, since one replaces the other in the same place. */
+#excludedEmpty, #excludedSummary, #excludedResultsEmpty,
+#reminderEmpty, #likesEmpty, #upnextEmpty,
+#duplicatesSummary, #duplicatesEmpty { text-align: center; }
 
 .device-list li.duplicate-group { display: block; padding: 0; overflow: hidden; }
 .duplicate-fold { display: block; }
