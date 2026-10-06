@@ -1675,6 +1675,20 @@ class ExcludedTracksTest(unittest.TestCase):
             self.assertEqual(r.status_code, 400, body)
             self.assertEqual(r.get_json()["error"], "excluded_key_required")
 
+    def test_the_list_comes_a_page_at_a_time(self):
+        owner = self.owner()
+        owner.post("/api/excluded", json={"keys": list(self.keys.values())})
+        first = owner.get("/api/excluded?offset=0&limit=2").get_json()["data"]
+        self.assertEqual((len(first["items"]), first["count"]), (2, 3),
+                         "count is the whole list, not the page")
+        rest = owner.get("/api/excluded?offset=2&limit=2").get_json()["data"]
+        self.assertEqual(len(rest["items"]), 1)
+        keys = [item["key"] for item in first["items"] + rest["items"]]
+        self.assertEqual(len(set(keys)), 3, "no track twice, none missing")
+        for query in ("offset=x&limit=y", "offset=-5", "limit=0"):
+            self.assertEqual(owner.get("/api/excluded?" + query).get_json()
+                             ["data"]["items"][0]["key"] in self.keys.values(), True, query)
+
     def test_putting_one_back_and_then_every_one(self):
         owner = self.owner()
         owner.post("/api/excluded", json={"keys": list(self.keys.values())})

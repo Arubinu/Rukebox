@@ -4287,9 +4287,11 @@ refreshEvery(refreshLikes, 120000);
 
 /* Excluded tracks: what the radio never picks on its own. The page is the only
    place that adds one - the library keeps the buttons it has. */
+const EXCLUDED_PAGE = 30;
 let excludedItems = [];
+let excludedCount = 0;
 let excludedOffset = 0;
-let excludedTotal = 0;
+let excludedMatches = 0;
 let excludedSeq = 0;
 let excludedTimer = null;
 let excludedFacetsDone = false;
@@ -4334,6 +4336,7 @@ function excludedRestoreButton(item) {
     }
     showToast(t("excluded.restored", { title: name }));
     refreshExcluded();
+    refreshExcludedResults();
   });
   return b;
 }
@@ -4354,19 +4357,20 @@ function excludedRow(item) {
 
 function renderExcluded() {
   const summary = document.getElementById("excludedSummary");
-  document.getElementById("excludedEmpty").hidden = excludedItems.length > 0;
-  document.getElementById("excludedRestoreAll").hidden = excludedItems.length === 0;
-  summary.hidden = excludedItems.length === 0;
-  if (excludedItems.length) {
+  document.getElementById("excludedEmpty").hidden = excludedCount > 0;
+  document.getElementById("excludedRestoreAll").hidden = excludedCount === 0;
+  summary.hidden = excludedCount === 0;
+  if (excludedCount) {
     summary.dataset.i18n = "excluded.summary";
-    summary.dataset.i18nVarN = String(excludedItems.length);
-    summary.textContent = t("excluded.summary", { n: excludedItems.length });
+    summary.dataset.i18nVarN = String(excludedCount);
+    summary.textContent = t("excluded.summary", { n: excludedCount });
   } else {
     delete summary.dataset.i18n;
     delete summary.dataset.i18nVarN;
     summary.textContent = "";
   }
   document.getElementById("excludedList").replaceChildren(...excludedItems.map(excludedRow));
+  document.getElementById("excludedListMore").hidden = excludedItems.length >= excludedCount;
 }
 
 async function fillExcludedFacets() {
@@ -4379,27 +4383,34 @@ async function fillExcludedFacets() {
   fillFacet(excludedGenre, r.data.genres || [], "library.all_genres");
 }
 
-async function refreshExcluded() {
+/* `more` appends the next page; a plain refresh keeps what is already on
+   screen, so the periodic one never pulls the list out from under a finger. */
+async function refreshExcluded(more) {
   const card = document.getElementById("excludedCard");
   if (!excludedAvailable()) {
     card.hidden = true;
     return;
   }
-  const r = await apiGet("/api/excluded");
+  const offset = more ? excludedItems.length : 0;
+  const limit = more ? EXCLUDED_PAGE : Math.max(EXCLUDED_PAGE, excludedItems.length);
+  const r = await apiGet("/api/excluded?offset=" + offset + "&limit=" + limit);
   if (!r.ok || !r.data) {
     card.hidden = true;
     return;
   }
-  excludedItems = r.data.items || [];
+  excludedCount = r.data.count || 0;
+  const items = r.data.items || [];
+  excludedItems = more ? excludedItems.concat(items) : items;
   card.hidden = false;
   renderExcluded();
   fillExcludedFacets();
-  if (excludedAsked()) refreshExcludedResults();
 }
 
+document.getElementById("excludedListMore").addEventListener("click", () => refreshExcluded(true));
+
 document.getElementById("excludedRestoreAll").addEventListener("click", async () => {
-  if (!excludedItems.length) return;
-  const asked = await showConfirm(t("excluded.confirm_restore_all", { n: excludedItems.length }));
+  if (!excludedCount) return;
+  const asked = await showConfirm(t("excluded.confirm_restore_all", { n: excludedCount }));
   if (!asked) return;
   const r = await apiPost("/api/excluded/restore", { all: true });
   if (!r.ok) {
@@ -4408,6 +4419,7 @@ document.getElementById("excludedRestoreAll").addEventListener("click", async ()
   }
   showToast(t("excluded.restored_all", { n: (r.data && r.data.count) || 0 }));
   refreshExcluded();
+  refreshExcludedResults();
 });
 
 /* Adding: the same search as the library, with the same row buttons. A filter
@@ -4465,6 +4477,7 @@ async function excludeTracks(keys, name) {
   }
   showToast(t("excluded.added", { title: name }));
   refreshExcluded();
+  refreshExcludedResults();
 }
 
 async function refreshExcludedResults(more) {
@@ -4474,7 +4487,7 @@ async function refreshExcludedResults(more) {
   const empty = document.getElementById("excludedResultsEmpty");
   if (!excludedAsked()) {
     list.replaceChildren();
-    excludedTotal = 0;
+    excludedMatches = 0;
     empty.hidden = true;
     addAll.hidden = true;
     document.getElementById("excludedMore").hidden = true;
@@ -4497,7 +4510,7 @@ async function refreshExcludedResults(more) {
   if (more) list.append(...rows);
   else list.replaceChildren(...rows);
   excludedOffset += d.items.length;
-  excludedTotal = d.total;
+  excludedMatches = d.total;
   empty.hidden = d.total > 0;
   addAll.hidden = d.total === 0;
   addAll.dataset.i18n = "excluded.add_filter";
@@ -4507,8 +4520,8 @@ async function refreshExcludedResults(more) {
 }
 
 document.getElementById("excludedFilterAdd").addEventListener("click", async () => {
-  if (!excludedTotal) return;
-  const asked = await showConfirm(t("excluded.confirm_filter", { n: excludedTotal }));
+  if (!excludedMatches) return;
+  const asked = await showConfirm(t("excluded.confirm_filter", { n: excludedMatches }));
   if (!asked) return;
   const done = await apiPost("/api/excluded/filter", excludedFilterBody());
   if (!done.ok) {
@@ -4517,6 +4530,7 @@ document.getElementById("excludedFilterAdd").addEventListener("click", async () 
   }
   showToast(t("excluded.added_many", { n: (done.data && done.data.count) || 0 }));
   refreshExcluded();
+  refreshExcludedResults();
 });
 
 document.getElementById("excludedMore").addEventListener("click", () => refreshExcludedResults(true));

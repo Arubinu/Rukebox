@@ -62,12 +62,13 @@ function load(options = {}) {
 
   window.fetch = (url, init = {}) => {
     const method = (init.method || "GET").toUpperCase();
-    const pathname = new window.URL(url, window.location.href).pathname;
+    const target = new window.URL(url, window.location.href);
+    const pathname = target.pathname;
     let body = null;
     if (typeof init.body === "string") {
       try { body = JSON.parse(init.body); } catch (e) { body = init.body; }
     }
-    const request = { method, path: pathname, body };
+    const request = { method, path: pathname, query: target.searchParams, body };
     if (closed || pathname === "/api/status/wait") return new Promise(() => {});
     requests.push(request);
     let answer = routes[method + " " + pathname];

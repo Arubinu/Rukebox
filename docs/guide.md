@@ -1454,7 +1454,8 @@ excluded or not.
 The page lists what is excluded, with the day and where it came from - a
 **duplicate** kept aside, a whole **filter**, or one song picked **by hand** -
 each row with "Next" to hear it anyway and a **↻** to put it back in the
-rotation. **Put them all back**, with a confirmation, empties the list.
+rotation. **Put them all back**, with a confirmation, empties the list. Thirty
+rows are shown at a time, and **Show more** brings in the next ones.
 
 Adding is done from that page only, so the Library keeps its two buttons:
 

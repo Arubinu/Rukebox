@@ -5466,14 +5466,29 @@ def _excluded_rows(keys):
     return rows
 
 
+EXCLUDED_PAGE = 30
+EXCLUDED_PAGE_MAX = 500
+
+
 @app.route("/api/excluded")
 def api_excluded():
-    """What the radio never picks by itself, and how each one got there."""
+    """What the radio never picks by itself, and how each one got there. A page
+    at a time, like the library: an exclusion list can be long, and the page
+    asks for more rather than being handed all of it."""
     entries = _excluded_entries()
+    try:
+        offset = max(0, int(request.args.get("offset", 0)))
+    except (TypeError, ValueError):
+        offset = 0
+    try:
+        limit = max(1, min(EXCLUDED_PAGE_MAX, int(request.args.get("limit", EXCLUDED_PAGE))))
+    except (TypeError, ValueError):
+        limit = EXCLUDED_PAGE
+    page = entries[offset:offset + limit]
     rows = {item["path"]: item for item in
-            _get_library().items_for_paths([entry.get("path") for entry in entries])}
+            _get_library().items_for_paths([entry.get("path") for entry in page])}
     items = []
-    for entry in entries:
+    for entry in page:
         row = rows.get(entry.get("path")) or {}
         items.append({
             "key": entry["key"],
@@ -5485,7 +5500,8 @@ def api_excluded():
             "origin": entry.get("origin") or "manual",
             "missing": not row,
         })
-    return jsonify({"ok": True, "data": {"items": items, "count": len(items)}})
+    return jsonify({"ok": True, "data": {"items": items, "count": len(entries),
+                                         "offset": offset, "limit": limit}})
 
 
 @app.route("/api/excluded", methods=["POST"])

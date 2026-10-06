@@ -960,6 +960,30 @@ test("the excluded page lists what the radio will not pick, and puts it back", a
   assert.deepEqual(page.errors, []);
 });
 
+test("a long list of excluded tracks comes a page at a time", async (t) => {
+  const all = [0, 1, 2].map((i) => ({ key: "k" + i, title: "T" + i, artist: "A",
+                                      excluded_at: 1759500000, origin: "manual",
+                                      missing: false }));
+  const page = open(t, { hash: "#home/excluded", routes: {
+    // Two rows a page, whatever the page asks for: the button is what is under test.
+    "GET /api/excluded": (r) => {
+      const offset = Number(r.query.get("offset") || 0);
+      return { items: all.slice(offset, offset + 2), count: all.length };
+    },
+  } });
+  await until(() => page.$("excludedList").children.length === 2);
+  assert.equal(page.$("excludedListMore").hidden, false, "there is more to show");
+  assert.match(page.$("excludedSummary").textContent, /3 tracks/,
+               "the summary counts the whole list, not the page");
+
+  page.$("excludedListMore").click();
+  await until(() => page.$("excludedList").children.length === 3);
+  assert.equal(page.sent("GET", "/api/excluded")[1].query.get("offset"), "2",
+               "the next page starts where the last one stopped");
+  assert.equal(page.$("excludedListMore").hidden, true, "nothing left to show");
+  assert.deepEqual(page.errors, []);
+});
+
 test("a filter is excluded whole, and a row one track at a time", async (t) => {
   const library = [
     { key: "k1", title: "One", artist: "Alpha", excluded: false },
