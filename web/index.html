@@ -179,16 +179,17 @@
               </div>
               <p class="hint" id="listenWhy" role="status" hidden></p>
               <p class="hint np-timers" id="npTimers" role="status" hidden></p>
-              <p class="hint guest-credits" id="guestCredits" hidden></p>
-
-              <div class="volume-row" data-cost-action="volume">
-                <button type="button" class="vol-icon vol-mute" id="btnMute" data-icon="volume-low"
-                        aria-pressed="false" data-i18n-aria-label="home.mute" aria-label="Mute"
-                        data-i18n-title="home.mute" title="Mute"></button>
-                <input type="range" id="volumeSlider" min="0" max="100" value="70"
-                       data-i18n-aria-label="home.volume" aria-label="Volume">
-                <span class="vol-icon" data-icon="speaker" aria-hidden="true"></span>
-                <output class="vol-value" id="volumeValue" for="volumeSlider">70</output>
+              <div class="volume-block">
+                <p class="hint guest-credits" id="guestCredits" hidden></p>
+                <div class="volume-row" data-cost-action="volume">
+                  <button type="button" class="vol-icon vol-mute" id="btnMute" data-icon="volume-low"
+                          aria-pressed="false" data-i18n-aria-label="home.mute" aria-label="Mute"
+                          data-i18n-title="home.mute" title="Mute"></button>
+                  <input type="range" id="volumeSlider" min="0" max="100" value="70"
+                         data-i18n-aria-label="home.volume" aria-label="Volume">
+                  <span class="vol-icon" data-icon="speaker" aria-hidden="true"></span>
+                  <output class="vol-value" id="volumeValue" for="volumeSlider">70</output>
+                </div>
               </div>
             </div>
           </div>

@@ -1674,10 +1674,19 @@ body.lyrics-fullscreen { overflow: hidden; }
 .setup-hidden-line { margin-top: 14px; }
 
 /* A small frame of its own, stuck on top of the volume one: same colours, no
-   bottom edge and no bottom corners, so the two read as one shape. */
-.guest-credits {
+   bottom edge and no bottom corners, so the two read as one shape. The wrapper
+   is what keeps them touching - .player-controls' own gap would push them apart. */
+.volume-block {
+  display: flex;
+  flex-direction: column;
+}
+/* .hint sets a margin of its own, and it is declared later: the two classes are
+   needed to win without depending on where this block sits in the file. */
+.hint.guest-credits {
+  position: relative;
+  z-index: 1;
   width: fit-content;
-  margin: 8px auto -1px;
+  margin: 0 auto -1px;
   padding: 2px 12px;
   border: 1px solid var(--border);
   border-bottom: 0;
