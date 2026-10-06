@@ -52,6 +52,9 @@ PREFERENCE = ("opus", "mp3", "aac", "vorbis")
 # chunks go, which is what keeps the stream live rather than a slow playback.
 QUEUE_CHUNKS = 32
 CHUNK_BYTES = 4096
+# The headers of an Ogg stream, kept for a listener that arrives late, and the
+# point past which they are given up on as "not a header after all".
+HEADER_MAX_BYTES = 16384
 # How long a listener waits before checking the encoder is still there.
 CHUNK_WAIT_SEC = 5.0
 # An ffmpeg that dies at once - no PipeWire, no such sink - must not be
@@ -237,6 +240,37 @@ def encoders_available(ffmpeg="ffmpeg", timeout=10):
     return [key for key in PREFERENCE if names[key] in text]
 
 
+def _ogg_header_length(data):
+    """How many bytes of an Ogg stream are its headers.
+
+    None while they are not all there yet, and 0 for a stream that is not Ogg
+    at all (MP3, AAC): those have nothing a late listener needs first. The
+    headers are the leading pages whose granule position is 0, which is the
+    identification and comment pages of every Ogg codec ffmpeg writes here."""
+    if len(data) < 4:
+        return None
+    if not data.startswith(b"OggS"):
+        return 0
+    offset = 0
+    while True:
+        if offset >= len(data):
+            return None
+        if data[offset:offset + 4] != b"OggS":
+            return 0
+        if len(data) < offset + 27:
+            return None
+        segments = data[offset + 26]
+        head = 27 + segments
+        if len(data) < offset + head:
+            return None
+        total = head + sum(data[offset + 27:offset + head])
+        if len(data) < offset + total:
+            return None
+        if int.from_bytes(data[offset + 6:offset + 14], "little") != 0:
+            return offset
+        offset += total
+
+
 class StreamServer:
     """Encodes one audio source and hands the bytes to every listener.
 
@@ -260,6 +294,9 @@ class StreamServer:
         self._restarts = 0
         self._gave_up = False
         self.last_error = ""
+        self.header = b""
+        self._unparsed = b""
+        self._header_read = False
 
     @property
     def content_type(self):
@@ -285,6 +322,11 @@ class StreamServer:
         with self._lock:
             if self._process is not None and self._process.poll() is None:
                 return True
+            # A new encoder writes new headers: the ones kept for late
+            # listeners belong to the process before.
+            self.header = b""
+            self._unparsed = b""
+            self._header_read = False
             try:
                 self._process = subprocess.Popen(
                     self.command(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -367,6 +409,8 @@ class StreamServer:
         self.start()
 
     def _broadcast(self, chunk):
+        if chunk:
+            self._remember_header(chunk)
         with self._lock:
             listeners = list(self._listeners)
         for box in listeners:
@@ -379,12 +423,32 @@ class StreamServer:
                 except (queue.Empty, queue.Full):
                     pass
 
+    def _remember_header(self, chunk):
+        """Keeps the stream's own beginning for whoever arrives later.
+
+        An Ogg stream without its headers cannot be decoded at all, so a
+        listener that joins a minute in would hear nothing (that is what VLC
+        reports as "couldn't find any ogg logical stream"); the headers are
+        replayed to it before the live bytes."""
+        if self._header_read:
+            return
+        self._unparsed += chunk
+        length = _ogg_header_length(self._unparsed)
+        if length is None and len(self._unparsed) < HEADER_MAX_BYTES:
+            return
+        self.header = self._unparsed if length is None else self._unparsed[:length]
+        self._header_read = True
+        self._unparsed = b""
+
     def listen(self):
         """One listener: a queue of bytes, ending with None when the encoder
         goes away - which is what tells a client to reconnect."""
         box = queue.Queue(maxsize=self.queue_chunks)
         with self._lock:
+            header = self.header
             self._listeners.append(box)
+        if header:
+            box.put_nowait(header)
         if not self.alive():
             self.start()
         return box

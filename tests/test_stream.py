@@ -23,6 +23,14 @@ def fake_run(stdout="", returncode=0):
     return run
 
 
+def ogg_page(flags=0, granule=0, payload=b"x", serial=1, seq=0):
+    """One complete Ogg page: ffmpeg writes them like this for Opus or Vorbis."""
+    segments = bytes([len(payload)])
+    return (b"OggS" + bytes([0, flags]) + granule.to_bytes(8, "little")
+            + serial.to_bytes(4, "little") + seq.to_bytes(4, "little")
+            + b"\x00\x00\x00\x00" + bytes([len(segments)]) + segments + payload)
+
+
 class ProbeSourceTest(unittest.TestCase):
     """`pactl` answers first, `pw-dump` when there is no Pulse layer."""
 
@@ -265,6 +273,91 @@ class ListenerTest(unittest.TestCase):
         self.assertTrue(server._gave_up)
         self.assertEqual(server._restarts, stream.MAX_RESTARTS)
         self.assertFalse(server.start(), "it stays given up")
+
+
+class OggPageTest(unittest.TestCase):
+    """The headers of an Ogg stream are what a late listener needs first."""
+
+    def test_a_stream_that_is_not_ogg_has_no_headers_to_keep(self):
+        self.assertEqual(stream._ogg_header_length(b"\xff\xfb\x90\x00 music"), 0)
+
+    def test_half_a_page_waits_for_the_rest(self):
+        self.assertIsNone(stream._ogg_header_length(b"Ogg"))
+        self.assertIsNone(stream._ogg_header_length(ogg_page()[:-1]))
+
+    def test_the_headers_end_where_the_audio_begins(self):
+        headers = ogg_page(flags=2, payload=b"OpusHead") + ogg_page(payload=b"OpusTags")
+        audio = ogg_page(granule=96000, payload=b"audio")
+        self.assertEqual(stream._ogg_header_length(headers + audio), len(headers))
+        self.assertIsNone(stream._ogg_header_length(headers), "the audio page is not in yet")
+        self.assertEqual(stream._ogg_header_length(headers + audio + audio), len(headers))
+
+    def test_vorbis_has_three_of_them(self):
+        headers = (ogg_page(flags=2, payload=b"id") + ogg_page(payload=b"comment")
+                   + ogg_page(payload=b"setup"))
+        self.assertEqual(stream._ogg_header_length(headers + ogg_page(granule=1)), len(headers))
+
+
+class LateListenerTest(unittest.TestCase):
+    """A player that arrives after the encoder started must still hear it.
+
+    Without the headers an Ogg stream is undecodable - VLC says "couldn't find
+    any ogg logical stream" and plays nothing - so they are replayed first."""
+
+    def setUp(self):
+        patcher = mock.patch.object(stream.subprocess, "Popen",
+                                    side_effect=OSError("no ffmpeg here"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def headers(self):
+        return ogg_page(flags=2, payload=b"OpusHead") + ogg_page(payload=b"OpusTags")
+
+    def feed(self, server, granule):
+        server._broadcast(ogg_page(granule=granule, payload=b"audio"))
+
+    def test_the_headers_come_first(self):
+        server = build_server()
+        headers = self.headers()
+        server._broadcast(headers)
+        self.feed(server, 96000)
+        box = server.listen()
+        self.feed(server, 192000)
+        self.assertEqual(box.get_nowait(), headers)
+        self.assertEqual(box.get_nowait(), ogg_page(granule=192000, payload=b"audio"),
+                         "and then the live stream, not what it missed")
+
+    def test_the_first_listener_gets_them_only_once(self):
+        """It is fed the live stream from its first byte: what it reads already
+        begins with the headers, and repeating them would look like a new
+        stream starting."""
+        server = build_server()
+        headers = self.headers()
+        box = server.listen()
+        server._broadcast(headers)
+        self.feed(server, 96000)
+        self.assertEqual(box.get_nowait(), headers)
+        self.assertEqual(box.get_nowait(), ogg_page(granule=96000, payload=b"audio"))
+
+    def test_an_mp3_stream_keeps_nothing(self):
+        with mock.patch.object(stream, "encoders_available", return_value=["mp3"]):
+            server = stream.build({"STREAM_ENABLED": True, "STREAM_SOURCE": "s.monitor"},
+                                  probe=False)
+        server._broadcast(b"\xff\xfb\x90\x00" * 100)
+        box = server.listen()
+        self.assertEqual(box.qsize(), 0, "nothing to replay to a late listener")
+
+    def test_a_new_encoder_starts_with_new_headers(self):
+        server = build_server()
+        server._broadcast(self.headers())
+        self.feed(server, 96000)
+        self.assertTrue(server.header)
+        process = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=process):
+            server.start()
+            self.assertEqual(server.header, b"", "the headers of the process before")
+            process.eof()
+            process.stdout.close()
 
 
 class StatusTest(unittest.TestCase):
