@@ -1523,11 +1523,8 @@ body.lyrics-fullscreen { overflow: hidden; }
 .player-extras {
   display: flex;
   gap: 10px;
-  margin-top: 10px;
 }
 .player-extras .btn { flex: 1 1 0; min-width: 0; }
-.skip-vote { display: flex; margin-top: 10px; }
-.skip-vote .btn { flex: 1 1 auto; }
 .game-round { font-weight: 600; margin: 4px 0 12px; font-variant-numeric: tabular-nums; }
 .game-choices { display: grid; grid-template-columns: 1fr; gap: 8px; }
 @media (min-width: 640px) { .game-choices { grid-template-columns: 1fr 1fr; } }

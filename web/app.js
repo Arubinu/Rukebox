@@ -1352,11 +1352,22 @@ function applySoundLine(d) {
   }
 }
 
+function paintPlayerSmallRow() {
+  // One row for the two small buttons, and it exists only while one of them
+  // does: an empty one would leave a gap under the buttons above it.
+  const row = document.getElementById("playerSmallRow");
+  const shown = ["btnListen", "btnSkipVote"].some((id) => {
+    const button = document.getElementById(id);
+    return button && !button.hidden;
+  });
+  row.hidden = !shown;
+}
+
 function paintSkipVote(vote) {
-  const row = document.getElementById("skipVoteRow");
-  row.hidden = !vote;
-  if (!vote) return;
   const btn = document.getElementById("btnSkipVote");
+  btn.hidden = !vote;
+  paintPlayerSmallRow();
+  if (!vote) return;
   btn.textContent = t(vote.mine ? "vote.voted" : "vote.skip", { votes: vote.votes, needed: vote.needed });
   btn.disabled = !!vote.mine;
   btn.setAttribute("aria-pressed", vote.mine ? "true" : "false");
@@ -1972,6 +1983,7 @@ function paintListen(playing) {
   tell.dataset.i18n = whyKey;
   tell.textContent = whyKey ? t(whyKey) : "";
   tell.hidden = !whyKey;
+  paintPlayerSmallRow();
 }
 
 function applyListen(d) {

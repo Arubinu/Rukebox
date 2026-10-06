@@ -172,14 +172,12 @@
                         aria-pressed="false" data-i18n-title="home.loop_hint" title="Playback loop (this session)"><span data-i18n="home.loop_off">No loop</span></button>
                 <button type="button" class="btn btn-small" id="btnTimer" data-icon="timer"><span data-i18n="home.timer">Timer…</span></button>
               </div>
-              <div class="player-extras">
+              <div class="player-extras" id="playerSmallRow">
                 <button type="button" class="btn btn-small" id="btnListen" data-icon="speaker" hidden
                         aria-pressed="false" data-i18n-title="stream.listen_hint" title="Play the stream on this device"><span data-i18n="stream.listen">Listen here</span></button>
+                <button type="button" class="btn btn-small" id="btnSkipVote" data-icon="users" hidden></button>
               </div>
               <p class="hint" id="listenWhy" role="status" hidden></p>
-              <div class="skip-vote" id="skipVoteRow" hidden>
-                <button type="button" class="btn btn-small" id="btnSkipVote" data-icon="users"></button>
-              </div>
               <p class="hint np-timers" id="npTimers" role="status" hidden></p>
               <p class="hint guest-credits" id="guestCredits" hidden></p>
 

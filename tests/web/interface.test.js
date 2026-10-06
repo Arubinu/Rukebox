@@ -694,12 +694,32 @@ test("a vote to skip shows the count, and a vote is sent once", async (t) => {
     "GET /api/status": () => Object.assign({}, STATUS, { mode: "music", skip_vote: vote }),
     "POST /api/vote/skip": () => (vote = { votes: 2, needed: 3, mine: true, skipped: false }),
   } });
-  await until(() => !page.$("skipVoteRow").hidden);
+  await until(() => !page.$("btnSkipVote").hidden);
+  assert.equal(page.$("playerSmallRow").hidden, false, "the row is there for it");
   assert.equal(page.$("btnSkipVote").textContent, "Vote to skip (1/3)");
   page.$("btnSkipVote").click();
   await until(() => page.sent("POST", "/api/vote/skip").length === 1);
   await until(() => page.$("btnSkipVote").textContent === "You voted (2/3)");
   assert.equal(page.$("btnSkipVote").disabled, true);
+});
+
+test("the two small buttons share one row, and the row goes when they do", async (t) => {
+  const { STATUS } = require("./harness");
+  const stream = { enabled: true, available: true, url: "http://radio/stream.opus",
+                   encoder: "opus", content_type: "audio/ogg", listeners: 0, why: "" };
+  const page = open(t, { routes: { "GET /api/status": Object.assign({}, STATUS, {
+    stream, skip_vote: { votes: 1, needed: 3, mine: false } }) } });
+  await until(() => !page.$("btnListen").hidden && !page.$("btnSkipVote").hidden);
+  const row = page.$("playerSmallRow");
+  assert.equal(row.hidden, false);
+  assert.ok(row.contains(page.$("btnListen")) && row.contains(page.$("btnSkipVote")),
+            "one line for the two of them");
+
+  const bare = open(t, { routes: { "GET /api/status": Object.assign({}, STATUS, {
+    stream: Object.assign({}, stream, { available: false, url: "" }) }) } });
+  await until(() => bare.$("playerSmallRow").hidden === true);
+  assert.equal(bare.$("btnListen").hidden, true, "nothing to listen to");
+  assert.equal(bare.$("btnSkipVote").hidden, true, "and nothing to vote about");
 });
 
 test("the blind test: the host starts it, a player answers once, and sees the right song after", async (t) => {
