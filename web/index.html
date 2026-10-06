@@ -2129,6 +2129,17 @@
           <p class="hint" id="updateSource"></p>
           <p class="hint" id="updateOs"></p>
 
+          <div data-needs="self_update">
+            <div class="field-row">
+              <div class="field-text">
+                <label for="updateAllowWeb" data-i18n="update.allow_web">Allow updates from the web</label>
+                <p class="field-desc" id="updateAllowWebDesc" data-i18n="update.allow_web_desc">The update runs as root: anyone who can open this page could start a download and run it. Turn it back off when you are done.</p>
+              </div>
+              <input type="checkbox" id="updateAllowWeb" data-key="UPDATE_ALLOW_WEB" class="switch-input" role="switch"
+                     aria-describedby="updateAllowWebDesc">
+            </div>
+          </div>
+
           <details class="subsection" data-needs="self_update">
             <summary><span data-i18n="update.how_section">How to update</span></summary>
             <p class="hint help-text" data-i18n="update.how_hint1" hidden>
@@ -2157,42 +2168,30 @@
           </details>
 
           <div id="releaseBox" data-needs="self_update">
-            <form id="releaseRepoForm" class="settings-form">
-              <div class="field-row">
-                <div class="field-text">
-                  <label for="releaseRepo" data-i18n="update.release_repo">GitHub repository</label>
-                  <p class="field-desc" id="releaseRepoDesc" data-i18n="update.release_repo_desc">owner/name - change it for a fork.</p>
+            <details class="subsection" id="updateSourcesSection">
+              <summary><span data-i18n="update.sources">Update sources</span></summary>
+              <form id="releaseRepoForm" class="settings-form">
+                <div class="field-row">
+                  <div class="field-text">
+                    <label for="releaseRepo" data-i18n="update.release_repo">GitHub repository</label>
+                    <p class="field-desc" id="releaseRepoDesc" data-i18n="update.release_repo_desc">owner/name - change it for a fork.</p>
+                  </div>
+                  <div class="input-with-action">
+                    <input type="text" id="releaseRepo" class="text-input" data-key="UPDATE_GITHUB_REPO"
+                           aria-describedby="releaseRepoDesc" placeholder="Arubinu/Rukebox"
+                           autocapitalize="off" autocomplete="off" spellcheck="false">
+                    <button type="submit" class="btn btn-icon" data-icon="check" data-i18n-aria-label="common.save" aria-label="Save" data-i18n-title="common.save" title="Save"></button>
+                  </div>
                 </div>
-                <div class="input-with-action">
-                  <input type="text" id="releaseRepo" class="text-input" data-key="UPDATE_GITHUB_REPO"
-                         aria-describedby="releaseRepoDesc" placeholder="Arubinu/Rukebox"
-                         autocapitalize="off" autocomplete="off" spellcheck="false">
-                  <button type="submit" class="btn btn-icon" data-icon="check" data-i18n-aria-label="common.save" aria-label="Save" data-i18n-title="common.save" title="Save"></button>
-                </div>
+              </form>
+              <div class="actions-row" id="gitUpdateBox" hidden>
+                <button type="button" class="btn btn-primary" id="btnUpdateGit" data-icon="download" data-i18n="update.git_btn">Update from Git</button>
               </div>
-              <div class="field-row">
-                <div class="field-text">
-                  <label for="updateAllowWeb" data-i18n="update.allow_web">Allow updates from the web</label>
-                  <p class="field-desc" id="updateAllowWebDesc" data-i18n="update.allow_web_desc">The update runs as root: anyone who can open this page could start a download and run it. Turn it back off when you are done.</p>
-                </div>
-                <input type="checkbox" id="updateAllowWeb" data-key="UPDATE_ALLOW_WEB" class="switch-input" role="switch"
-                       aria-describedby="updateAllowWebDesc">
-              </div>
-            </form>
+            </details>
             <p class="hint" id="releaseStatus" role="status"></p>
             <div class="actions-row">
               <button type="button" class="btn" id="btnReleaseCheck" data-icon="refresh" data-i18n="update.release_check">Check for a new version</button>
               <button type="button" class="btn btn-primary" id="btnReleaseInstall" data-icon="download" hidden>Install</button>
-            </div>
-          </div>
-
-          <div id="gitUpdateBox" data-needs="self_update" hidden>
-            <div class="field-row">
-              <span class="field-label" data-i18n="update.git_repo">Git repository</span>
-              <span class="mac" id="gitRepoDisplay">-</span>
-            </div>
-            <div class="actions-row">
-              <button type="button" class="btn btn-primary" id="btnUpdateGit" data-icon="download" data-i18n="update.git_btn">Update from Git</button>
             </div>
           </div>
           <p class="hint" id="gitUpdateHint" role="status"></p>

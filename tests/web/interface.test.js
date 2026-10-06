@@ -234,6 +234,27 @@ test("the settings that belong together are folded together", async (t) => {
                    ["BASE_VOLUME", "AUDIO_EQUALIZER", "AUDIO_COMPRESSION"]);
 });
 
+test("the update card asks for permission first, then gathers its sources", async (t) => {
+  const page = open(t);
+  await until(() => page.$("bootOverlay").hidden);
+  const card = page.$("updateCard");
+  const rows = Array.from(card.querySelectorAll(".field-row, details.subsection > summary"));
+  const labels = rows.map((row) => (row.matches("summary")
+    ? row.textContent.trim()
+    : (row.querySelector("label") || { textContent: "" }).textContent.trim()));
+  assert.equal(labels[0], "Allow updates from the web",
+               "the permission row comes before the folds");
+  assert.ok(labels.indexOf("How to update") > 0, "then the instructions");
+
+  const sources = page.$("updateSourcesSection");
+  assert.equal(sources.tagName, "DETAILS", "the sources are a fold of their own");
+  assert.ok(sources.contains(page.$("releaseRepo")), "the GitHub repository is in it");
+  assert.ok(sources.contains(page.$("gitUpdateBox")), "and the Git button is too");
+  assert.equal(page.$("gitRepoDisplay"), null, "its label row is gone");
+  assert.equal(page.$("updateAllowWeb").closest("details"), null,
+               "the permission is not inside a fold");
+});
+
 test("a new announcement's form shows the rows of its trigger, and no others", async (t) => {
   const page = open(t);
   await until(() => page.$("bootOverlay").hidden);

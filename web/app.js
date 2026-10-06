@@ -9341,8 +9341,10 @@ async function refreshUpdate() {
   osLine.textContent = parts.join(" · ");
   osLine.classList.toggle("warning", d.has_internet === false);
 
+  // The Git button is shown by this rule alone: the capability pass also walks
+  // data-needs, and the two used to fight over it, which is what made it flicker.
   const box = document.getElementById("gitUpdateBox");
-  box.hidden = !(d.git_configured && d.web_updates_allowed);
+  box.hidden = !(d.self_update !== false && d.git_configured && d.web_updates_allowed);
 
   // A container has no tree to replace: the image is the version, so the card
   // shows the one line that updates it. Its own rows are hidden by CSS.
@@ -9351,10 +9353,6 @@ async function refreshUpdate() {
   if (!containerBox.hidden) {
     const image = d.docker_image || "ghcr.io/arubinu/rukebox";
     document.getElementById("containerPullCmd").textContent = "docker pull " + image;
-  }
-  if (!box.hidden) {
-    document.getElementById("gitRepoDisplay").textContent =
-      d.git_url + (d.git_branch ? " (" + d.git_branch + ")" : "");
   }
 
   const logBox = document.getElementById("updateLog");
