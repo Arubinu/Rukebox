@@ -424,6 +424,40 @@ class LateListenerTest(unittest.TestCase):
         self.assertEqual(box.get_nowait(), ogg_page(granule=192000, payload=b"audio"),
                          "and then the live stream, not what it missed")
 
+    def test_a_listener_joining_mid_page_starts_at_the_next_page(self):
+        """Half a page decodes as nothing at all: ffmpeg reports "CRC mismatch!"
+        and VLC sits at 00:00 while the stream flows."""
+        server = build_server()
+        server._broadcast(self.headers())
+        self.feed(server, 96000)
+        box = server.listen()
+        whole = ogg_page(granule=192000, payload=b"audio")
+        server._broadcast(b"the second half of a page")   # no page start in it
+        server._broadcast(whole)
+        self.assertEqual(box.get_nowait(), self.headers())
+        self.assertEqual(box.get_nowait(), whole, "from the page's own start")
+
+    def test_a_page_start_split_between_two_chunks_is_found(self):
+        server = build_server()
+        server._broadcast(self.headers())
+        self.feed(server, 96000)
+        box = server.listen()
+        whole = ogg_page(granule=192000, payload=b"audio")
+        server._broadcast(b"junkjunkOg")
+        server._broadcast(b"gS" + whole[4:])
+        box.get_nowait()                        # the headers
+        self.assertEqual(box.get_nowait(), whole)
+
+    def test_the_first_listener_is_never_realigned(self):
+        """It is fed the stream from its first byte: nothing to cut."""
+        server = build_server()
+        box = server.listen()
+        headers = self.headers()
+        server._broadcast(headers)
+        self.feed(server, 96000)
+        self.assertEqual(box.get_nowait(), headers)
+        self.assertEqual(box.get_nowait(), ogg_page(granule=96000, payload=b"audio"))
+
     def test_the_first_listener_gets_them_only_once(self):
         """It is fed the live stream from its first byte: what it reads already
         begins with the headers, and repeating them would look like a new

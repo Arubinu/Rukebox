@@ -325,6 +325,7 @@ class StreamServer:
         self.header = b""
         self._unparsed = b""
         self._header_read = False
+        self._unaligned = {}
         self._started_at = 0.0
         self._last_chunk_at = None
 
@@ -468,8 +469,13 @@ class StreamServer:
         with self._lock:
             listeners = list(self._listeners)
         for box in listeners:
+            data = chunk
+            if chunk and box in self._unaligned:
+                data = self._align(box, chunk)
+                if data is None:
+                    continue
             try:
-                box.put_nowait(chunk)
+                box.put_nowait(data)
             except queue.Full:
                 # Dropping bytes cuts an Ogg page in half - the player reports
                 # "CRC mismatch" and gives up - so a listener this far behind is
@@ -510,7 +516,11 @@ class StreamServer:
             header = self.header
             self._listeners.append(box)
         if header:
+            # The header pages are replayed, so the live stream has to be picked
+            # up at the next page: see _align().
             box.put_nowait(header)
+            with self._lock:
+                self._unaligned[box] = b""
         if not self.alive():
             self.start()
         return box
@@ -519,6 +529,23 @@ class StreamServer:
         with self._lock:
             if box in self._listeners:
                 self._listeners.remove(box)
+            self._unaligned.pop(box, None)
+
+    def _align(self, box, chunk):
+        """The bytes from the next page start, or None while there is none.
+
+        A listener that joins a live Ogg stream mid-page must not be handed the
+        second half of that page: ffmpeg says "CRC mismatch!" and VLC decodes
+        nothing at all - measured, and the reason a player could sit at 00:00
+        for ever while the stream was flowing. The header pages are replayed and
+        the live stream resumes a few bytes later, at the next page."""
+        carry = self._unaligned.get(box, b"") + chunk
+        index = carry.find(b"OggS")
+        if index < 0:
+            self._unaligned[box] = carry[-3:]
+            return None
+        self._unaligned.pop(box, None)
+        return carry[index:]
 
     def chunks(self, wait=CHUNK_WAIT_SEC):
         """The bytes for one listener, as a generator an HTTP response writes.
