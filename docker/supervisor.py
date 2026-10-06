@@ -13,6 +13,7 @@ being the first one."""
 import logging
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -143,8 +144,48 @@ def _runtime_dir():
         "XDG_RUNTIME_DIR") or "/run/rukebox"
 
 
+_stale_sockets = set()
+
+
 def _pipewire_socket():
-    return os.path.exists(os.path.join(_runtime_dir(), "pipewire-0"))
+    path = os.path.join(_runtime_dir(), "pipewire-0")
+    return path not in _stale_sockets and os.path.exists(path)
+
+
+def _socket_answers(path):
+    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    probe.settimeout(1.0)
+    try:
+        probe.connect(path)
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
+def _drop_stale_socket():
+    """Forgets a socket file nothing listens on.
+
+    /run survives a restart of this container, so the sound server of the run
+    before is still there as a file: it would stop us starting our own, and the
+    daemon would wait on a socket nobody ever answers on. A socket that was
+    given to us (a bind mount, see the third compose variant) is reported
+    rather than deleted - it is not ours."""
+    path = os.path.join(_runtime_dir(), "pipewire-0")
+    if not os.path.exists(path) or _socket_answers(path):
+        return False
+    if os.path.ismount(path):
+        _stale_sockets.add(path)
+        log.warning("The sound server's socket (%s) is there but nobody answers on it", path)
+        return False
+    try:
+        os.unlink(path)
+    except OSError:
+        log.warning("Could not remove the sound server's socket from the run before (%s)", path)
+        return False
+    log.info("Removed the sound server's socket from the run before (%s)", path)
+    return True
 
 
 def _audio_ready():
@@ -182,6 +223,7 @@ def main():
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, _on_signal)
 
+    _drop_stale_socket()
     running = children()
     for child in running:
         child.start()
