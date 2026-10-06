@@ -28,6 +28,7 @@ SOURCE_DIR=""
 RELEASE_TAG=""
 RELEASE_STAMP=""
 SOURCE_KIND=""
+PUSH_KIND=""
 ARCHIVE=""
 GIT_URL=""
 GIT_BRANCH=""
@@ -61,6 +62,9 @@ Source (exactly one):
 
 Options:
   --branch NAME        Git branch (default: UPDATE_GIT_BRANCH, or main)
+  --source-kind KIND    What carried a pushed tree: usb (the default, the
+                        cable) or wifi (the same push over the network).
+                        Only a label: the interface shows it.
   --release-tag NAME   Record NAME as the installed release: a push sends its
                        own "git describe" (v1.2.0-5-g5622dcf), so the interface
                        can tell "ahead of v1.2.0" from "v1.2.0"
@@ -93,6 +97,7 @@ while [ $# -gt 0 ]; do
             SOURCE_KIND=release
             if [ "${2:-}" ] && [ "${2#-}" = "$2" ]; then RELEASE_TAG="$2"; shift 2; else shift; fi ;;
         --branch)        GIT_BRANCH="${2:-}"; shift 2 ;;
+        --source-kind)   PUSH_KIND="${2:-}"; shift 2 ;;
         --release-tag)   RELEASE_STAMP="${2:-}"; shift 2 ;;
         --keep)          BACKUP_KEEP="${2:-3}"; BACKUP_KEEP_SET=1; shift 2 ;;
         --no-restart)    DO_RESTART=0; shift ;;
@@ -107,6 +112,15 @@ done
 if [ -n "$RELEASE_STAMP" ]; then
     printf '%s' "$RELEASE_STAMP" | grep -Eq '^[A-Za-z0-9_.-]+$' \
         || fail "invalid release tag: $RELEASE_STAMP"
+fi
+
+# A pushed tree came over the cable unless the caller says otherwise: the same
+# push over the network is worth telling apart in the version it writes.
+if [ -n "$PUSH_KIND" ]; then
+    printf '%s' "$PUSH_KIND" | grep -Eq '^[a-z]+$' || fail "invalid source kind: $PUSH_KIND"
+    case "$SOURCE_KIND" in
+        usb) SOURCE_KIND="$PUSH_KIND" ;;
+    esac
 fi
 
 if [ "$INSTALL_DIR" = "/opt/rukebox" ] && [ "$EUID" -ne 0 ]; then

@@ -9311,7 +9311,8 @@ function describeVersion(v) {
 
 function describeUpdateSource(v) {
   if (!v || !v.installed_at) return "";
-  const SOURCE_KEYS = { usb: "update.source_usb", git: "update.source_git", release: "update.source_release",
+  const SOURCE_KEYS = { usb: "update.source_usb", wifi: "update.source_wifi",
+    git: "update.source_git", release: "update.source_release",
     install: "update.source_install", local: "update.source_local" };
   const parts = [t("update.installed_prefix", { date: formatDateTime(v.installed_at) })];
   if (SOURCE_KEYS[v.source]) parts.push(t(SOURCE_KEYS[v.source]));

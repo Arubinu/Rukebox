@@ -703,9 +703,6 @@ body:not([data-caps~="wireless"]) .card[data-needs~="wireless"] { display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* It covers the rest of the row after the last tile: without this the 1px
-     gap before it draws a line, which reads as a missing tile. */
-  margin-left: -1px;
   gap: 10px;
   min-height: 116px;
   padding: 16px 8px;
@@ -717,6 +714,10 @@ body:not([data-caps~="wireless"]) .card[data-needs~="wireless"] { display: none;
   line-height: 1.25;
   text-align: center;
 }
+/* The filler covers the rest of the row after the last tile: without this the
+   1px gap before it draws a line, which reads as a missing tile. Tiles keep
+   theirs - only this one loses the edge it shares with the row. */
+.page-filler { margin-left: -1px; }
 .page-tile {
   border: 0;
   cursor: pointer;

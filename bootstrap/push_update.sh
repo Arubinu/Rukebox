@@ -272,6 +272,14 @@ if [ -n "$RELEASE_STAMP" ]; then
     echo "   stamping: $RELEASE_STAMP"
     EXTRA_UPDATE_ARGS="$EXTRA_UPDATE_ARGS --release-tag $RELEASE_STAMP"
 fi
+# The cable's own address is link-local: anything else went over the network,
+# and the version the Pi records says which.
+case "$TARGET" in
+    *@169.254.*) SOURCE_KIND=usb ;;
+    *)           SOURCE_KIND=wifi ;;
+esac
+echo "   carried over: $SOURCE_KIND"
+EXTRA_UPDATE_ARGS="$EXTRA_UPDATE_ARGS --source-kind $SOURCE_KIND"
 # Sent as its own script: a multi-line command quoted through three shells breaks per platform.
 # Run the updater from the archive, so a new version can change the update procedure itself.
 APPLY_LOCAL="$(mktemp -t rukebox-apply-XXXXXX)"

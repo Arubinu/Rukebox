@@ -2246,7 +2246,10 @@ It packs the project, sends it over, and runs the updater on the Pi.
 The automatic retry against `rukebox.local` only happens when no
 `--host` was given: naming a host explicitly means you already know
 where the Pi is, and quietly trying somewhere else would be surprising
-rather than helpful. Useful options, identical in both scripts:
+rather than helpful. **The Update card says which way the last one came**:
+"pushed over USB" for the cable's own link-local address, "pushed over
+Wi-Fi" for anything else — the script tells the Pi which address it ended
+up using. Useful options, identical in both scripts:
 
 ```bash
 ./bootstrap/push_update.sh --dry-run          # show what would be sent

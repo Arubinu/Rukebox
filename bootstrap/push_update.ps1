@@ -271,6 +271,12 @@ if ($scpExit -ne 0) {
 $ExtraArgs = ""
 if ($NoRestart) { $ExtraArgs = " --no-restart" }
 
+# The cable's own address is link-local: anything else went over the network,
+# and the version the Pi records says which.
+$SourceKind = if ($Target -match '@169\.254\.') { "usb" } else { "wifi" }
+$ExtraArgs += " --source-kind ${SourceKind}"
+Write-Host "   carried over: ${SourceKind}"
+
 # Stamped on the Pi so the Update card can tell "ahead of v1.2.0" from "v1.2.0".
 $Describe = ""
 $git = Get-Command git.exe -ErrorAction SilentlyContinue
