@@ -584,6 +584,39 @@ class FreshStartTest(unittest.TestCase):
             got += chunk
         return got
 
+    def test_a_quiet_encoder_is_left_alone(self):
+        """A fresh encoder on a silent sink writes nothing at all until the
+        radio plays again - its headers sit in ffmpeg's own buffer - so a
+        listener would be answered with nothing instead of the headers the
+        running encoder already holds."""
+        server = build_server()
+        server._broadcast(self.headers())
+        server._broadcast(ogg_page(granule=960, payload=b"audio"))
+        server._started_at = time.monotonic() - 30
+        server._last_chunk_at = time.monotonic() - 30
+        self.assertFalse(server.worth_restarting(), "quiet: nothing to begin at zero")
+        server._last_chunk_at = time.monotonic()
+        self.assertTrue(server.worth_restarting(), "producing again: a timeline to fix")
+
+    def test_a_replacement_that_stays_silent_lets_the_listeners_go_on(self):
+        """Held for ever, a listener would be a response that never starts."""
+        server = build_server()
+        old = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=old):
+            server.start()
+        server.listen()
+        process = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=process):
+            server.restart()
+        self.assertTrue(server._awaiting, "the listener is held over the change")
+        server._awaiting_since = time.monotonic() - stream.AWAIT_MAX_SEC - 1
+        with mock.patch.object(stream, "CHUNK_WAIT_SEC", 0.01):
+            self.assertEqual(b"".join(server.chunks()), b"", "the response ends")
+        self.assertFalse(server._awaiting)
+        old.stdout.close()
+        process.eof()
+        process.stdout.close()
+
     def test_an_old_encoder_is_replaced_for_the_first_listener(self):
         server = build_server()
         server._broadcast(self.headers(b"old"))

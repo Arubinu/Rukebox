@@ -71,6 +71,9 @@ RESTART_DELAY_SEC = 1.0
 # listener a timeline that starts that far in, which is what makes a player
 # wait before it plays (see restart()).
 FRESH_START_SEC = 2.0
+# How long the listeners kept over a replacement wait for its first bytes
+# before they are let go on without them.
+AWAIT_MAX_SEC = 5.0
 # The stream's own volume, in percent of what the radio is playing: 100 leaves
 # it alone, and anything above boosts it, which is why there is a ceiling.
 DEFAULT_VOLUME = 100
@@ -352,6 +355,7 @@ class StreamServer:
         self._unaligned = {}
         self._awaiting = set()
         self._awaiting_gen = None
+        self._awaiting_since = None
         self._generation = 0
         self._started_at = 0.0
         self._last_chunk_at = None
@@ -448,6 +452,7 @@ class StreamServer:
             # The listeners are kept, and hold until the new encoder writes its
             # first bytes: those bytes ARE the new stream's beginning.
             self._awaiting = set(self._listeners)
+            self._awaiting_since = time.monotonic()
         if process is not None and process.poll() is None:
             try:
                 process.terminate()
@@ -456,11 +461,20 @@ class StreamServer:
         return self.start()
 
     def worth_restarting(self):
-        """True when the running encoder is old enough to hand a new listener a
-        stream that does not begin at zero (see restart())."""
+        """True when a listener would be handed a stream that does not begin at
+        zero, and starting the encoder again is what fixes that.
+
+        Only while it is producing: on a quiet radio there is no timeline to
+        fix, and a brand-new encoder would write nothing at all until the radio
+        plays again (its headers sit in ffmpeg's own buffer), so the listener
+        would be answered with silence instead of the headers the running
+        encoder already has."""
         with self._lock:
             started = self._started_at
-        return bool(started) and (time.monotonic() - started) > FRESH_START_SEC
+            last = self._last_chunk_at
+        if not started or (time.monotonic() - started) <= FRESH_START_SEC:
+            return False
+        return bool(last) and (time.monotonic() - last) < FRESH_START_SEC
 
     def stalled_for(self):
         """Seconds since the encoder last produced anything.
@@ -667,7 +681,7 @@ class StreamServer:
                 try:
                     chunk = box.get(timeout=wait)
                 except queue.Empty:
-                    if not self.alive():
+                    if not self.alive() or self.awaiting_too_long():
                         return
                     continue
                 if chunk is None:
@@ -675,6 +689,23 @@ class StreamServer:
                 yield chunk
         finally:
             self.forget(box)
+
+    def awaiting_too_long(self):
+        """True when the listeners kept over a replacement have been held long
+        enough: an encoder that stays silent through it is one whose bytes are
+        never coming, and a player waiting on a held queue would wait for ever."""
+        with self._lock:
+            if not self._awaiting or not self._awaiting_since:
+                return False
+            waited = time.monotonic() - self._awaiting_since
+            if waited < AWAIT_MAX_SEC:
+                return False
+            # They carry on with whatever the stream has: no worse than the
+            # encoder that went quiet under them.
+            self._awaiting, self._awaiting_gen = set(), None
+        log.warning("A replaced encoder wrote nothing for %.0fs: letting the "
+                    "listeners go on without its beginning", waited)
+        return True
 
 
 def build(cfg, probe=True):
