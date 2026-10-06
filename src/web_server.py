@@ -142,27 +142,37 @@ def _ensure_session_secret(initial_cfg):
     return secret
 
 
-def _ensure_upnp_serial(values=None):
-    """This radio's four digits, drawn once and kept in the file.
+def _ensure_upnp_identity(values=None):
+    """This radio's name on the network, and what a player remembers it by.
 
-    Two radios on one network are two devices, and what tells them apart is
-    this number: a player shows it after the name. Generated here rather than
-    at install, so a radio installed before it existed gets one too."""
+    Both are drawn once and kept in the file: the name with its four digits, so
+    that two radios on one network are told apart without anyone having to think
+    about it, and the identity - never shown - so that renaming the radio
+    relabels the device a player already has instead of adding a second one.
+    Generated here rather than at install, so a radio installed before this
+    existed gets both too."""
     values = cfg() if values is None else values
-    serial = str(values.get("UPNP_SERIAL") or "").strip()
-    if not serial:
-        serial = "%04d" % random.randint(0, 9999)
+    name = str(values.get("UPNP_NAME") or "").strip()
+    uid = str(values.get("UPNP_UID") or "").strip()
+    fresh = {}
+    if not name:
+        name = "%s %04d" % (upnp.DEFAULT_NAME, random.randint(1000, 9999))
+        fresh["UPNP_NAME"] = name
+    if not uid:
+        uid = secrets.token_hex(4)
+        fresh["UPNP_UID"] = uid
+    if fresh:
         try:
-            update_config_file({"UPNP_SERIAL": serial})
+            update_config_file(fresh)
         except ValueError:
-            log.exception("Could not keep the UPnP serial number: this radio "
-                          "will announce itself under another one after a restart")
-    upnp.configure(values.get("UPNP_NAME"), serial)
-    return serial
+            log.exception("Could not keep this radio's identity: it will "
+                          "announce itself under another one after a restart")
+    upnp.configure(name, uid)
+    return name
 
 
 app.secret_key = _ensure_session_secret(_startup_cfg)
-_ensure_upnp_serial(_startup_cfg)
+_ensure_upnp_identity(_startup_cfg)
 AUTH_MAX_AGE = timedelta(days=8)
 app.permanent_session_lifetime = AUTH_MAX_AGE
 
@@ -383,6 +393,19 @@ def _upnp_follow_stream():
             upnp.start(cfg()["WEB_PORT"])
         else:
             upnp.stop()
+
+
+def _apply_stream_tuning():
+    """Hands the running encoder the stream's own volume and title.
+
+    The file has just been written; the listeners are kept, since they are
+    listening right now and the two are only worth changing live."""
+    server = stream_server()
+    if server is None or not server.source:
+        return False
+    values = cfg()
+    return server.retune(volume=stream_mod.stream_volume(values),
+                         title=stream_mod.stream_title(values))
 
 
 def _reconnect_a_silent_stream():
@@ -3560,11 +3583,13 @@ def api_set_settings():
     if config_schema.STREAM_SETTINGS & set(body):
         # The encoder is built on the next status read, from the file just written.
         forget_stream()
+    else:
+        _apply_stream_tuning()
     if config_schema.UPNP_SETTINGS & set(body):
-        # Another name or serial is another device to a player: say goodbye
-        # under the old one before announcing the new one.
+        # Another name is another label over the same device: say goodbye under
+        # the old one before announcing the new one.
         upnp.stop()
-        _ensure_upnp_serial(cfg())
+        _ensure_upnp_identity(cfg())
     if (config_schema.STREAM_SETTINGS | config_schema.UPNP_SETTINGS) & set(body):
         _upnp_follow_stream()
     return jsonify({"ok": True, "data": {

@@ -94,6 +94,15 @@ SETTINGS = [
         "Stream source",
     ),
     Setting(
+        "STREAM_VOLUME", "audio", "stream_volume", "int", "100",
+        "A volume of its own for the network stream, in percent, applied by the\n"
+        "encoder: it changes what a listener hears without touching what the room\n"
+        "hears. Above 100 it boosts, and since it multiplies what the radio is\n"
+        "playing, a radio that is turned down cannot be made loud again here -\n"
+        "that only moves the level of the stream relative to the speaker's.",
+        "Stream volume (%)",
+    ),
+    Setting(
         "UPNP_ENABLED", "audio", "upnp_enabled", "bool", "true",
         "Let a player find the stream by itself: the radio answers UPnP\n"
         "discovery and offers the stream as a media server, which is what VLC\n"
@@ -103,19 +112,22 @@ SETTINGS = [
         "Announce the stream (UPnP)",
     ),
     Setting(
-        "UPNP_NAME", "audio", "upnp_name", "str", "Rukebox",
+        "UPNP_NAME", "audio", "upnp_name", "str", "",
         "What this radio is called by a player that finds it on the network\n"
-        "(VLC's \"Local network\", a phone, a network speaker). Change it and the\n"
-        "same radio is listed under another name.",
+        "(VLC's \"Local network\", a phone, a network speaker): the whole name,\n"
+        "number included, and the number is drawn once when the radio first\n"
+        "announces itself (\"Rukebox 4821\") so that two radios on one network are\n"
+        "told apart. Rename it as you like - the radio stays the same device to a\n"
+        "player that already knows it (see UPNP_UID) - and it is also the title\n"
+        "the stream itself carries.",
         "Name on the network",
     ),
     Setting(
-        "UPNP_SERIAL", "audio", "upnp_serial", "str", "",
-        "Four digits, written once when the radio first announced itself, and\n"
-        "shown after the name (\"Rukebox 4821\"). It is what tells two radios on\n"
-        "the same network apart, so give each one its own - any four digits will\n"
-        "do, and a player only shows the name you set here.",
-        "Serial number",
+        "UPNP_UID", "audio", "upnp_uid", "str", "",
+        "Drawn once, never shown: the name a player remembers this radio by, so\n"
+        "that renaming it relabels the device instead of making a second one, and\n"
+        "two radios that were given the same name are still two devices.",
+        "Identity",
     ),
     Setting(
         "SPEAKER_MAC", "bluetooth", "speaker_mac", "str", "",
@@ -1211,12 +1223,14 @@ RESTART_REQUIRED = frozenset({
 })
 
 # A save rebuilds the encoder instead of asking for a restart: it is built on
-# the next status read, which is a second away.
+# the next status read, which is a second away. The stream's own volume is not
+# here: it is handed to the encoder that is running, which keeps its listeners.
 STREAM_SETTINGS = frozenset({"STREAM_ENABLED", "STREAM_ENCODER", "STREAM_SOURCE"})
 
-# What a player sees: the announcement follows the stream, and the name and the
-# serial are what tells this radio from another one.
-UPNP_SETTINGS = frozenset({"UPNP_ENABLED", "UPNP_NAME", "UPNP_SERIAL"})
+# What a player sees: the announcement follows the stream, and the name is what
+# tells this radio from another one. The identity is not here either - it is
+# drawn once and never changes, so a save never has to re-announce the device.
+UPNP_SETTINGS = frozenset({"UPNP_ENABLED", "UPNP_NAME"})
 
 GPIO_BUTTON_SETTINGS = frozenset({
     "GPIO_BUTTON_PIN", "GPIO_BUTTON_DEBOUNCE_SEC",

@@ -45,30 +45,31 @@ class UdnTest(unittest.TestCase):
         self.addCleanup(upnp.configure, upnp.DEFAULT_NAME, "")
 
     def test_it_is_a_uuid_and_it_does_not_move(self):
-        upnp.configure("Rukebox", "")
+        upnp.configure("Rukebox 4821", "")
         first = upnp.udn()
         self.assertTrue(first.startswith("uuid:"), first)
         self.assertEqual(first, upnp.udn(), "a player that saw it once must not see two radios")
 
     def test_the_name_is_what_a_player_shows(self):
-        upnp.configure("Cuisine", "4821")
-        self.assertEqual(upnp.device_name(), "Cuisine 4821")
+        upnp.configure("Cuisine 4821", "aaaa1111")
+        self.assertEqual(upnp.device_name(), "Cuisine 4821",
+                         "the whole name, exactly as it was given")
         self.assertEqual(upnp.device_name(), upnp.device_name())
 
-    def test_the_serial_is_what_tells_two_radios_apart(self):
-        upnp.configure("Rukebox", "4821")
+    def test_the_identity_is_what_tells_two_radios_apart(self):
+        upnp.configure("Rukebox 4821", "aaaa1111")
         one = upnp.udn()
-        upnp.configure("Rukebox", "9137")
-        self.assertNotEqual(one, upnp.udn(), "same name, another serial: another device")
+        upnp.configure("Rukebox 4821", "bbbb2222")
+        self.assertNotEqual(one, upnp.udn(), "same name, another radio: another device")
 
     def test_renaming_keeps_the_device(self):
-        upnp.configure("Rukebox", "9137")
+        upnp.configure("Rukebox 9137", "aaaa1111")
         one = upnp.udn()
-        upnp.configure("Cuisine", "9137")
+        upnp.configure("Cuisine 2222", "aaaa1111")
         self.assertEqual(upnp.udn(), one, "renaming relabels the device a player already has")
-        self.assertEqual(upnp.device_name(), "Cuisine 9137")
+        self.assertEqual(upnp.device_name(), "Cuisine 2222")
 
-    def test_a_radio_without_a_serial_still_has_a_name(self):
+    def test_a_radio_without_a_name_still_has_one(self):
         upnp.configure("", "")
         self.assertEqual(upnp.device_name(), upnp.DEFAULT_NAME)
         self.assertTrue(upnp.udn().startswith("uuid:"))
@@ -79,22 +80,27 @@ class DescriptionTest(unittest.TestCase):
         self.addCleanup(upnp.configure, upnp.DEFAULT_NAME, "")
 
     def test_it_describes_a_media_server_with_a_content_directory(self):
-        upnp.configure("Rukebox", "")
+        upnp.configure("Rukebox 4821", "")
         text = upnp.device_description()
         root = ElementTree.fromstring(text)
         self.assertEqual(root.tag.rsplit("}", 1)[-1], "root")
         self.assertEqual(text_of(text, "deviceType"), upnp.DEVICE_TYPE)
         self.assertEqual(text_of(text, "UDN"), upnp.udn())
-        self.assertEqual(text_of(text, "friendlyName"), "Rukebox")
+        self.assertEqual(text_of(text, "friendlyName"), "Rukebox 4821")
         self.assertEqual(text_of(text, "controlURL"), "/upnp/ContentDirectory/control")
         services = [element.text for element in root.iter()
                     if element.tag.rsplit("}", 1)[-1] == "serviceType"]
         self.assertEqual(services, [upnp.CONTENT_DIRECTORY, upnp.CONNECTION_MANAGER])
 
-    def test_the_description_carries_the_serial(self):
-        upnp.configure("Cuisine", "4821")
+    def test_no_field_of_the_description_shortens_the_name(self):
+        """A client that reads the model instead of the friendly name showed a
+        radio called "Rukebox 3074" as plain "Rukebox" - the product name was
+        the only bare one in there, and it has no business being."""
+        upnp.configure("Cuisine 2222", "")
         text = upnp.device_description()
-        self.assertEqual(text_of(text, "friendlyName"), "Cuisine 4821")
+        self.assertEqual(text_of(text, "friendlyName"), "Cuisine 2222")
+        self.assertEqual(text_of(text, "manufacturer"), "Cuisine 2222")
+        self.assertEqual(text_of(text, "modelName"), "Cuisine 2222")
 
     def test_both_service_descriptions_are_readable_xml(self):
         for name in ("ContentDirectory", "ConnectionManager"):

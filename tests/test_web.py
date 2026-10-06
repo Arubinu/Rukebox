@@ -1076,18 +1076,37 @@ class UpnpRouteTest(unittest.TestCase):
         self.assertTrue(stopped.called)
         self.assertFalse(started.called)
 
-    def test_the_serial_is_drawn_once_and_kept(self):
+    def test_the_name_is_drawn_once_with_its_number_and_kept(self):
+        """One field, holding the whole name: "Rukebox 4821" is what a player
+        lists, and what the owner can rewrite in one go."""
         with unittest.mock.patch.object(ws, "update_config_file") as written:
-            serial = ws._ensure_upnp_serial({"UPNP_SERIAL": "", "UPNP_NAME": "Cuisine"})
-        self.assertRegex(serial, r"^\d{4}$")
-        self.assertEqual(written.call_args[0][0], {"UPNP_SERIAL": serial})
-        self.assertEqual(ws.upnp.device_name(), "Cuisine " + serial)
+            name = ws._ensure_upnp_identity({"UPNP_NAME": "", "UPNP_UID": ""})
+        self.assertRegex(name, r"^Rukebox \d{4}$")
+        written_values = written.call_args[0][0]
+        self.assertEqual(written_values["UPNP_NAME"], name)
+        self.assertRegex(written_values["UPNP_UID"], r"^[0-9a-f]{8}$")
+        self.assertEqual(ws.upnp.device_name(), name, "the whole name, nothing appended")
         self.addCleanup(ws.upnp.configure, ws.upnp.DEFAULT_NAME, "")
 
-    def test_a_serial_already_there_is_kept(self):
+    def test_a_name_already_there_is_kept(self):
         with unittest.mock.patch.object(ws, "update_config_file") as written:
-            self.assertEqual(ws._ensure_upnp_serial({"UPNP_SERIAL": "0042"}), "0042")
+            self.assertEqual(
+                ws._ensure_upnp_identity({"UPNP_NAME": "Cuisine 0042", "UPNP_UID": "abcd1234"}),
+                "Cuisine 0042")
         self.assertFalse(written.called)
+        self.addCleanup(ws.upnp.configure, ws.upnp.DEFAULT_NAME, "")
+
+    def test_renaming_relabels_the_device_instead_of_adding_one(self):
+        """A player remembers the identity, not the name: renaming must not
+        leave it listing the same radio twice."""
+        with unittest.mock.patch.object(ws, "update_config_file"):
+            ws._ensure_upnp_identity({"UPNP_NAME": "Rukebox 1111", "UPNP_UID": "aaaa1111"})
+            first = ws.upnp.udn()
+            ws._ensure_upnp_identity({"UPNP_NAME": "Cuisine 2222", "UPNP_UID": "aaaa1111"})
+            self.assertEqual(ws.upnp.udn(), first, "same radio, another label")
+            self.assertEqual(ws.upnp.device_name(), "Cuisine 2222")
+            ws._ensure_upnp_identity({"UPNP_NAME": "Cuisine 2222", "UPNP_UID": "bbbb2222"})
+            self.assertNotEqual(ws.upnp.udn(), first, "another radio is another device")
         self.addCleanup(ws.upnp.configure, ws.upnp.DEFAULT_NAME, "")
 
     def test_the_item_says_when_the_radio_has_nothing_to_send(self):

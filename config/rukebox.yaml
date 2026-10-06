@@ -58,6 +58,13 @@ audio:
   # what you hear. Only set this to follow something else entirely.
   stream_source: ""
 
+  # A volume of its own for the network stream, in percent, applied by the
+  # encoder: it changes what a listener hears without touching what the room
+  # hears. Above 100 it boosts, and since it multiplies what the radio is
+  # playing, a radio that is turned down cannot be made loud again here -
+  # that only moves the level of the stream relative to the speaker's.
+  stream_volume: 100
+
   # Let a player find the stream by itself: the radio answers UPnP
   # discovery and offers the stream as a media server, which is what VLC
   # lists under "Local network" without being given an address. It is only
@@ -66,15 +73,18 @@ audio:
   upnp_enabled: true
 
   # What this radio is called by a player that finds it on the network
-  # (VLC's "Local network", a phone, a network speaker). Change it and the
-  # same radio is listed under another name.
-  upnp_name: "Rukebox"
+  # (VLC's "Local network", a phone, a network speaker): the whole name,
+  # number included, and the number is drawn once when the radio first
+  # announces itself ("Rukebox 4821") so that two radios on one network are
+  # told apart. Rename it as you like - the radio stays the same device to a
+  # player that already knows it (see UPNP_UID) - and it is also the title
+  # the stream itself carries.
+  upnp_name: ""
 
-  # Four digits, written once when the radio first announced itself, and
-  # shown after the name ("Rukebox 4821"). It is what tells two radios on
-  # the same network apart, so give each one its own - any four digits will
-  # do, and a player only shows the name you set here.
-  upnp_serial: ""
+  # Drawn once, never shown: the name a player remembers this radio by, so
+  # that renaming it relabels the device instead of making a second one, and
+  # two radios that were given the same name are still two devices.
+  upnp_uid: ""
 
 # ---------------------------------------------------------------
 # Bluetooth: speaker, and which controller does what

@@ -71,6 +71,13 @@ RESTART_DELAY_SEC = 1.0
 # listener a timeline that starts that far in, which is what makes a player
 # wait before it plays (see restart()).
 FRESH_START_SEC = 2.0
+# The stream's own volume, in percent of what the radio is playing: 100 leaves
+# it alone, and anything above boosts it, which is why there is a ceiling.
+DEFAULT_VOLUME = 100
+MAX_VOLUME = 200
+# What the stream calls itself when nothing named it: a player that reads the
+# stream's own metadata has to show something.
+DEFAULT_TITLE = "Rukebox"
 
 
 def probe_source(env=None, timeout=6, kind=None):
@@ -321,13 +328,16 @@ class StreamServer:
     button that plays silence."""
 
     def __init__(self, source, encoder, ffmpeg="ffmpeg", env=None,
-                 queue_chunks=QUEUE_CHUNKS, on_stop=None):
+                 queue_chunks=QUEUE_CHUNKS, on_stop=None,
+                 volume=DEFAULT_VOLUME, title=DEFAULT_TITLE):
         self.source = source
         self.encoder = encoder
         self.ffmpeg = ffmpeg
         self.env = env
         self.queue_chunks = queue_chunks
         self._on_stop = on_stop
+        self.volume = clamp_volume(volume)
+        self.title = str(title or "").strip() or DEFAULT_TITLE
         self._lock = threading.Lock()
         self._listeners = []
         self._process = None
@@ -354,9 +364,31 @@ class StreamServer:
         return ENCODERS[self.encoder]["suffix"]
 
     def command(self):
+        tuning = []
+        if self.volume != DEFAULT_VOLUME:
+            tuning = ["-af", "volume=%.3f" % (self.volume / 100.0)]
         return [self.ffmpeg, "-hide_banner", "-loglevel", "warning",
-                "-f", "pulse", "-i", self.source, "-vn"] + \
+                "-f", "pulse", "-i", self.source, "-vn"] + tuning + \
+            ["-metadata", "title=" + self.title] + \
             ENCODERS[self.encoder]["args"] + ["pipe:1"]
+
+    def retune(self, volume=None, title=None):
+        """The stream's own volume and title, from now on: the listeners are
+        kept over it, they are listening right now."""
+        changed = False
+        if volume is not None:
+            volume = clamp_volume(volume)
+            if volume != self.volume:
+                self.volume = volume
+                changed = True
+        if title is not None:
+            title = str(title or "").strip() or DEFAULT_TITLE
+            if title != self.title:
+                self.title = title
+                changed = True
+        if changed and self.alive():
+            self.restart()
+        return changed
 
     def listener_count(self):
         with self._lock:
@@ -674,7 +706,32 @@ def build(cfg, probe=True):
         chosen = wanted
     else:
         chosen = "opus"
-    return StreamServer(source, chosen, env=audio_env())
+    return StreamServer(source, chosen, env=audio_env(),
+                        volume=stream_volume(cfg), title=stream_title(cfg))
+
+
+def stream_volume(cfg):
+    """The stream's own volume, in percent, from a configuration."""
+    return clamp_volume(cfg.get("STREAM_VOLUME"))
+
+
+def clamp_volume(volume):
+    """A volume in percent that the encoder can be given, 0 to MAX_VOLUME."""
+    try:
+        percent = int(round(float(volume)))
+    except (TypeError, ValueError):
+        return DEFAULT_VOLUME
+    return max(0, min(MAX_VOLUME, percent))
+
+
+def stream_title(cfg):
+    """What the stream calls itself: the radio's own name on the network.
+
+    A player that reads the stream's metadata - rather than the name the
+    announcement gave it - has to find something there, and finding nothing it
+    invents one (VLC fell back to the product name, "Rukebox", which is how a
+    radio named "Rukebox 3074" appeared to rename itself when it was played)."""
+    return str(cfg.get("UPNP_NAME") or "").strip() or DEFAULT_TITLE
 
 
 def audio_env():

@@ -452,8 +452,8 @@ missing, or the sound server answers nothing.
 **A player can find it without being given the address** (`UPNP_ENABLED`, on
 by default): the container answers UPnP discovery and offers the stream as a
 media server, so VLC shows it under *Local network* and plays it with one
-click - under the name and the four-digit serial the audio card holds
-(`UPNP_NAME`, `UPNP_SERIAL`), which is what tells two radios apart. It is only
+click - under the name the audio card holds (`UPNP_NAME`), number included,
+which is what tells two radios apart. It is only
 announced while the stream is on, so a player that is already open picks it up
 a few seconds after the stream is switched on, with nothing to restart. It has
 to be on the same network as the container, which the default bridge network is
@@ -1679,7 +1679,11 @@ log keeps "Blind test started" and who won it.
   (what carries it to another device). **A paused or idle radio makes a
   silent stream**: a player has no way of knowing the difference between
   that and a broken one, so the entry it is offered is named "Rukebox 4821
-  (paused)" while nothing plays.
+  (paused)" while nothing plays. `STREAM_VOLUME` (`stream_volume`, 100 by
+  default) is a volume of its own for what network listeners hear, applied
+  by the encoder and handed to it live, without dropping whoever is
+  listening; it multiplies what the radio plays, so a radio turned down
+  cannot be made loud again through it.
 - **Announce the stream (UPnP)** (*Audio output* card, `UPNP_ENABLED` /
   `upnp_enabled`): the radio answers UPnP discovery and offers the stream
   as a media server, so a player finds it by itself - VLC lists it under
@@ -1688,10 +1692,13 @@ log keeps "Blind test started" and who won it.
   announced while the stream is on**: with the stream off there is no device
   at all, and switching the stream on adds it to a player that is already
   open (VLC picks it up in a few seconds, without being restarted). The keys
-  `UPNP_NAME` (`upnp_name`, "Rukebox" by default) and `UPNP_SERIAL`
-  (`upnp_serial`, four digits drawn once) are what a player shows, and what
-  tells two radios on one network apart - the serial is what a player
-  remembers the radio by, so renaming only relabels it. VLC's other
+  `UPNP_NAME` (`upnp_name`) is the **whole** name a player lists and the
+  stream itself carries, number included ("Rukebox 4821"), drawn once when
+  the radio first announces itself and free to rename afterwards; what a
+  player remembers it by is `UPNP_UID` (`upnp_uid`), drawn once and never
+  shown, so renaming relabels the device instead of adding a second one.
+  A player still shows the *server* as a folder - that is what DLNA is - so
+  the radio appears as one folder holding the stream. VLC's other
   discovery tab, *Network streams (SAP)*, cannot do this: SAP announces RTP
   sessions, and this is an ordinary HTTP stream.
 - **Skip a sound** (Home): while an announcement or a button sound

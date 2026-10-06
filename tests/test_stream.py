@@ -123,6 +123,45 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(server.content_type, "audio/ogg")
         self.assertEqual(server.command()[-1], "pipe:1")
 
+    def test_the_stream_carries_the_radios_name(self):
+        """A player that reads the stream's own metadata rather than the name
+        the announcement gave it has to find the name there: finding nothing,
+        VLC fell back to the product name and the radio looked renamed."""
+        with mock.patch.object(stream, "encoders_available", return_value=["opus"]):
+            server = stream.build({"STREAM_ENABLED": True, "STREAM_SOURCE": "s",
+                                   "UPNP_NAME": "Rukebox 3074"}, probe=False)
+        command = server.command()
+        self.assertIn("title=Rukebox 3074", command)
+        self.assertEqual(server.title, "Rukebox 3074")
+
+    def test_a_stream_with_no_name_of_its_own_still_has_one(self):
+        with mock.patch.object(stream, "encoders_available", return_value=["opus"]):
+            server = stream.build({"STREAM_ENABLED": True, "STREAM_SOURCE": "s"}, probe=False)
+        self.assertEqual(server.title, stream.DEFAULT_TITLE)
+
+    def test_the_streams_own_volume_is_a_filter_the_encoder_carries(self):
+        with mock.patch.object(stream, "encoders_available", return_value=["opus"]):
+            server = stream.build({"STREAM_ENABLED": True, "STREAM_SOURCE": "s",
+                                   "STREAM_VOLUME": "150"}, probe=False)
+        command = server.command()
+        self.assertIn("-af", command)
+        self.assertEqual(command[command.index("-af") + 1], "volume=1.500",
+                         "what the room hears is untouched: the gain is in the encoder")
+
+    def test_the_default_volume_leaves_the_stream_alone(self):
+        with mock.patch.object(stream, "encoders_available", return_value=["opus"]):
+            server = stream.build({"STREAM_ENABLED": True, "STREAM_SOURCE": "s",
+                                   "STREAM_VOLUME": "100"}, probe=False)
+        self.assertNotIn("-af", server.command(), "no filter for the neutral level")
+
+    def test_a_volume_no_encoder_should_be_given_is_brought_back_in_range(self):
+        self.assertEqual(stream.clamp_volume("150"), 150)
+        self.assertEqual(stream.clamp_volume(999), stream.MAX_VOLUME)
+        self.assertEqual(stream.clamp_volume(-10), 0)
+        self.assertEqual(stream.clamp_volume(""), stream.DEFAULT_VOLUME)
+        self.assertEqual(stream.clamp_volume(None), stream.DEFAULT_VOLUME)
+        self.assertEqual(stream.clamp_volume("loud"), stream.DEFAULT_VOLUME)
+
     def test_the_asked_for_codec_wins_when_ffmpeg_has_it(self):
         with mock.patch.object(stream, "encoders_available", return_value=["opus", "mp3"]):
             server = stream.build({"STREAM_ENABLED": True, "STREAM_SOURCE": "s",
@@ -609,6 +648,45 @@ class FreshStartTest(unittest.TestCase):
         old.stdout.close()
         process.eof()
         process.stdout.close()
+
+
+class RetuneTest(unittest.TestCase):
+    """The stream's own volume and title, changed while somebody listens."""
+
+    def setUp(self):
+        patcher = mock.patch.object(stream.subprocess, "Popen",
+                                    side_effect=OSError("no ffmpeg here"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_it_is_taken_by_the_running_encoder(self):
+        server = build_server()
+        process = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=process):
+            self.assertTrue(server.start())
+        with mock.patch.object(server, "restart") as restarted:
+            self.assertTrue(server.retune(volume=140))
+        self.assertEqual(server.volume, 140)
+        self.assertTrue(restarted.called, "and the listeners are kept over it")
+        process.eof()
+        process.stdout.close()
+
+    def test_nothing_changed_is_nothing_restarted(self):
+        server = build_server()
+        process = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=process):
+            self.assertTrue(server.start())
+        with mock.patch.object(server, "restart") as restarted:
+            self.assertFalse(server.retune(volume=server.volume, title=server.title))
+        self.assertFalse(restarted.called, "a save that changed nothing costs nothing")
+        process.eof()
+        process.stdout.close()
+
+    def test_an_encoder_that_is_not_running_is_only_told(self):
+        server = build_server()
+        with mock.patch.object(server, "restart") as restarted:
+            self.assertTrue(server.retune(volume=50))
+        self.assertFalse(restarted.called, "nothing to start again")
 
 
 class StatusTest(unittest.TestCase):

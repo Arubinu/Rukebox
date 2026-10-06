@@ -4039,7 +4039,7 @@ function paintStreamRows() {
   // folder keeps it until it is restarted, which is what made the owner
   // restart VLC. The rows follow the switch, so the card says so too.
   const on = document.getElementById("streamEnabled").checked;
-  ["upnpEnabledRow", "upnpNameRow", "upnpSerialRow"].forEach((id) => {
+  ["upnpEnabledRow", "upnpNameRow"].forEach((id) => {
     document.getElementById(id).hidden = !on;
   });
   document.getElementById("upnpNeedsStream").hidden = on;
@@ -4108,9 +4108,6 @@ refreshEvery(refreshAudioOutputs, 20000, ["audio/output"]);
 const streamEnabled = document.getElementById("streamEnabled");
 streamEnabled.addEventListener("change", paintStreamRows);
 paintStreamRows();
-document.getElementById("upnpSerial").addEventListener("input", (e) => {
-  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
-});
 
 let recentPlayingKey;
 let recentRetry = null;

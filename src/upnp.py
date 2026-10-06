@@ -49,28 +49,26 @@ DIDL_HEADER = (
 
 
 DEFAULT_NAME = "Rukebox"
-# What this radio calls itself, and what tells it from another one on the same
-# network. The web server reads both from the configuration.
-_device = {"name": DEFAULT_NAME, "serial": ""}
+# What this radio calls itself, and what a player remembers it by. The web
+# server reads both from the configuration; the identity is never shown.
+_device = {"name": DEFAULT_NAME, "uid": ""}
 
 
-def configure(name="", serial=""):
+def configure(name="", uid=""):
     _device["name"] = str(name or "").strip() or DEFAULT_NAME
-    _device["serial"] = str(serial or "").strip()[:8]
+    _device["uid"] = str(uid or "").strip()
 
 
 def device_name():
-    """What a player lists: the name, with the serial when there is one."""
-    serial = _device["serial"]
-    return "%s %s" % (_device["name"], serial) if serial else _device["name"]
+    """What a player lists, whole: the name the owner gave it, number included."""
+    return _device["name"]
 
 
 def udn():
     """A name that survives a restart, so a player that has seen this radio
-    once does not end up listing it twice - and that follows the serial, so two
-    radios with the same name are still two devices."""
-    serial = _device["serial"]
-    seed = "rukebox-upnp-serial-" + serial if serial else "rukebox-upnp-" + socket.gethostname()
+    once does not end up listing it twice - and that follows the identity, not
+    the name, so renaming relabels the device instead of making a second one."""
+    seed = "rukebox-upnp-" + (_device["uid"] or socket.gethostname())
     return "uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
 
 
@@ -102,13 +100,14 @@ def device_description():
         "<device>"
         "<deviceType>%s</deviceType>"
         "<friendlyName>%s</friendlyName>"
-        "<manufacturer>Rukebox</manufacturer>"
-        "<modelName>Rukebox</modelName>"
+        "<manufacturer>%s</manufacturer>"
+        "<modelName>%s</modelName>"
         "<modelDescription>Rukebox radio</modelDescription>"
         "<UDN>%s</UDN>"
         "<serviceList>%s</serviceList>"
         "</device></root>"
-    ) % (DEVICE_TYPE, escape(device_name()), udn(), services)
+    ) % (DEVICE_TYPE, escape(device_name()), escape(device_name()),
+         escape(device_name()), udn(), services)
 
 
 def service_of(name):
