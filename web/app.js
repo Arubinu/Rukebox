@@ -4155,6 +4155,8 @@ async function refreshRecent() {
     when.className = "recent-when";
     when.textContent = current ? t("recent.now") : formatTimeOnly(item.at);
     li.append(main, when);
+    const mark = excludedMark(item);
+    if (mark) li.append(mark);
     if (!current && item.key) li.append(libraryButton(item, true));
     return li;
   }));
@@ -4193,7 +4195,8 @@ function paintLikeButton() {
   btn.setAttribute("aria-label", btn.title);
 }
 
-function likedDate(seconds) {
+/* The day a like, an exclusion or anything else dated happened. */
+function shortDate(seconds) {
   if (!seconds) return "";
   try {
     return new Date(seconds * 1000).toLocaleDateString(currentLang,
@@ -4232,7 +4235,7 @@ function renderLikes() {
     li.append(trackMain(item));
     const when = document.createElement("span");
     when.className = "recent-when";
-    when.textContent = likedDate(item.liked_at);
+    when.textContent = shortDate(item.liked_at);
     li.append(when);
     if (item.key) li.append(libraryButton(item, true), unlikeButton(item));
     return li;
@@ -4281,6 +4284,252 @@ document.getElementById("btnLike").addEventListener("click", async () => {
 
 refreshLikes();
 refreshEvery(refreshLikes, 120000);
+
+/* Excluded tracks: what the radio never picks on its own. The page is the only
+   place that adds one - the library keeps the buttons it has. */
+let excludedItems = [];
+let excludedOffset = 0;
+let excludedTotal = 0;
+let excludedSeq = 0;
+let excludedTimer = null;
+let excludedFacetsDone = false;
+
+function excludedAvailable() {
+  return document.body.dataset.access !== "guest";
+}
+
+function excludedBadge() {
+  const badge = document.createElement("span");
+  badge.className = "badge excluded-badge";
+  badge.textContent = t("excluded.badge");
+  return badge;
+}
+
+/* The mark on a track the radio will not pick: on a library row, a list's row,
+   Up next or Recently played - so "it never plays" has an answer on the spot. */
+function excludedMark(item) {
+  return item && item.excluded ? excludedBadge() : null;
+}
+
+function excludedOrigin(origin) {
+  const known = ["duplicate", "filter", "manual"].includes(origin) ? origin : "manual";
+  return t("excluded.origin_" + known);
+}
+
+function excludedRestoreButton(item) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn btn-icon btn-small";
+  b.dataset.icon = "refresh";
+  const name = item.title || item.name || "";
+  b.title = t("excluded.restore_aria", { title: name });
+  b.setAttribute("aria-label", b.title);
+  b.addEventListener("click", async () => {
+    b.disabled = true;
+    const r = await apiPost("/api/excluded/restore", { keys: [item.key] });
+    b.disabled = false;
+    if (!r.ok) {
+      showToolError(t("excluded.failed"), r);
+      return;
+    }
+    showToast(t("excluded.restored", { title: name }));
+    refreshExcluded();
+  });
+  return b;
+}
+
+function excludedRow(item) {
+  const li = document.createElement("li");
+  if (item.missing) li.classList.add("is-off");
+  li.append(trackMain(item));
+  const when = document.createElement("span");
+  when.className = "recent-when";
+  when.textContent = [shortDate(item.excluded_at), excludedOrigin(item.origin)]
+    .filter(Boolean).join(" \u00b7 ");
+  li.append(when);
+  // No key: the library no longer knows that file, so there is nothing to queue or give back.
+  if (item.key && !item.missing) li.append(libraryButton(item, true), excludedRestoreButton(item));
+  return li;
+}
+
+function renderExcluded() {
+  const summary = document.getElementById("excludedSummary");
+  document.getElementById("excludedEmpty").hidden = excludedItems.length > 0;
+  document.getElementById("excludedRestoreAll").hidden = excludedItems.length === 0;
+  summary.hidden = excludedItems.length === 0;
+  if (excludedItems.length) {
+    summary.dataset.i18n = "excluded.summary";
+    summary.dataset.i18nVarN = String(excludedItems.length);
+    summary.textContent = t("excluded.summary", { n: excludedItems.length });
+  } else {
+    delete summary.dataset.i18n;
+    delete summary.dataset.i18nVarN;
+    summary.textContent = "";
+  }
+  document.getElementById("excludedList").replaceChildren(...excludedItems.map(excludedRow));
+}
+
+async function fillExcludedFacets() {
+  if (excludedFacetsDone) return;
+  const r = await apiGet("/api/library/facets");
+  if (!r.ok || !r.data) return;
+  excludedFacetsDone = true;
+  fillFacet(excludedArtist, r.data.artists || [], "library.all_artists");
+  fillFacet(excludedAlbum, r.data.albums || [], "library.all_albums");
+  fillFacet(excludedGenre, r.data.genres || [], "library.all_genres");
+}
+
+async function refreshExcluded() {
+  const card = document.getElementById("excludedCard");
+  if (!excludedAvailable()) {
+    card.hidden = true;
+    return;
+  }
+  const r = await apiGet("/api/excluded");
+  if (!r.ok || !r.data) {
+    card.hidden = true;
+    return;
+  }
+  excludedItems = r.data.items || [];
+  card.hidden = false;
+  renderExcluded();
+  fillExcludedFacets();
+  if (excludedAsked()) refreshExcludedResults();
+}
+
+document.getElementById("excludedRestoreAll").addEventListener("click", async () => {
+  if (!excludedItems.length) return;
+  const asked = await showConfirm(t("excluded.confirm_restore_all", { n: excludedItems.length }));
+  if (!asked) return;
+  const r = await apiPost("/api/excluded/restore", { all: true });
+  if (!r.ok) {
+    showToolError(t("excluded.failed"), r);
+    return;
+  }
+  showToast(t("excluded.restored_all", { n: (r.data && r.data.count) || 0 }));
+  refreshExcluded();
+});
+
+/* Adding: the same search as the library, with the same row buttons. A filter
+   is acted on whole, not only on the thirty rows that fit on the page. */
+const excludedSearch = document.getElementById("excludedSearch");
+const excludedArtist = document.getElementById("excludedArtist");
+const excludedAlbum = document.getElementById("excludedAlbum");
+const excludedGenre = document.getElementById("excludedGenre");
+
+function excludedAsked() {
+  return excludedSearch.value.trim() || excludedArtist.value || excludedAlbum.value
+    || excludedGenre.value;
+}
+
+function excludedFilterBody() {
+  const body = {};
+  const words = excludedSearch.value.trim();
+  if (words) body.q = words;
+  if (excludedArtist.value) body.artist = excludedArtist.value;
+  if (excludedAlbum.value) body.album = excludedAlbum.value;
+  if (excludedGenre.value) body.genre = excludedGenre.value;
+  return body;
+}
+
+function excludedResultRow(item) {
+  const li = document.createElement("li");
+  li.append(trackMain(item));
+  const actions = document.createElement("span");
+  actions.className = "library-actions";
+  const mark = excludedMark(item);
+  if (mark) actions.append(mark);
+  actions.append(item.excluded ? excludedRestoreButton(item) : excludedAddButton(item));
+  actions.append(libraryButton(item, true));
+  li.append(actions);
+  return li;
+}
+
+function excludedAddButton(item) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn btn-icon btn-small";
+  b.dataset.icon = "circle-minus";
+  const name = item.title || item.name || "";
+  b.title = t("excluded.add_one_aria", { title: name });
+  b.setAttribute("aria-label", b.title);
+  b.addEventListener("click", () => excludeTracks([item.key], name));
+  return b;
+}
+
+async function excludeTracks(keys, name) {
+  const r = await apiPost("/api/excluded", { keys: keys });
+  if (!r.ok) {
+    showToolError(t("excluded.failed"), r);
+    return;
+  }
+  showToast(t("excluded.added", { title: name }));
+  refreshExcluded();
+}
+
+async function refreshExcludedResults(more) {
+  const seq = ++excludedSeq;
+  const list = document.getElementById("excludedResults");
+  const addAll = document.getElementById("excludedFilterAdd");
+  const empty = document.getElementById("excludedResultsEmpty");
+  if (!excludedAsked()) {
+    list.replaceChildren();
+    excludedTotal = 0;
+    empty.hidden = true;
+    addAll.hidden = true;
+    document.getElementById("excludedMore").hidden = true;
+    return;
+  }
+  const params = new URLSearchParams(excludedFilterBody());
+  excludedOffset = more ? excludedOffset : 0;
+  params.set("offset", String(excludedOffset));
+  const r = await apiGet("/api/library?" + params.toString());
+  if (seq !== excludedSeq) return;
+  if (!r.ok || !r.data) {
+    list.replaceChildren();
+    empty.hidden = true;
+    addAll.hidden = true;
+    document.getElementById("excludedMore").hidden = true;
+    return;
+  }
+  const d = r.data;
+  const rows = d.items.map(excludedResultRow);
+  if (more) list.append(...rows);
+  else list.replaceChildren(...rows);
+  excludedOffset += d.items.length;
+  excludedTotal = d.total;
+  empty.hidden = d.total > 0;
+  addAll.hidden = d.total === 0;
+  addAll.dataset.i18n = "excluded.add_filter";
+  addAll.dataset.i18nVarN = String(d.total);
+  addAll.textContent = t("excluded.add_filter", { n: d.total });
+  document.getElementById("excludedMore").hidden = excludedOffset >= d.total;
+}
+
+document.getElementById("excludedFilterAdd").addEventListener("click", async () => {
+  if (!excludedTotal) return;
+  const asked = await showConfirm(t("excluded.confirm_filter", { n: excludedTotal }));
+  if (!asked) return;
+  const done = await apiPost("/api/excluded/filter", excludedFilterBody());
+  if (!done.ok) {
+    showToolError(t("excluded.failed"), done);
+    return;
+  }
+  showToast(t("excluded.added_many", { n: (done.data && done.data.count) || 0 }));
+  refreshExcluded();
+});
+
+document.getElementById("excludedMore").addEventListener("click", () => refreshExcludedResults(true));
+excludedSearch.addEventListener("input", () => {
+  clearTimeout(excludedTimer);
+  excludedTimer = setTimeout(() => refreshExcludedResults(false), 300);
+});
+[excludedArtist, excludedAlbum, excludedGenre].forEach((select) => {
+  select.addEventListener("change", () => refreshExcludedResults(false));
+});
+
+refreshExcluded();
+refreshEvery(refreshExcluded, 120000);
 
 let gameChoicesSignature = "";
 let gameOptionsFilled = false;
@@ -5082,6 +5331,8 @@ async function refreshUpnext() {
     const main = trackMain(item);
     if (item.dedication && item.dedication.text) main.append(dedicationLine(item));
     li.append(rank, main);
+    const mark = excludedMark(item);
+    if (mark) li.append(mark);
 
     if (item.requested) {
       li.classList.add("is-requested");
@@ -5275,6 +5526,8 @@ async function refreshLibrary(more) {
   const rows = d.items.map((item) => {
     const li = document.createElement("li");
     li.append(trackMain(item));
+    const mark = excludedMark(item);
+    if (mark) li.append(mark);
     const actions = document.createElement("span");
     actions.className = "library-actions";
     if (document.body.dataset.access !== "guest") actions.append(libraryListButton(item));
@@ -5629,6 +5882,8 @@ async function loadListTracks(item, holder, editable) {
     const li = document.createElement("li");
     if (track.missing) li.classList.add("is-off");
     li.append(trackMain(track));
+    const mark = excludedMark(track);
+    if (mark) li.append(mark);
     if (!editable) return li;
 
     const remove = document.createElement("button");

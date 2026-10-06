@@ -16,7 +16,7 @@ src/music_lists.py          The music lists: manual, or by genre
 src/schedules.py            Schedules: other hours, other settings, chosen days
 src/likes.py                Liked tracks
 src/duplicates.py           Duplicate tracks, from the catalogue
-src/hidden_tracks.py        Copies set aside by the duplicate check
+src/hidden_tracks.py        The tracks the radio must not pick by itself
 src/json_file.py            Locked, atomic writes of the JSON stores
 src/track_media.py          Cover art, tags and lyrics of the playing track
 src/announcements.py        User-defined announcement types
@@ -1437,6 +1437,38 @@ What it usually shows, in order of likelihood:
   much range to work with. Raise it once with
   `wpctl set-volume @DEFAULT_AUDIO_SINK@ 1.0`.
 
+### Excluded tracks: what the radio never picks by itself
+
+*Home > Excluded* (not for guests) holds the songs the radio must not choose on
+its own. Nothing is deleted and nothing disappears: an excluded song stays in
+the Library, in the lists and in a backup, and it can always be played by hand -
+"Next" on its row queues it like any other.
+
+What the exclusion covers is exactly this: the pass the radio builds for itself
+- the whole library, in the order `music_order_mode` gives - the album loop, and
+the folder a card or a barcode plays. What it does **not** cover is a choice you
+made: an active **music list** keeps its excluded songs (its page marks them
+with an *excluded* tag), and a song asked for by hand plays whether it is
+excluded or not.
+
+The page lists what is excluded, with the day and where it came from - a
+**duplicate** kept aside, a whole **filter**, or one song picked **by hand** -
+each row with "Next" to hear it anyway and a **↻** to put it back in the
+rotation. **Put them all back**, with a confirmation, empties the list.
+
+Adding is done from that page only, so the Library keeps its two buttons:
+
+- **Search** the library as usual (words, artist, album, genre), then exclude
+  one song with the **⊖** button on its row - the same row layout as the
+  Library card.
+- **Exclude these N** takes *every* track the filter finds, not only the thirty
+  shown: that is the way to take out one artist or one album in a single
+  gesture, and it asks for confirmation first.
+
+The list is `/var/lib/rukebox/hidden.json` (`hidden_file`), plain JSON that
+travels with a configuration backup. Two answers stay possible for one song:
+its like and its exclusion are remembered separately.
+
 ### Duplicate tracks: what the catalogue already knows
 
 *Home > Duplicate tracks* lists the songs the library holds more than once.
@@ -1724,6 +1756,11 @@ log keeps "Blind test started" and who won it.
   kept by the track's library key, so it survives a rescan, and the file is
   `likes_file` (`/var/lib/rukebox/likes.json`) - plain JSON you can copy to
   another Pi. The page only appears once something has been liked.
+- **Excluded** (Home, not for guests): the songs the radio must not pick by
+  itself, with the day and where each came from. The page adds them - by
+  search, one row at a time or a whole filter at once - and gives them back;
+  nothing is deleted, they stay in the library and in the lists. See
+  *Excluded tracks* below.
 - **On this day** (top of Up next, not for guests): the songs liked on
   this day in an earlier year ("A year ago, you liked: ..."), two days
   either way, else those liked a month ago - each with "Next" to play it
@@ -2148,8 +2185,8 @@ rather than leaving you wondering why the music went quiet.
 
 The **Configuration** card (System tab) downloads every setting, the
 custom announcements, the saved announcement track orders, the schedules,
-the music lists, the liked tracks and the tracks set aside by the duplicate
-check as one JSON file, and imports one back. A file exported before the last
+the music lists, the liked tracks and the excluded ones
+as one JSON file, and imports one back. A file exported before the last
 four existed leaves them as they are. That is what makes a fresh installation cheap:
 flash the card, install, import the file, done — no need to remember how
 the last one was configured.
@@ -2664,6 +2701,10 @@ list replaces that with a smaller set:
   (the song playing fades out into it). **Play everything**, at the top of
   the card, goes back to the whole library. The choice is kept in the
   daemon's state, so a reboot comes back to the same list.
+
+A list is an explicit choice, so it is **not** filtered by the *Excluded* page:
+a song you built the list with plays, and its row carries the *excluded* tag so
+you know. Taking it out of the list is one cross on that row.
 
 The Library card's genre filter has one shortcut: with a genre chosen, **Play
 this genre** makes the list for it (or reuses the one that already matches)

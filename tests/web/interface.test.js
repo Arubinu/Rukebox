@@ -101,7 +101,7 @@ test("a guest never asks for what a guest may not have", async (t) => {
   assert.equal(page.document.body.dataset.access, "guest");
   assert.ok(page.sent("GET", "/api/status").length > 0, "the status is a guest's");
   for (const path of ["/api/settings", "/api/wifi/ap", "/api/wifi/clients", "/api/journal/summary",
-                      "/api/system/info", "/api/lists", "/api/likes"]) {
+                      "/api/system/info", "/api/lists", "/api/likes", "/api/excluded"]) {
     assert.equal(page.sent("GET", path).length, 0, path + " is the owner's");
   }
   assert.ok(!page.document.querySelector('.page-tile[data-page="music"]:not([hidden])'),
@@ -929,4 +929,100 @@ test("the search finds an option by its words and opens its page", async (t) => 
   const hit = await until(() => page.document.querySelector(".search-results button"));
   hit.click();
   await until(() => page.document.documentElement.dataset.view === "detailed");
+});
+
+test("the excluded page lists what the radio will not pick, and puts it back", async (t) => {
+  let items = [
+    { key: "k1", path: "/m/one.mp3", title: "One", artist: "Alpha", excluded_at: 1759500000,
+      origin: "duplicate", missing: false },
+    { key: "k2", path: "/m/two.mp3", title: "Two", artist: "Beta", excluded_at: 1759500000,
+      origin: "filter", missing: false },
+  ];
+  const page = open(t, { hash: "#home/excluded", routes: {
+    "GET /api/excluded": () => ({ items, count: items.length }),
+    "POST /api/excluded/restore": (r) => {
+      items = items.filter((item) => !r.body.keys.includes(item.key));
+      return { count: 1, total: items.length };
+    },
+  } });
+  await until(() => page.$("excludedList").children.length === 2);
+  assert.equal(page.$("excludedCard").hidden, false);
+  assert.match(page.$("excludedSummary").textContent, /2 tracks/);
+  assert.match(page.$("excludedList").textContent, /Alpha/);
+  assert.match(page.$("excludedList").textContent, /duplicate/);
+
+  const first = page.$("excludedList").children[0];
+  assert.ok(first.querySelector('button[data-icon="list"]'), "a song excluded can still be queued");
+  first.querySelector('button[data-icon="refresh"]').click();
+  await until(() => page.sent("POST", "/api/excluded/restore").length === 1);
+  assert.deepEqual(page.sent("POST", "/api/excluded/restore")[0].body, { keys: ["k1"] });
+  await until(() => page.$("excludedList").children.length === 1);
+  assert.deepEqual(page.errors, []);
+});
+
+test("a filter is excluded whole, and a row one track at a time", async (t) => {
+  const library = [
+    { key: "k1", title: "One", artist: "Alpha", excluded: false },
+    { key: "k2", title: "Two", artist: "Alpha", excluded: false },
+  ];
+  const page = open(t, { hash: "#home/excluded", routes: {
+    "GET /api/excluded": { items: [], count: 0 },
+    "GET /api/library": { items: library, total: 2, status: { total: 2, read: 2 } },
+    "GET /api/library/facets": { artists: [{ name: "Alpha", count: 2 }], albums: [], genres: [] },
+    "POST /api/excluded": { count: 1, total: 1 },
+    "POST /api/excluded/filter": { count: 2, total: 2 },
+  } });
+  await until(() => page.$("excludedArtist").options.length === 2);
+  assert.equal(page.$("excludedFilterAdd").hidden, true, "nothing is asked for yet");
+
+  page.$("excludedSearch").value = "Alpha";
+  page.$("excludedSearch").dispatchEvent(new page.window.Event("input"));
+  await until(() => page.$("excludedResults").children.length === 2);
+  await until(() => !page.$("excludedFilterAdd").hidden);
+  assert.match(page.$("excludedFilterAdd").textContent, /2/);
+
+  page.$("excludedResults").children[0].querySelector('button[data-icon="circle-minus"]').click();
+  await until(() => page.sent("POST", "/api/excluded").length === 1);
+  assert.deepEqual(page.sent("POST", "/api/excluded")[0].body, { keys: ["k1"] });
+
+  page.$("excludedFilterAdd").click();
+  await until(() => !page.$("modalOverlay").hidden);
+  page.$("modalOk").click();
+  await until(() => page.sent("POST", "/api/excluded/filter").length === 1);
+  assert.deepEqual(page.sent("POST", "/api/excluded/filter")[0].body, { q: "Alpha" });
+  assert.deepEqual(page.errors, []);
+});
+
+test("the library marks an excluded track", async (t) => {
+  const page = open(t, { hash: "#home/library", routes: {
+    "GET /api/library": { items: [{ key: "k1", title: "One", artist: "Alpha", excluded: true }],
+                          total: 1, status: { total: 1, read: 1 } },
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  page.$("librarySearch").value = "One";
+  page.$("librarySearch").dispatchEvent(new page.window.Event("input"));
+  await until(() => page.$("libraryList").children.length === 1);
+  assert.equal(page.$("libraryList").querySelectorAll(".excluded-badge").length, 1);
+  assert.match(page.$("libraryList").querySelector(".excluded-badge").textContent, /excluded/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("a list, up next and recently played mark an excluded track", async (t) => {
+  const page = open(t, { hash: "#home/lists", routes: {
+    "GET /api/lists": { lists: [{ id: "soir", name: "Soir", kind: "manual", count: 1 }],
+                        active: null, settings: [] },
+    "GET /api/lists/soir/tracks": { items: [{ key: "k1", title: "One", path: "/m/one.mp3",
+                                             excluded: true }], missing: 0 },
+    "GET /api/queue": { enabled: true, items: [{ key: "k1", title: "One", excluded: true }] },
+    "GET /api/recent": { enabled: true, items: [
+      { key: "k2", title: "Two", at: 1759500000, excluded: true }] },
+  } });
+  await until(() => page.$("listsList").children.length === 1);
+  page.$("listsList").querySelector(".ann-head").click();
+  await until(() => page.document.querySelector("#listsDetail .excluded-badge"));
+  await until(() => page.$("upnextList").children.length === 1);
+  assert.equal(page.$("upnextList").querySelectorAll(".excluded-badge").length, 1);
+  await until(() => page.$("recentList").children.length === 1);
+  assert.equal(page.$("recentList").querySelectorAll(".excluded-badge").length, 1);
+  assert.deepEqual(page.errors, []);
 });

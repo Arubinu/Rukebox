@@ -716,26 +716,34 @@ class RadioDaemon:
             return []
 
     def _playable_tracks(self):
-        """What the radio plays: the active list's tracks, or the whole
-        library when no list is active, minus what a duplicate check kept
-        aside - the files are still there, the radio just stops choosing them
-        by itself."""
+        """What the radio plays: the whole library minus the excluded tracks,
+        or the active list as it stands - a list is an explicit choice, so it
+        keeps the tracks excluded from the radio's own passes (the page marks
+        them). The files are still there either way."""
         tracks = self._get_music_list()
         entry = self._active_list_entry()
         if entry:
-            tracks = music_lists.resolved(entry, tracks, self._genre_paths)
+            return music_lists.resolved(entry, tracks, self._genre_paths)
         hidden = self._hidden_paths()
         if not hidden:
             return tracks
         return [path for path in tracks if path not in hidden]
 
     def _hidden_paths(self):
-        """The paths a duplicate check kept aside, or nothing at all."""
+        """The paths the radio must not pick by itself, or nothing at all."""
         try:
             return hidden_tracks.paths(self.cfg.get("HIDDEN_FILE") or "")
         except Exception:  # noqa: BLE001 - never keep the radio from playing
             log.exception("Could not read the hidden tracks")
             return set()
+
+    def _reload_hidden(self):
+        """Takes what was just excluded out of the pass under way, rather than
+        rebuilding it: a rebuild would reshuffle what comes next and drop the
+        songs asked for."""
+        hidden = self._hidden_paths()
+        removed = self.state.take_from_queue_many(hidden)
+        return {"ok": True, "hidden": len(hidden), "removed": removed}
 
     def _active_list_status(self):
         entry = self._active_list_entry()
@@ -3737,9 +3745,7 @@ class RadioDaemon:
                 self._speaker_watch_now()
                 return {"ok": True}
             if cmd == "reload_hidden":
-                tracks = self._rebuild_queue()
-                return {"ok": True, "tracks": len(tracks),
-                        "hidden": len(self._hidden_paths())}
+                return self._reload_hidden()
             if cmd == "set_active_list":
                 return self._set_active_list(msg.get("id"), source, bool(msg.get("start")))
             if cmd == "skip_sound":

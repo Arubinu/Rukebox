@@ -29,6 +29,9 @@ CREATE INDEX IF NOT EXISTS tracks_artist ON tracks(artist);
 
 PROBE_TIMEOUT_SEC = 20
 LOUDNESS_TIMEOUT_SEC = 300
+# How a search lists its rows: the same order however many are asked for.
+SEARCH_ORDER = (" ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track,"
+                " title COLLATE NOCASE")
 _LOUDNESS_RE = re.compile(r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", re.MULTILINE)
 _SILENCE_RE = re.compile(r"silence_(start|end):\s*(-?\d+(?:\.\d+)?)")
 TAIL_WINDOW_SEC = 30
@@ -303,7 +306,9 @@ class Library:
         return {"key": row["key"], "title": row["title"], "artist": row["artist"], "album": row["album"],
                 "genre": row["genre"], "year": row["year"], "duration": row["duration"]}
 
-    def search(self, words="", artist=None, album=None, genre=None, offset=0, limit=30):
+    def _where(self, words="", artist=None, album=None, genre=None):
+        """The SQL of a search, and its arguments; None where the genre names
+        nothing the library has, which no row can match."""
         clauses, args = [], []
         for token in fold(words).split():
             clauses.append("search LIKE ?")
@@ -315,16 +320,35 @@ class Library:
         if genre:
             raw = self._raw_genres(genre)
             if not raw:
-                return {"items": [], "total": 0}
+                return None, []
             clauses.append("genre IN (%s)" % ",".join("?" * len(raw)))
             args.extend(raw)
-        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        return (" WHERE " + " AND ".join(clauses)) if clauses else "", args
+
+    def all_items(self, words="", artist=None, album=None, genre=None):
+        """Every row a search finds, the page limit aside: what excluding a
+        whole filter acts on. A filter that names nothing answers no row."""
+        where, args = self._where(words, artist, album, genre)
+        if where is None:
+            return []
+        with self._lock:
+            rows = self._db.execute("SELECT * FROM tracks" + where + SEARCH_ORDER, args).fetchall()
+        items = []
+        for row in rows:
+            item = self._item(row)
+            item["path"] = row["path"]
+            items.append(item)
+        return items
+
+    def search(self, words="", artist=None, album=None, genre=None, offset=0, limit=30):
+        where, args = self._where(words, artist, album, genre)
+        if where is None:
+            return {"items": [], "total": 0}
         with self._lock:
             total = self._db.execute("SELECT COUNT(*) FROM tracks" + where, args).fetchone()[0]
             rows = self._db.execute(
-                "SELECT * FROM tracks" + where +
-                " ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track, title COLLATE NOCASE"
-                " LIMIT ? OFFSET ?", args + [int(limit), int(offset)]).fetchall()
+                "SELECT * FROM tracks" + where + SEARCH_ORDER + " LIMIT ? OFFSET ?",
+                args + [int(limit), int(offset)]).fetchall()
         return {"items": [self._item(r) for r in rows], "total": total}
 
     def _genre_index(self):

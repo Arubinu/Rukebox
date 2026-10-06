@@ -276,6 +276,52 @@
           <p class="hint" id="likesEmpty" data-i18n="likes.empty" hidden>No liked track yet.</p>
         </section>
 
+        <section class="card" id="excludedCard" data-page="excluded" data-tab="home" aria-labelledby="excludedTitle" hidden>
+          <h2 data-icon="circle-minus" id="excludedTitle"><span data-i18n="excluded.title">Excluded</span></h2>
+          <p class="hint help-text" data-i18n="excluded.help" hidden>
+            The radio never picks these on its own. Nothing is deleted: they stay in the
+            library and in the lists, and can always be played by hand.
+          </p>
+          <p class="hint" id="excludedSummary" role="status"></p>
+          <ol class="device-list recent-list library-list" id="excludedList"></ol>
+          <p class="hint" id="excludedEmpty" data-i18n="excluded.empty" hidden>Nothing excluded yet.</p>
+          <div class="form-actions">
+            <button type="button" class="btn" id="excludedRestoreAll" data-icon="refresh"
+                    data-i18n="excluded.restore_all" hidden>Put them all back</button>
+          </div>
+
+          <details class="subsection" id="excludedNew">
+            <summary><span data-i18n="excluded.add">Exclude tracks</span></summary>
+            <p class="hint help-text" data-i18n="excluded.add_help" hidden>
+              Pick what to exclude the way you search the library. A filter takes every
+              track it finds, not only the thirty shown.
+            </p>
+            <div class="library-search">
+              <label for="excludedSearch" class="sr-only" data-i18n="excluded.search_label">Search the library</label>
+              <input type="search" id="excludedSearch" class="text-input" autocomplete="off" enterkeyhint="search"
+                     data-i18n-placeholder="library.search_placeholder" placeholder="Title, artist, album…">
+            </div>
+            <div class="library-filters">
+              <label for="excludedArtist" class="sr-only" data-i18n="library.artist">Artist</label>
+              <select id="excludedArtist"><option value="" data-i18n="library.all_artists">All artists</option></select>
+              <label for="excludedAlbum" class="sr-only" data-i18n="library.album">Album</label>
+              <select id="excludedAlbum"><option value="" data-i18n="library.all_albums">All albums</option></select>
+              <label for="excludedGenre" class="sr-only" data-i18n="library.genre">Genre</label>
+              <select id="excludedGenre"><option value="" data-i18n="library.all_genres">All genres</option></select>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-primary" id="excludedFilterAdd" data-icon="circle-minus"
+                      hidden></button>
+            </div>
+            <ol class="device-list recent-list library-list" id="excludedResults"></ol>
+            <p class="hint" id="excludedResultsEmpty" data-i18n="excluded.no_result" hidden>Nothing matches.</p>
+            <div class="form-actions">
+              <button type="button" class="btn" id="excludedMore" data-icon="plus" hidden
+                      data-i18n="library.more">Show more</button>
+            </div>
+          </details>
+        </section>
+
         <section class="card" id="remindersCard" data-page="reminders" data-tab="home" data-owner aria-labelledby="remindersTitle">
           <h2 data-icon="bell" id="remindersTitle"><span data-i18n="reminders.title">Reminders</span></h2>
           <p class="hint help-text" data-i18n="reminders.help" hidden>

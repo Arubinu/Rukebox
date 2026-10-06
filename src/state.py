@@ -171,10 +171,24 @@ class RadioState:
 
     def take_from_queue(self, path):
         """Removes `path` from the play queue."""
+        self.take_from_queue_many([path])
+
+    def take_from_queue_many(self, paths):
+        """Removes several paths at once, for one write: what excluding a
+        track needs - the rest of the pass, and the songs asked for, must not
+        move. Returns how many were still in the queue."""
+        wanted = {p for p in (paths or []) if p}
+        if not wanted:
+            return 0
         with self._lock:
-            self.data["play_queue"] = [p for p in self.data["play_queue"] if p != path]
-            self.data["requests"] = [p for p in self.data["requests"] if p != path]
+            queue = list(self.data["play_queue"])
+            kept = [p for p in queue if p not in wanted]
+            if len(kept) == len(queue):
+                return 0
+            self.data["play_queue"] = kept
+            self.data["requests"] = [p for p in self.data["requests"] if p not in wanted]
             self._save()
+            return len(queue) - len(kept)
 
     def enqueue_request(self, path, person=None, fair=False):
         """A song asked for ("Next"). `fair`: the asked-for songs take turns

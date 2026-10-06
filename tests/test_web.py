@@ -11,6 +11,7 @@ not installed - run them on the Pi:
     ssh pi@169.254.7.7 'RUKEBOX_SRC=/opt/rukebox/src python3 -m unittest discover -s /tmp/rukebox-tests -v'
 """
 import io
+import json
 import os
 import shutil
 import tempfile
@@ -32,6 +33,8 @@ TMP = tempfile.mkdtemp()
 if flask:
     # Read by web_server at import time; nothing of the real installation is opened for writing.
     os.environ["STATS_DB_FILE"] = os.path.join(TMP, "stats.db")
+    import library
+    import track_media
     import web_auth
     import web_server as ws
 
@@ -1582,6 +1585,152 @@ class SkipVoteTest(unittest.TestCase):
             self.assertEqual(ws._skip_vote_state("k", "a")["needed"], 3, "more than half of four")
         with unittest.mock.patch.object(ws, "cfg", return_value=dict(ws.cfg(), SKIP_VOTE_ENABLED=False)):
             self.assertIsNone(ws._skip_vote_state("k", "a"))
+
+
+@unittest.skipUnless(flask, "Flask is not installed")
+class ExcludedTracksTest(unittest.TestCase):
+    """The excluded page's routes: the radio stops picking what is excluded,
+    nothing is deleted, and a list still gets its own tracks back."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.music = os.path.join(self.dir, "music")
+        self.db_file = os.path.join(self.dir, "library.db")
+        self.hidden_file = os.path.join(self.dir, "hidden.json")
+        self.lists_file = os.path.join(self.dir, "music_lists.json")
+        self.state_dir = os.path.join(self.dir, "state")
+        os.makedirs(self.state_dir, exist_ok=True)
+        lib = library.Library(self.db_file, track_media.track_key)
+        self.tracks = {}
+        for name in ("Alpha/one.mp3", "Alpha/two.mp3", "Beta/three.mp3"):
+            path = os.path.join(self.music, *name.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as f:
+                f.write(b"x" * 10)
+            self.tracks[name] = path
+        lib.sync(list(self.tracks.values()), self.music)
+        self.keys = {name: lib.item_for_path(path)["key"] for name, path in self.tracks.items()}
+
+        self.addCleanup(unittest.mock.patch.stopall)
+        self.calls = []
+        values = dict(ws.cfg(), WEB_PASSWORD_HASH=web_auth.hash_password("secret"),
+                      GUEST_MODE_ENABLED=True, STATE_DIR=self.state_dir,
+                      MUSIC_DIR=self.music, MUSIC_CACHE_FILE=os.path.join(self.dir, "cache.json"),
+                      LIBRARY_DB_FILE=self.db_file, HIDDEN_FILE=self.hidden_file,
+                      MUSIC_LISTS_FILE=self.lists_file,
+                      LIKES_FILE=os.path.join(self.dir, "likes.json"))
+        for target, value in (
+                ("cfg", lambda: dict(values)),
+                ("_get_library", lambda: lib),
+                ("control", lambda cmd, **kw: self.calls.append((cmd, kw)) or {"ok": True}),
+                ("stats", unittest.mock.Mock()),
+                ("_warm_track_media", lambda *a, **k: None)):
+            patcher = unittest.mock.patch.object(ws, target, side_effect=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.addCleanup(lib._db.close)
+
+    def owner(self):
+        client = ws.app.test_client()
+        client.post("/api/auth/login", json={"password": "secret"})
+        return client
+
+    def test_nothing_is_excluded_at_first(self):
+        data = self.owner().get("/api/excluded").get_json()["data"]
+        self.assertEqual((data["items"], data["count"]), ([], 0))
+
+    def test_a_track_is_excluded_and_the_daemon_is_told(self):
+        owner = self.owner()
+        r = owner.post("/api/excluded", json={"keys": [self.keys["Alpha/one.mp3"]]}).get_json()
+        self.assertTrue(r["ok"], r)
+        self.assertEqual((r["data"]["count"], r["data"]["total"]), (1, 1))
+        self.assertIn(("reload_hidden", {}), self.calls)
+        item = owner.get("/api/excluded").get_json()["data"]["items"][0]
+        self.assertEqual((item["title"], item["artist"], item["origin"], item["missing"]),
+                         ("one", "Alpha", "manual", False))
+        self.assertGreater(item["excluded_at"], 0)
+
+    def test_a_whole_filter_is_excluded_in_one_go(self):
+        owner = self.owner()
+        r = owner.post("/api/excluded/filter", json={"artist": "Alpha"}).get_json()
+        self.assertEqual(r["data"]["count"], 2, "both tracks of the artist, not one page of them")
+        items = owner.get("/api/excluded").get_json()["data"]["items"]
+        self.assertEqual({item["title"] for item in items}, {"one", "two"})
+        self.assertEqual({item["origin"] for item in items}, {"filter"})
+
+    def test_a_filter_needs_something_to_filter_on(self):
+        r = self.owner().post("/api/excluded/filter", json={})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.get_json()["error"], "excluded_filter_required")
+
+    def test_a_filter_that_matches_nothing_excludes_nothing(self):
+        r = self.owner().post("/api/excluded/filter", json={"artist": "Nobody"}).get_json()
+        self.assertEqual(r["data"]["count"], 0)
+        self.assertEqual(self.owner().get("/api/excluded").get_json()["data"]["count"], 0)
+
+    def test_a_track_the_library_does_not_know_excludes_nothing(self):
+        for body in ({}, {"keys": []}, {"keys": ["nonsense"]}):
+            r = self.owner().post("/api/excluded", json=body)
+            self.assertEqual(r.status_code, 400, body)
+            self.assertEqual(r.get_json()["error"], "excluded_key_required")
+
+    def test_putting_one_back_and_then_every_one(self):
+        owner = self.owner()
+        owner.post("/api/excluded", json={"keys": list(self.keys.values())})
+        self.assertEqual(owner.get("/api/excluded").get_json()["data"]["count"], 3)
+        r = owner.post("/api/excluded/restore", json={"keys": [self.keys["Beta/three.mp3"]]}).get_json()
+        self.assertEqual((r["data"]["count"], r["data"]["total"]), (1, 2))
+        r = owner.post("/api/excluded/restore", json={"all": True}).get_json()
+        self.assertEqual((r["data"]["count"], r["data"]["total"]), (2, 0))
+        self.assertEqual(owner.post("/api/excluded/restore", json={}).status_code, 400)
+
+    def test_the_library_marks_what_is_excluded(self):
+        owner = self.owner()
+        owner.post("/api/excluded", json={"keys": [self.keys["Alpha/one.mp3"]]})
+        found = owner.get("/api/library?q=Alpha").get_json()["data"]["items"]
+        marked = {item["title"]: item["excluded"] for item in found}
+        self.assertEqual(marked, {"one": True, "two": False})
+
+    def test_up_next_and_recently_played_carry_the_mark(self):
+        owner = self.owner()
+        owner.post("/api/excluded", json={"keys": [self.keys["Alpha/one.mp3"]]})
+        path = self.tracks["Alpha/one.mp3"]
+        with unittest.mock.patch.object(ws, "control", return_value={"ok": True, "data": {
+                "paths": [path], "requested": []}}):
+            items = owner.get("/api/queue").get_json()["data"]["items"]
+        self.assertEqual([item["excluded"] for item in items], [True])
+        with open(os.path.join(self.state_dir, "state.json"), "w", encoding="utf-8") as f:
+            json.dump({"recent": [{"path": path, "at": 1.0}]}, f)
+        recent = owner.get("/api/recent").get_json()["data"]["items"]
+        self.assertEqual([item["excluded"] for item in recent], [True])
+
+    def test_a_list_keeps_its_track_and_says_it_is_excluded(self):
+        owner = self.owner()
+        list_id = owner.post("/api/lists", json={"name": "Soir", "kind": "manual"}).get_json()["data"]["id"]
+        owner.post("/api/lists/%s/tracks" % list_id, json={"key": self.keys["Alpha/one.mp3"]})
+        owner.post("/api/excluded", json={"keys": [self.keys["Alpha/one.mp3"]]})
+        contents = owner.get("/api/lists/%s/tracks" % list_id).get_json()["data"]
+        self.assertEqual([(item["title"], item["excluded"]) for item in contents["items"]],
+                         [("one", True)], "nothing is taken out of a list")
+
+    def test_a_guest_cannot_exclude_anything(self):
+        owner = self.owner()
+        owner.post("/api/excluded", json={"keys": [self.keys["Alpha/one.mp3"]]})
+        guest = ws.app.test_client()
+        self.assertEqual(guest.get("/api/excluded").status_code, 401)
+        self.assertEqual(guest.post("/api/excluded", json={"keys": []}).status_code, 401)
+        self.assertEqual(guest.post("/api/excluded/restore", json={"all": True}).status_code, 401)
+        self.assertEqual(owner.get("/api/excluded").get_json()["data"]["count"], 1,
+                         "and the guest changed nothing")
+
+    def test_the_duplicates_card_still_uses_the_same_list(self):
+        owner = self.owner()
+        key = self.keys["Alpha/one.mp3"]
+        owner.post("/api/library/hide", json={"key": key, "hidden": True,
+                                              "path": self.tracks["Alpha/one.mp3"]})
+        items = owner.get("/api/excluded").get_json()["data"]["items"]
+        self.assertEqual([item["origin"] for item in items], ["duplicate"])
 
 
 if __name__ == "__main__":

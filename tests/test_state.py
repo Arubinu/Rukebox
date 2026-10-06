@@ -36,6 +36,20 @@ class StateTest(unittest.TestCase):
         self.assertEqual(self.s.data["play_queue"], ["a"])
         self.assertEqual(self.s.data["requests"], [])
 
+    def test_several_taken_out_of_the_queue_at_once(self):
+        self.s.data["play_queue"] = ["a", "b", "c", "d"]
+        self.s.enqueue_request("d")
+        self.assertEqual(self.s.take_from_queue_many(["b", "d"]), 2)
+        self.assertEqual(self.s.data["play_queue"], ["a", "c"],
+                         "the order of what stays is untouched")
+        self.assertEqual(self.s.data["requests"], [], "an asked-for song that went too")
+
+    def test_taking_out_what_is_not_there_writes_nothing(self):
+        self.s.data["play_queue"] = ["a"]
+        self.assertEqual(self.s.take_from_queue_many(["z"]), 0)
+        self.assertEqual(self.s.take_from_queue_many([]), 0)
+        self.assertEqual(self.s.data["play_queue"], ["a"])
+
     def test_persisted(self):
         self.s.data["play_queue"] = ["a", "b"]
         self.s.enqueue_request("b")

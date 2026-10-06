@@ -1814,6 +1814,7 @@ def api_recent():
     except (OSError, ValueError):
         recent = []
     items, pending = [], False
+    excluded = _excluded_keys()
     for entry in recent[:limit]:
         path = entry.get("path") if isinstance(entry, dict) else None
         if not path:
@@ -1823,12 +1824,14 @@ def api_recent():
             pending = True
             _warm_track_media(path, full=False)
         tags = tags or {}
+        key = track_media.track_key(path)
         items.append({
             "title": tags.get("title"),
             "artist": tags.get("artist"),
             "name": os.path.splitext(os.path.basename(path))[0],
             "at": entry.get("at"),
-            "key": track_media.track_key(path),
+            "key": key,
+            "excluded": key in excluded,
         })
     return jsonify({"ok": True, "data": {"enabled": True, "items": items, "pending": pending}})
 
@@ -1894,6 +1897,9 @@ def api_library():
                        request.args.get("album") or None, request.args.get("genre") or None,
                        offset=offset, limit=30)
     found["status"] = lib.status()
+    excluded = _excluded_keys()
+    for item in found["items"]:
+        item["excluded"] = item.get("key") in excluded
     return jsonify({"ok": True, "data": found})
 
 
@@ -2031,6 +2037,7 @@ def api_queue():
     requested = set((result.get("data") or {}).get("requested") or [])
     dedications = (result.get("data") or {}).get("dedications") or {}
     show_dedications = bool(cfg().get("DEDICATIONS_ENABLED"))
+    excluded = _excluded_keys()
     for path in (result.get("data") or {}).get("paths") or []:
         item = lib.item_for_path(path)
         if item is None:
@@ -2039,6 +2046,7 @@ def api_queue():
                     "artist": tags.get("artist"), "album": tags.get("album")}
         item["name"] = os.path.splitext(os.path.basename(path))[0]
         item["requested"] = path in requested
+        item["excluded"] = item.get("key") in excluded
         if show_dedications and isinstance(dedications.get(path), dict):
             item["dedication"] = {"from": dedications[path].get("from"),
                                   "text": dedications[path].get("text")}
@@ -2197,19 +2205,23 @@ def api_list_tracks(list_id):
     except KeyError:
         return jsonify({"ok": False, "error": "not_found"}), 404
     lib = _get_library()
+    missing = []
     if entry.get("kind") == "genre":
         items = lib.items_for_paths(lib.paths_for_genres(entry.get("genres") or []))
-        return jsonify({"ok": True, "data": {"items": items, "missing": 0}})
-
-    stored = list(entry.get("tracks") or [])
-    items = lib.items_for_paths(stored)
-    known = {item["path"] for item in items}
-    missing = [
-        {"key": None, "path": path, "title": os.path.splitext(os.path.basename(path))[0],
-         "missing": True}
-        for path in stored if path not in known
-    ]
-    return jsonify({"ok": True, "data": {"items": items + missing, "missing": len(missing)}})
+    else:
+        stored = list(entry.get("tracks") or [])
+        items = lib.items_for_paths(stored)
+        known = {item["path"] for item in items}
+        missing = [
+            {"key": None, "path": path, "title": os.path.splitext(os.path.basename(path))[0],
+             "missing": True}
+            for path in stored if path not in known
+        ]
+        items = items + missing
+    excluded = _excluded_keys()
+    for item in items:
+        item["excluded"] = item.get("key") in excluded
+    return jsonify({"ok": True, "data": {"items": items, "missing": len(missing)}})
 
 
 def _stored_track(body):
@@ -5405,15 +5417,128 @@ def api_library_hide():
             file_path, key, hidden,
             track_path=str(body.get("path") or known.get("path") or ""),
             title=str(body.get("title") or known.get("title") or ""),
-            artist=str(body.get("artist") or known.get("artist") or ""))
+            artist=str(body.get("artist") or known.get("artist") or ""),
+            origin="duplicate")
     except ValueError as error:
         return jsonify({"ok": False, "error": str(error)}), 400
     # The queue must not keep a copy that was just hidden.
-    control("reload_hidden")
+    _after_exclusion_change()
     stats.record("track_hidden" if hidden else "track_shown",
                  label=str(known.get("title") or key), detail={"key": key})
     return jsonify({"ok": True, "data": {
         "hidden": hidden, "count": len(hidden_tracks.keys(file_path))}})
+
+
+def _excluded_entries():
+    """The excluded tracks as the file holds them, most recent first."""
+    try:
+        return hidden_tracks.load(cfg().get("HIDDEN_FILE") or "")
+    except Exception:  # noqa: BLE001 - a broken file must not close the page
+        log.exception("Could not read the excluded tracks")
+        return []
+
+
+def _excluded_keys():
+    """The library keys the radio does not pick by itself."""
+    try:
+        return hidden_tracks.keys(cfg().get("HIDDEN_FILE") or "")
+    except Exception:  # noqa: BLE001
+        log.exception("Could not read the excluded tracks")
+        return set()
+
+
+def _after_exclusion_change():
+    """The daemon's running pass must not keep what just changed."""
+    control("reload_hidden")
+
+
+def _excluded_rows(keys):
+    """The library rows for these keys, in the order asked for; a key the
+    catalogue does not know names no track."""
+    lib = _get_library()
+    rows = []
+    for key in keys:
+        path = lib.path_for_key(key)
+        item = lib.item_for_path(path) if path else None
+        if item:
+            item["path"] = path
+            rows.append(item)
+    return rows
+
+
+@app.route("/api/excluded")
+def api_excluded():
+    """What the radio never picks by itself, and how each one got there."""
+    entries = _excluded_entries()
+    rows = {item["path"]: item for item in
+            _get_library().items_for_paths([entry.get("path") for entry in entries])}
+    items = []
+    for entry in entries:
+        row = rows.get(entry.get("path")) or {}
+        items.append({
+            "key": entry["key"],
+            "path": entry.get("path") or "",
+            "title": row.get("title") or entry.get("title") or "",
+            "artist": row.get("artist") or entry.get("artist") or "",
+            "album": row.get("album") or "",
+            "excluded_at": entry.get("hidden_at"),
+            "origin": entry.get("origin") or "manual",
+            "missing": not row,
+        })
+    return jsonify({"ok": True, "data": {"items": items, "count": len(items)}})
+
+
+@app.route("/api/excluded", methods=["POST"])
+def api_excluded_add():
+    """{keys: [...]}: the radio stops choosing these on its own. Nothing is
+    deleted, and they stay in the library and in every list."""
+    body = request.get_json(silent=True) or {}
+    keys = [str(key).strip() for key in (body.get("keys") or []) if str(key).strip()]
+    rows = _excluded_rows(keys)
+    if not rows:
+        return jsonify({"ok": False, "error": "excluded_key_required"}), 400
+    count = hidden_tracks.set_many(cfg().get("HIDDEN_FILE") or "", rows, True, "manual")
+    _after_exclusion_change()
+    stats.record("track_hidden", label=rows[0].get("title") if count == 1 else None,
+                 detail={"keys": count, "source": "page"})
+    return jsonify({"ok": True, "data": {"count": count, "total": len(_excluded_keys())}})
+
+
+@app.route("/api/excluded/filter", methods=["POST"])
+def api_excluded_add_filter():
+    """{q, artist, album, genre}: every track the filter finds, in one write -
+    what excluding a whole artist or album needs, and not only the rows the
+    page happens to show."""
+    body = request.get_json(silent=True) or {}
+    words = str(body.get("q") or "").strip()
+    artist = str(body.get("artist") or "").strip() or None
+    album = str(body.get("album") or "").strip() or None
+    genre = str(body.get("genre") or "").strip() or None
+    if not (words or artist or album or genre):
+        return jsonify({"ok": False, "error": "excluded_filter_required"}), 400
+    rows = _get_library().all_items(words, artist, album, genre)
+    count = hidden_tracks.set_many(cfg().get("HIDDEN_FILE") or "", rows, True, "filter")
+    _after_exclusion_change()
+    stats.record("track_hidden", detail={"keys": count, "source": "filter"})
+    return jsonify({"ok": True, "data": {"count": count, "total": len(_excluded_keys())}})
+
+
+@app.route("/api/excluded/restore", methods=["POST"])
+def api_excluded_restore():
+    """{keys: [...]} or {all: true}: the radio picks them again."""
+    body = request.get_json(silent=True) or {}
+    file_path = cfg().get("HIDDEN_FILE") or ""
+    if body.get("all"):
+        count = len(hidden_tracks.keys(file_path))
+        hidden_tracks.clear(file_path)
+    else:
+        keys = [str(key).strip() for key in (body.get("keys") or []) if str(key).strip()]
+        if not keys:
+            return jsonify({"ok": False, "error": "excluded_key_required"}), 400
+        count = hidden_tracks.set_many(file_path, [{"key": key} for key in keys], False)
+    _after_exclusion_change()
+    stats.record("track_shown", detail={"keys": count, "source": "page"})
+    return jsonify({"ok": True, "data": {"count": count, "total": len(_excluded_keys())}})
 
 
 def _library_item(key):

@@ -1,7 +1,8 @@
-"""What the daemon plays (src/rukebox_daemon.py): the whole library, or the
-active music list - a manual one in the order it was built, a genre one from
-the library's tags - and the loudness filter pushed to mpv. mpv itself is
-faked, so this runs off-hardware."""
+"""What the daemon plays (src/rukebox_daemon.py): the whole library minus the
+excluded tracks, or the active music list - a manual one in the order it was
+built, a genre one from the library's tags, and the tracks excluded from the
+radio's own passes it keeps - and the loudness filter pushed to mpv. mpv
+itself is faked, so this runs off-hardware."""
 import os
 import shutil
 import tempfile
@@ -12,6 +13,7 @@ from unittest import mock
 import _path  # noqa: F401
 import bt_link
 from config_and_scan import load_config
+import hidden_tracks
 import library
 import music_lists
 import rukebox_daemon
@@ -96,6 +98,7 @@ class DaemonListsTest(unittest.TestCase):
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
             "MUSIC_LISTS_FILE": self.lists_file,
             "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
+            "HIDDEN_FILE": os.path.join(self.dir, "hidden.json"),
             "INTERACTIVE_FADE_DURATION_SEC": 0,
         })
         self.daemon = rukebox_daemon.RadioDaemon(cfg)
@@ -250,6 +253,52 @@ class DaemonListsTest(unittest.TestCase):
         finally:
             bt_link.locate, bt_link.connect_here = original_locate, original_connect
         self.assertEqual(calls, [], "a controller that never saw it cannot take it back")
+
+    def test_an_excluded_track_is_not_played_by_the_radio(self):
+        hidden_tracks.set_hidden(self.daemon.cfg["HIDDEN_FILE"], "k1", True,
+                                 self.paths["jazz1.mp3"], "Jazz 1", "Someone")
+        self.assertEqual(sorted(self.daemon._playable_tracks()),
+                         sorted(set(self.paths.values()) - {self.paths["jazz1.mp3"]}))
+        self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
+        self.daemon._rebuild_queue()
+        self.assertNotIn(self.paths["jazz1.mp3"], self.daemon.state.data["play_queue"])
+
+    def test_a_list_keeps_what_the_radio_must_not_pick_itself(self):
+        entry = music_lists.add(self.lists_file, {"name": "Soir", "kind": "manual"})
+        music_lists.add_track(self.lists_file, entry["id"], self.paths["jazz1.mp3"])
+        music_lists.add_track(self.lists_file, entry["id"], self.paths["rock1.mp3"])
+        hidden_tracks.set_hidden(self.daemon.cfg["HIDDEN_FILE"], "k1", True,
+                                 self.paths["jazz1.mp3"])
+        self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
+        self.daemon._set_active_list(entry["id"], "test")
+        self.assertEqual(self.daemon._playable_tracks(),
+                         [self.paths["jazz1.mp3"], self.paths["rock1.mp3"]],
+                         "a list is an explicit choice: the page marks the track instead")
+        self.assertEqual(self.daemon._active_list_status()["tracks"], 2)
+        self.daemon._set_active_list(None, "test")
+        self.assertNotIn(self.paths["jazz1.mp3"], self.daemon._playable_tracks())
+
+    def test_a_folder_of_a_card_still_skips_them(self):
+        hidden_tracks.set_hidden(self.daemon.cfg["HIDDEN_FILE"], "k1", True,
+                                 self.paths["Daft Punk/album1.mp3"])
+        self.assertEqual(self.daemon._play_folder("Daft Punk", "web"), "not_found",
+                         "the radio picks inside that folder, so the exclusion holds")
+
+    def test_excluding_takes_the_track_out_of_the_pass_under_way(self):
+        self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
+        self.daemon._rebuild_queue()
+        asked = self.paths["metal.mp3"]
+        self.daemon.state.enqueue_request(asked)
+        queue = list(self.daemon.state.data["play_queue"])
+        hidden_tracks.set_hidden(self.daemon.cfg["HIDDEN_FILE"], "k1", True,
+                                 self.paths["rock1.mp3"])
+        answer = self.daemon._reload_hidden()
+        self.assertEqual((answer["hidden"], answer["removed"]), (1, 1))
+        self.assertEqual(self.daemon.state.data["play_queue"],
+                         [p for p in queue if p != self.paths["rock1.mp3"]],
+                         "the rest of the pass keeps its order")
+        self.assertEqual(self.daemon.state.requested_paths(), [asked],
+                         "the songs asked for are still waiting")
 
     def test_a_duration_list_is_cleaned_and_never_left_empty(self):
         self.assertEqual(self.daemon._pause_durations(), [5, 15, 30, 60])
