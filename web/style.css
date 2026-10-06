@@ -2323,8 +2323,10 @@ select {
   font-variant-numeric: tabular-nums;
 }
 .subsection-value.is-off { opacity: 0.55; }
-/* The chevron's own auto margin would take half the free space and centre the value. */
-.subsection > summary:has(> .subsection-value)::after { margin-left: 10px; }
+.subsection-value[hidden] { display: none; }
+/* The chevron's own auto margin would take half the free space and centre the value.
+   Without a visible value the chevron keeps its auto margin and stays on the right. */
+.subsection > summary:has(> .subsection-value:not([hidden]))::after { margin-left: 10px; }
 
 .subsection > :not(summary) { margin: 10px 14px 0; }
 

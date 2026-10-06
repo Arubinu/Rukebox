@@ -7580,7 +7580,8 @@ document.getElementById("btnBtScan").addEventListener("click", async () => {
 });
 
 /* The two daily times are what those folds are about, so each one carries its own in
-   its summary - dimmed while the fold's own switch says it is not in use. */
+   its summary - the morning's goes away entirely when the start is not at a set time,
+   and the cutoff's is dimmed while the cutoff is off. */
 function paintDailyTimes() {
   const cutoff = document.getElementById("cutoffTime");
   const cutoffOut = document.getElementById("eveningTime");
@@ -7589,7 +7590,7 @@ function paintDailyTimes() {
   cutoffOut.textContent = cutoff.value;
   cutoffOut.classList.toggle("is-off", !document.getElementById("cutoffEnabled").checked);
   startOut.textContent = start.value;
-  startOut.classList.toggle("is-off", document.getElementById("musicStartMode").value !== "scheduled");
+  startOut.hidden = document.getElementById("musicStartMode").value !== "scheduled";
 }
 
 function updateStartTimeVisibility() {
