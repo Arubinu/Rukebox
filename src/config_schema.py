@@ -88,8 +88,9 @@ SETTINGS = [
     Setting(
         "STREAM_SOURCE", "audio", "stream_source", "str", "",
         "The PipeWire monitor to encode, as `pactl list short sources` names it.\n"
-        "Empty finds the default output's own monitor, which is what the radio\n"
-        "plays to. Only set this when the stream has to follow another sink.",
+        "Empty encodes the output the radio plays to - the wired output chosen in\n"
+        "the card above, or the default one - which is what makes the stream carry\n"
+        "what you hear. Only set this to follow something else entirely.",
         "Stream source",
     ),
     Setting(
@@ -100,6 +101,21 @@ SETTINGS = [
         "ever the stream, and only while the stream is on. Turning it off stops\n"
         "answering; nothing else on the network is affected.",
         "Announce the stream (UPnP)",
+    ),
+    Setting(
+        "UPNP_NAME", "audio", "upnp_name", "str", "Rukebox",
+        "What this radio is called by a player that finds it on the network\n"
+        "(VLC's \"Local network\", a phone, a network speaker). Change it and the\n"
+        "same radio is listed under another name.",
+        "Name on the network",
+    ),
+    Setting(
+        "UPNP_SERIAL", "audio", "upnp_serial", "str", "",
+        "Four digits, written once when the radio first announced itself, and\n"
+        "shown after the name (\"Rukebox 4821\"). It is what tells two radios on\n"
+        "the same network apart, so give each one its own - any four digits will\n"
+        "do, and a player only shows the name you set here.",
+        "Serial number",
     ),
     Setting(
         "SPEAKER_MAC", "bluetooth", "speaker_mac", "str", "",
@@ -1197,6 +1213,10 @@ RESTART_REQUIRED = frozenset({
 # A save rebuilds the encoder instead of asking for a restart: it is built on
 # the next status read, which is a second away.
 STREAM_SETTINGS = frozenset({"STREAM_ENABLED", "STREAM_ENCODER", "STREAM_SOURCE"})
+
+# What a player sees: the announcement follows the stream, and the name and the
+# serial are what tells this radio from another one.
+UPNP_SETTINGS = frozenset({"UPNP_ENABLED", "UPNP_NAME", "UPNP_SERIAL"})
 
 GPIO_BUTTON_SETTINGS = frozenset({
     "GPIO_BUTTON_PIN", "GPIO_BUTTON_DEBOUNCE_SEC",

@@ -7,6 +7,7 @@ import json
 import logging
 import mimetypes
 import os
+import random
 import re
 import secrets
 import signal
@@ -141,7 +142,27 @@ def _ensure_session_secret(initial_cfg):
     return secret
 
 
+def _ensure_upnp_serial(values=None):
+    """This radio's four digits, drawn once and kept in the file.
+
+    Two radios on one network are two devices, and what tells them apart is
+    this number: a player shows it after the name. Generated here rather than
+    at install, so a radio installed before it existed gets one too."""
+    values = cfg() if values is None else values
+    serial = str(values.get("UPNP_SERIAL") or "").strip()
+    if not serial:
+        serial = "%04d" % random.randint(0, 9999)
+        try:
+            update_config_file({"UPNP_SERIAL": serial})
+        except ValueError:
+            log.exception("Could not keep the UPnP serial number: this radio "
+                          "will announce itself under another one after a restart")
+    upnp.configure(values.get("UPNP_NAME"), serial)
+    return serial
+
+
 app.secret_key = _ensure_session_secret(_startup_cfg)
+_ensure_upnp_serial(_startup_cfg)
 AUTH_MAX_AGE = timedelta(days=8)
 app.permanent_session_lifetime = AUTH_MAX_AGE
 
@@ -282,6 +303,30 @@ _PRE_LOGIN_PATHS = frozenset({"/api/portal/status"})
 # --------------------------------------------------------------------------
 
 UPNP_SERVICES = {name: upnp.service_of(name) for name, _type, _id in upnp.SERVICES}
+# The daemon has nothing to send in these: a player meeting a silent stream has
+# no way of knowing it is the radio's own state, so the item says it.
+NOTHING_PLAYING_MODES = ("idle", "stopped")
+
+
+def _stream_available():
+    """True when the stream is on and has something to encode."""
+    return bool(stream_mod.status(stream_server())["available"])
+
+
+def _upnp_title():
+    """What the item is called: the radio's name, and why it is quiet."""
+    state = ""
+    try:
+        result = control("get_status")
+    except Exception:  # noqa: BLE001  (a browse must never fail over this)
+        result = {}
+    if result.get("ok"):
+        data = result.get("data") or {}
+        if data.get("paused"):
+            state = "paused"
+        elif str(data.get("mode") or "") in NOTHING_PLAYING_MODES:
+            state = "idle"
+    return upnp.device_name() + (" (%s)" % state if state else "")
 
 
 def _upnp_items():
@@ -290,10 +335,38 @@ def _upnp_items():
     if server is None or not server.source:
         return []
     return [{
-        "title": upnp.FRIENDLY_NAME,
+        "title": _upnp_title(),
         "url": request.host_url.rstrip("/") + "/stream." + server.suffix,
         "mime": server.content_type,
     }]
+
+
+_upnp_lock = threading.Lock()
+UPNP_WATCH_SEC = 5.0
+
+
+def _upnp_follow_stream():
+    """Announces this radio only while there is a stream to offer.
+
+    A player handed an empty folder keeps it until it is restarted, and one
+    asking for the folder before the stream is on is exactly what the owner
+    reported: the device comes and goes with the stream instead, which is also
+    what makes the entry appear without restarting anything."""
+    wanted = bool(cfg().get("UPNP_ENABLED")) and _stream_available()
+    with _upnp_lock:
+        if wanted:
+            upnp.start(cfg()["WEB_PORT"])
+        else:
+            upnp.stop()
+
+
+def _upnp_watch():
+    while True:
+        time.sleep(UPNP_WATCH_SEC)
+        try:
+            _upnp_follow_stream()
+        except Exception:  # noqa: BLE001
+            log.exception("The UPnP announcement could not follow the stream")
 
 
 @app.route(upnp.PATH + "/rootDesc.xml")
@@ -3434,11 +3507,13 @@ def api_set_settings():
     if config_schema.STREAM_SETTINGS & set(body):
         # The encoder is built on the next status read, from the file just written.
         forget_stream()
-    if "UPNP_ENABLED" in body:
-        if cfg().get("UPNP_ENABLED"):
-            upnp.start(cfg()["WEB_PORT"])
-        else:
-            upnp.stop()
+    if config_schema.UPNP_SETTINGS & set(body):
+        # Another name or serial is another device to a player: say goodbye
+        # under the old one before announcing the new one.
+        upnp.stop()
+        _ensure_upnp_serial(cfg())
+    if (config_schema.STREAM_SETTINGS | config_schema.UPNP_SETTINGS) & set(body):
+        _upnp_follow_stream()
     return jsonify({"ok": True, "data": {
         "applied_live": bool(reload.get("ok")),
         "restart_needed": restart_needed,
@@ -6465,8 +6540,8 @@ def main():
     signal.signal(signal.SIGTERM, _on_sigterm)
     if c.get("CAPTIVE_PORTAL_ENABLED") and int(c["WEB_PORT"]) != captive_portal.PORTAL_PORT:
         captive_portal.start(c.get("AP_INTERFACE", "uap0"), c["WEB_PORT"])
-    if c.get("UPNP_ENABLED"):
-        upnp.start(c["WEB_PORT"])
+    _upnp_follow_stream()
+    threading.Thread(target=_upnp_watch, name="upnp-watch", daemon=True).start()
     try:
         _get_library()
     except Exception:  # noqa: BLE001

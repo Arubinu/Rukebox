@@ -39,14 +39,47 @@ def text_of(xml, tag):
 
 
 class UdnTest(unittest.TestCase):
+    """What a player remembers this radio by, and what tells two apart."""
+
+    def setUp(self):
+        self.addCleanup(upnp.configure, upnp.DEFAULT_NAME, "")
+
     def test_it_is_a_uuid_and_it_does_not_move(self):
+        upnp.configure("Rukebox", "")
         first = upnp.udn()
         self.assertTrue(first.startswith("uuid:"), first)
         self.assertEqual(first, upnp.udn(), "a player that saw it once must not see two radios")
 
+    def test_the_name_is_what_a_player_shows(self):
+        upnp.configure("Cuisine", "4821")
+        self.assertEqual(upnp.device_name(), "Cuisine 4821")
+        self.assertEqual(upnp.device_name(), upnp.device_name())
+
+    def test_the_serial_is_what_tells_two_radios_apart(self):
+        upnp.configure("Rukebox", "4821")
+        one = upnp.udn()
+        upnp.configure("Rukebox", "9137")
+        self.assertNotEqual(one, upnp.udn(), "same name, another serial: another device")
+
+    def test_renaming_keeps_the_device(self):
+        upnp.configure("Rukebox", "9137")
+        one = upnp.udn()
+        upnp.configure("Cuisine", "9137")
+        self.assertEqual(upnp.udn(), one, "renaming relabels the device a player already has")
+        self.assertEqual(upnp.device_name(), "Cuisine 9137")
+
+    def test_a_radio_without_a_serial_still_has_a_name(self):
+        upnp.configure("", "")
+        self.assertEqual(upnp.device_name(), upnp.DEFAULT_NAME)
+        self.assertTrue(upnp.udn().startswith("uuid:"))
+
 
 class DescriptionTest(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(upnp.configure, upnp.DEFAULT_NAME, "")
+
     def test_it_describes_a_media_server_with_a_content_directory(self):
+        upnp.configure("Rukebox", "")
         text = upnp.device_description()
         root = ElementTree.fromstring(text)
         self.assertEqual(root.tag.rsplit("}", 1)[-1], "root")
@@ -57,6 +90,11 @@ class DescriptionTest(unittest.TestCase):
         services = [element.text for element in root.iter()
                     if element.tag.rsplit("}", 1)[-1] == "serviceType"]
         self.assertEqual(services, [upnp.CONTENT_DIRECTORY, upnp.CONNECTION_MANAGER])
+
+    def test_the_description_carries_the_serial(self):
+        upnp.configure("Cuisine", "4821")
+        text = upnp.device_description()
+        self.assertEqual(text_of(text, "friendlyName"), "Cuisine 4821")
 
     def test_both_service_descriptions_are_readable_xml(self):
         for name in ("ContentDirectory", "ConnectionManager"):

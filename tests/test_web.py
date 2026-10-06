@@ -1051,19 +1051,81 @@ class UpnpRouteTest(unittest.TestCase):
         self.assertEqual(self.client.get("/upnp/Nonsense/scpd.xml").status_code, 404)
         self.assertEqual(self.client.post("/upnp/Nonsense/control").status_code, 404)
 
+    def test_the_device_only_exists_while_the_stream_is_on(self):
+        """An empty folder in a player stays until the player is restarted: the
+        announcement comes and goes with the stream instead."""
+        with unittest.mock.patch.object(ws.upnp, "start") as started:
+            with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
+                with unittest.mock.patch.object(ws, "_stream_available", return_value=False):
+                    ws._upnp_follow_stream()
+                self.assertTrue(stopped.called, "nothing to offer: no device at all")
+                self.assertFalse(started.called)
+                stopped.reset_mock()
+                with unittest.mock.patch.object(ws, "_stream_available", return_value=True):
+                    ws._upnp_follow_stream()
+                self.assertTrue(started.called, "the entry appears without restarting VLC")
+                self.assertFalse(stopped.called)
+
+    def test_a_radio_that_turned_the_announcement_off_never_answers(self):
+        with unittest.mock.patch.object(ws, "_stream_available", return_value=True):
+            with unittest.mock.patch.object(ws, "cfg", return_value={"UPNP_ENABLED": False,
+                                                                     "WEB_PORT": 80}):
+                with unittest.mock.patch.object(ws.upnp, "start") as started:
+                    with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
+                        ws._upnp_follow_stream()
+        self.assertTrue(stopped.called)
+        self.assertFalse(started.called)
+
+    def test_the_serial_is_drawn_once_and_kept(self):
+        with unittest.mock.patch.object(ws, "update_config_file") as written:
+            serial = ws._ensure_upnp_serial({"UPNP_SERIAL": "", "UPNP_NAME": "Cuisine"})
+        self.assertRegex(serial, r"^\d{4}$")
+        self.assertEqual(written.call_args[0][0], {"UPNP_SERIAL": serial})
+        self.assertEqual(ws.upnp.device_name(), "Cuisine " + serial)
+        self.addCleanup(ws.upnp.configure, ws.upnp.DEFAULT_NAME, "")
+
+    def test_a_serial_already_there_is_kept(self):
+        with unittest.mock.patch.object(ws, "update_config_file") as written:
+            self.assertEqual(ws._ensure_upnp_serial({"UPNP_SERIAL": "0042"}), "0042")
+        self.assertFalse(written.called)
+        self.addCleanup(ws.upnp.configure, ws.upnp.DEFAULT_NAME, "")
+
+    def test_the_item_says_when_the_radio_has_nothing_to_send(self):
+        """A player meeting a silent stream cannot tell it from a broken one."""
+        with unittest.mock.patch.object(ws, "control",
+                                        return_value={"ok": True, "data": {"mode": "music",
+                                                                           "paused": True}}):
+            self.assertTrue(ws._upnp_title().endswith("(paused)"), ws._upnp_title())
+        with unittest.mock.patch.object(ws, "control",
+                                        return_value={"ok": True, "data": {"mode": "stopped"}}):
+            self.assertTrue(ws._upnp_title().endswith("(idle)"), ws._upnp_title())
+        with unittest.mock.patch.object(ws, "control",
+                                        return_value={"ok": True, "data": {"mode": "music"}}):
+            self.assertFalse(ws._upnp_title().endswith(")"))
+
     def test_saving_the_setting_starts_and_stops_the_listener(self):
         """A save is enough: nothing has to be restarted for a switch that is
         worth trying on the spot."""
-        with unittest.mock.patch.object(ws.upnp, "start") as started:
-            with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
-                self.assertTrue(self.client.post("/api/settings",
-                                                 json={"UPNP_ENABLED": True}).get_json()["ok"])
-                self.assertTrue(started.called, "turning it on starts answering")
-                self.assertFalse(stopped.called)
-                started.reset_mock()
-                self.client.post("/api/settings", json={"UPNP_ENABLED": False})
-                self.assertTrue(stopped.called, "turning it off stops answering")
-                self.assertFalse(started.called)
+        with unittest.mock.patch.object(ws, "_stream_available", return_value=True):
+            with unittest.mock.patch.object(ws.upnp, "start") as started:
+                with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
+                    self.assertTrue(self.client.post("/api/settings",
+                                                     json={"UPNP_ENABLED": True}).get_json()["ok"])
+                    self.assertTrue(started.called, "turning it on starts answering")
+                    started.reset_mock()
+                    self.client.post("/api/settings", json={"UPNP_ENABLED": False})
+                    self.assertTrue(stopped.called, "turning it off stops answering")
+                    self.assertFalse(started.called)
+
+    def test_a_stream_that_is_off_is_not_announced_at_all(self):
+        """The switch may be on: with nothing to stream there is no device to
+        add to a player, which is what the owner saw as an empty folder."""
+        with unittest.mock.patch.object(ws, "_stream_available", return_value=False):
+            with unittest.mock.patch.object(ws.upnp, "start") as started:
+                with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
+                    self.client.post("/api/settings", json={"UPNP_ENABLED": True})
+        self.assertTrue(stopped.called)
+        self.assertFalse(started.called)
 
     def test_the_stream_settings_apply_without_a_restart(self):
         """The encoder is rebuilt on the next status read, so the card says so

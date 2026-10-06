@@ -451,11 +451,14 @@ missing, or the sound server answers nothing.
 
 **A player can find it without being given the address** (`UPNP_ENABLED`, on
 by default): the container answers UPnP discovery and offers the stream as a
-media server, so VLC shows **Rukebox** under *Local network* and plays it with
-one click. It has to be on the same network as the container, which the
-default bridge network is not — its multicast stays inside the container, so
-use `network_mode: host` (variant 4 does) or a macvlan network for a player on
-the LAN to see it.
+media server, so VLC shows it under *Local network* and plays it with one
+click - under the name and the four-digit serial the audio card holds
+(`UPNP_NAME`, `UPNP_SERIAL`), which is what tells two radios apart. It is only
+announced while the stream is on, so a player that is already open picks it up
+a few seconds after the stream is switched on, with nothing to restart. It has
+to be on the same network as the container, which the default bridge network is
+not — its multicast stays inside the container, so use `network_mode: host`
+(variant 4 does) or a macvlan network for a player on the LAN to see it.
 
 **Think about the password first**: anyone who can reach the page can listen
 to the library. `WEB_PASSWORD_HASH` is the only thing in the way, and on a
@@ -1657,22 +1660,31 @@ log keeps "Blind test started" and who won it.
   a browser, `mpv`, VLC. Off on a Pi, because it costs an ffmpeg process;
   on in the Docker image, where it *is* the sound. `STREAM_ENCODER`
   (`stream_encoder`) picks the codec (Opus by default, which every browser
-  plays), `STREAM_SOURCE` (`stream_source`) encodes another output than the
-  one the radio plays to, and the address is
-  `http://<the radio>/stream.opus`. Both are read at the next status read,
-  so a save applies them without a restart. Not to be confused with the
-  choice just above it in the same card: *Virtual output (container)* is an
-  **output** (where the sound goes, and only a container has one), while
-  this is the **stream** (what carries it to another device).
+  plays), and the address is `http://<the radio>/stream.opus`. Both are read
+  at the next status read, so a save applies them without a restart. **It
+  encodes the output the radio plays to** (the wired output chosen above, or
+  the default one); `STREAM_SOURCE` (`stream_source`) is only for following
+  something else entirely. Not to be confused with the choice just above it
+  in the same card: *Virtual output (container)* is an **output** (where the
+  sound goes, and only a container has one), while this is the **stream**
+  (what carries it to another device). **A paused or idle radio makes a
+  silent stream**: a player has no way of knowing the difference between
+  that and a broken one, so the entry it is offered is named "Rukebox 4821
+  (paused)" while nothing plays.
 - **Announce the stream (UPnP)** (*Audio output* card, `UPNP_ENABLED` /
   `upnp_enabled`): the radio answers UPnP discovery and offers the stream
-  as a media server, so a player finds it by itself - VLC lists **Rukebox**
-  under *Local network* (Universal Plug'n'Play) and plays it with one
-  click, and the same works from VLC for Android, BubbleUPnP and the like.
-  The entry exists only while the stream is on, it is the stream and
-  nothing else, and turning the setting off stops the answering at once.
-  VLC's other discovery tab, *Network streams (SAP)*, cannot do this: SAP
-  announces RTP sessions, and this is an ordinary HTTP stream.
+  as a media server, so a player finds it by itself - VLC lists it under
+  *Local network* (Universal Plug'n'Play) and plays it with one click, and
+  the same works from VLC for Android, BubbleUPnP and the like. **It is only
+  announced while the stream is on**: with the stream off there is no device
+  at all, and switching the stream on adds it to a player that is already
+  open (VLC picks it up in a few seconds, without being restarted). The keys
+  `UPNP_NAME` (`upnp_name`, "Rukebox" by default) and `UPNP_SERIAL`
+  (`upnp_serial`, four digits drawn once) are what a player shows, and what
+  tells two radios on one network apart - the serial is what a player
+  remembers the radio by, so renaming only relabels it. VLC's other
+  discovery tab, *Network streams (SAP)*, cannot do this: SAP announces RTP
+  sessions, and this is an ordinary HTTP stream.
 - **Skip a sound** (Home): while an announcement or a button sound
   plays, the Pause button reads **Skip** - it ends that sound at once and
   the music carries on, as if it had finished (never the cutoff).

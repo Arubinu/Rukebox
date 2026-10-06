@@ -1462,7 +1462,7 @@
                      placeholder="alsa_output.hdmi.monitor" autocomplete="off" spellcheck="false"
                      aria-describedby="streamSourceDesc">
             </div>
-            <div class="field-row">
+            <div class="field-row" id="upnpEnabledRow">
               <div class="field-text">
                 <label for="upnpEnabled" data-i18n="stream.upnp">Announce the stream (UPnP)</label>
                 <p class="field-desc" id="upnpEnabledDesc" data-i18n="stream.upnp_desc">Let a player find it by itself: VLC lists the radio under "Local network" and plays the stream from a click.</p>
@@ -1470,6 +1470,23 @@
               <input type="checkbox" id="upnpEnabled" data-key="UPNP_ENABLED" class="switch-input" role="switch"
                      aria-describedby="upnpEnabledDesc">
             </div>
+            <div class="field-row" id="upnpNameRow">
+              <div class="field-text">
+                <label for="upnpName" data-i18n="stream.upnp_name">Name on the network</label>
+                <p class="field-desc" id="upnpNameDesc" data-i18n="stream.upnp_name_desc">What a player lists, next to the serial number.</p>
+              </div>
+              <input type="text" id="upnpName" data-key="UPNP_NAME" class="text-input" maxlength="32"
+                     autocomplete="off" spellcheck="false" aria-describedby="upnpNameDesc">
+            </div>
+            <div class="field-row" id="upnpSerialRow">
+              <div class="field-text">
+                <label for="upnpSerial" data-i18n="stream.upnp_serial">Serial number</label>
+                <p class="field-desc" id="upnpSerialDesc" data-i18n="stream.upnp_serial_desc">Four digits, drawn once, so two radios on one network are told apart. Give each its own.</p>
+              </div>
+              <input type="text" id="upnpSerial" data-key="UPNP_SERIAL" class="text-input" maxlength="4"
+                     inputmode="numeric" autocomplete="off" spellcheck="false" aria-describedby="upnpSerialDesc">
+            </div>
+            <p class="hint" id="upnpNeedsStream" data-i18n="stream.upnp_needs_stream" hidden>A player can only find the radio while the stream is on.</p>
             <div data-level="detail" class="field-row">
               <div class="field-text">
                 <label for="transferLimitMode" data-i18n="audioout.transfer_limit">Limit transfers</label>

@@ -53,8 +53,9 @@ audio:
   stream_encoder: ""
 
   # The PipeWire monitor to encode, as `pactl list short sources` names it.
-  # Empty finds the default output's own monitor, which is what the radio
-  # plays to. Only set this when the stream has to follow another sink.
+  # Empty encodes the output the radio plays to - the wired output chosen in
+  # the card above, or the default one - which is what makes the stream carry
+  # what you hear. Only set this to follow something else entirely.
   stream_source: ""
 
   # Let a player find the stream by itself: the radio answers UPnP
@@ -63,6 +64,17 @@ audio:
   # ever the stream, and only while the stream is on. Turning it off stops
   # answering; nothing else on the network is affected.
   upnp_enabled: true
+
+  # What this radio is called by a player that finds it on the network
+  # (VLC's "Local network", a phone, a network speaker). Change it and the
+  # same radio is listed under another name.
+  upnp_name: "Rukebox"
+
+  # Four digits, written once when the radio first announced itself, and
+  # shown after the name ("Rukebox 4821"). It is what tells two radios on
+  # the same network apart, so give each one its own - any four digits will
+  # do, and a player only shows the name you set here.
+  upnp_serial: ""
 
 # ---------------------------------------------------------------
 # Bluetooth: speaker, and which controller does what

@@ -275,6 +275,73 @@ class ListenerTest(unittest.TestCase):
         self.assertFalse(server.start(), "it stays given up")
 
 
+class ChosenMonitorTest(unittest.TestCase):
+    """The stream encodes the output the radio plays to.
+
+    mpv is pointed at a wired sink by name, so the sink PipeWire calls the
+    default can be another one: encoding its monitor sent silence, with
+    everything looking right on the page."""
+
+    USB = "alsa_output.usb-DAC-01.analog-stereo"
+    HDMI = "alsa_output.pci-0000_00_1f.3.hdmi-stereo"
+    JACK = "alsa_output.pci-0000_00_1f.3.analog-stereo"
+    BOX = "bluez_output.AA_BB_CC_DD_EE_FF.a2dp-sink"
+    VIRTUAL = "rukebox_output"
+
+    def fake(self, sinks=(), sources=(), default=""):
+        def run(command, **_kwargs):
+            if command[0] != "pactl":
+                return mock.Mock(returncode=127, stdout="", stderr="")
+            if command[1] == "get-default-sink":
+                return mock.Mock(returncode=0, stdout=default, stderr="")
+            if command[-1] == "sinks":
+                return mock.Mock(returncode=0, stdout=self.line(sinks), stderr="")
+            return mock.Mock(returncode=0, stdout=self.monitors(sources), stderr="")
+        return mock.patch.object(stream.subprocess, "run", side_effect=run)
+
+    @staticmethod
+    def line(names):
+        return "".join("%d\t%s\tPipeWire\tfloat32le\tIDLE\n" % (i, name)
+                       for i, name in enumerate(names, 1))
+
+    @staticmethod
+    def monitors(names):
+        return "".join("%d\t%s.monitor\tPipeWire\tfloat32le\n" % (i, name)
+                       for i, name in enumerate(names, 1))
+
+    def test_a_wired_output_is_encoded_even_when_it_is_not_the_default(self):
+        with self.fake(sinks=(self.USB, self.JACK), sources=(self.USB, self.JACK),
+                       default=self.JACK):
+            self.assertEqual(stream.probe_source(kind="usb"), self.USB + ".monitor")
+            self.assertEqual(stream.probe_source(kind="jack"), self.JACK + ".monitor")
+
+    def test_bluetooth_follows_the_default_output(self):
+        """mpv's `auto` is the default sink there: nothing to look for."""
+        with self.fake(sinks=(self.BOX, self.USB), sources=(self.BOX, self.USB),
+                       default=self.BOX):
+            self.assertEqual(stream.probe_source(kind="bluetooth"), self.BOX + ".monitor")
+
+    def test_an_output_that_is_not_there_falls_back_to_the_default(self):
+        with self.fake(sinks=(self.JACK,), sources=(self.JACK,), default=self.JACK):
+            self.assertEqual(stream.probe_source(kind="hdmi"), self.JACK + ".monitor")
+
+    def test_the_container_virtual_output_is_encoded(self):
+        with self.fake(sinks=(self.VIRTUAL,), sources=(self.VIRTUAL,)):
+            self.assertEqual(stream.probe_source(kind="docker"), self.VIRTUAL + ".monitor")
+
+    def test_nothing_asks_for_an_output_it_does_not_know(self):
+        with self.fake(sinks=(self.USB,), sources=(self.USB,), default=self.USB):
+            self.assertEqual(stream.probe_source(), self.USB + ".monitor")
+
+    def test_the_built_command_encodes_the_chosen_output(self):
+        with mock.patch.object(stream, "encoders_available", return_value=["opus"]):
+            with self.fake(sinks=(self.USB, self.JACK), sources=(self.USB, self.JACK),
+                           default=self.JACK):
+                server = stream.build({"STREAM_ENABLED": True, "AUDIO_OUTPUT": "usb"})
+        self.assertEqual(server.source, self.USB + ".monitor")
+        self.assertIn(self.USB + ".monitor", server.command())
+
+
 class OggPageTest(unittest.TestCase):
     """The headers of an Ogg stream are what a late listener needs first."""
 

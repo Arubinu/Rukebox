@@ -25,13 +25,11 @@ SERVICES = (
     ("ConnectionManager", CONNECTION_MANAGER, "urn:upnp-org:serviceId:ConnectionManager"),
 )
 SERVER_NAME = "Rukebox/1.0 UPnP/1.0"
-FRIENDLY_NAME = "Rukebox"
 MAX_AGE = 1800
 NOTIFY_INTERVAL = 900
 ANNOUNCE_AGAIN_SEC = 1.0
 PATH = "/upnp"
 ROOT_ID = "0"
-ROOT_TITLE = "Rukebox"
 AUDIO_CLASS = "object.item.audioItem.audioBroadcast"
 CONTAINER_CLASS = "object.container.storageFolder"
 DEFAULT_MIME = "audio/ogg"
@@ -50,11 +48,30 @@ DIDL_HEADER = (
 )
 
 
+DEFAULT_NAME = "Rukebox"
+# What this radio calls itself, and what tells it from another one on the same
+# network. The web server reads both from the configuration.
+_device = {"name": DEFAULT_NAME, "serial": ""}
+
+
+def configure(name="", serial=""):
+    _device["name"] = str(name or "").strip() or DEFAULT_NAME
+    _device["serial"] = str(serial or "").strip()[:8]
+
+
+def device_name():
+    """What a player lists: the name, with the serial when there is one."""
+    serial = _device["serial"]
+    return "%s %s" % (_device["name"], serial) if serial else _device["name"]
+
+
 def udn():
     """A name that survives a restart, so a player that has seen this radio
-    once does not end up listing it twice."""
-    return "uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL,
-                                    "rukebox-upnp-" + socket.gethostname()))
+    once does not end up listing it twice - and that follows the serial, so two
+    radios with the same name are still two devices."""
+    serial = _device["serial"]
+    seed = "rukebox-upnp-serial-" + serial if serial else "rukebox-upnp-" + socket.gethostname()
+    return "uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
 
 
 def base_url(address, port):
@@ -91,7 +108,7 @@ def device_description():
         "<UDN>%s</UDN>"
         "<serviceList>%s</serviceList>"
         "</device></root>"
-    ) % (DEVICE_TYPE, escape(FRIENDLY_NAME), udn(), services)
+    ) % (DEVICE_TYPE, escape(device_name()), udn(), services)
 
 
 def service_of(name):
@@ -404,7 +421,7 @@ def didl(items, start=0):
             '<item id="%d" parentID="%s" restricted="1">'
             "<dc:title>%s</dc:title><upnp:class>%s</upnp:class>"
             '<res protocolInfo="http-get:*:%s:*">%s</res></item>'
-            % (start + index + 1, ROOT_ID, escape(str(item.get("title") or FRIENDLY_NAME)),
+            % (start + index + 1, ROOT_ID, escape(str(item.get("title") or device_name())),
                escape(str(item.get("class") or AUDIO_CLASS)), escape(mime),
                escape(str(item.get("url") or "")))
         )
@@ -416,7 +433,7 @@ def container_xml(children):
     return (
         '<container id="%s" parentID="-1" restricted="1" searchable="0" childCount="%d">'
         "<dc:title>%s</dc:title><upnp:class>%s</upnp:class></container>"
-        % (ROOT_ID, children, escape(ROOT_TITLE), CONTAINER_CLASS)
+        % (ROOT_ID, children, escape(device_name()), CONTAINER_CLASS)
     )
 
 

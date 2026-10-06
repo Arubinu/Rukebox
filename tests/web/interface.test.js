@@ -127,7 +127,7 @@ test("the network stream and its UPnP announcement are switches of the audio car
   const held = { AUDIO_OUTPUT: "bluetooth", AUDIO_FALLBACK_OUTPUT: "", BT_AUDIO_CODECS: "",
                  TRANSFER_LIMIT_MODE: "auto", TRANSFER_LIMIT_KBPS: "64", TRANSFER_LIMIT_USB: "false",
                  STREAM_ENABLED: "false", STREAM_ENCODER: "", STREAM_SOURCE: "",
-                 UPNP_ENABLED: "true" };
+                 UPNP_ENABLED: "true", UPNP_NAME: "Rukebox", UPNP_SERIAL: "4821" };
   const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
   await until(() => page.$("bootOverlay").hidden);
   assert.equal(page.$("streamEnabled").checked, false, "the stream is off on a Pi");
@@ -159,6 +159,34 @@ test("the virtual output is only offered by a machine that has one", async (t) =
   await until(() => container.$("bootOverlay").hidden);
   await read(container);
   assert.ok(option(container), "a container offers it");
+});
+
+test("the announcement rows only show while the stream is on", async (t) => {
+  const held = { AUDIO_OUTPUT: "bluetooth", STREAM_ENABLED: "false", STREAM_ENCODER: "",
+                 STREAM_SOURCE: "", UPNP_ENABLED: "true", UPNP_NAME: "Rukebox",
+                 UPNP_SERIAL: "4821", TRANSFER_LIMIT_MODE: "auto", TRANSFER_LIMIT_KBPS: "64",
+                 TRANSFER_LIMIT_USB: "false" };
+  const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
+  await until(() => page.$("bootOverlay").hidden);
+  await until(() => page.$("upnpNeedsStream").hidden === false);
+  assert.equal(page.$("upnpEnabledRow").hidden, true, "nothing to announce: no rows");
+  assert.equal(page.$("upnpNameRow").hidden, true);
+  assert.equal(page.$("upnpSerialRow").hidden, true);
+  assert.equal(page.$("upnpName").value, "Rukebox");
+  assert.equal(page.$("upnpSerial").value, "4821");
+
+  const enabled = page.$("streamEnabled");
+  enabled.checked = true;
+  enabled.dispatchEvent(new page.window.Event("change", { bubbles: true }));
+  assert.equal(page.$("upnpEnabledRow").hidden, false, "the stream is on: they are back");
+  assert.equal(page.$("upnpNameRow").hidden, false);
+  assert.equal(page.$("upnpSerialRow").hidden, false);
+  assert.equal(page.$("upnpNeedsStream").hidden, true);
+
+  const serial = page.$("upnpSerial");
+  serial.value = "48ab21";
+  serial.dispatchEvent(new page.window.Event("input", { bubbles: true }));
+  assert.equal(serial.value, "4821", "four digits, nothing else");
 });
 
 test("a new announcement's form shows the rows of its trigger, and no others", async (t) => {

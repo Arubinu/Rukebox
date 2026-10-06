@@ -2786,6 +2786,7 @@ async function loadSettingsIntoForm() {
   updateStartTimeVisibility();
   updateSpeakerFadeVisibility();
   updateClickSoundRows();
+  paintStreamRows();
 
   if ("ACT_LED" in result.data) {
     document.getElementById("actLedToggle").checked = result.data.ACT_LED !== "off";
@@ -4021,6 +4022,17 @@ window.LANG_CHANGE_LISTENERS.push(() => {
 let audioOutputs = [];
 let audioOutputsKnown = false;
 
+function paintStreamRows() {
+  // Nothing is announced while nothing is streamed: a player handed an empty
+  // folder keeps it until it is restarted, which is what made the owner
+  // restart VLC. The rows follow the switch, so the card says so too.
+  const on = document.getElementById("streamEnabled").checked;
+  ["upnpEnabledRow", "upnpNameRow", "upnpSerialRow"].forEach((id) => {
+    document.getElementById(id).hidden = !on;
+  });
+  document.getElementById("upnpNeedsStream").hidden = on;
+}
+
 function paintAudioOutputChoices() {
   // The virtual output belongs to a container: offering it on a machine that
   // has none would be a choice that leads nowhere. Never hidden before the
@@ -4080,6 +4092,13 @@ document.getElementById("btnAudioTest").addEventListener("click", async () => {
 });
 refreshAudioOutputs();
 refreshEvery(refreshAudioOutputs, 20000, ["audio/output"]);
+
+const streamEnabled = document.getElementById("streamEnabled");
+streamEnabled.addEventListener("change", paintStreamRows);
+paintStreamRows();
+document.getElementById("upnpSerial").addEventListener("input", (e) => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
+});
 
 let recentPlayingKey;
 let recentRetry = null;

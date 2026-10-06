@@ -19,6 +19,8 @@ import subprocess
 import threading
 import time
 
+import audio_output
+
 log = logging.getLogger("stream")
 
 # What the container image installs, best first: Opus is what a browser plays
@@ -64,7 +66,7 @@ MAX_RESTARTS = 5
 RESTART_DELAY_SEC = 1.0
 
 
-def probe_source(env=None, timeout=6):
+def probe_source(env=None, timeout=6, kind=None):
     """The monitor to encode, or "" when this machine has no sound server.
 
     `pactl` first - it is the compatibility layer of PipeWire, and it has been
@@ -73,11 +75,34 @@ def probe_source(env=None, timeout=6):
     for a machine running bare PipeWire with no Pulse layer at all (a Pi
     without pipewire-pulse, where pw-dump works and pactl is not installed).
 
-    The default output's own monitor first, then any monitor there is."""
+    The output the radio plays to first: for a wired output mpv is pointed at
+    that sink by name, so the default sink's monitor would carry silence. Then
+    the default output's own monitor, then any monitor there is."""
+    chosen = _chosen_monitor(kind, env, timeout)
+    if chosen:
+        return chosen
     from_pactl = _probe_with_pactl(env, timeout)
     if from_pactl is not None:
         return from_pactl
     return _probe_with_pw_dump(env, timeout)
+
+
+def _chosen_monitor(kind, env, timeout):
+    """The monitor of the sink this output kind names, or "".
+
+    Bluetooth is left out on purpose: mpv follows the default sink there, so
+    the default monitor is the right one and this would only guess."""
+    if not kind or kind == "bluetooth":
+        return ""
+    monitors = _monitors_from_pactl(env, timeout)
+    if not monitors:
+        return ""
+    for name in _sinks_from_pactl(env, timeout):
+        if audio_output.classify({"node.name": name}) == kind:
+            wanted = name + ".monitor"
+            if wanted in monitors:
+                return wanted
+    return ""
 
 
 def why_unavailable(env=None):
@@ -490,7 +515,7 @@ def build(cfg, probe=True):
         return None
     source = cfg.get("STREAM_SOURCE") or ""
     if not source and probe:
-        source = probe_source(env=audio_env())
+        source = probe_source(env=audio_env(), kind=cfg.get("AUDIO_OUTPUT"))
     wanted = (cfg.get("STREAM_ENCODER") or "").strip().lower()
     available = encoders_available()
     if wanted in available:
