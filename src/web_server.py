@@ -285,9 +285,6 @@ def stream_audio(ext=None):
         "Cache-Control": "no-store, no-cache, must-revalidate",
         "Pragma": "no-cache",
         "X-Accel-Buffering": "no",
-        # What an Icecast client reads to call this a live stream.
-        "icy-name": "Rukebox",
-        "icy-pub": "0",
     }
     response = Response(server.chunks(), headers=headers, direct_passthrough=True)
     response.timeout = None
