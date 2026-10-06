@@ -2322,7 +2322,6 @@ select {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-.subsection-value.is-off { opacity: 0.55; }
 .subsection-value[hidden] { display: none; }
 /* The chevron's own auto margin would take half the free space and centre the value.
    Without a visible value the chevron keeps its auto margin and stays on the right. */
