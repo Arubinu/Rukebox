@@ -464,6 +464,15 @@ not — its multicast stays inside the container, so use `network_mode: host`
 to the library. `WEB_PASSWORD_HASH` is the only thing in the way, and on a
 container the network around it is usually not a private access point.
 
+The stream is Ogg, so a player that joins it late is handed the stream's own
+headers first — an Ogg file without them cannot be decoded at all. Those
+headers carry granule 0 while the live pages carry the encoder's *uptime*, so
+the first listener of an encoder that has been running for a while would be
+given a timeline that begins minutes in, and would wait for that hole to fill
+before playing anything (VLC asks for a cache as long as the hole, and shows
+the uptime as its position). The encoder is therefore started afresh for the
+first listener, which makes the stream a player is given begin at zero.
+
 ### What a machine can do
 
 `src/platform.py` decides, once, what the machine is (`pi`, `lxc`, `docker`,

@@ -491,6 +491,86 @@ class LateListenerTest(unittest.TestCase):
             process.stdout.close()
 
 
+class FreshStartTest(unittest.TestCase):
+    """The first listener of an encoder that has been running for a while.
+
+    Its headers carry granule 0 while its live pages carry the encoder's own
+    uptime, so the player is handed a hole minutes wide and waits for it to
+    fill before playing anything (VLC asks for a cache as long as that hole and
+    shows the uptime as its position). A new encoder for that listener makes
+    the stream begin at zero."""
+
+    def setUp(self):
+        patcher = mock.patch.object(stream.subprocess, "Popen",
+                                    side_effect=OSError("no ffmpeg here"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def headers(self, payload=b"OpusHead"):
+        return ogg_page(flags=2, payload=payload) + ogg_page(payload=b"OpusTags")
+
+    def wait_for(self, predicate, timeout=2.0):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return True
+            time.sleep(0.01)
+        return False
+
+    def test_an_old_encoder_is_replaced_for_the_first_listener(self):
+        server = build_server()
+        server._broadcast(self.headers(b"old"))
+        server._started_at = time.monotonic() - stream.FRESH_START_SEC - 1
+        process = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=process):
+            box = server.listen()
+            self.assertFalse(server.worth_restarting(), "the new one is young")
+        process.feed(self.headers(b"new"))
+        # The headers are only known once a page with a granule follows them.
+        process.feed(ogg_page(granule=960, payload=b"audio"))
+        self.assertTrue(self.wait_for(lambda: server.header == self.headers(b"new")))
+        process.feed(ogg_page(granule=1920, payload=b"audio"))
+        self.assertEqual(box.get(timeout=2), self.headers(b"new"),
+                         "the new stream's own beginning, never the old one")
+        self.assertEqual(box.get(timeout=2), ogg_page(granule=1920, payload=b"audio"))
+        process.eof()
+        process.stdout.close()
+
+    def test_a_young_encoder_is_left_alone(self):
+        server = build_server()
+        server._broadcast(self.headers())
+        server._broadcast(ogg_page(granule=960, payload=b"audio"))
+        server._started_at = time.monotonic()
+        box = server.listen()
+        self.assertEqual(box.get_nowait(), self.headers(),
+                         "the headers it was already keeping")
+
+    def test_a_restart_does_not_end_the_listeners(self):
+        """Being dropped is what a player reads as the end of the stream: it
+        stops, and the radio stays silent until it is opened again by hand."""
+        server = build_server()
+        old = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=old):
+            self.assertTrue(server.start())
+        box = server.listen()
+        process = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=process):
+            self.assertTrue(server.restart())
+        old.eof()
+        time.sleep(0.1)
+        self.assertTrue(box.empty(),
+                        "the old encoder's death is not the stream's end")
+        process.feed(self.headers())
+        process.feed(ogg_page(granule=960, payload=b"audio"))
+        self.assertTrue(self.wait_for(lambda: server.header))
+        process.feed(ogg_page(granule=1920, payload=b"audio"))
+        self.assertEqual(box.get(timeout=2), self.headers())
+        self.assertEqual(box.get(timeout=2), ogg_page(granule=1920, payload=b"audio"))
+        old.stdout.close()
+        process.eof()
+        process.stdout.close()
+
+
 class StatusTest(unittest.TestCase):
     def test_off_says_off(self):
         data = stream.status(None)

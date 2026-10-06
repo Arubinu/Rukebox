@@ -67,6 +67,10 @@ CHUNK_WAIT_SEC = 5.0
 # says why.
 MAX_RESTARTS = 5
 RESTART_DELAY_SEC = 1.0
+# An encoder that has been writing for longer than this hands the first
+# listener a timeline that starts that far in, which is what makes a player
+# wait before it plays (see restart()).
+FRESH_START_SEC = 2.0
 
 
 def probe_source(env=None, timeout=6, kind=None):
@@ -299,6 +303,16 @@ def _ogg_header_length(data):
         offset += total
 
 
+def _stderr_of(process):
+    """What an ffmpeg of ours said, or "" when it said nothing."""
+    if process is None or process.stderr is None:
+        return ""
+    try:
+        return (process.stderr.read() or b"").decode("utf-8", "replace").strip()
+    except OSError:
+        return ""
+
+
 class StreamServer:
     """Encodes one audio source and hands the bytes to every listener.
 
@@ -326,6 +340,7 @@ class StreamServer:
         self._unparsed = b""
         self._header_read = False
         self._unaligned = {}
+        self._awaiting = set()
         self._started_at = 0.0
         self._last_chunk_at = None
 
@@ -361,7 +376,7 @@ class StreamServer:
             self._started_at = time.monotonic()
             self._last_chunk_at = None
             try:
-                self._process = subprocess.Popen(
+                self._process = process = subprocess.Popen(
                     self.command(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     stdin=subprocess.DEVNULL, env=self.env)
             except OSError as error:
@@ -369,11 +384,40 @@ class StreamServer:
                 self.last_error = str(error)
                 self._process = None
                 return False
-            self._thread = threading.Thread(target=self._pump, name="stream-encode",
-                                            daemon=True)
+            self._thread = threading.Thread(target=self._pump, args=(process,),
+                                            name="stream-encode", daemon=True)
             self._thread.start()
         log.info("Network stream started: %s -> %s", self.source, self.encoder)
         return True
+
+    def restart(self):
+        """Replaces the encoder without dropping the listeners.
+
+        A listener that joins a stream which has been running for a while is
+        handed headers whose granule is 0 followed by live pages whose granule
+        is the encoder's uptime, so its player sees a hole minutes wide and
+        waits for it to fill before it plays anything (VLC asks for a cache as
+        long as that hole, and shows the uptime as its position). Starting the
+        encoder for the first listener makes the stream begin at zero."""
+        with self._lock:
+            process, self._process = self._process, None
+            self.header = b""
+            self._unparsed = b""
+            self._header_read = False
+            self._awaiting.update(self._listeners)
+        if process is not None and process.poll() is None:
+            try:
+                process.terminate()
+            except OSError:
+                pass
+        return self.start()
+
+    def worth_restarting(self):
+        """True when the running encoder is old enough to hand a new listener a
+        stream that does not begin at zero (see restart())."""
+        with self._lock:
+            started = self._started_at
+        return bool(started) and (time.monotonic() - started) > FRESH_START_SEC
 
     def stalled_for(self):
         """Seconds since the encoder last produced anything.
@@ -400,6 +444,7 @@ class StreamServer:
         with self._lock:
             process, self._process = self._process, None
             listeners, self._listeners = self._listeners, []
+            self._awaiting.clear()
         for box in listeners:
             box.put_nowait(None)
         if process is not None and process.poll() is None:
@@ -418,28 +463,27 @@ class StreamServer:
             return bool(self._process is not None and self._process.poll() is None)
 
     def encoder_stderr(self):
-        process = self._process
-        if process is None or process.stderr is None:
-            return ""
-        try:
-            return (process.stderr.read() or b"").decode("utf-8", "replace").strip()
-        except OSError:
-            return ""
+        return _stderr_of(self._process)
 
-    def _pump(self):
+    def _pump(self, process):
         """Reads ffmpeg's output and gives it to every listener."""
-        process = self._process
-        if process is None or process.stdout is None:
+        if process.stdout is None:
             return
         while True:
             chunk = process.stdout.read(CHUNK_BYTES)
             if not chunk:
                 break
             self._broadcast(chunk)
-        self._broadcast(None)
         with self._lock:
-            self._process = None
-        self.last_error = self.encoder_stderr()
+            mine = self._process is process
+            if mine:
+                self._process = None
+        if not mine:
+            # This encoder was replaced on purpose (restart()): the stream goes
+            # on, and the listeners are not this process's to end.
+            return
+        self._broadcast(None)
+        self.last_error = _stderr_of(process)
         if not self._stopping:
             log.warning("The network stream encoder stopped: %s",
                         self.last_error or "no message")
@@ -462,6 +506,10 @@ class StreamServer:
         self.start()
 
     def _broadcast(self, chunk):
+        with self._lock:
+            # Read before the hand-off below: a listener given the new headers
+            # by this very chunk must not also be given the bytes they end in.
+            awaiting = set(self._awaiting)
         if chunk:
             with self._lock:
                 self._last_chunk_at = time.monotonic()
@@ -469,6 +517,8 @@ class StreamServer:
         with self._lock:
             listeners = list(self._listeners)
         for box in listeners:
+            if box in awaiting:
+                continue
             data = chunk
             if chunk and box in self._unaligned:
                 data = self._align(box, chunk)
@@ -507,14 +557,38 @@ class StreamServer:
         self.header = self._unparsed if length is None else self._unparsed[:length]
         self._header_read = True
         self._unparsed = b""
+        self._give_headers_to_waiting()
+
+    def _give_headers_to_waiting(self):
+        """Hands a replaced encoder's own beginning to the listeners kept over
+        the change: an Ogg stream cannot be read without it, so they would hear
+        nothing at all rather than the rest of the radio."""
+        with self._lock:
+            waiting = list(self._awaiting)
+            self._awaiting.clear()
+            header = self.header
+        for box in waiting:
+            if not header:
+                continue
+            try:
+                box.put_nowait(header)
+            except queue.Full:
+                continue
+            with self._lock:
+                if box in self._listeners:
+                    self._unaligned[box] = b""
 
     def listen(self):
         """One listener: a queue of bytes, ending with None when the encoder
         goes away - which is what tells a client to reconnect."""
         box = queue.Queue(maxsize=self.queue_chunks)
         with self._lock:
+            first = not self._listeners
             header = self.header
             self._listeners.append(box)
+        if first and self.worth_restarting():
+            self.restart()
+            return box
         if header:
             # The header pages are replayed, so the live stream has to be picked
             # up at the next page: see _align().
@@ -530,6 +604,7 @@ class StreamServer:
             if box in self._listeners:
                 self._listeners.remove(box)
             self._unaligned.pop(box, None)
+            self._awaiting.discard(box)
 
     def _align(self, box, chunk):
         """The bytes from the next page start, or None while there is none.
