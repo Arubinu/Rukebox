@@ -193,6 +193,19 @@ test("the announcement name only shows while the stream is on", async (t) => {
   assert.equal(page.$("upnpNeedsStream").hidden, true);
 });
 
+test("the transfer limits are one folded group as well", async (t) => {
+  const page = open(t);
+  await until(() => page.$("bootOverlay").hidden);
+  const section = page.$("transferLimitSection");
+  assert.equal(section.tagName, "DETAILS", "a fold, like the stream's options");
+  assert.equal(section.open, false, "closed until it is asked for");
+  assert.equal(section.querySelector("summary").textContent.trim(), "Limit transfers");
+  ["transferLimitMode", "transferLimitKbps", "transferLimitUsb"]
+    .forEach((id) => assert.ok(section.contains(page.$(id)), id + " is inside the group"));
+  assert.equal(section.dataset.level, "detail",
+               "the rows were already for the detailed view only");
+});
+
 test("a new announcement's form shows the rows of its trigger, and no others", async (t) => {
   const page = open(t);
   await until(() => page.$("bootOverlay").hidden);

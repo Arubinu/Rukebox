@@ -1477,38 +1477,39 @@
               </div>
               <p class="hint" id="upnpNeedsStream" data-i18n="stream.upnp_needs_stream" hidden>A player can only find the radio while the stream is on.</p>
             </details>
-            <div data-level="detail" class="field-row">
-              <div class="field-text">
-                <label for="transferLimitMode" data-i18n="audioout.transfer_limit">Limit transfers</label>
-                <p class="field-desc" id="transferLimitDesc" data-i18n="audioout.transfer_limit_desc">Slows uploads (music sync, sounds) so the Bluetooth sound does not stutter.</p>
+            <details data-level="detail" class="subsection" id="transferLimitSection">
+              <summary><span data-i18n="audioout.transfer_limit">Limit transfers</span></summary>
+              <p class="hint help-text" data-i18n="audioout.transfer_limit_desc" hidden>Slows uploads (music sync, sounds) so the Bluetooth sound does not stutter.</p>
+              <div class="field-row">
+                <label for="transferLimitMode" data-i18n="audioout.transfer_when">When</label>
+                <select id="transferLimitMode" data-key="TRANSFER_LIMIT_MODE">
+                  <option value="auto" data-i18n="audioout.transfer_auto">While music plays over built-in Bluetooth</option>
+                  <option value="always" data-i18n="audioout.transfer_always">Always</option>
+                  <option value="off" data-i18n="audioout.transfer_off">Never</option>
+                </select>
               </div>
-              <select id="transferLimitMode" data-key="TRANSFER_LIMIT_MODE" aria-describedby="transferLimitDesc">
-                <option value="auto" data-i18n="audioout.transfer_auto">While music plays over built-in Bluetooth</option>
-                <option value="always" data-i18n="audioout.transfer_always">Always</option>
-                <option value="off" data-i18n="audioout.transfer_off">Never</option>
-              </select>
-            </div>
-            <div data-level="detail" class="field-row">
-              <div class="field-text">
-                <label for="transferLimitKbps" data-i18n="audioout.transfer_kbps">Limited speed (KB/s)</label>
-                <p class="field-desc" id="transferLimitKbpsDesc" data-i18n="audioout.transfer_kbps_desc">Slower is gentler on the Bluetooth sound; faster gets a music sync or a backup over with sooner.</p>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="transferLimitKbps" data-i18n="audioout.transfer_kbps">Limited speed (KB/s)</label>
+                  <p class="field-desc" id="transferLimitKbpsDesc" data-i18n="audioout.transfer_kbps_desc">Slower is gentler on the Bluetooth sound; faster gets a music sync or a backup over with sooner.</p>
+                </div>
+                <select id="transferLimitKbps" data-key="TRANSFER_LIMIT_KBPS" aria-describedby="transferLimitKbpsDesc">
+                  <option value="64">64</option>
+                  <option value="128">128</option>
+                  <option value="200">200</option>
+                  <option value="256">256</option>
+                  <option value="512">512</option>
+                </select>
               </div>
-              <select id="transferLimitKbps" data-key="TRANSFER_LIMIT_KBPS" aria-describedby="transferLimitKbpsDesc">
-                <option value="64">64</option>
-                <option value="128">128</option>
-                <option value="200">200</option>
-                <option value="256">256</option>
-                <option value="512">512</option>
-              </select>
-            </div>
-            <div data-level="detail" class="field-row" id="transferLimitUsbRow">
-              <div class="field-text">
-                <label for="transferLimitUsb" data-i18n="audioout.transfer_usb">Also with a speaker on a USB dongle</label>
-                <p class="field-desc" id="transferLimitUsbDesc" data-i18n="audioout.transfer_usb_desc">A dongle close to the board can still disturb the Wi-Fi.</p>
+              <div class="field-row" id="transferLimitUsbRow">
+                <div class="field-text">
+                  <label for="transferLimitUsb" data-i18n="audioout.transfer_usb">Also with a speaker on a USB dongle</label>
+                  <p class="field-desc" id="transferLimitUsbDesc" data-i18n="audioout.transfer_usb_desc">A dongle close to the board can still disturb the Wi-Fi.</p>
+                </div>
+                <input type="checkbox" id="transferLimitUsb" data-key="TRANSFER_LIMIT_USB" class="switch-input" role="switch"
+                       aria-describedby="transferLimitUsbDesc">
               </div>
-              <input type="checkbox" id="transferLimitUsb" data-key="TRANSFER_LIMIT_USB" class="switch-input" role="switch"
-                     aria-describedby="transferLimitUsbDesc">
-            </div>
+            </details>
             <p class="hint help-text" data-i18n="audioout.help" hidden>
               The headphone jack exists on a Raspberry Pi 3 or 4, not on a Zero. A wired output is found again whenever it is plugged in; while it is missing, the sound goes to the default output. With a wired output, a Bluetooth speaker that drops no longer pauses the music nor powers the Pi off.
             </p>
