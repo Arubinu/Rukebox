@@ -362,8 +362,10 @@ _upnp_lock = threading.Lock()
 UPNP_WATCH_SEC = 5.0
 # An encoder that has produced nothing for this long, while the radio is
 # playing, is reconnected: its capture attached while the sink was silent and
-# never came back to life (measured on a Pi, see docs/guide.md).
-STREAM_STALL_SEC = 12.0
+# never came back to life (measured on a Pi, see docs/guide.md). Short, because
+# the listeners are kept over the reconnect: a player waiting on it hears the
+# music that much sooner.
+STREAM_STALL_SEC = 4.0
 STREAM_STALL_ATTEMPTS = 5
 _stream_stalls = {"tries": 0}
 
