@@ -534,10 +534,17 @@ function capabilityHidden(card) {
   return !canDo(card.dataset.needs);
 }
 
+/* What a guest is served: the pages whose data the server lets a guest ask for
+   (src/web_server.py's _GUEST_PATHS). Anything else - every setting, the
+   system, the network - is a page they would open onto an empty shell with
+   made-up default values, which is worse than not having the page at all. */
+const GUEST_PAGES = new Set(["player", "upnext", "recent", "today",
+                             "library", "suggest", "game"]);
+
 function pageIsAvailable(card) {
   if (!card || card.hasAttribute("hidden")) return false;
   if (capabilityHidden(card)) return false;
-  if (guestMode && card.hasAttribute("data-owner")) return false;
+  if (guestMode && !GUEST_PAGES.has(card.dataset.page)) return false;
   if (guestMode && guestPagesOff.includes(card.dataset.page)) return false;
   return !(card.dataset.level === "detail" && currentView() === "simple");
 }
@@ -666,7 +673,9 @@ function paintAreaTabs() {
   }
 }
 
-/* Empty cells fill the last row: the separators are the grid's own background showing through. */
+/* Empty cells fill the last row: the separators are the grid's own background showing through.
+   One cell spanning what is left, never one per slot: a row of empty slots draws
+   a line between each of them, which is what a short guest menu looked like. */
 function fillPageGrid(grid) {
   if (grid.hidden || !grid.offsetParent) return;
   let columns = 0;
@@ -677,17 +686,19 @@ function fillPageGrid(grid) {
   }
   if (columns < 2) return;
   const shown = Array.from(grid.querySelectorAll(".page-tile")).filter((t) => !t.hidden).length;
-  const have = grid.querySelectorAll(".page-filler").length;
   const want = shown ? (columns - (shown % columns)) % columns : 0;
-  for (let i = have; i < want; i++) {
-    const filler = document.createElement("span");
+  let filler = grid.querySelector(".page-filler");
+  if (!filler) {
+    filler = document.createElement("span");
     filler.className = "page-filler";
     filler.setAttribute("aria-hidden", "true");
     grid.appendChild(filler);
   }
-  grid.querySelectorAll(".page-filler").forEach((filler, index) => {
-    filler.hidden = index >= want;
+  grid.querySelectorAll(".page-filler").forEach((other) => {
+    if (other !== filler) other.remove();
   });
+  filler.hidden = want === 0;
+  filler.style.gridColumn = want > 1 ? "span " + want : "";
 }
 
 function scrollAppTop() {
@@ -5862,22 +5873,6 @@ hapticsToggle.addEventListener("change", () => {
   if (hapticsToggle.checked) haptic(HAPTIC_TAP_MS);
 });
 
-// The Test button asks the browser directly and writes down what it answered.
-document.getElementById("hapticsTest").addEventListener("click", () => {
-  const line = document.getElementById("hapticsResult");
-  if (typeof navigator.vibrate !== "function") {
-    line.textContent = t("haptics.unsupported");
-    return;
-  }
-  let accepted = false;
-  try {
-    accepted = navigator.vibrate([HAPTIC_TAP_MS, 60, HAPTIC_TAP_MS]);
-  } catch (e) {
-    accepted = false;
-  }
-  line.textContent = t(accepted ? "haptics.sent" : "haptics.refused");
-});
-
 let suggestState = null;
 let suggestRenaming = false;
 let nameGenerating = false;
@@ -10474,7 +10469,7 @@ document.dispatchEvent(new CustomEvent("page-shown", {
 function searchEntries() {
   const out = [];
   document.querySelectorAll(".card[data-page]").forEach((card) => {
-    if (card.hasAttribute("hidden") || (guestMode && card.hasAttribute("data-owner"))) return;
+    if (card.hasAttribute("hidden") || (guestMode && !GUEST_PAGES.has(card.dataset.page))) return;
     const titleEl = card.querySelector("h2 [data-i18n]");
     const cardTitle = titleEl ? titleEl.textContent.trim() : "";
     const where = t("tab." + card.dataset.tab) + " \u203a " + cardTitle;

@@ -2354,8 +2354,6 @@ select {
 
 #homeWifiHere { text-align: center; }
 
-.haptics-test { margin-top: 8px; }
-
 .clock-status,
 .status-line {
   display: flex;

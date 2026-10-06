@@ -60,6 +60,38 @@ test("with a password and no guest access, only the login is shown", async (t) =
   assert.equal(page.sent("GET", "/api/settings").length, 0);
 });
 
+test("a guest is only offered the pages they are served", async (t) => {
+  const guestRoutes = {
+    "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
+                                guest_mode: true, auth_required: true, authenticated: false },
+  };
+  const page = open(t, { routes: guestRoutes, hash: "#system/security" });
+  await until(() => page.$("bootOverlay").hidden);
+  assert.equal(page.document.body.dataset.access, "guest");
+  // An address cannot open what the guest is not served: they land on their own
+  // menu, not on a settings page filled with the page's default values.
+  await until(() => page.document.body.dataset.tab === "home");
+  assert.equal(page.document.body.dataset.page, "", "the guest's menu, not a page");
+
+  for (const tab of ["settings", "audio", "network", "system", "stats"]) {
+    const button = page.document.querySelector('.tab-btn[data-tab="' + tab + '"]');
+    assert.ok(button.hidden, tab + " has nothing for a guest");
+  }
+  const home = page.document.querySelector('.page-grid[data-tab="home"]');
+  assert.ok(home && !home.hidden, "the guest's menu is Home");
+  const offered = [...home.querySelectorAll(".page-tile")].filter((tile) => !tile.hidden)
+    .map((tile) => tile.dataset.page);
+  assert.ok(offered.includes("player"), "the player is theirs");
+  const served = ["game", "library", "player", "recent", "suggest", "today", "upnext"];
+  offered.forEach((name) => assert.ok(served.includes(name),
+                                      name + " is not a page a guest is served"));
+  ["security", "volume", "guest", "update", "clients", "settings"].forEach((name) => {
+    const tile = page.document.querySelector('.page-tile[data-page="' + name + '"]');
+    assert.ok(!tile || tile.hidden, name + " is not a guest page");
+  });
+  assert.deepEqual(page.errors, []);
+});
+
 test("a guest never asks for what a guest may not have", async (t) => {
   const page = open(t, { routes: {
     "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
