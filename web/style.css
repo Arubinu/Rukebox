@@ -1946,9 +1946,10 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
   padding: 6px 0;
 }
 .field-row + .field-row { border-top: 1px solid var(--border); }
-/* The stream's settings end on the name, and the hint under it is not a row:
-   without this the line that separates rows would be missing under it. */
-#upnpNameRow { border-bottom: 1px solid var(--border); }
+/* A hint between two options is not a row, so the line that separates rows
+   would be missing under the option above it - and the one after the hint
+   has no row to take its line from either. */
+.field-row:has(+ .hint) { border-bottom: 1px solid var(--border); }
 .field-row > label,
 .field-row > .field-label {
   flex: 1 1 10rem;
