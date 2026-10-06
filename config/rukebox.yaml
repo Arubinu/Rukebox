@@ -58,19 +58,11 @@ audio:
   # what you hear. Only set this to follow something else entirely.
   stream_source: ""
 
-  # A volume of its own for the network stream, in percent, applied by the
-  # encoder: it changes what a listener hears without touching what the room
-  # hears. Above 100 it boosts, and since it multiplies what the radio is
-  # playing, a radio that is turned down cannot be made loud again here -
-  # that only moves the level of the stream relative to the speaker's.
+  # A volume of its own for the network stream, in percent: 100 follows the
+  # volume the radio is playing at, lower is quieter and higher is louder
+  # (0 to 200). It multiplies what the radio plays, so a radio that is turned
+  # down cannot be made loud again here.
   stream_volume: 100
-
-  # Let a player find the stream by itself: the radio answers UPnP
-  # discovery and offers the stream as a media server, which is what VLC
-  # lists under "Local network" without being given an address. It is only
-  # ever the stream, and only while the stream is on. Turning it off stops
-  # answering; nothing else on the network is affected.
-  upnp_enabled: true
 
   # What this radio is called by a player that finds it on the network
   # (VLC's "Local network", a phone, a network speaker): the whole name,

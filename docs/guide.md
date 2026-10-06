@@ -449,10 +449,10 @@ it off, since it costs an ffmpeg process). `STREAM_ENCODER` picks the codec
 under the player says which of the causes it is: the stream is off, ffmpeg is
 missing, or the sound server answers nothing.
 
-**A player can find it without being given the address** (`UPNP_ENABLED`, on
-by default): the container answers UPnP discovery and offers the stream as a
-media server, so VLC shows it under *Local network* and plays it with one
-click - under the name the audio card holds (`UPNP_NAME`), number included,
+**A player can find it without being given the address**: the container
+answers UPnP discovery and offers the stream as a media server, so VLC shows
+it under *Local network* and plays it with one click - under the name the
+audio card holds (`UPNP_NAME`), number included,
 which is what tells two radios apart. It is only
 announced while the stream is on, so a player that is already open picks it up
 a few seconds after the stream is switched on, with nothing to restart. It has
@@ -1682,19 +1682,23 @@ log keeps "Blind test started" and who won it.
   (paused)" while nothing plays. `STREAM_VOLUME` (`stream_volume`, 100 by
   default) is a volume of its own for what network listeners hear, applied
   by the encoder and handed to it live, without dropping whoever is
-  listening; it multiplies what the radio plays, so a radio turned down
-  cannot be made loud again through it.
-- **Announce the stream (UPnP)** (*Audio output* card, `UPNP_ENABLED` /
-  `upnp_enabled`): the radio answers UPnP discovery and offers the stream
+  listening; 100% follows the radio's own volume, and it multiplies what
+  the radio plays, so a radio turned down cannot be made loud again through
+  it.
+- **Announcing the stream (UPnP)** (*Audio output* card): the radio answers
+  UPnP discovery and offers the stream
   as a media server, so a player finds it by itself - VLC lists it under
   *Local network* (Universal Plug'n'Play) and plays it with one click, and
-  the same works from VLC for Android, BubbleUPnP and the like. **It is only
-  announced while the stream is on**: with the stream off there is no device
-  at all, and switching the stream on adds it to a player that is already
-  open (VLC picks it up in a few seconds, without being restarted). The keys
-  `UPNP_NAME` (`upnp_name`) is the **whole** name a player lists and the
+  the same works from VLC for Android, BubbleUPnP and the like. **It has no
+  switch of its own**: announcing and streaming are the same thing seen from
+  two sides, so the device exists exactly while the stream does. With the
+  stream off there is no device at all, and switching the stream on adds it
+  to a player that is already
+  open (VLC picks it up in a few seconds, without being restarted). The only
+  key is
+  `UPNP_NAME` (`upnp_name`): the **whole** name a player lists and the
   stream itself carries, number included ("Rukebox 4821"), drawn once when
-  the radio first announces itself and free to rename afterwards; what a
+  the radio first announces itself and free to rename afterwards. What a
   player remembers it by is `UPNP_UID` (`upnp_uid`), drawn once and never
   shown, so renaming relabels the device instead of adding a second one.
   A player still shows the *server* as a folder - that is what DLNA is - so

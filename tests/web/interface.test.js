@@ -121,26 +121,26 @@ test("saving a settings card sends only what was changed", async (t) => {
   assert.equal(String(saved.body.BASE_VOLUME), "55");
 });
 
-test("the network stream and its UPnP announcement are switches of the audio card", async (t) => {
-  // The whole card as a Pi holds it, so that the two switches are the only
-  // thing this test changes.
+test("the network stream is a switch of the audio card", async (t) => {
+  // The whole card as a Pi holds it, so that the switch is the only thing this
+  // test changes.
   const held = { AUDIO_OUTPUT: "bluetooth", AUDIO_FALLBACK_OUTPUT: "", BT_AUDIO_CODECS: "",
                  TRANSFER_LIMIT_MODE: "auto", TRANSFER_LIMIT_KBPS: "64", TRANSFER_LIMIT_USB: "false",
                  STREAM_ENABLED: "false", STREAM_ENCODER: "", STREAM_SOURCE: "", STREAM_VOLUME: "100",
-                 UPNP_ENABLED: "true", UPNP_NAME: "Rukebox 4821" };
+                 UPNP_NAME: "Rukebox 4821" };
   const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
   await until(() => page.$("bootOverlay").hidden);
   assert.equal(page.$("streamEnabled").checked, false, "the stream is off on a Pi");
-  assert.equal(page.$("upnpEnabled").checked, true, "the announcement is on by default");
+  assert.equal(page.$("upnpEnabled"), null,
+               "the announcement has no switch of its own: it follows the stream");
   assert.equal(page.$("streamEncoder").value, "", "the codec is picked by ffmpeg");
   page.$("streamEnabled").checked = true;
-  page.$("upnpEnabled").checked = false;
   page.$("streamEncoder").value = "mp3";
   page.$("audioOutputForm").dispatchEvent(
     new page.window.Event("submit", { bubbles: true, cancelable: true }));
   const saved = (await until(() => page.sent("POST", "/api/settings").length
     && page.sent("POST", "/api/settings")))[0].body;
-  assert.deepEqual(saved, { STREAM_ENABLED: "true", UPNP_ENABLED: "false", STREAM_ENCODER: "mp3" });
+  assert.deepEqual(saved, { STREAM_ENABLED: "true", STREAM_ENCODER: "mp3" });
   assert.deepEqual(page.errors, []);
 });
 
@@ -161,16 +161,15 @@ test("the virtual output is only offered by a machine that has one", async (t) =
   assert.ok(option(container), "a container offers it");
 });
 
-test("the announcement rows only show while the stream is on", async (t) => {
+test("the announcement name only shows while the stream is on", async (t) => {
   const held = { AUDIO_OUTPUT: "bluetooth", STREAM_ENABLED: "false", STREAM_ENCODER: "",
-                 STREAM_SOURCE: "", STREAM_VOLUME: "100", UPNP_ENABLED: "true",
+                 STREAM_SOURCE: "", STREAM_VOLUME: "100",
                  UPNP_NAME: "Rukebox 4821", TRANSFER_LIMIT_MODE: "auto", TRANSFER_LIMIT_KBPS: "64",
                  TRANSFER_LIMIT_USB: "false" };
   const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
   await until(() => page.$("bootOverlay").hidden);
   await until(() => page.$("upnpNeedsStream").hidden === false);
-  assert.equal(page.$("upnpEnabledRow").hidden, true, "nothing to announce: no rows");
-  assert.equal(page.$("upnpNameRow").hidden, true);
+  assert.equal(page.$("upnpNameRow").hidden, true, "nothing to announce: no name either");
   assert.equal(page.$("upnpName").value, "Rukebox 4821",
                "one field, the whole name");
   assert.equal(page.$("upnpSerialRow"), null, "there is no serial field any more");
@@ -180,8 +179,7 @@ test("the announcement rows only show while the stream is on", async (t) => {
   const enabled = page.$("streamEnabled");
   enabled.checked = true;
   enabled.dispatchEvent(new page.window.Event("change", { bubbles: true }));
-  assert.equal(page.$("upnpEnabledRow").hidden, false, "the stream is on: they are back");
-  assert.equal(page.$("upnpNameRow").hidden, false);
+  assert.equal(page.$("upnpNameRow").hidden, false, "the stream is on: it is back");
   assert.equal(page.$("upnpNeedsStream").hidden, true);
 });
 

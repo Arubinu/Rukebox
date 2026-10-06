@@ -4039,7 +4039,7 @@ function paintStreamRows() {
   // folder keeps it until it is restarted, which is what made the owner
   // restart VLC. The rows follow the switch, so the card says so too.
   const on = document.getElementById("streamEnabled").checked;
-  ["upnpEnabledRow", "upnpNameRow"].forEach((id) => {
+  ["upnpNameRow"].forEach((id) => {
     document.getElementById(id).hidden = !on;
   });
   document.getElementById("upnpNeedsStream").hidden = on;

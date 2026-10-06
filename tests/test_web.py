@@ -990,7 +990,7 @@ class UpnpRouteTest(unittest.TestCase):
         self.addCleanup(unittest.mock.patch.stopall)
         self.addCleanup(ws.forget_stream)
         ws.forget_stream()
-        was = {key: ws.cfg().get(key) for key in ("STREAM_ENABLED", "UPNP_ENABLED")}
+        was = {key: ws.cfg().get(key) for key in ("STREAM_ENABLED", "UPNP_NAME")}
         self.addCleanup(ws.update_config_file, was)
         self.client = ws.app.test_client()
 
@@ -1066,15 +1066,16 @@ class UpnpRouteTest(unittest.TestCase):
                 self.assertTrue(started.called, "the entry appears without restarting VLC")
                 self.assertFalse(stopped.called)
 
-    def test_a_radio_that_turned_the_announcement_off_never_answers(self):
+    def test_the_announcement_has_no_switch_of_its_own(self):
+        """Asked for as: the announcement is on exactly when the stream is, so
+        an option that always moves with another one is one option too many."""
         with unittest.mock.patch.object(ws, "_stream_available", return_value=True):
-            with unittest.mock.patch.object(ws, "cfg", return_value={"UPNP_ENABLED": False,
-                                                                     "WEB_PORT": 80}):
+            with unittest.mock.patch.object(ws, "cfg", return_value={"WEB_PORT": 80}):
                 with unittest.mock.patch.object(ws.upnp, "start") as started:
                     with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
                         ws._upnp_follow_stream()
-        self.assertTrue(stopped.called)
-        self.assertFalse(started.called)
+        self.assertTrue(started.called, "the stream is on: the radio announces itself")
+        self.assertFalse(stopped.called)
 
     def test_the_name_is_drawn_once_with_its_number_and_kept(self):
         """One field, holding the whole name: "Rukebox 4821" is what a player
@@ -1195,27 +1196,20 @@ class UpnpRouteTest(unittest.TestCase):
                 self.assertFalse(ws._reconnect_a_silent_stream())
         self.assertFalse(stalled.restart.called)
 
-    def test_saving_the_setting_starts_and_stops_the_listener(self):
-        """A save is enough: nothing has to be restarted for a switch that is
-        worth trying on the spot."""
-        with unittest.mock.patch.object(ws, "_stream_available", return_value=True):
-            with unittest.mock.patch.object(ws.upnp, "start") as started:
-                with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
-                    self.assertTrue(self.client.post("/api/settings",
-                                                     json={"UPNP_ENABLED": True}).get_json()["ok"])
-                    self.assertTrue(started.called, "turning it on starts answering")
-                    started.reset_mock()
-                    self.client.post("/api/settings", json={"UPNP_ENABLED": False})
-                    self.assertTrue(stopped.called, "turning it off stops answering")
-                    self.assertFalse(started.called)
+    def test_saving_the_stream_switch_announces_it_at_once(self):
+        """A save is enough: turning the stream on adds the radio to a player
+        that is already open, without restarting anything."""
+        with unittest.mock.patch.object(ws, "_upnp_follow_stream") as followed:
+            self.client.post("/api/settings", json={"STREAM_ENABLED": True})
+        self.assertTrue(followed.called)
 
     def test_a_stream_that_is_off_is_not_announced_at_all(self):
-        """The switch may be on: with nothing to stream there is no device to
-        add to a player, which is what the owner saw as an empty folder."""
+        """With nothing to stream there is no device to add to a player, which
+        is what the owner saw as an empty folder."""
         with unittest.mock.patch.object(ws, "_stream_available", return_value=False):
             with unittest.mock.patch.object(ws.upnp, "start") as started:
                 with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
-                    self.client.post("/api/settings", json={"UPNP_ENABLED": True})
+                    self.client.post("/api/settings", json={"STREAM_ENABLED": True})
         self.assertTrue(stopped.called)
         self.assertFalse(started.called)
 

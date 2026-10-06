@@ -1463,18 +1463,10 @@
             <div class="field-row">
               <div class="field-text">
                 <label for="streamVolume" data-i18n="stream.volume">Stream volume (%)</label>
-                <p class="field-desc" id="streamVolumeDesc" data-i18n="stream.volume_desc">A volume of its own for what network listeners hear, from 0 to 200. It multiplies what the radio plays, so it cannot make a radio that is turned down loud again.</p>
+                <p class="field-desc" id="streamVolumeDesc" data-i18n="stream.volume_desc">0 to 200%. 100% follows the volume the radio is playing at: below is quieter, above is louder. It multiplies what the radio plays.</p>
               </div>
               <input type="number" id="streamVolume" data-key="STREAM_VOLUME" class="num-input" min="0" max="200" step="5"
                      inputmode="numeric" aria-describedby="streamVolumeDesc">
-            </div>
-            <div class="field-row" id="upnpEnabledRow">
-              <div class="field-text">
-                <label for="upnpEnabled" data-i18n="stream.upnp">Announce the stream (UPnP)</label>
-                <p class="field-desc" id="upnpEnabledDesc" data-i18n="stream.upnp_desc">Let a player find it by itself: VLC lists the radio under "Local network" and plays the stream from a click.</p>
-              </div>
-              <input type="checkbox" id="upnpEnabled" data-key="UPNP_ENABLED" class="switch-input" role="switch"
-                     aria-describedby="upnpEnabledDesc">
             </div>
             <div class="field-row" id="upnpNameRow">
               <div class="field-text">

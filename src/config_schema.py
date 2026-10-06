@@ -95,21 +95,11 @@ SETTINGS = [
     ),
     Setting(
         "STREAM_VOLUME", "audio", "stream_volume", "int", "100",
-        "A volume of its own for the network stream, in percent, applied by the\n"
-        "encoder: it changes what a listener hears without touching what the room\n"
-        "hears. Above 100 it boosts, and since it multiplies what the radio is\n"
-        "playing, a radio that is turned down cannot be made loud again here -\n"
-        "that only moves the level of the stream relative to the speaker's.",
+        "A volume of its own for the network stream, in percent: 100 follows the\n"
+        "volume the radio is playing at, lower is quieter and higher is louder\n"
+        "(0 to 200). It multiplies what the radio plays, so a radio that is turned\n"
+        "down cannot be made loud again here.",
         "Stream volume (%)",
-    ),
-    Setting(
-        "UPNP_ENABLED", "audio", "upnp_enabled", "bool", "true",
-        "Let a player find the stream by itself: the radio answers UPnP\n"
-        "discovery and offers the stream as a media server, which is what VLC\n"
-        "lists under \"Local network\" without being given an address. It is only\n"
-        "ever the stream, and only while the stream is on. Turning it off stops\n"
-        "answering; nothing else on the network is affected.",
-        "Announce the stream (UPnP)",
     ),
     Setting(
         "UPNP_NAME", "audio", "upnp_name", "str", "",
@@ -1227,10 +1217,11 @@ RESTART_REQUIRED = frozenset({
 # here: it is handed to the encoder that is running, which keeps its listeners.
 STREAM_SETTINGS = frozenset({"STREAM_ENABLED", "STREAM_ENCODER", "STREAM_SOURCE"})
 
-# What a player sees: the announcement follows the stream, and the name is what
-# tells this radio from another one. The identity is not here either - it is
+# What a player sees. There is no switch of its own: the announcement exists
+# exactly while the stream does (see web_server._upnp_follow_stream), so a save
+# only ever has a name to hand over. The identity is not here either - it is
 # drawn once and never changes, so a save never has to re-announce the device.
-UPNP_SETTINGS = frozenset({"UPNP_ENABLED", "UPNP_NAME"})
+UPNP_SETTINGS = frozenset({"UPNP_NAME"})
 
 GPIO_BUTTON_SETTINGS = frozenset({
     "GPIO_BUTTON_PIN", "GPIO_BUTTON_DEBOUNCE_SEC",

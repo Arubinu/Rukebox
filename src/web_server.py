@@ -381,13 +381,15 @@ _stream_stalls = {"tries": 0}
 
 
 def _upnp_follow_stream():
-    """Announces this radio only while there is a stream to offer.
+    """Announces this radio exactly while there is a stream to offer.
 
-    A player handed an empty folder keeps it until it is restarted, and one
-    asking for the folder before the stream is on is exactly what the owner
-    reported: the device comes and goes with the stream instead, which is also
-    what makes the entry appear without restarting anything."""
-    wanted = bool(cfg().get("UPNP_ENABLED")) and _stream_available()
+    There is no switch of its own: the announcement and the stream are the same
+    thing seen from two sides, so this follows the stream's switch. A player
+    handed an empty folder keeps it until it is restarted, and one asking for
+    the folder before the stream is on is exactly what the owner reported: the
+    device comes and goes with the stream instead, which is also what makes the
+    entry appear without restarting anything."""
+    wanted = _stream_available()
     with _upnp_lock:
         if wanted:
             upnp.start(cfg()["WEB_PORT"])
