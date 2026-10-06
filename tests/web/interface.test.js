@@ -249,7 +249,10 @@ test("the update card asks for permission first, then gathers its sources", asyn
   const sources = page.$("updateSourcesSection");
   assert.equal(sources.tagName, "DETAILS", "the sources are a fold of their own");
   assert.ok(sources.contains(page.$("releaseRepo")), "the GitHub repository is in it");
-  assert.ok(sources.contains(page.$("gitUpdateBox")), "and the Git button is too");
+  assert.ok(!sources.contains(page.$("btnUpdateGit")),
+            "both action buttons stand with the version check, below it");
+  assert.ok(page.$("btnUpdateGit").closest(".actions-row").contains(page.$("btnReleaseCheck")),
+            "the Git button is beside the version check");
   assert.equal(page.$("gitRepoDisplay"), null, "its label row is gone");
   assert.equal(page.$("updateAllowWeb").closest("details"), null,
                "the permission is not inside a fold");

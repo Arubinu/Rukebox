@@ -9343,8 +9343,9 @@ async function refreshUpdate() {
 
   // The Git button is shown by this rule alone: the capability pass also walks
   // data-needs, and the two used to fight over it, which is what made it flicker.
-  const box = document.getElementById("gitUpdateBox");
-  box.hidden = !(d.self_update !== false && d.git_configured && d.web_updates_allowed);
+  // It stands with the version check, since both act on the source above them.
+  document.getElementById("btnUpdateGit").hidden =
+    !(d.self_update !== false && d.git_configured && d.web_updates_allowed);
 
   // A container has no tree to replace: the image is the version, so the card
   // shows the one line that updates it. Its own rows are hidden by CSS.
