@@ -2316,6 +2316,16 @@ select {
 .subsection[open] > summary { border-bottom: 1px solid var(--border); }
 .subsection > summary > span:first-child { min-width: 0; }
 
+/* A fold that is about one value - a time, mostly - says it in its own summary. */
+.subsection-value {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.subsection-value.is-off { opacity: 0.55; }
+/* The chevron's own auto margin would take half the free space and centre the value. */
+.subsection > summary:has(> .subsection-value)::after { margin-left: 10px; }
+
 .subsection > :not(summary) { margin: 10px 14px 0; }
 
 .subsection[open] { padding-bottom: 14px; }

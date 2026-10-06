@@ -612,96 +612,108 @@
             </form>
           </details>
 
-          <details class="subsection" id="dailySection" open>
-            <summary><span data-i18n="schedules.daily_section">Every day</span></summary>
-            <p class="hint help-text" data-i18n="schedules.daily_help" hidden>
-              What the radio does outside any schedule: when the music starts, and the cutoff that ends the day.
-            </p>
           <form id="settingsForm" class="settings-form">
-            <div class="field-row">
-              <div class="field-text">
-                <label for="cutoffEnabled" data-i18n="settings.cutoff_enabled">Daily cutoff</label>
-                <p class="field-desc" id="cutoffEnabledDesc" data-i18n="settings.cutoff_enabled_desc">Off: nothing stops the music by itself, except a schedule's own stop.</p>
-              </div>
-              <input type="checkbox" id="cutoffEnabled" data-key="CUTOFF_ENABLED" class="switch-input" role="switch"
-                     aria-describedby="cutoffEnabledDesc">
-            </div>
-            <div class="field-row">
-              <label for="cutoffTime" data-i18n="settings.cutoff">Cutoff</label>
-              <input type="time" id="cutoffTime" class="time-input" data-key="CUTOFF_HOUR"
-                     data-key-minute="CUTOFF_MINUTE" value="07:00">
-            </div>
-            <div class="field-row" id="cutoffWarningRow">
-              <div class="field-text">
-                <label for="cutoffWarning" data-i18n="settings.cutoff_warning">Say it before (min)</label>
-                <p class="field-desc" id="cutoffWarningDesc" data-i18n="settings.cutoff_warning_desc">"The radio stops in N minutes", while the music plays. 0 = say nothing.</p>
-              </div>
-              <input type="number" id="cutoffWarning" min="0" max="60" step="1" data-key="CUTOFF_WARNING_MIN"
-                     class="num-input" inputmode="numeric" aria-describedby="cutoffWarningDesc">
-            </div>
-            <div class="field-row">
-              <label for="speechLanguage" data-i18n="settings.speech_language">Spoken language</label>
-              <div class="input-with-action">
-                <select id="speechLanguage" data-key="SPEECH_LANGUAGE">
-                  <option value="en">English</option>
-                  <option value="fr">Français</option>
-                  <option value="de">Deutsch</option>
-                  <option value="es">Español</option>
-                  <option value="it">Italiano</option>
-                  <option value="nl">Nederlands</option>
+            <details class="subsection" id="morningSection">
+              <summary>
+                <span data-i18n="settings.group_morning">Morning start</span>
+                <span class="subsection-value" id="morningTime">07:00</span>
+              </summary>
+              <div class="field-row">
+                <label for="musicStartMode" data-i18n="settings.start_mode">Music start</label>
+                <select id="musicStartMode" data-key="MUSIC_START_MODE">
+                  <option value="boot" data-i18n="start.boot">At startup</option>
+                  <option value="action" data-i18n="start.action">On a button press</option>
+                  <option value="scheduled" data-i18n="start.scheduled">At a set time</option>
+                  <option value="bluetooth" data-i18n="start.bluetooth">When the speaker connects</option>
                 </select>
-                <button type="button" class="btn btn-icon" id="btnSpeechTest" data-icon="play"
-                        data-i18n-aria-label="settings.speech_test" aria-label="Hear it" data-i18n-title="settings.speech_test" title="Hear it"></button>
               </div>
-            </div>
-            <div class="field-row">
-              <div class="field-text">
-                <label for="djEvery" data-i18n="settings.dj_every">Introduce the songs (every N)</label>
-                <p class="field-desc" id="djEveryDesc" data-i18n="settings.dj_every_desc">Like a radio host: "Up next: title, by artist", between two songs. 0 = never.</p>
+              <div class="field-row" id="musicStartTimeRow" hidden>
+                <label for="musicStartTime" data-i18n="settings.start_time">Start time</label>
+                <input type="time" id="musicStartTime" class="time-input" data-key="MUSIC_START_HOUR"
+                       data-key-minute="MUSIC_START_MINUTE" value="07:00">
               </div>
-              <input type="number" id="djEvery" min="0" max="20" step="1" data-key="DJ_ANNOUNCE_EVERY"
-                     class="num-input" inputmode="numeric" aria-describedby="djEveryDesc">
-            </div>
-            <div data-level="detail" class="field-row">
-              <label for="cutoffMode" data-i18n="settings.cutoff_mode">Cutoff mode</label>
-              <select id="cutoffMode" data-key="CUTOFF_MODE">
-                <option value="end_of_track" data-i18n="settings.cutoff_mode_eot">End of current track</option>
-                <option value="exact" data-i18n="settings.cutoff_mode_exact">Exact (fade at the exact time)</option>
-              </select>
-            </div>
-            <div class="field-row">
-              <label for="afterCutoff" data-i18n="settings.after_cutoff">After the cutoff</label>
-              <select id="afterCutoff" data-key="SHUTDOWN_AFTER_CUTOFF">
-                <option value="true" data-i18n="settings.after_cutoff_off">Switch the Pi off</option>
-                <option value="false" data-i18n="settings.after_cutoff_standby">Standby: the Pi stays on</option>
-              </select>
-            </div>
-            <div class="field-row">
-              <label for="musicStartMode" data-i18n="settings.start_mode">Music start</label>
-              <select id="musicStartMode" data-key="MUSIC_START_MODE">
-                <option value="boot" data-i18n="start.boot">At startup</option>
-                <option value="action" data-i18n="start.action">On a button press</option>
-                <option value="scheduled" data-i18n="start.scheduled">At a set time</option>
-                <option value="bluetooth" data-i18n="start.bluetooth">When the speaker connects</option>
-              </select>
-            </div>
-            <div class="field-row">
-              <div class="field-text">
-                <label for="startFadeSec" data-i18n="settings.start_fade">Start with a fade-in (sec)</label>
-                <p class="field-desc" data-i18n="settings.start_fade_desc">The first song rises gently from silence. 0 = at once.</p>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="startFadeSec" data-i18n="settings.start_fade">Start with a fade-in (sec)</label>
+                  <p class="field-desc" data-i18n="settings.start_fade_desc">The first song rises gently from silence. 0 = at once.</p>
+                </div>
+                <input type="number" id="startFadeSec" min="0" max="120" step="1" data-key="START_FADE_SEC" class="num-input" inputmode="decimal">
               </div>
-              <input type="number" id="startFadeSec" min="0" max="120" step="1" data-key="START_FADE_SEC" class="num-input" inputmode="decimal">
-            </div>
-            <div class="field-row" id="musicStartTimeRow" hidden>
-              <label for="musicStartTime" data-i18n="settings.start_time">Start time</label>
-              <input type="time" id="musicStartTime" class="time-input" data-key="MUSIC_START_HOUR"
-                     data-key-minute="MUSIC_START_MINUTE" value="07:00">
-            </div>
+            </details>
+
+            <details class="subsection" id="eveningSection">
+              <summary>
+                <span data-i18n="settings.group_evening">Evening cutoff</span>
+                <span class="subsection-value" id="eveningTime">07:00</span>
+              </summary>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="cutoffEnabled" data-i18n="settings.cutoff_enabled">Daily cutoff</label>
+                  <p class="field-desc" id="cutoffEnabledDesc" data-i18n="settings.cutoff_enabled_desc">Off: nothing stops the music by itself, except a schedule's own stop.</p>
+                </div>
+                <input type="checkbox" id="cutoffEnabled" data-key="CUTOFF_ENABLED" class="switch-input" role="switch"
+                       aria-describedby="cutoffEnabledDesc">
+              </div>
+              <div class="field-row">
+                <label for="cutoffTime" data-i18n="settings.cutoff">Cutoff</label>
+                <input type="time" id="cutoffTime" class="time-input" data-key="CUTOFF_HOUR"
+                       data-key-minute="CUTOFF_MINUTE" value="07:00">
+              </div>
+              <div class="field-row" id="cutoffWarningRow">
+                <div class="field-text">
+                  <label for="cutoffWarning" data-i18n="settings.cutoff_warning">Say it before (min)</label>
+                  <p class="field-desc" id="cutoffWarningDesc" data-i18n="settings.cutoff_warning_desc">"The radio stops in N minutes", while the music plays. 0 = say nothing.</p>
+                </div>
+                <input type="number" id="cutoffWarning" min="0" max="60" step="1" data-key="CUTOFF_WARNING_MIN"
+                       class="num-input" inputmode="numeric" aria-describedby="cutoffWarningDesc">
+              </div>
+              <div data-level="detail" class="field-row">
+                <label for="cutoffMode" data-i18n="settings.cutoff_mode">Cutoff mode</label>
+                <select id="cutoffMode" data-key="CUTOFF_MODE">
+                  <option value="end_of_track" data-i18n="settings.cutoff_mode_eot">End of current track</option>
+                  <option value="exact" data-i18n="settings.cutoff_mode_exact">Exact (fade at the exact time)</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="afterCutoff" data-i18n="settings.after_cutoff">After the cutoff</label>
+                <select id="afterCutoff" data-key="SHUTDOWN_AFTER_CUTOFF">
+                  <option value="true" data-i18n="settings.after_cutoff_off">Switch the Pi off</option>
+                  <option value="false" data-i18n="settings.after_cutoff_standby">Standby: the Pi stays on</option>
+                </select>
+              </div>
+            </details>
+
+            <details class="subsection" id="voiceSection">
+              <summary><span data-i18n="settings.group_voice">The voice</span></summary>
+              <div class="field-row">
+                <label for="speechLanguage" data-i18n="settings.speech_language">Spoken language</label>
+                <div class="input-with-action">
+                  <select id="speechLanguage" data-key="SPEECH_LANGUAGE">
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="es">Español</option>
+                    <option value="it">Italiano</option>
+                    <option value="nl">Nederlands</option>
+                  </select>
+                  <button type="button" class="btn btn-icon" id="btnSpeechTest" data-icon="play"
+                          data-i18n-aria-label="settings.speech_test" aria-label="Hear it" data-i18n-title="settings.speech_test" title="Hear it"></button>
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="djEvery" data-i18n="settings.dj_every">Introduce the songs (every N)</label>
+                  <p class="field-desc" id="djEveryDesc" data-i18n="settings.dj_every_desc">Like a radio host: "Up next: title, by artist", between two songs. 0 = never.</p>
+                </div>
+                <input type="number" id="djEvery" min="0" max="20" step="1" data-key="DJ_ANNOUNCE_EVERY"
+                       class="num-input" inputmode="numeric" aria-describedby="djEveryDesc">
+              </div>
+            </details>
+
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
             </div>
           </form>
-          </details>
         </section>
 
         <section class="card" data-page="playback" data-tab="settings" aria-labelledby="playbackTitle">

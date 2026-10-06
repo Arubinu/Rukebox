@@ -7579,6 +7579,19 @@ document.getElementById("btnBtScan").addEventListener("click", async () => {
   scanPoller = setInterval(refreshScanList, SCAN_POLL_MS);
 });
 
+/* The two daily times are what those folds are about, so each one carries its own in
+   its summary - dimmed while the fold's own switch says it is not in use. */
+function paintDailyTimes() {
+  const cutoff = document.getElementById("cutoffTime");
+  const cutoffOut = document.getElementById("eveningTime");
+  const start = document.getElementById("musicStartTime");
+  const startOut = document.getElementById("morningTime");
+  cutoffOut.textContent = cutoff.value;
+  cutoffOut.classList.toggle("is-off", !document.getElementById("cutoffEnabled").checked);
+  startOut.textContent = start.value;
+  startOut.classList.toggle("is-off", document.getElementById("musicStartMode").value !== "scheduled");
+}
+
 function updateStartTimeVisibility() {
   const select = document.getElementById("musicStartMode");
   document.getElementById("musicStartTimeRow").hidden = select.value !== "scheduled";
@@ -7593,8 +7606,12 @@ function updateStartTimeVisibility() {
   ["cutoffTime", "cutoffWarning", "cutoffMode", "afterCutoff"].forEach((id) => {
     document.getElementById(id).closest(".field-row").hidden = !cutoff;
   });
+
+  paintDailyTimes();
 }
 document.getElementById("volumeChange").addEventListener("change", updateStartTimeVisibility);
+document.getElementById("cutoffTime").addEventListener("input", paintDailyTimes);
+document.getElementById("musicStartTime").addEventListener("input", paintDailyTimes);
 document.getElementById("transferLimitMode").addEventListener("change", updateStartTimeVisibility);
 document.getElementById("audioOutputSelect").addEventListener("change", updateStartTimeVisibility);
 document.getElementById("cutoffEnabled").addEventListener("change", updateStartTimeVisibility);

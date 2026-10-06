@@ -1158,9 +1158,11 @@ it would from any other mode, "stopped" included.
 
 ### Schedules: other hours, other settings, on chosen days
 
-**Settings > Schedules** holds a list of schedules above the **Every day**
-settings (the start mode and the cutoff described above, which keep applying
-outside any schedule). A schedule has a name and:
+**Settings > Schedules** holds a list of schedules above the three daily
+sections (**Morning start**, **Evening cutoff**, **The voice**), which keep
+applying outside any schedule. Each of the first two says its own time in its
+title, so the two ends of a day are readable without opening anything. A
+schedule has a name and:
 
 - **Days**: every day, chosen weekdays, or one date. A date beats the
   weekdays; when two weekly schedules overlap, the first of the list wins.
@@ -1196,7 +1198,7 @@ announcement has the same button; the copy shares the folder of the first).
 Under the list, **This week** draws the seven coming days hour by hour: one
 bar per schedule, and a mark at the daily cutoff.
 
-The daily cutoff itself can be switched off (**Every day** > **Daily
+The daily cutoff itself can be switched off (**Evening cutoff** > **Daily
 cutoff**, `schedule.cutoff_enabled`): the radio then only stops when a
 schedule, a button or you say so.
 
@@ -1231,8 +1233,8 @@ statistics' top sounds; the event log keeps one "Spoken" line each time.
 
 The same voice can do three more things.
 
-- **Introduce the songs** (Settings > Schedules, Every day, **Introduce the songs
-  (every N)**, `schedule.dj_announce_every`, 0 = never): every N songs, the
+- **Introduce the songs** (Settings > Schedules, **The voice**, **Introduce the
+  songs (every N)**, `schedule.dj_announce_every`, 0 = never): every N songs, the
   next one is announced between the two - "Up next: Paradise, by Coldplay".
   Only when a song ends by itself: a "next" asked for goes straight to the
   song, and the first song of a start (which fades in from silence) is not
@@ -1781,10 +1783,12 @@ log keeps "Blind test started" and who won it.
   explanatory text appears only when asked for. Status lines (what was
   just saved, whether the access point is up, a test result) are not
   part of this and are always shown.
-- **Schedules** (Settings): the schedules, then **Every day** - when the
-  music starts (at boot, on a click, at a set time, when the speaker
-  connects), the daily cutoff and what it ends with (the morning
-  announcement's time is edited in the Custom Announcements card).
+- **Schedules** (Settings): the schedules, then three daily sections -
+  **Morning start** (when the music starts: at boot, on a click, at a set
+  time, when the speaker connects, and the fade-in), **Evening cutoff** (the
+  cutoff, the warning before it and what it ends with) and **The voice**
+  (the spoken language and the radio host). The morning announcement's time
+  is edited in the Custom Announcements card.
 - **Playback**, **Volume** and **Fades** (Settings): order modes, loop,
   progress and resume, timer durations, unreadable tracks; base volume,
   volume mode, boost and the speaker's own volume; the four fades.
