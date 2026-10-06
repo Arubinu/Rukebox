@@ -144,6 +144,23 @@ test("the network stream and its UPnP announcement are switches of the audio car
   assert.deepEqual(page.errors, []);
 });
 
+test("the virtual output is only offered by a machine that has one", async (t) => {
+  const option = (page) => page.$("audioOutputSelect").querySelector('option[value="docker"]');
+  const read = (page) => until(() => page.$("audioOutputDetected").textContent.length > 0);
+
+  const bare = open(t, { routes: { "GET /api/audio/outputs":
+    { outputs: [{ name: "alsa_output.hdmi", description: "HDMI", kind: "hdmi" }] } } });
+  await until(() => bare.$("bootOverlay").hidden);
+  await read(bare);
+  assert.equal(option(bare), null, "a Pi has no virtual output to offer");
+
+  const container = open(t, { routes: { "GET /api/audio/outputs":
+    { outputs: [{ name: "rukebox_output", description: "Rukebox output", kind: "docker" }] } } });
+  await until(() => container.$("bootOverlay").hidden);
+  await read(container);
+  assert.ok(option(container), "a container offers it");
+});
+
 test("a new announcement's form shows the rows of its trigger, and no others", async (t) => {
   const page = open(t);
   await until(() => page.$("bootOverlay").hidden);

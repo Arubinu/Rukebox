@@ -4019,6 +4019,20 @@ window.LANG_CHANGE_LISTENERS.push(() => {
 });
 
 let audioOutputs = [];
+let audioOutputsKnown = false;
+
+function paintAudioOutputChoices() {
+  // The virtual output belongs to a container: offering it on a machine that
+  // has none would be a choice that leads nowhere. Never hidden before the
+  // outputs have been read once, nor while it is the chosen one.
+  if (!audioOutputsKnown) return;
+  const select = document.getElementById("audioOutputSelect");
+  const option = select.querySelector('option[value="docker"]');
+  if (!option) return;
+  const wanted = audioOutputs.some((o) => o.kind === "docker") || select.value === "docker";
+  if (wanted && !option.isConnected) select.appendChild(option);
+  if (!wanted && option.isConnected) option.remove();
+}
 
 function paintAudioDetected() {
   const kind = document.getElementById("audioOutputSelect").value;
@@ -4047,6 +4061,8 @@ async function refreshAudioOutputs() {
   const result = await apiGet("/api/audio/outputs");
   if (!result.ok || !result.data || !Array.isArray(result.data.outputs)) return;
   audioOutputs = result.data.outputs;
+  audioOutputsKnown = true;
+  paintAudioOutputChoices();
   paintAudioDetected();
 }
 

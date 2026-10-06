@@ -426,8 +426,9 @@ network speaker plays from `http://<host>:8080/stream.opus`.
 
 **It is a real output, in the list like any other, and it is the container's
 own.** The first start writes `AUDIO_OUTPUT=docker` into the configuration,
-which the **Audio output** card shows as *Network stream* — so the card says
-where the sound goes, the daemon points mpv at the virtual sink, and the
+which the **Audio output** card shows as *Virtual output (container)* — so the
+card says where the sound goes, the daemon points mpv at the virtual sink, and
+the
 card's own line explains that it is heard rather than played. Choosing another
 output there works exactly as on a Pi; the file is the single source of truth
 from then on (not an environment variable, which would win over the file and
@@ -1659,7 +1660,10 @@ log keeps "Blind test started" and who won it.
   plays), `STREAM_SOURCE` (`stream_source`) encodes another output than the
   one the radio plays to, and the address is
   `http://<the radio>/stream.opus`. Both are read at the next status read,
-  so a save applies them without a restart.
+  so a save applies them without a restart. Not to be confused with the
+  choice just above it in the same card: *Virtual output (container)* is an
+  **output** (where the sound goes, and only a container has one), while
+  this is the **stream** (what carries it to another device).
 - **Announce the stream (UPnP)** (*Audio output* card, `UPNP_ENABLED` /
   `upnp_enabled`): the radio answers UPnP discovery and offers the stream
   as a media server, so a player finds it by itself - VLC lists **Rukebox**
