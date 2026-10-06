@@ -92,7 +92,7 @@ test("an area with nothing left is not a tab any more", async (t) => {
   await page.close();
 });
 
-test("a stream that is off says so instead of offering a silent button", async (t) => {
+test("a stream that is off says nothing: the setting is the owner's", async (t) => {
   t.diagnostic("\"nothing plays\" has several causes, and a browser cannot see any of them");
   const page = withCaps(PI, {
     routes: { "GET /api/status": Object.assign({}, STATUS, {
@@ -103,10 +103,25 @@ test("a stream that is off says so instead of offering a silent button", async (
   });
   await until(() => page.document.body.dataset.caps !== undefined);
   assert.equal(page.$("btnListen").hidden, true, "no button when there is nothing to hear");
+  assert.equal(page.$("listenWhy").hidden, true,
+               "the stream is simply switched off: no line under the player");
+  await page.close();
+});
+
+test("a stream that cannot be served says why", async (t) => {
+  t.diagnostic("the stream is on but this machine cannot feed it: that is worth a line");
+  const page = withCaps(PI, {
+    routes: { "GET /api/status": Object.assign({}, STATUS, {
+      capabilities: PI,
+      stream: { enabled: true, available: false, url: "", encoder: "",
+                content_type: "", listeners: 0, source: "", why: "no_ffmpeg" },
+    }) },
+  });
+  await until(() => page.document.body.dataset.caps !== undefined);
+  assert.equal(page.$("btnListen").hidden, true);
   const hint = page.$("listenWhy");
   assert.equal(hint.hidden, false, "the line carries the reason");
-  assert.match(hint.textContent, /Network audio stream/i,
-               "and it says where to turn it on");
+  assert.match(hint.textContent, /ffmpeg/i, "and it names what is missing");
   await page.close();
 });
 

@@ -6296,10 +6296,7 @@ def api_update_status():
         "self_update": system_actions.can_self_update(),
         "docker_image": c.get("UPDATE_DOCKER_IMAGE") or "",
         "interrupted": interrupted,
-        "git_configured": bool(c["UPDATE_GIT_URL"]),
-        "git_url": c["UPDATE_GIT_URL"],
         "github_repo": c.get("UPDATE_GITHUB_REPO") or "",
-        "git_branch": c["UPDATE_GIT_BRANCH"],
         "web_updates_allowed": bool(c["UPDATE_ALLOW_WEB"]),
         "wrapper_installed": os.path.exists(UPDATE_WRAPPER),
         "log_tail": log_tail.replace("__RUKEBOX_UPDATE_DONE__", "").strip(),
@@ -6434,56 +6431,6 @@ def _start_update(argument):
         log_file.close()
         return jsonify({"ok": False, "error": "update_start_failed"}), 500
     log_file.close()
-    return jsonify({"ok": True, "started": True})
-
-
-@app.route("/api/update/git", methods=["POST"])
-def api_update_git():
-    """Triggers an update from the configured Git repository."""
-    c = cfg()
-    if not c["UPDATE_ALLOW_WEB"]:
-        return jsonify({
-            "ok": False,
-            "error": "web_updates_disabled",
-        }), 403
-    if not c["UPDATE_GIT_URL"]:
-        return jsonify({
-            "ok": False,
-            "error": "no_git_url",
-        }), 400
-    if not os.path.exists(UPDATE_WRAPPER):
-        return jsonify({
-            "ok": False,
-            "error": "updater_missing", "detail": UPDATE_WRAPPER,
-        }), 500
-
-    stats.attach_current_session()
-    stats.record("update_started", label="git", detail={
-        "url": c["UPDATE_GIT_URL"], "branch": c["UPDATE_GIT_BRANCH"],
-    })
-
-    try:
-        log = open(UPDATE_LOG, "w", encoding="utf-8")
-    except OSError as e:
-        return jsonify({"ok": False, "error": "cannot_write_log",
-                        "detail": "%s: %s" % (UPDATE_LOG, e)}), 500
-
-    command = (
-        "sudo -n %s --from-git >> %s 2>&1; "
-        "echo __RUKEBOX_UPDATE_DONE__ >> %s"
-        % (UPDATE_WRAPPER, UPDATE_LOG, UPDATE_LOG)
-    )
-    try:
-        subprocess.Popen(
-            ["/bin/sh", "-c", command],
-            stdout=log, stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
-    except OSError as e:
-        log.close()
-        return jsonify({"ok": False, "error": str(e)}), 500
-    log.close()
-
     return jsonify({"ok": True, "started": True})
 
 

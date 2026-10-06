@@ -2010,7 +2010,9 @@ function applyListen(d) {
   if (!("enabled" in stream)) return;
   const available = !!stream.available && !!stream.url;
   listenUrl = stream.url || "";
-  listenWhy = available ? "" : (stream.why || "no_source");
+  // A stream that is simply switched off needs no line: the button is not there
+  // and the setting is the owner's. The other causes are worth saying.
+  listenWhy = available || stream.why === "off" ? "" : (stream.why || "no_source");
   btn.hidden = !available;
   if (!available) {
     // Nothing to offer: the button goes, and the line beside the player says
@@ -9336,12 +9338,6 @@ async function refreshUpdate() {
   osLine.textContent = parts.join(" · ");
   osLine.classList.toggle("warning", d.has_internet === false);
 
-  // The Git button is shown by this rule alone: the capability pass also walks
-  // data-needs, and the two used to fight over it, which is what made it flicker.
-  // It stands with the version check, since both act on the source above them.
-  document.getElementById("btnUpdateGit").hidden =
-    !(d.self_update !== false && d.git_configured && d.web_updates_allowed);
-
   // A container has no tree to replace: the image is the version, so the card
   // shows the one line that updates it. Its own rows are hidden by CSS.
   const containerBox = document.getElementById("containerUpdateBox");
@@ -9358,7 +9354,7 @@ async function refreshUpdate() {
     logBox.textContent = d.log_tail;
     logBox.scrollTop = logBox.scrollHeight;
   }
-  const btn = document.getElementById("btnUpdateGit");
+  const btn = document.getElementById("btnReleaseInstall");
   const awaiting = updateAwaitingStart
     && (Date.now() - updateAwaitingStart < UPDATE_START_GRACE_MS);
 
@@ -9396,24 +9392,6 @@ async function refreshUpdate() {
     }
   }
 }
-
-document.getElementById("btnUpdateGit").addEventListener("click", async () => {
-  if (!(await showConfirm(t("update.confirm_git")))) return;
-
-  const hint = document.getElementById("gitUpdateHint");
-  hint.textContent = t("update.starting");
-  const result = await apiPost("/api/update/git");
-  if (!result.ok) {
-    hint.textContent = t("common.failed_prefix", { error: errorLabel(result.error) });
-    return;
-  }
-  document.getElementById("btnUpdateGit").disabled = true;
-
-  if (updatePollTimer) clearInterval(updatePollTimer);
-  updatePollTimer = setInterval(refreshUpdate, 3000);
-  updateAwaitingStart = Date.now();
-  refreshUpdate();
-});
 
 let latestRelease = null;
 

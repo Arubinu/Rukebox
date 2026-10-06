@@ -1679,6 +1679,7 @@
             <label for="sshToggle" data-i18n="system.ssh">SSH server</label>
             <input type="checkbox" id="sshToggle" class="switch-input" role="switch">
           </div>
+          <p class="hint help-text" data-level="detail" data-i18n="system.ssh_hint" hidden>Turn it off when you don't need it.</p>
           <div data-level="detail" class="field-row" data-needs="gpio">
             <div class="field-text">
               <label for="actLedToggle" data-i18n="system.act_led">Activity LED</label>
@@ -1703,7 +1704,6 @@
             </div>
             <input type="checkbox" id="hapticsToggle" class="switch-input" role="switch" aria-describedby="hapticsDesc">
           </div>
-          <p class="hint help-text" data-level="detail" data-i18n="system.ssh_hint" hidden>Turn it off when you don't need it.</p>
           <div class="actions-row">
             <button type="button" class="btn" id="btnRescan" data-icon="refresh" data-i18n="system.rescan">Rescan music</button>
             <button type="button" class="btn btn-warning-outline" id="btnRestartAfterSong" data-icon="restart" data-i18n="system.restart_now">Restart the service</button>
@@ -2187,7 +2187,6 @@
             <div class="actions-row">
               <button type="button" class="btn" id="btnReleaseCheck" data-icon="refresh" data-i18n="update.release_check">Check for a new version</button>
               <button type="button" class="btn btn-primary" id="btnReleaseInstall" data-icon="download" hidden>Install</button>
-              <button type="button" class="btn btn-primary" id="btnUpdateGit" data-icon="download" data-i18n="update.git_btn" hidden>Update from Git</button>
             </div>
           </div>
           <p class="hint" id="gitUpdateHint" role="status"></p>

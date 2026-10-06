@@ -537,9 +537,16 @@ class StatsRecorder:
             log.exception("Could not delete %s rows", target)
             return 0
         if removed:
-            self.record("stats_rows_deleted", label=target,
-                        detail={"count": removed})
+            self._record_deletion(target, removed)
         return removed
+
+    def _record_deletion(self, label, removed):
+        """What the log says about a deletion - and nothing when the log itself
+        is what was emptied: an audit line landing in the very list being
+        cleaned is one line the owner then has to delete again."""
+        if label == "events":
+            return
+        self.record("stats_rows_deleted", label=label, detail={"count": removed})
 
     _LIST_SCOPES = {
         "sessions": ("sessions", "ended_at IS NOT NULL"),
@@ -590,8 +597,7 @@ class StatsRecorder:
             log.exception("Could not empty %s", scope)
             return 0
         if removed:
-            self.record("stats_rows_deleted", label=scope,
-                        detail={"count": removed, "all": True})
+            self._record_deletion(scope, removed)
         return removed
 
     def sessions_page(self, limit=50, before_id=None):

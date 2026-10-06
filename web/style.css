@@ -703,6 +703,9 @@ body:not([data-caps~="wireless"]) .card[data-needs~="wireless"] { display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* It covers the rest of the row after the last tile: without this the 1px
+     gap before it draws a line, which reads as a missing tile. */
+  margin-left: -1px;
   gap: 10px;
   min-height: 116px;
   padding: 16px 8px;
@@ -1669,7 +1672,21 @@ body.lyrics-fullscreen { overflow: hidden; }
 .service-list .btn { grid-area: btn; }
 .setup-hidden-line { margin-top: 14px; }
 
-.guest-credits { margin: 8px 0 0; text-align: center; font-weight: 600; }
+/* A small frame of its own, stuck on top of the volume one: same colours, no
+   bottom edge and no bottom corners, so the two read as one shape. */
+.guest-credits {
+  width: fit-content;
+  margin: 8px auto -1px;
+  padding: 2px 12px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
 .guest-credits[data-low] { color: var(--warning-text); }
 body:not([data-access="guest"]) .guest-credits { display: none !important; }
 .np-fallback {
@@ -1947,9 +1964,9 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
 }
 .field-row + .field-row { border-top: 1px solid var(--border); }
 /* A hint between two options is not a row, so the line that separates rows
-   would be missing under the option above it - and the one after the hint
-   has no row to take its line from either. */
-.field-row:has(+ .hint) { border-bottom: 1px solid var(--border); }
+   would be missing under the option above it. Only when a row follows the
+   hint: after the last option of a card the line would be one too many. */
+.field-row:has(+ .hint + .field-row) { border-bottom: 1px solid var(--border); }
 .field-row > label,
 .field-row > .field-label {
   flex: 1 1 10rem;
