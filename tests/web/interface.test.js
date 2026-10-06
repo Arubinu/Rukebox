@@ -206,6 +206,34 @@ test("the transfer limits are one folded group as well", async (t) => {
                "the rows were already for the detailed view only");
 });
 
+test("the settings that belong together are folded together", async (t) => {
+  const page = open(t);
+  await until(() => page.$("bootOverlay").hidden);
+  const holds = (section, ids) => {
+    assert.equal(page.$(section).tagName, "DETAILS", section + " is a fold");
+    ids.forEach((id) => assert.ok(page.$(section).contains(page.$(id)),
+                                  id + " is inside " + section));
+  };
+
+  holds("resumeSection", ["musicKeepProgressToggle", "musicResumeMode"]);
+  holds("announceListsSection", ["announceOrderMode", "upcomingCount", "recentCount"]);
+  holds("timersErrorsSection", ["pauseDurations", "sleepDurations", "retryMax", "retryDelay"]);
+  holds("volumeChangeSection", ["volumeMode", "volumeChange", "volumeFadeSec", "volumeStep"]);
+  holds("speakerVolumeSection", ["speakerVolumeLink", "speakerVolumeLock"]);
+  holds("guestAllowedSection", ["suggestionsToggle", "dedicationsToggle", "queueFairToggle",
+                                "renameInterval", "guestPagesOff", "guestLocked"]);
+  holds("guestVoteSection", ["skipVoteToggle", "skipVoteShare", "actionRepeat"]);
+  holds("guestCreditsSection", ["guestQuotaToggle", "guestQuotaMax", "guestQuotaRefill",
+                                "guestQuotaRepeat"]);
+  assert.ok(page.$("guestCreditsSection").contains(page.$("guestCostsSection")),
+            "the prices fold is inside the credits group");
+
+  // The visible rows of the volume card, in the order the owner asked for.
+  const rows = Array.from(page.$("volumeForm").querySelectorAll(":scope > .field-row"));
+  assert.deepEqual(rows.map((row) => row.querySelector("[data-key]").dataset.key),
+                   ["BASE_VOLUME", "AUDIO_EQUALIZER", "AUDIO_COMPRESSION"]);
+});
+
 test("a new announcement's form shows the rows of its trigger, and no others", async (t) => {
   const page = open(t);
   await until(() => page.$("bootOverlay").hidden);
