@@ -215,16 +215,16 @@ class ListenerTest(unittest.TestCase):
         self.assertEqual(first.get_nowait(), b"late")
         self.assertEqual(second.get_nowait(), b"late")
 
-    def test_a_slow_listener_drops_the_past_rather_than_the_present(self):
+    def test_a_listener_too_far_behind_is_let_go_rather_than_cut_half_way(self):
+        """Dropping bytes cuts an Ogg page in half - the player reports "CRC
+        mismatch" and gives up - so a listener that cannot keep up is ended
+        instead, and reconnects."""
         server = build_server()
         server.queue_chunks = 2
         box = server.listen()
-        for _ in range(5):
-            server._broadcast(b"chunk")
-        self.assertEqual(box.qsize(), 2, "the queue never grows past its size")
-        server._broadcast(b"last")
-        self.assertEqual(box.get_nowait(), b"chunk")
-        self.assertEqual(box.get_nowait(), b"last", "the newest chunk is kept")
+        for chunk in (b"one", b"two", b"three", b"four"):
+            server._broadcast(chunk)
+        self.assertIsNone(box.get_nowait(), "the end, never a hole")
 
     def test_listeners_are_counted_and_forgotten(self):
         server = build_server()
@@ -340,6 +340,36 @@ class ChosenMonitorTest(unittest.TestCase):
                 server = stream.build({"STREAM_ENABLED": True, "AUDIO_OUTPUT": "usb"})
         self.assertEqual(server.source, self.USB + ".monitor")
         self.assertIn(self.USB + ".monitor", server.command())
+
+
+class StalledTest(unittest.TestCase):
+    """A capture that attached while the radio was silent stays silent: the
+    encoder has to be reconnected (see docs/guide.md)."""
+
+    def setUp(self):
+        patcher = mock.patch.object(stream.subprocess, "Popen",
+                                    side_effect=OSError("no ffmpeg here"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_stream_that_never_produced_anything_is_stalled(self):
+        server = build_server()
+        self.assertFalse(server.produced_anything())
+        server.start()
+        self.assertGreaterEqual(server.stalled_for(), 0.0)
+
+    def test_the_clock_restarts_with_each_chunk(self):
+        server = build_server()
+        server.start()
+        with mock.patch.object(stream.time, "monotonic", return_value=100.0):
+            server._broadcast(b"bytes")
+        self.assertTrue(server.produced_anything())
+        with mock.patch.object(stream.time, "monotonic", return_value=104.0):
+            self.assertAlmostEqual(server.stalled_for(), 4.0, places=1)
+
+    def test_a_stopped_stream_is_not_stalled(self):
+        server = build_server()
+        self.assertEqual(server.stalled_for(), 0.0, "nothing started yet")
 
 
 class OggPageTest(unittest.TestCase):

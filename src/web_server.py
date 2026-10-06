@@ -313,28 +313,40 @@ def _stream_available():
     return bool(stream_mod.status(stream_server())["available"])
 
 
-def _upnp_title():
-    """What the item is called: the radio's name, and why it is quiet.
+def _daemon_playing(data):
+    """True when something should be coming out of the radio.
 
     What puts sound in the stream is a loaded track in a playing mode, or an
-    announcement - nothing else. The daemon reports "music" and not paused with
-    no track at all on a Pi whose speaker is away, which is the state the owner
-    heard nothing in."""
+    announcement - nothing else. A Pi whose speaker is away reports "music" and
+    not paused with no track at all, which is the state the owner heard nothing
+    in."""
+    if data.get("paused"):
+        return False
+    if data.get("sound"):
+        return True
+    return bool(data.get("current_track_path")) \
+        and str(data.get("mode") or "") not in UPNP_QUIET_MODES
+
+
+def _upnp_title():
+    """What the item is called: the radio's name, and why it is quiet."""
     state = ""
+    data = _daemon_status()
+    if data:
+        if data.get("paused"):
+            state = "paused"
+        elif not _daemon_playing(data):
+            state = "idle"
+    return upnp.device_name() + (" (%s)" % state if state else "")
+
+
+def _daemon_status():
+    """The daemon's own answer, or {} when it cannot be asked."""
     try:
         result = control("get_status")
     except Exception:  # noqa: BLE001  (a browse must never fail over this)
-        result = {}
-    if result.get("ok"):
-        data = result.get("data") or {}
-        playing = bool(data.get("sound")) or (
-            bool(data.get("current_track_path"))
-            and str(data.get("mode") or "") not in UPNP_QUIET_MODES)
-        if data.get("paused"):
-            state = "paused"
-        elif not playing:
-            state = "idle"
-    return upnp.device_name() + (" (%s)" % state if state else "")
+        return {}
+    return (result.get("data") or {}) if result.get("ok") else {}
 
 
 def _upnp_items():
@@ -351,6 +363,12 @@ def _upnp_items():
 
 _upnp_lock = threading.Lock()
 UPNP_WATCH_SEC = 5.0
+# An encoder that has produced nothing for this long, while the radio is
+# playing, is reconnected: its capture attached while the sink was silent and
+# never came back to life (measured on a Pi, see docs/guide.md).
+STREAM_STALL_SEC = 12.0
+STREAM_STALL_ATTEMPTS = 5
+_stream_stalls = {"tries": 0}
 
 
 def _upnp_follow_stream():
@@ -368,13 +386,37 @@ def _upnp_follow_stream():
             upnp.stop()
 
 
+def _reconnect_a_silent_stream():
+    """Starts the encoder again when it is silent while the radio plays."""
+    server = stream_server()
+    if server is None or not server.source:
+        _stream_stalls["tries"] = 0
+        return False
+    if server.produced_anything() and server.stalled_for() < STREAM_STALL_SEC:
+        _stream_stalls["tries"] = 0
+        return False
+    if not _daemon_playing(_daemon_status()):
+        _stream_stalls["tries"] = 0
+        return False
+    if _stream_stalls["tries"] >= STREAM_STALL_ATTEMPTS:
+        return False
+    _stream_stalls["tries"] += 1
+    log.info("The stream has carried nothing for %.0fs while the radio plays: "
+             "reconnecting the encoder (attempt %s)",
+             server.stalled_for(), _stream_stalls["tries"])
+    forget_stream()
+    stream_server()
+    return True
+
+
 def _upnp_watch():
     while True:
         time.sleep(UPNP_WATCH_SEC)
         try:
+            _reconnect_a_silent_stream()
             _upnp_follow_stream()
         except Exception:  # noqa: BLE001
-            log.exception("The UPnP announcement could not follow the stream")
+            log.exception("The stream watchdog failed")
 
 
 @app.route(upnp.PATH + "/rootDesc.xml")

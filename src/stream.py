@@ -50,9 +50,12 @@ ENCODERS = {
 
 PREFERENCE = ("opus", "mp3", "aac", "vorbis")
 
-# A listener that falls this far behind is following the past: the oldest
-# chunks go, which is what keeps the stream live rather than a slow playback.
-QUEUE_CHUNKS = 32
+# A listener that falls this far behind is following the past: the bytes it
+# missed are dropped, which is what keeps the stream live rather than a slow
+# playback. Generous on purpose - an Ogg page cannot be cut in half, so a
+# listener only loses its place when it is really gone (a phone that went to
+# sleep, say), and it then reconnects.
+QUEUE_CHUNKS = 256
 CHUNK_BYTES = 4096
 # The headers of an Ogg stream, kept for a listener that arrives late, and the
 # point past which they are given up on as "not a header after all".
@@ -322,6 +325,8 @@ class StreamServer:
         self.header = b""
         self._unparsed = b""
         self._header_read = False
+        self._started_at = 0.0
+        self._last_chunk_at = None
 
     @property
     def content_type(self):
@@ -352,6 +357,8 @@ class StreamServer:
             self.header = b""
             self._unparsed = b""
             self._header_read = False
+            self._started_at = time.monotonic()
+            self._last_chunk_at = None
             try:
                 self._process = subprocess.Popen(
                     self.command(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -366,6 +373,26 @@ class StreamServer:
             self._thread.start()
         log.info("Network stream started: %s -> %s", self.source, self.encoder)
         return True
+
+    def stalled_for(self):
+        """Seconds since the encoder last produced anything.
+
+        A capture that attached while the radio was silent can stay silent for
+        ever afterwards: measured on a Pi, ffmpeg wrote its Ogg headers and not
+        one audio page while a second, later capture of the SAME monitor
+        received four seconds of audio. Nothing to do with the sink - the
+        encoder has to be reconnected when there is sound again."""
+        with self._lock:
+            started = self._started_at
+            last = self._last_chunk_at
+        since = last or started
+        if not since:
+            return 0.0
+        return time.monotonic() - since
+
+    def produced_anything(self):
+        with self._lock:
+            return self._last_chunk_at is not None
 
     def stop(self):
         self._stopping = True
@@ -435,6 +462,8 @@ class StreamServer:
 
     def _broadcast(self, chunk):
         if chunk:
+            with self._lock:
+                self._last_chunk_at = time.monotonic()
             self._remember_header(chunk)
         with self._lock:
             listeners = list(self._listeners)
@@ -442,10 +471,18 @@ class StreamServer:
             try:
                 box.put_nowait(chunk)
             except queue.Full:
+                # Dropping bytes cuts an Ogg page in half - the player reports
+                # "CRC mismatch" and gives up - so a listener this far behind is
+                # let go instead: the response ends and it reconnects, which
+                # brings the headers again.
                 try:
-                    box.get_nowait()
-                    box.put_nowait(chunk)
-                except (queue.Empty, queue.Full):
+                    while True:
+                        box.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    box.put_nowait(None)
+                except queue.Full:
                     pass
 
     def _remember_header(self, chunk):
