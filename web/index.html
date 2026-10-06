@@ -1430,53 +1430,53 @@
               </div>
               <div class="codec-field" id="btCodecs" data-key="BT_AUDIO_CODECS" aria-describedby="btCodecsDesc"></div>
             </div>
-            <div class="field-row" id="streamEnabledRow">
-              <div class="field-text">
-                <label for="streamEnabled" data-i18n="stream.title">Network audio stream</label>
-                <p class="field-desc" id="streamEnabledDesc" data-i18n="stream.desc">Serve what the radio plays over the network, so another device can listen to it. It costs an ffmpeg process.</p>
+            <details class="subsection" id="streamSection">
+              <summary><span data-i18n="stream.title">Network audio stream</span></summary>
+              <p class="hint help-text" data-i18n="stream.desc" hidden>Serve what the radio plays over the network, so another device can listen to it. It costs an ffmpeg process.</p>
+              <div class="field-row" id="streamEnabledRow">
+                <label for="streamEnabled" data-i18n="stream.switch">Serve the stream</label>
+                <input type="checkbox" id="streamEnabled" data-key="STREAM_ENABLED" class="switch-input" role="switch">
               </div>
-              <input type="checkbox" id="streamEnabled" data-key="STREAM_ENABLED" class="switch-input" role="switch"
-                     aria-describedby="streamEnabledDesc">
-            </div>
-            <div data-level="detail" class="field-row">
-              <div class="field-text">
-                <label for="streamEncoder" data-i18n="stream.codec">Stream codec</label>
-                <p class="field-desc" id="streamEncoderDesc" data-i18n="stream.codec_desc">What the stream is encoded with. Opus is what every browser plays and what the little bandwidth of a Pi Zero carries comfortably.</p>
+              <div data-level="detail" class="field-row">
+                <div class="field-text">
+                  <label for="streamEncoder" data-i18n="stream.codec">Stream codec</label>
+                  <p class="field-desc" id="streamEncoderDesc" data-i18n="stream.codec_desc">What the stream is encoded with. Opus is what every browser plays and what the little bandwidth of a Pi Zero carries comfortably.</p>
+                </div>
+                <select id="streamEncoder" data-key="STREAM_ENCODER" aria-describedby="streamEncoderDesc">
+                  <option value="" data-i18n="stream.codec_auto">Best available</option>
+                  <option value="opus">Opus</option>
+                  <option value="mp3">MP3</option>
+                  <option value="aac">AAC</option>
+                  <option value="vorbis">Vorbis</option>
+                </select>
               </div>
-              <select id="streamEncoder" data-key="STREAM_ENCODER" aria-describedby="streamEncoderDesc">
-                <option value="" data-i18n="stream.codec_auto">Best available</option>
-                <option value="opus">Opus</option>
-                <option value="mp3">MP3</option>
-                <option value="aac">AAC</option>
-                <option value="vorbis">Vorbis</option>
-              </select>
-            </div>
-            <div data-level="detail" class="field-row">
-              <div class="field-text">
-                <label for="streamSource" data-i18n="stream.source">Stream source</label>
-                <p class="field-desc" id="streamSourceDesc" data-i18n="stream.source_desc">The output to encode, as the sound server names it. Empty follows the output the radio already plays to.</p>
+              <div data-level="detail" class="field-row">
+                <div class="field-text">
+                  <label for="streamSource" data-i18n="stream.source">Stream source</label>
+                  <p class="field-desc" id="streamSourceDesc" data-i18n="stream.source_desc">The output to encode, as the sound server names it. Empty follows the output the radio already plays to.</p>
+                </div>
+                <input type="text" id="streamSource" data-key="STREAM_SOURCE" class="text-input"
+                       placeholder="alsa_output.hdmi.monitor" autocomplete="off" spellcheck="false"
+                       aria-describedby="streamSourceDesc">
               </div>
-              <input type="text" id="streamSource" data-key="STREAM_SOURCE" class="text-input"
-                     placeholder="alsa_output.hdmi.monitor" autocomplete="off" spellcheck="false"
-                     aria-describedby="streamSourceDesc">
-            </div>
-            <div class="field-row">
-              <div class="field-text">
-                <label for="streamVolume" data-i18n="stream.volume">Stream volume (%)</label>
-                <p class="field-desc" id="streamVolumeDesc" data-i18n="stream.volume_desc">0 to 200%. 100% follows the volume the radio is playing at: below is quieter, above is louder. It multiplies what the radio plays.</p>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="streamVolume" data-i18n="stream.volume">Stream volume (%)</label>
+                  <p class="field-desc" id="streamVolumeDesc" data-i18n="stream.volume_desc">0 to 200%. 100% follows the volume the radio is playing at: below is quieter, above is louder. It multiplies what the radio plays.</p>
+                </div>
+                <input type="number" id="streamVolume" data-key="STREAM_VOLUME" class="num-input" min="0" max="200" step="5"
+                       inputmode="numeric" aria-describedby="streamVolumeDesc">
               </div>
-              <input type="number" id="streamVolume" data-key="STREAM_VOLUME" class="num-input" min="0" max="200" step="5"
-                     inputmode="numeric" aria-describedby="streamVolumeDesc">
-            </div>
-            <div class="field-row" id="upnpNameRow">
-              <div class="field-text">
-                <label for="upnpName" data-i18n="stream.upnp_name">Name on the network</label>
-                <p class="field-desc" id="upnpNameDesc" data-i18n="stream.upnp_name_desc">The whole name a player lists and the stream carries, number included. Two radios on one network need two different ones.</p>
+              <div class="field-row" id="upnpNameRow">
+                <div class="field-text">
+                  <label for="upnpName" data-i18n="stream.upnp_name">Name on the network</label>
+                  <p class="field-desc" id="upnpNameDesc" data-i18n="stream.upnp_name_desc">The whole name a player lists and the stream carries, number included. Two radios on one network need two different ones.</p>
+                </div>
+                <input type="text" id="upnpName" data-key="UPNP_NAME" class="text-input" maxlength="40"
+                       autocomplete="off" spellcheck="false" aria-describedby="upnpNameDesc">
               </div>
-              <input type="text" id="upnpName" data-key="UPNP_NAME" class="text-input" maxlength="40"
-                     autocomplete="off" spellcheck="false" aria-describedby="upnpNameDesc">
-            </div>
-            <p class="hint" id="upnpNeedsStream" data-i18n="stream.upnp_needs_stream" hidden>A player can only find the radio while the stream is on.</p>
+              <p class="hint" id="upnpNeedsStream" data-i18n="stream.upnp_needs_stream" hidden>A player can only find the radio while the stream is on.</p>
+            </details>
             <div data-level="detail" class="field-row">
               <div class="field-text">
                 <label for="transferLimitMode" data-i18n="audioout.transfer_limit">Limit transfers</label>

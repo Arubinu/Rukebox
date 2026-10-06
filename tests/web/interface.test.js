@@ -169,6 +169,16 @@ test("the announcement name only shows while the stream is on", async (t) => {
   const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
   await until(() => page.$("bootOverlay").hidden);
   await until(() => page.$("upnpNeedsStream").hidden === false);
+
+  // The stream's options are one folded group, the way the Bluetooth
+  // controllers are: the card stops being a wall of rows.
+  const section = page.$("streamSection");
+  assert.equal(section.tagName, "DETAILS", "a fold, like the other subsections");
+  assert.equal(section.open, false, "closed until it is asked for");
+  assert.equal(section.querySelector("summary").textContent.trim(), "Network audio stream");
+  ["streamEnabled", "streamEncoder", "streamSource", "streamVolume", "upnpName"]
+    .forEach((id) => assert.ok(section.contains(page.$(id)), id + " is inside the group"));
+
   assert.equal(page.$("upnpNameRow").hidden, true, "nothing to announce: no name either");
   assert.equal(page.$("upnpName").value, "Rukebox 4821",
                "one field, the whole name");
