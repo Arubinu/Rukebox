@@ -689,7 +689,9 @@ body:not([data-caps~="wireless"]) .card[data-needs~="wireless"] { display: none;
 .page-grid {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  /* auto-fit, not auto-fill: a menu whose tiles fit on one row has no column to spare,
+     and spreading them over the width is what leaves nothing after the last one. */
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 1px;
   background: var(--border);
   border-radius: var(--radius-lg);
@@ -714,10 +716,6 @@ body:not([data-caps~="wireless"]) .card[data-needs~="wireless"] { display: none;
   line-height: 1.25;
   text-align: center;
 }
-/* The filler covers the rest of the row after the last tile: without this the
-   1px gap before it draws a line, which reads as a missing tile. Tiles keep
-   theirs - only this one loses the edge it shares with the row. */
-.page-filler { margin-left: -1px; }
 .page-tile {
   border: 0;
   cursor: pointer;

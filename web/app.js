@@ -673,33 +673,36 @@ function paintAreaTabs() {
   }
 }
 
-/* Empty cells fill the last row: the separators are the grid's own background showing through.
-   One cell spanning what is left, never one per slot: a row of empty slots draws
-   a line between each of them, which is what a short guest menu looked like. */
+/* One empty cell per column left in the last row, so every line of the rows above
+   carries on down to the edge - a cell spanning what is left draws no line inside it,
+   and its own left edge cuts the line it was meant to continue. A grid on a single row
+   gets none at all: it is auto-fit, so its tiles spread over the whole width and
+   nothing is left hanging after the last one. The column count comes from the first
+   row's own tiles, never from the computed track list, which still reads its old value
+   while the layout settles. */
 function fillPageGrid(grid) {
   if (grid.hidden || !grid.offsetParent) return;
-  let columns = 0;
-  try {
-    columns = String(getComputedStyle(grid).gridTemplateColumns || "").split(" ").filter(Boolean).length;
-  } catch (error) {
-    columns = 0;
-  }
-  if (columns < 2) return;
-  const shown = Array.from(grid.querySelectorAll(".page-tile")).filter((t) => !t.hidden).length;
-  const want = shown ? (columns - (shown % columns)) % columns : 0;
-  let filler = grid.querySelector(".page-filler");
-  if (!filler) {
-    filler = document.createElement("span");
+  const tiles = Array.from(grid.querySelectorAll(".page-tile")).filter((t) => !t.hidden);
+  const firstTop = tiles.length ? tiles[0].offsetTop : 0;
+  const columns = tiles.filter((t) => t.offsetTop === firstTop).length;
+  const want = tiles.length > columns ? (columns - (tiles.length % columns)) % columns : 0;
+  grid.querySelectorAll(".page-filler").forEach((filler) => filler.remove());
+  for (let i = 0; i < want; i++) {
+    const filler = document.createElement("span");
     filler.className = "page-filler";
     filler.setAttribute("aria-hidden", "true");
     grid.appendChild(filler);
   }
-  grid.querySelectorAll(".page-filler").forEach((other) => {
-    if (other !== filler) other.remove();
-  });
-  filler.hidden = want === 0;
-  filler.style.gridColumn = want > 1 ? "span " + want : "";
 }
+
+/* The column count moves with the width, and a stale one leaves a hole or an extra row. */
+let pageGridResize = null;
+window.addEventListener("resize", () => {
+  clearTimeout(pageGridResize);
+  pageGridResize = setTimeout(() => {
+    Object.keys(pageGrids).forEach((tab) => fillPageGrid(pageGrids[tab]));
+  }, 150);
+});
 
 function scrollAppTop() {
   const main = document.getElementById("main");
