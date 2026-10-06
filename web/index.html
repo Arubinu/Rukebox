@@ -1432,6 +1432,44 @@
               </div>
               <div class="codec-field" id="btCodecs" data-key="BT_AUDIO_CODECS" aria-describedby="btCodecsDesc"></div>
             </div>
+            <div class="field-row" id="streamEnabledRow">
+              <div class="field-text">
+                <label for="streamEnabled" data-i18n="stream.title">Network audio stream</label>
+                <p class="field-desc" id="streamEnabledDesc" data-i18n="stream.desc">Serve what the radio plays over the network, so another device can listen to it. It costs an ffmpeg process.</p>
+              </div>
+              <input type="checkbox" id="streamEnabled" data-key="STREAM_ENABLED" class="switch-input" role="switch"
+                     aria-describedby="streamEnabledDesc">
+            </div>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
+                <label for="streamEncoder" data-i18n="stream.codec">Stream codec</label>
+                <p class="field-desc" id="streamEncoderDesc" data-i18n="stream.codec_desc">What the stream is encoded with. Opus is what every browser plays and what the little bandwidth of a Pi Zero carries comfortably.</p>
+              </div>
+              <select id="streamEncoder" data-key="STREAM_ENCODER" aria-describedby="streamEncoderDesc">
+                <option value="" data-i18n="stream.codec_auto">Best available</option>
+                <option value="opus">Opus</option>
+                <option value="mp3">MP3</option>
+                <option value="aac">AAC</option>
+                <option value="vorbis">Vorbis</option>
+              </select>
+            </div>
+            <div data-level="detail" class="field-row">
+              <div class="field-text">
+                <label for="streamSource" data-i18n="stream.source">Stream source</label>
+                <p class="field-desc" id="streamSourceDesc" data-i18n="stream.source_desc">The output to encode, as the sound server names it. Empty follows the output the radio already plays to.</p>
+              </div>
+              <input type="text" id="streamSource" data-key="STREAM_SOURCE" class="text-input"
+                     placeholder="alsa_output.hdmi.monitor" autocomplete="off" spellcheck="false"
+                     aria-describedby="streamSourceDesc">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="upnpEnabled" data-i18n="stream.upnp">Announce the stream (UPnP)</label>
+                <p class="field-desc" id="upnpEnabledDesc" data-i18n="stream.upnp_desc">Let a player find it by itself: VLC lists the radio under "Local network" and plays the stream from a click.</p>
+              </div>
+              <input type="checkbox" id="upnpEnabled" data-key="UPNP_ENABLED" class="switch-input" role="switch"
+                     aria-describedby="upnpEnabledDesc">
+            </div>
             <div data-level="detail" class="field-row">
               <div class="field-text">
                 <label for="transferLimitMode" data-i18n="audioout.transfer_limit">Limit transfers</label>

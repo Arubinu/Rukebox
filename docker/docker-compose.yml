@@ -18,6 +18,10 @@ services:
     # page, in VLC (open http://<host>:8080/stream.opus), or on a network
     # speaker. Turn the stream on in Settings > Audio first, or in the
     # /config/rukebox.yaml the container writes on its first start.
+    #
+    # VLC can also find it by itself over UPnP (Audio > Announce the stream),
+    # but only if the player and the container share a network - a bridge is
+    # not one: use network_mode: host, or a macvlan network.
     restart: unless-stopped
     ports:
       - "8080:80"

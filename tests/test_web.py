@@ -973,6 +973,107 @@ class StreamRouteTest(unittest.TestCase):
         self.assertEqual(answer.get_json()["data"]["listeners"], 2)
 
 
+@unittest.skipUnless(flask, "Flask is not installed")
+class UpnpRouteTest(unittest.TestCase):
+    """The UPnP doors: what VLC browses without ever being told an address."""
+
+    BROWSE = (
+        '<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">'
+        '<s:Body><u:Browse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">'
+        "<ObjectID>0</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>*</Filter>"
+        "<StartingIndex>0</StartingIndex><RequestedCount>5000</RequestedCount>"
+        "<SortCriteria></SortCriteria></u:Browse></s:Body></s:Envelope>"
+    )
+    BROWSE_ACTION = '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"'
+
+    def setUp(self):
+        self.addCleanup(unittest.mock.patch.stopall)
+        self.addCleanup(ws.forget_stream)
+        ws.forget_stream()
+        was = {key: ws.cfg().get(key) for key in ("STREAM_ENABLED", "UPNP_ENABLED")}
+        self.addCleanup(ws.update_config_file, was)
+        self.client = ws.app.test_client()
+
+    def ready_stream(self):
+        with unittest.mock.patch.object(ws.stream_mod, "encoders_available",
+                                        return_value=["opus"]):
+            return ws.stream_mod.build({"STREAM_ENABLED": True, "STREAM_SOURCE": "s.monitor"},
+                                       probe=False)
+
+    def browse(self):
+        return self.client.post("/upnp/ContentDirectory/control", data=self.BROWSE,
+                                headers={"SOAPAction": self.BROWSE_ACTION})
+
+    def test_the_device_description_is_a_media_server(self):
+        answer = self.client.get("/upnp/rootDesc.xml")
+        self.assertEqual(answer.status_code, 200)
+        self.assertIn("urn:schemas-upnp-org:device:MediaServer:1", answer.get_data(as_text=True))
+        self.assertIn("<UDN>uuid:", answer.get_data(as_text=True))
+
+    def test_the_stream_is_offered_with_the_address_the_player_used(self):
+        with unittest.mock.patch.object(ws, "stream_server", return_value=self.ready_stream()):
+            answer = self.browse()
+        text = answer.get_data(as_text=True)
+        self.assertEqual(answer.status_code, 200)
+        self.assertIn("<TotalMatches>1</TotalMatches>", text)
+        self.assertIn("http://localhost/stream.opus", text)
+        self.assertIn("http-get:*:audio/ogg:*", text)
+        self.assertIn("&lt;DIDL-Lite", text)
+
+    def test_nothing_is_offered_while_the_stream_is_off(self):
+        with unittest.mock.patch.object(ws, "stream_server", return_value=None):
+            text = self.browse().get_data(as_text=True)
+        self.assertIn("<TotalMatches>0</TotalMatches>", text)
+        self.assertNotIn("stream.opus", text)
+
+    def test_a_player_never_has_to_log_in(self):
+        """VLC cannot type a password: the browse is not behind one."""
+        real = ws.cfg
+
+        def fake_cfg():
+            return dict(real(), WEB_PASSWORD_HASH="x")
+
+        with unittest.mock.patch.object(ws, "cfg", side_effect=fake_cfg):
+            self.assertEqual(self.client.get("/upnp/rootDesc.xml").status_code, 200)
+            self.assertEqual(self.browse().status_code, 200)
+            self.assertEqual(self.client.get("/api/status").status_code, 401)
+
+    def test_a_client_that_watches_for_changes_is_answered(self):
+        """Cling-based players subscribe before browsing, and stop if refused."""
+        answer = self.client.open("/upnp/ContentDirectory/event", method="SUBSCRIBE")
+        self.assertEqual(answer.status_code, 200)
+        self.assertTrue(answer.headers["SID"].startswith("uuid:"))
+        self.assertEqual(answer.headers["TIMEOUT"], "Second-1800")
+
+    def test_a_service_description_is_there_and_an_unknown_one_is_not(self):
+        self.assertEqual(self.client.get("/upnp/ContentDirectory/scpd.xml").status_code, 200)
+        self.assertEqual(self.client.get("/upnp/ConnectionManager/scpd.xml").status_code, 200)
+        self.assertEqual(self.client.get("/upnp/Nonsense/scpd.xml").status_code, 404)
+        self.assertEqual(self.client.post("/upnp/Nonsense/control").status_code, 404)
+
+    def test_saving_the_setting_starts_and_stops_the_listener(self):
+        """A save is enough: nothing has to be restarted for a switch that is
+        worth trying on the spot."""
+        with unittest.mock.patch.object(ws.upnp, "start") as started:
+            with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
+                self.assertTrue(self.client.post("/api/settings",
+                                                 json={"UPNP_ENABLED": True}).get_json()["ok"])
+                self.assertTrue(started.called, "turning it on starts answering")
+                self.assertFalse(stopped.called)
+                started.reset_mock()
+                self.client.post("/api/settings", json={"UPNP_ENABLED": False})
+                self.assertTrue(stopped.called, "turning it off stops answering")
+                self.assertFalse(started.called)
+
+    def test_the_stream_settings_apply_without_a_restart(self):
+        """The encoder is rebuilt on the next status read, so the card says so
+        rather than sending the owner to a restart button."""
+        with unittest.mock.patch.object(ws, "forget_stream") as forgotten:
+            answer = self.client.post("/api/settings", json={"STREAM_ENABLED": True}).get_json()
+        self.assertTrue(forgotten.called)
+        self.assertFalse(answer["data"]["restart_needed"])
+
+
 
 @unittest.skipUnless(flask, "Flask is not installed")
 class SpeakerNudgeTest(unittest.TestCase):

@@ -18,6 +18,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.parse
+import uuid
 import zipfile
 import sqlite3
 import urllib.request
@@ -45,6 +46,7 @@ import gpio_reset  # noqa: E402
 import platform as platform_mod  # noqa: E402
 import stream as stream_mod  # noqa: E402
 import system_actions  # noqa: E402
+import upnp  # noqa: E402
 import web_auth  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config, update_config_file  # noqa: E402
 from control_client import send_control_command  # noqa: E402
@@ -273,6 +275,63 @@ def stream_audio(ext=None):
 
 
 _PRE_LOGIN_PATHS = frozenset({"/api/portal/status"})
+
+
+# --------------------------------------------------------------------------
+# UPnP: the same stream, offered to a player that looks for itself
+# --------------------------------------------------------------------------
+
+UPNP_SERVICES = {name: upnp.service_of(name) for name, _type, _id in upnp.SERVICES}
+
+
+def _upnp_items():
+    """What a player is offered: the stream, when there is one to hear."""
+    server = stream_server()
+    if server is None or not server.source:
+        return []
+    return [{
+        "title": upnp.FRIENDLY_NAME,
+        "url": request.host_url.rstrip("/") + "/stream." + server.suffix,
+        "mime": server.content_type,
+    }]
+
+
+@app.route(upnp.PATH + "/rootDesc.xml")
+def api_upnp_description():
+    return Response(upnp.device_description(), mimetype="text/xml")
+
+
+@app.route(upnp.PATH + "/<service>/scpd.xml")
+def api_upnp_service_description(service):
+    text = upnp.service_description(service)
+    if text is None:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return Response(text, mimetype="text/xml")
+
+
+@app.route(upnp.PATH + "/<service>/control", methods=["POST"])
+def api_upnp_control(service):
+    service_type = UPNP_SERVICES.get(service)
+    if service_type is None:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    body = request.get_data(as_text=True)
+    status, text = upnp.handle(service_type,
+                               upnp.action_of(request.headers.get("SOAPAction", ""), body),
+                               body, _upnp_items())
+    return Response(text, status=status, mimetype="text/xml")
+
+
+@app.route(upnp.PATH + "/<service>/event", methods=["SUBSCRIBE", "UNSUBSCRIBE"])
+def api_upnp_event(service):
+    """Nothing here changes while a player watches it; answering is what keeps
+    a strict client from giving up on the browse."""
+    if upnp.service_of(service) is None:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    answer = Response("", status=200, mimetype="text/xml")
+    answer.headers["SID"] = request.headers.get("SID") or "uuid:%s" % uuid.uuid4()
+    answer.headers["TIMEOUT"] = "Second-1800"
+    answer.headers["SERVER"] = upnp.SERVER_NAME
+    return answer
 
 
 JSON_BODY_MAX_BYTES = 1024 * 1024
@@ -3372,6 +3431,14 @@ def api_set_settings():
             log.warning("Could not apply the USB port mode")
         reboot_needed = True
     restart_needed = bool(config_schema.RESTART_REQUIRED & set(body))
+    if config_schema.STREAM_SETTINGS & set(body):
+        # The encoder is built on the next status read, from the file just written.
+        forget_stream()
+    if "UPNP_ENABLED" in body:
+        if cfg().get("UPNP_ENABLED"):
+            upnp.start(cfg()["WEB_PORT"])
+        else:
+            upnp.stop()
     return jsonify({"ok": True, "data": {
         "applied_live": bool(reload.get("ok")),
         "restart_needed": restart_needed,
@@ -5634,6 +5701,7 @@ def _reload_after_import(summary):
         notify_daemon("reload_lists")
     if "hidden" in summary:
         notify_daemon("reload_hidden")
+    forget_stream()
 
 
 BACKUP_FORMAT = "rukebox-backup"
@@ -6397,6 +6465,8 @@ def main():
     signal.signal(signal.SIGTERM, _on_sigterm)
     if c.get("CAPTIVE_PORTAL_ENABLED") and int(c["WEB_PORT"]) != captive_portal.PORTAL_PORT:
         captive_portal.start(c.get("AP_INTERFACE", "uap0"), c["WEB_PORT"])
+    if c.get("UPNP_ENABLED"):
+        upnp.start(c["WEB_PORT"])
     try:
         _get_library()
     except Exception:  # noqa: BLE001

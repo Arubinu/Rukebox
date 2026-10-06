@@ -93,6 +93,15 @@ SETTINGS = [
         "Stream source",
     ),
     Setting(
+        "UPNP_ENABLED", "audio", "upnp_enabled", "bool", "true",
+        "Let a player find the stream by itself: the radio answers UPnP\n"
+        "discovery and offers the stream as a media server, which is what VLC\n"
+        "lists under \"Local network\" without being given an address. It is only\n"
+        "ever the stream, and only while the stream is on. Turning it off stops\n"
+        "answering; nothing else on the network is affected.",
+        "Announce the stream (UPnP)",
+    ),
+    Setting(
         "SPEAKER_MAC", "bluetooth", "speaker_mac", "str", "",
         "MAC address of the \"master\" speaker (the other speaker of a stereo\n"
         "pair is handled by the speakers themselves, not our concern here).\n"
@@ -1183,9 +1192,11 @@ RESTART_REQUIRED = frozenset({
     "STATE_DIR", "MPV_SOCKET", "CONTROL_SOCKET", "MUSIC_CACHE_FILE",
     "ANNOUNCEMENTS_FILE", "TRACK_ORDER_FILE", "SPEAKER_BT_ADAPTER",
     "FLIC_HCI_DEVICE", "WEB_PORT",
-    # The stream's encoder is started once, on the first listener.
-    "STREAM_ENABLED", "STREAM_ENCODER", "STREAM_SOURCE",
 })
+
+# A save rebuilds the encoder instead of asking for a restart: it is built on
+# the next status read, which is a second away.
+STREAM_SETTINGS = frozenset({"STREAM_ENABLED", "STREAM_ENCODER", "STREAM_SOURCE"})
 
 GPIO_BUTTON_SETTINGS = frozenset({
     "GPIO_BUTTON_PIN", "GPIO_BUTTON_DEBOUNCE_SEC",

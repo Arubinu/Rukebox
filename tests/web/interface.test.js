@@ -121,6 +121,29 @@ test("saving a settings card sends only what was changed", async (t) => {
   assert.equal(String(saved.body.BASE_VOLUME), "55");
 });
 
+test("the network stream and its UPnP announcement are switches of the audio card", async (t) => {
+  // The whole card as a Pi holds it, so that the two switches are the only
+  // thing this test changes.
+  const held = { AUDIO_OUTPUT: "bluetooth", AUDIO_FALLBACK_OUTPUT: "", BT_AUDIO_CODECS: "",
+                 TRANSFER_LIMIT_MODE: "auto", TRANSFER_LIMIT_KBPS: "64", TRANSFER_LIMIT_USB: "false",
+                 STREAM_ENABLED: "false", STREAM_ENCODER: "", STREAM_SOURCE: "",
+                 UPNP_ENABLED: "true" };
+  const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
+  await until(() => page.$("bootOverlay").hidden);
+  assert.equal(page.$("streamEnabled").checked, false, "the stream is off on a Pi");
+  assert.equal(page.$("upnpEnabled").checked, true, "the announcement is on by default");
+  assert.equal(page.$("streamEncoder").value, "", "the codec is picked by ffmpeg");
+  page.$("streamEnabled").checked = true;
+  page.$("upnpEnabled").checked = false;
+  page.$("streamEncoder").value = "mp3";
+  page.$("audioOutputForm").dispatchEvent(
+    new page.window.Event("submit", { bubbles: true, cancelable: true }));
+  const saved = (await until(() => page.sent("POST", "/api/settings").length
+    && page.sent("POST", "/api/settings")))[0].body;
+  assert.deepEqual(saved, { STREAM_ENABLED: "true", UPNP_ENABLED: "false", STREAM_ENCODER: "mp3" });
+  assert.deepEqual(page.errors, []);
+});
+
 test("a new announcement's form shows the rows of its trigger, and no others", async (t) => {
   const page = open(t);
   await until(() => page.$("bootOverlay").hidden);

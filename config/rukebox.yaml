@@ -57,6 +57,13 @@ audio:
   # plays to. Only set this when the stream has to follow another sink.
   stream_source: ""
 
+  # Let a player find the stream by itself: the radio answers UPnP
+  # discovery and offers the stream as a media server, which is what VLC
+  # lists under "Local network" without being given an address. It is only
+  # ever the stream, and only while the stream is on. Turning it off stops
+  # answering; nothing else on the network is affected.
+  upnp_enabled: true
+
 # ---------------------------------------------------------------
 # Bluetooth: speaker, and which controller does what
 # ---------------------------------------------------------------

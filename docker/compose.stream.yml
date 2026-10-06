@@ -6,6 +6,11 @@
 # privileges. The radio still plays; you hear it with "Listen here" on the
 # page, in VLC (open http://<host>:8080/stream.opus), or on a network speaker.
 #
+# A player on the same network can also find it by itself over UPnP - see
+# Audio > Announce the stream. That needs the player and the container to share
+# a network: this bridge is not one, so use network_mode: host (variant 4) or a
+# macvlan network if you want VLC to list "Rukebox" without being told anything.
+#
 # Turn the stream on first: Settings > Audio > Network audio stream, or the
 # /config/rukebox.yaml the container writes on its first start.
 services:

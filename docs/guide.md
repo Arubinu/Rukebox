@@ -448,6 +448,14 @@ it off, since it costs an ffmpeg process). `STREAM_ENCODER` picks the codec
 under the player says which of the causes it is: the stream is off, ffmpeg is
 missing, or the sound server answers nothing.
 
+**A player can find it without being given the address** (`UPNP_ENABLED`, on
+by default): the container answers UPnP discovery and offers the stream as a
+media server, so VLC shows **Rukebox** under *Local network* and plays it with
+one click. It has to be on the same network as the container, which the
+default bridge network is not — its multicast stays inside the container, so
+use `network_mode: host` (variant 4 does) or a macvlan network for a player on
+the LAN to see it.
+
 **Think about the password first**: anyone who can reach the page can listen
 to the library. `WEB_PASSWORD_HASH` is the only thing in the way, and on a
 container the network around it is usually not a private access point.
@@ -1643,6 +1651,24 @@ log keeps "Blind test started" and who won it.
   whenever it is plugged in; while it is missing, the sound goes to the
   default output. With a wired output, a Bluetooth speaker that drops no
   longer pauses the music nor powers the Pi off.
+- **Network audio stream** (*Audio output* card): serves what the radio
+  plays over HTTP, so another device can listen to it - a network speaker,
+  a browser, `mpv`, VLC. Off on a Pi, because it costs an ffmpeg process;
+  on in the Docker image, where it *is* the sound. `STREAM_ENCODER`
+  (`stream_encoder`) picks the codec (Opus by default, which every browser
+  plays), `STREAM_SOURCE` (`stream_source`) encodes another output than the
+  one the radio plays to, and the address is
+  `http://<the radio>/stream.opus`. Both are read at the next status read,
+  so a save applies them without a restart.
+- **Announce the stream (UPnP)** (*Audio output* card, `UPNP_ENABLED` /
+  `upnp_enabled`): the radio answers UPnP discovery and offers the stream
+  as a media server, so a player finds it by itself - VLC lists **Rukebox**
+  under *Local network* (Universal Plug'n'Play) and plays it with one
+  click, and the same works from VLC for Android, BubbleUPnP and the like.
+  The entry exists only while the stream is on, it is the stream and
+  nothing else, and turning the setting off stops the answering at once.
+  VLC's other discovery tab, *Network streams (SAP)*, cannot do this: SAP
+  announces RTP sessions, and this is an ordinary HTTP stream.
 - **Skip a sound** (Home): while an announcement or a button sound
   plays, the Pause button reads **Skip** - it ends that sound at once and
   the music carries on, as if it had finished (never the cutoff).
