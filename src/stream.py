@@ -435,10 +435,6 @@ class StreamServer:
             return 0.0
         return time.monotonic() - since
 
-    def produced_anything(self):
-        with self._lock:
-            return self._last_chunk_at is not None
-
     def stop(self):
         self._stopping = True
         with self._lock:

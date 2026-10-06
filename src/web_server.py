@@ -389,7 +389,10 @@ def _reconnect_a_silent_stream():
     if server is None or not server.source:
         _stream_stalls["tries"] = 0
         return False
-    if server.produced_anything() and server.stalled_for() < STREAM_STALL_SEC:
+    if server.stalled_for() < STREAM_STALL_SEC:
+        # A young encoder has written nothing yet, and that is not a stall: it
+        # is given its time, or every player joining would have its stream ended
+        # under it (that is what a reconnect does - the response stops).
         _stream_stalls["tries"] = 0
         return False
     if not _daemon_playing(_daemon_status()):
@@ -401,8 +404,9 @@ def _reconnect_a_silent_stream():
     log.info("The stream has carried nothing for %.0fs while the radio plays: "
              "reconnecting the encoder (attempt %s)",
              server.stalled_for(), _stream_stalls["tries"])
-    forget_stream()
-    stream_server()
+    # The listeners are kept over it: an encoder reconnected under a player's
+    # feet would end its stream, and the player would go silent for good.
+    server.restart()
     return True
 
 

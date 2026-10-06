@@ -1119,52 +1119,62 @@ class UpnpRouteTest(unittest.TestCase):
         """Measured on a Pi: an encoder that attached while the sink was silent
         produced its headers and not one audio page afterwards, even once the
         music was back."""
-        stalled = unittest.mock.Mock(source="auto_monitor", stalled_for=unittest.mock.Mock(return_value=99.0),
-                                     produced_anything=unittest.mock.Mock(return_value=False))
+        stalled = unittest.mock.Mock(source="auto_monitor",
+                                     stalled_for=unittest.mock.Mock(return_value=99.0))
         ws._stream_stalls["tries"] = 0
         self.addCleanup(ws._stream_stalls.update, tries=0)
         with unittest.mock.patch.object(ws, "stream_server", return_value=stalled):
-            with unittest.mock.patch.object(ws, "forget_stream") as forgotten:
-                with unittest.mock.patch.object(ws, "_daemon_status",
-                                                return_value={"mode": "music",
-                                                              "current_track_path": "/m/a.mp3"}):
-                    self.assertTrue(ws._reconnect_a_silent_stream())
-        self.assertTrue(forgotten.called, "the capture is taken again")
+            with unittest.mock.patch.object(ws, "_daemon_status",
+                                            return_value={"mode": "music",
+                                                          "current_track_path": "/m/a.mp3"}):
+                self.assertTrue(ws._reconnect_a_silent_stream())
+        self.assertTrue(stalled.restart.called, "the capture is taken again")
+        self.assertFalse(stalled.stop.called, "without ending the players")
+
+    def test_a_young_encoder_is_given_its_time(self):
+        """It has written nothing yet, which is not the same as stalled, and the
+        first listener of an encoder that has just been started is right there:
+        reconnecting under it would end its stream."""
+        young = unittest.mock.Mock(source="auto_monitor",
+                                   stalled_for=unittest.mock.Mock(return_value=0.5))
+        with unittest.mock.patch.object(ws, "stream_server", return_value=young):
+            with unittest.mock.patch.object(ws, "_daemon_status",
+                                            return_value={"mode": "music",
+                                                          "current_track_path": "/m/a.mp3"}):
+                self.assertFalse(ws._reconnect_a_silent_stream())
+        self.assertFalse(young.restart.called)
 
     def test_a_stream_that_carries_something_is_left_alone(self):
-        busy = unittest.mock.Mock(source="auto_monitor", stalled_for=unittest.mock.Mock(return_value=1.0),
-                                  produced_anything=unittest.mock.Mock(return_value=True))
+        busy = unittest.mock.Mock(source="auto_monitor",
+                                  stalled_for=unittest.mock.Mock(return_value=1.0))
         with unittest.mock.patch.object(ws, "stream_server", return_value=busy):
-            with unittest.mock.patch.object(ws, "forget_stream") as forgotten:
-                self.assertFalse(ws._reconnect_a_silent_stream())
-        self.assertFalse(forgotten.called)
+            self.assertFalse(ws._reconnect_a_silent_stream())
+        self.assertFalse(busy.restart.called)
 
     def test_a_quiet_radio_is_not_an_encoder_to_reconnect(self):
-        stalled = unittest.mock.Mock(source="auto_monitor", stalled_for=unittest.mock.Mock(return_value=99.0),
-                                     produced_anything=unittest.mock.Mock(return_value=False))
+        stalled = unittest.mock.Mock(source="auto_monitor",
+                                     stalled_for=unittest.mock.Mock(return_value=99.0))
         with unittest.mock.patch.object(ws, "stream_server", return_value=stalled):
-            with unittest.mock.patch.object(ws, "forget_stream") as forgotten:
-                with unittest.mock.patch.object(ws, "_daemon_status", return_value={}):
+            with unittest.mock.patch.object(ws, "_daemon_status", return_value={}):
+                self.assertFalse(ws._reconnect_a_silent_stream())
+                with unittest.mock.patch.object(
+                        ws, "_daemon_status",
+                        return_value={"mode": "idle", "current_track_path": None,
+                                      "paused": False}):
                     self.assertFalse(ws._reconnect_a_silent_stream())
-                    with unittest.mock.patch.object(
-                            ws, "_daemon_status",
-                            return_value={"mode": "idle", "current_track_path": None,
-                                          "paused": False}):
-                        self.assertFalse(ws._reconnect_a_silent_stream())
-        self.assertFalse(forgotten.called)
+        self.assertFalse(stalled.restart.called)
 
     def test_it_gives_up_rather_than_restarting_for_ever(self):
-        stalled = unittest.mock.Mock(source="auto_monitor", stalled_for=unittest.mock.Mock(return_value=99.0),
-                                     produced_anything=unittest.mock.Mock(return_value=False))
+        stalled = unittest.mock.Mock(source="auto_monitor",
+                                     stalled_for=unittest.mock.Mock(return_value=99.0))
         ws._stream_stalls["tries"] = ws.STREAM_STALL_ATTEMPTS
         self.addCleanup(ws._stream_stalls.update, tries=0)
         with unittest.mock.patch.object(ws, "stream_server", return_value=stalled):
-            with unittest.mock.patch.object(ws, "forget_stream") as forgotten:
-                with unittest.mock.patch.object(ws, "_daemon_status",
-                                                return_value={"mode": "music",
-                                                              "current_track_path": "/m/a.mp3"}):
-                    self.assertFalse(ws._reconnect_a_silent_stream())
-        self.assertFalse(forgotten.called)
+            with unittest.mock.patch.object(ws, "_daemon_status",
+                                            return_value={"mode": "music",
+                                                          "current_track_path": "/m/a.mp3"}):
+                self.assertFalse(ws._reconnect_a_silent_stream())
+        self.assertFalse(stalled.restart.called)
 
     def test_saving_the_setting_starts_and_stops_the_listener(self):
         """A save is enough: nothing has to be restarted for a switch that is

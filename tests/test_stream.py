@@ -353,17 +353,24 @@ class StalledTest(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def test_a_stream_that_never_produced_anything_is_stalled(self):
+        """Its start is what is counted, so an encoder that attached while the
+        sink was silent is stalled once it has had its time - and a fresh one is
+        not (the caller gives it STREAM_STALL_SEC before acting)."""
         server = build_server()
-        self.assertFalse(server.produced_anything())
         server.start()
-        self.assertGreaterEqual(server.stalled_for(), 0.0)
+        with mock.patch.object(stream.time, "monotonic",
+                               return_value=server._started_at + 30.0):
+            self.assertAlmostEqual(server.stalled_for(), 30.0, places=1)
+        with mock.patch.object(stream.time, "monotonic",
+                               return_value=server._started_at + 0.5):
+            self.assertAlmostEqual(server.stalled_for(), 0.5, places=1)
 
     def test_the_clock_restarts_with_each_chunk(self):
         server = build_server()
         server.start()
         with mock.patch.object(stream.time, "monotonic", return_value=100.0):
             server._broadcast(b"bytes")
-        self.assertTrue(server.produced_anything())
+        self.assertIsNotNone(server._last_chunk_at)
         with mock.patch.object(stream.time, "monotonic", return_value=104.0):
             self.assertAlmostEqual(server.stalled_for(), 4.0, places=1)
 
