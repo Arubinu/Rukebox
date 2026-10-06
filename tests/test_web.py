@@ -1091,17 +1091,29 @@ class UpnpRouteTest(unittest.TestCase):
         self.addCleanup(ws.upnp.configure, ws.upnp.DEFAULT_NAME, "")
 
     def test_the_item_says_when_the_radio_has_nothing_to_send(self):
-        """A player meeting a silent stream cannot tell it from a broken one."""
-        with unittest.mock.patch.object(ws, "control",
-                                        return_value={"ok": True, "data": {"mode": "music",
-                                                                           "paused": True}}):
+        """A player meeting a silent stream cannot tell it from a broken one -
+        and a Pi whose speaker is away reports "music, not paused" with no track
+        loaded at all, which is the state the owner heard nothing in."""
+        def status(**fields):
+            return unittest.mock.patch.object(ws, "control",
+                                              return_value={"ok": True, "data": fields})
+
+        with status(mode="music", paused=False, current_track_path="/m/a.mp3", sound=""):
+            self.assertFalse(ws._upnp_title().endswith(")"), "music plays: nothing to say")
+        with status(mode="music", paused=True, current_track_path="/m/a.mp3", sound=""):
             self.assertTrue(ws._upnp_title().endswith("(paused)"), ws._upnp_title())
-        with unittest.mock.patch.object(ws, "control",
-                                        return_value={"ok": True, "data": {"mode": "stopped"}}):
+        with status(mode="music", paused=False, current_track_path=None, sound=""):
             self.assertTrue(ws._upnp_title().endswith("(idle)"), ws._upnp_title())
+        with status(mode="stopped", paused=False, current_track_path="/m/a.mp3", sound=""):
+            self.assertTrue(ws._upnp_title().endswith("(idle)"),
+                            "a remembered track is not a track playing: " + ws._upnp_title())
+        with status(mode="idle", paused=False, current_track_path=None, sound="/m/jingle.wav"):
+            self.assertFalse(ws._upnp_title().endswith(")"),
+                             "an announcement is heard, whatever the mode")
         with unittest.mock.patch.object(ws, "control",
-                                        return_value={"ok": True, "data": {"mode": "music"}}):
-            self.assertFalse(ws._upnp_title().endswith(")"))
+                                        return_value={"ok": False,
+                                                      "error": "daemon_unreachable"}):
+            self.assertFalse(ws._upnp_title().endswith(")"), "no daemon, no excuse")
 
     def test_saving_the_setting_starts_and_stops_the_listener(self):
         """A save is enough: nothing has to be restarted for a switch that is

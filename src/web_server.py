@@ -303,9 +303,9 @@ _PRE_LOGIN_PATHS = frozenset({"/api/portal/status"})
 # --------------------------------------------------------------------------
 
 UPNP_SERVICES = {name: upnp.service_of(name) for name, _type, _id in upnp.SERVICES}
-# The daemon has nothing to send in these: a player meeting a silent stream has
-# no way of knowing it is the radio's own state, so the item says it.
-NOTHING_PLAYING_MODES = ("idle", "stopped")
+# The two modes in which nothing plays by itself: an announcement can still be
+# heard in them, which is why the item's own name looks at that too.
+UPNP_QUIET_MODES = ("idle", "stopped")
 
 
 def _stream_available():
@@ -314,7 +314,12 @@ def _stream_available():
 
 
 def _upnp_title():
-    """What the item is called: the radio's name, and why it is quiet."""
+    """What the item is called: the radio's name, and why it is quiet.
+
+    What puts sound in the stream is a loaded track in a playing mode, or an
+    announcement - nothing else. The daemon reports "music" and not paused with
+    no track at all on a Pi whose speaker is away, which is the state the owner
+    heard nothing in."""
     state = ""
     try:
         result = control("get_status")
@@ -322,9 +327,12 @@ def _upnp_title():
         result = {}
     if result.get("ok"):
         data = result.get("data") or {}
+        playing = bool(data.get("sound")) or (
+            bool(data.get("current_track_path"))
+            and str(data.get("mode") or "") not in UPNP_QUIET_MODES)
         if data.get("paused"):
             state = "paused"
-        elif str(data.get("mode") or "") in NOTHING_PLAYING_MODES:
+        elif not playing:
             state = "idle"
     return upnp.device_name() + (" (%s)" % state if state else "")
 
