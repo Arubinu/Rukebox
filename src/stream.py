@@ -341,6 +341,7 @@ class StreamServer:
         self._header_read = False
         self._unaligned = {}
         self._awaiting = set()
+        self._generation = 0
         self._started_at = 0.0
         self._last_chunk_at = None
 
@@ -373,6 +374,7 @@ class StreamServer:
             self.header = b""
             self._unparsed = b""
             self._header_read = False
+            self._generation += 1
             self._started_at = time.monotonic()
             self._last_chunk_at = None
             try:
@@ -384,7 +386,8 @@ class StreamServer:
                 self.last_error = str(error)
                 self._process = None
                 return False
-            self._thread = threading.Thread(target=self._pump, args=(process,),
+            self._thread = threading.Thread(target=self._pump,
+                                            args=(process, self._generation),
                                             name="stream-encode", daemon=True)
             self._thread.start()
         log.info("Network stream started: %s -> %s", self.source, self.encoder)
@@ -401,6 +404,9 @@ class StreamServer:
         encoder for the first listener makes the stream begin at zero."""
         with self._lock:
             process, self._process = self._process, None
+            # Whatever the process before still has buffered is stale from here
+            # on, and must not reach the listeners nor the header capture.
+            self._generation += 1
             self.header = b""
             self._unparsed = b""
             self._header_read = False
@@ -439,6 +445,7 @@ class StreamServer:
         self._stopping = True
         with self._lock:
             process, self._process = self._process, None
+            self._generation += 1
             listeners, self._listeners = self._listeners, []
             self._awaiting.clear()
         for box in listeners:
@@ -461,13 +468,19 @@ class StreamServer:
     def encoder_stderr(self):
         return _stderr_of(self._process)
 
-    def _pump(self, process):
+    def _pump(self, process, generation):
         """Reads ffmpeg's output and gives it to every listener."""
         if process.stdout is None:
             return
         while True:
             chunk = process.stdout.read(CHUNK_BYTES)
             if not chunk:
+                break
+            if generation != self._generation:
+                # This encoder was replaced. What it still had buffered belongs
+                # to the stream before: mixed into the new one it would corrupt
+                # it, and captured as its beginning it would leave the stream
+                # with no headers at all.
                 break
             self._broadcast(chunk)
         with self._lock:

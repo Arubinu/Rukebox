@@ -174,6 +174,13 @@ class FakeProcess:
         self.eof()
 
 
+class LingeringProcess(FakeProcess):
+    """An ffmpeg that was terminated while its pipe still held what it wrote."""
+
+    def terminate(self):
+        self._done = True
+
+
 def build_server():
     with mock.patch.object(stream, "encoders_available", return_value=["opus"]):
         return stream.build({"STREAM_ENABLED": True, "STREAM_SOURCE": "s.monitor"},
@@ -551,6 +558,32 @@ class FreshStartTest(unittest.TestCase):
         box = server.listen()
         self.assertEqual(box.get_nowait(), self.headers(),
                          "the headers it was already keeping")
+
+    def test_the_encoder_before_a_restart_cannot_poison_the_new_headers(self):
+        """What a terminated encoder still had buffered starts mid-page.
+        Captured as the new stream's beginning it fixes that beginning as
+        "nothing at all", and every listener that follows is handed live bytes
+        with no headers - undecodable, which is what "no sound in VLC" was."""
+        server = build_server()
+        old = LingeringProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=old):
+            self.assertTrue(server.start())
+        server.listen()
+        process = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=process):
+            self.assertTrue(server.restart())
+        old.feed(b"the tail of a page from the encoder before")
+        old.eof()
+        time.sleep(0.1)
+        self.assertEqual(server.header, b"", "nothing captured from the encoder before")
+        self.assertFalse(server._header_read)
+        process.feed(self.headers())
+        process.feed(ogg_page(granule=960, payload=b"audio"))
+        self.assertTrue(self.wait_for(lambda: server.header == self.headers()),
+                        "and the new stream's own headers are captured after it")
+        old.stdout.close()
+        process.eof()
+        process.stdout.close()
 
     def test_a_restart_does_not_end_the_listeners(self):
         """Being dropped is what a player reads as the end of the stream: it
