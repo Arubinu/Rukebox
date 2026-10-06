@@ -570,6 +570,20 @@ class FreshStartTest(unittest.TestCase):
             time.sleep(0.01)
         return False
 
+    def collected(self, box, length, timeout=2.0):
+        """What a listener got, however the encoder's writes were chunked."""
+        got = b""
+        deadline = time.monotonic() + timeout
+        while len(got) < length and time.monotonic() < deadline:
+            try:
+                chunk = box.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if chunk is None:
+                break
+            got += chunk
+        return got
+
     def test_an_old_encoder_is_replaced_for_the_first_listener(self):
         server = build_server()
         server._broadcast(self.headers(b"old"))
@@ -578,14 +592,11 @@ class FreshStartTest(unittest.TestCase):
         with mock.patch.object(stream.subprocess, "Popen", return_value=process):
             box = server.listen()
             self.assertFalse(server.worth_restarting(), "the new one is young")
-        process.feed(self.headers(b"new"))
-        # The headers are only known once a page with a granule follows them.
-        process.feed(ogg_page(granule=960, payload=b"audio"))
-        self.assertTrue(self.wait_for(lambda: server.header == self.headers(b"new")))
-        process.feed(ogg_page(granule=1920, payload=b"audio"))
-        self.assertEqual(box.get(timeout=2), self.headers(b"new"),
-                         "the new stream's own beginning, never the old one")
-        self.assertEqual(box.get(timeout=2), ogg_page(granule=1920, payload=b"audio"))
+        fed = (self.headers(b"new") + ogg_page(granule=960, payload=b"audio")
+               + ogg_page(granule=1920, payload=b"audio"))
+        process.feed(fed)
+        self.assertEqual(self.collected(box, len(fed)), fed,
+                         "the new stream from its own first byte, never the old one")
         process.eof()
         process.stdout.close()
 
@@ -628,23 +639,44 @@ class FreshStartTest(unittest.TestCase):
         """Being dropped is what a player reads as the end of the stream: it
         stops, and the radio stays silent until it is opened again by hand."""
         server = build_server()
-        old = FakeProcess()
+        old = LingeringProcess()
         with mock.patch.object(stream.subprocess, "Popen", return_value=old):
             self.assertTrue(server.start())
         box = server.listen()
         process = FakeProcess()
         with mock.patch.object(stream.subprocess, "Popen", return_value=process):
             self.assertTrue(server.restart())
+        old.feed(b"the tail of a page from the encoder before")
         old.eof()
         time.sleep(0.1)
         self.assertTrue(box.empty(),
-                        "the old encoder's death is not the stream's end")
-        process.feed(self.headers())
-        process.feed(ogg_page(granule=960, payload=b"audio"))
-        self.assertTrue(self.wait_for(lambda: server.header))
-        process.feed(ogg_page(granule=1920, payload=b"audio"))
-        self.assertEqual(box.get(timeout=2), self.headers())
-        self.assertEqual(box.get(timeout=2), ogg_page(granule=1920, payload=b"audio"))
+                        "the old encoder's death is not the stream's end, and "
+                        "what it still held is not handed on either")
+        fed = self.headers() + ogg_page(granule=960, payload=b"audio")
+        process.feed(fed)
+        self.assertEqual(self.collected(box, len(fed)), fed)
+        old.stdout.close()
+        process.eof()
+        process.stdout.close()
+
+    def test_a_quiet_radio_still_answers_a_listener_that_joins(self):
+        """An encoder on a silent sink writes its headers and nothing else.
+        Withholding the stream until a page with a granule shows up would leave
+        the player's response unstarted - the stream it is owed is those very
+        headers."""
+        server = build_server()
+        old = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=old):
+            server.start()
+        headers = self.headers()
+        old.feed(headers)
+        time.sleep(0.1)
+        process = FakeProcess()
+        with mock.patch.object(stream.subprocess, "Popen", return_value=process):
+            server.restart()
+        box = server.listen()
+        process.feed(headers)
+        self.assertEqual(self.collected(box, len(headers)), headers)
         old.stdout.close()
         process.eof()
         process.stdout.close()

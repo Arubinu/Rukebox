@@ -351,6 +351,7 @@ class StreamServer:
         self._header_read = False
         self._unaligned = {}
         self._awaiting = set()
+        self._awaiting_gen = None
         self._generation = 0
         self._started_at = 0.0
         self._last_chunk_at = None
@@ -407,6 +408,9 @@ class StreamServer:
             self._unparsed = b""
             self._header_read = False
             self._generation += 1
+            # Whoever was kept over a replacement is now waiting for THIS
+            # encoder's own beginning (see restart()).
+            self._awaiting_gen = self._generation
             self._started_at = time.monotonic()
             self._last_chunk_at = None
             try:
@@ -438,11 +442,12 @@ class StreamServer:
             process, self._process = self._process, None
             # Whatever the process before still has buffered is stale from here
             # on, and must not reach the listeners nor the header capture.
-            self._generation += 1
             self.header = b""
             self._unparsed = b""
             self._header_read = False
-            self._awaiting.update(self._listeners)
+            # The listeners are kept, and hold until the new encoder writes its
+            # first bytes: those bytes ARE the new stream's beginning.
+            self._awaiting = set(self._listeners)
         if process is not None and process.poll() is None:
             try:
                 process.terminate()
@@ -479,7 +484,7 @@ class StreamServer:
             process, self._process = self._process, None
             self._generation += 1
             listeners, self._listeners = self._listeners, []
-            self._awaiting.clear()
+            self._awaiting, self._awaiting_gen = set(), None
         for box in listeners:
             box.put_nowait(None)
         if process is not None and process.poll() is None:
@@ -508,13 +513,14 @@ class StreamServer:
             chunk = process.stdout.read(CHUNK_BYTES)
             if not chunk:
                 break
-            if generation != self._generation:
-                # This encoder was replaced. What it still had buffered belongs
-                # to the stream before: mixed into the new one it would corrupt
-                # it, and captured as its beginning it would leave the stream
-                # with no headers at all.
-                break
-            self._broadcast(chunk)
+            with self._lock:
+                if self._process is not process:
+                    # This encoder was replaced. What it still had buffered
+                    # belongs to the stream before: mixed into the new one it
+                    # would corrupt it, and captured as its beginning it would
+                    # leave the stream with no headers at all.
+                    break
+            self._broadcast(chunk, generation)
         with self._lock:
             mine = self._process is process
             if mine:
@@ -546,11 +552,17 @@ class StreamServer:
         time.sleep(RESTART_DELAY_SEC)
         self.start()
 
-    def _broadcast(self, chunk):
+    def _broadcast(self, chunk, generation=None):
         with self._lock:
-            # Read before the hand-off below: a listener given the new headers
-            # by this very chunk must not also be given the bytes they end in.
-            awaiting = set(self._awaiting)
+            generation = self._generation if generation is None else generation
+            if generation == self._awaiting_gen:
+                # The replacement's own beginning: from this byte on it is an
+                # ordinary stream for them - it IS the stream's first byte, so
+                # there is nothing to replay and nothing to realign.
+                self._awaiting, self._awaiting_gen = set(), None
+            # Read before the hand-off above would matter: a listener given the
+            # new stream by this very chunk keeps it whole.
+            holding = set(self._awaiting)
         if chunk:
             with self._lock:
                 self._last_chunk_at = time.monotonic()
@@ -558,7 +570,7 @@ class StreamServer:
         with self._lock:
             listeners = list(self._listeners)
         for box in listeners:
-            if box in awaiting:
+            if box in holding:
                 continue
             data = chunk
             if chunk and box in self._unaligned:
@@ -598,26 +610,6 @@ class StreamServer:
         self.header = self._unparsed if length is None else self._unparsed[:length]
         self._header_read = True
         self._unparsed = b""
-        self._give_headers_to_waiting()
-
-    def _give_headers_to_waiting(self):
-        """Hands a replaced encoder's own beginning to the listeners kept over
-        the change: an Ogg stream cannot be read without it, so they would hear
-        nothing at all rather than the rest of the radio."""
-        with self._lock:
-            waiting = list(self._awaiting)
-            self._awaiting.clear()
-            header = self.header
-        for box in waiting:
-            if not header:
-                continue
-            try:
-                box.put_nowait(header)
-            except queue.Full:
-                continue
-            with self._lock:
-                if box in self._listeners:
-                    self._unaligned[box] = b""
 
     def listen(self):
         """One listener: a queue of bytes, ending with None when the encoder
