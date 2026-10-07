@@ -77,6 +77,14 @@ test("a card the machine cannot honour leaves the area's menu", async (t) => {
     assert.ok(tile, wanted + " is a page of the network area");
     assert.equal(tile.hidden, true, wanted + " is not offered");
   }
+  // The Clock page is one value to set, and a container can set neither the
+  // time nor its zone: there is nothing left on it to offer. The card itself
+  // is hidden by the stylesheet (tests/test_repo.py checks the rule exists).
+  const clock = tilesOf(page.document, "system").find((entry) => entry.page === "clock");
+  assert.ok(clock, "the clock is a page of the system area");
+  assert.equal(clock.hidden, true, "the clock page goes with the rest");
+  assert.equal(page.document.querySelector('.card[data-page="clock"]').dataset.needs,
+               "set_clock", "the card asks for what the page needs");
   await page.close();
 });
 

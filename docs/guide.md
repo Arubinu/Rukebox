@@ -494,6 +494,14 @@ Two consequences worth knowing before you look for a card:
 - **"Update"** cannot replace the tree in place: the image is the unit of
   update. The card shows the one line to run (`docker compose pull`), and
   `UPDATE_DOCKER_IMAGE` is the image it names.
+- **The clock is the machine's, and so is its timezone.** A container can
+  neither set the time nor change the zone, so **the Clock card is not offered
+  at all** there: its whole page is "set the clock", and a card with nothing to
+  do is not a page. The time is the host's; the **zone** is the one `TZ` names
+  in the compose file, and without it everything happens in **UTC** - a
+  schedule set for 07:00 fires at 07:00 UTC, two hours late in Paris in summer.
+  Which zone the radio is running on is in **System health**, next to the
+  uptime.
 
 ## Running in an LXC container (Proxmox, or any host with lxc)
 
@@ -531,6 +539,12 @@ PipeWire drop-in that does it.
 **Bluetooth** works through the host's BlueZ, from inside the container, if
 the host's D-Bus socket is passed to it. Without that, pair the speaker on
 the host.
+
+**The timezone is the container's own**, and a Proxmox template is on UTC:
+`pct set <id> --timezone Europe/Paris` (or your own zone) before the schedules
+matter. The clock itself is the host's, and a container cannot set it, so the
+Clock card is not offered there either - the zone in use is in **System
+health**.
 
 ### The Proxmox helper scripts
 

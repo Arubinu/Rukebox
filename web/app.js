@@ -1285,7 +1285,7 @@ function renderClockSync() {
   row.dataset.state = off ? "warn" : "ok";
 
   document.getElementById("btnUseDeviceTime").classList.toggle("btn-primary", off);
-  row.hidden = !canDo("set_clock");
+  row.hidden = false;
 }
 window.LANG_CHANGE_LISTENERS.push(renderClockSync);
 
@@ -8737,7 +8737,10 @@ async function refreshSetup() {
   const items = (result.data.items || []).filter((id) => SETUP_TARGETS[id]);
   setupHidden = result.data.hidden || [];
   document.getElementById("setupList").replaceChildren(...items.map((id) => {
-    const [tab, titleId, icon] = SETUP_TARGETS[id];
+    // Where the clock cannot be set (a container), the zone is read in the
+    // health card: the Clock page is not offered there at all.
+    const [tab, titleId, icon] = id === "timezone" && !canDo("set_clock")
+      ? ["system", "healthTitle", "chip"] : SETUP_TARGETS[id];
     const li = document.createElement("li");
     li.dataset.icon = icon;
     const text = document.createElement("span");
@@ -9370,6 +9373,7 @@ function renderHealthInfo(info) {
   const rows = [];
   const add = (key, value, level) => { if (value !== null && value !== undefined && value !== "") rows.push([key, value, level]); };
   add("health.uptime", info.uptime != null ? formatUptime(info.uptime) : null);
+  add("clock.timezone", info.timezone || null);
   add("health.temperature", info.temperature != null ? info.temperature.toLocaleString() + " \u00b0C" : null,
       info.temperature >= 75 ? "warn" : null);
   if (info.memory) {

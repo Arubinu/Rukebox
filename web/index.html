@@ -1797,15 +1797,15 @@
           </p>
         </section>
 
-        <section class="card" data-page="clock" data-tab="system" aria-labelledby="clockTitle">
+        <section class="card" data-page="clock" data-tab="system" data-needs="set_clock" aria-labelledby="clockTitle">
           <h2 data-icon="clock" id="clockTitle"><span data-i18n="clock.title">Clock</span></h2>
           <div class="clock-status" id="clockStatus" role="status">—</div>
-          <div class="clock-sync" id="clockSync" data-needs="set_clock" hidden>
+          <div class="clock-sync" id="clockSync" hidden>
             <span class="clock-sync-text" id="clockSyncText"></span>
             <button type="button" class="btn" id="btnUseDeviceTime" data-icon="clock" data-i18n="clock.sync_btn">Set to this device's time</button>
           </div>
 
-          <p class="hint help-text" data-i18n="clock.device_time_hint" data-needs="set_clock" hidden>
+          <p class="hint help-text" data-i18n="clock.device_time_hint" hidden>
             One tap, nothing to pair: this page sends the clock of the device
             you are reading it on.
           </p>
@@ -1819,7 +1819,7 @@
             </form>
           </details>
 
-          <details class="subsection" id="tzSection" data-needs="set_clock">
+          <details class="subsection" id="tzSection">
             <summary><span data-i18n="clock.timezone">Timezone</span></summary>
             <div class="field-row">
               <label for="tzSelect" class="label-wide-only" data-i18n="clock.timezone">Timezone</label>

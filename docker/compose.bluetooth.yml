@@ -20,6 +20,10 @@ services:
     container_name: rukebox
     restart: unless-stopped
     network_mode: host
+    environment:
+      # The schedules fire on local time, and a container is on UTC without
+      # this: put your own zone here (the host's, on a machine that has one).
+      TZ: ${TZ:-Europe/Paris}
     volumes:
       - /var/run/dbus:/var/run/dbus
       - /run/dbus:/run/dbus

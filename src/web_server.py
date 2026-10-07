@@ -5248,6 +5248,9 @@ def api_system_info():
     load = _read_first("/proc/loadavg")
     data["load"] = [float(x) for x in load.split()[:3]] if load else None
     data["storage"] = _storages()
+    # Where the Clock page is not offered (a container cannot set its clock),
+    # this is the one place the zone it runs on is readable.
+    data["timezone"] = _timezone_name()
     data["model"] = (_read_first("/proc/device-tree/model") or "").strip("\x00 \n") or None
     data["usb_port_mode"] = cfg().get("USB_PORT_MODE", "gadget")
     data["usb_devices"] = _usb_devices()
@@ -5601,7 +5604,9 @@ def api_setup_pending():
     has_rtc = os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc")
     bt_mac = str(c.get("BT_CLOCK_MAC") or "")
     bt_clock = bool(c.get("BT_CLOCK_ENABLED")) and re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", bt_mac)
-    if not has_rtc and not bt_clock:
+    if platform_mod.has("set_clock") and not has_rtc and not bt_clock:
+        # A container cannot set its clock and does not need to: it is the
+        # host's, and the host keeps it. Nothing to finish there.
         pending.append("clock")
     if _timezone_name() in ("", "n/a", "Factory"):
         pending.append("timezone")

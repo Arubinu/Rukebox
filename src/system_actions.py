@@ -287,7 +287,10 @@ def timezone_name():
         with open("/etc/timezone", "r", encoding="utf-8") as handle:
             return handle.read().strip()
     except OSError:
-        return ""
+        pass
+    # A container has neither timedatectl nor /etc/timezone: its zone is the
+    # one TZ names, and that is what its clock and its schedules run on.
+    return os.environ.get("TZ", "").strip()
 
 
 def set_timezone(name):

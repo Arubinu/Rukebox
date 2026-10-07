@@ -17,6 +17,9 @@ services:
     ports:
       - "8080:80"
     environment:
+      # The schedules fire on local time, and a container is on UTC without
+      # this: put your own zone here (the host's, on a machine that has one).
+      TZ: ${TZ:-Europe/Paris}
       PIPEWIRE_RUNTIME_DIR: /run/rukebox
       PULSE_SERVER: unix:/run/rukebox/pulse/native
     volumes:

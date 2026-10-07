@@ -245,6 +245,31 @@ class FilesTest(unittest.TestCase):
             self.assertEqual(re.findall(pattern, _path.read("bootstrap", name)), wanted, name)
 
 
+class PlatformCardsTest(unittest.TestCase):
+    """A card hidden by a capability needs its CSS rule.
+
+    The stylesheet cannot compare two attributes, so one rule per capability is
+    what hides a card the machine cannot honour; the menu entry goes through
+    pageIsAvailable() instead. A card whose capability has no rule is a page
+    that is offered and then refuses - what the Clock card did on a container.
+    """
+
+    def test_every_capability_a_card_asks_for_has_its_rule(self):
+        html = _path.read("web", "index.html")
+        css = _path.read("web", "style.css")
+        needs = set()
+        for tag in re.findall(r"<[^>]*>", html):
+            if 'class="card' not in tag:
+                continue
+            found = re.search(r'data-needs="([^"]+)"', tag)
+            if found:
+                needs.update(found.group(1).split())
+        self.assertTrue(needs, "the cards ask for capabilities")
+        for name in sorted(needs):
+            rule = 'body:not([data-caps~="%s"]) .card[data-needs~="%s"]' % (name, name)
+            self.assertIn(rule, css, "%s needs a rule to hide its card" % name)
+
+
 class GuestPathsTest(unittest.TestCase):
     def test_the_two_guest_lists_agree(self):
         # A path the server allows and app.js forgets is a button that does nothing.
