@@ -587,9 +587,14 @@ SETTINGS = [
             "Spoken cutoff warning (min)"),
     Setting("SPEECH_LANGUAGE", "schedule", "speech_language", "str", "en",
             "Language of what the radio says out loud (the time, the date, the\n"
-            "cutoff warning): en, fr, de, es, it or nl. Needs pico2wave or\n"
+            "cutoff warning): en, fr, de, es, it or nl. Needs pico2wave, piper or\n"
             "espeak-ng (installed with the radio).",
             "Spoken language"),
+    Setting("PIPER_VOICE", "schedule", "piper_voice", "str", "",
+            "The natural-sounding voice to say things with, when its model is\n"
+            "installed: a Piper voice name (scripts/install_piper.sh fetches the\n"
+            "program and one). Empty uses pico2wave or espeak-ng instead.",
+            "Spoken voice (Piper)"),
 
     Setting("DJ_ANNOUNCE_EVERY", "schedule", "dj_announce_every", "int", "0",
             "Like a radio host: every N songs, the next one is introduced out\n"

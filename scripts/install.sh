@@ -351,6 +351,26 @@ if [ ! -d /opt/fliclib-linux-hci ]; then
     /usr/local/sbin/rukebox-flic-sdk || echo "   Flic SDK not downloaded (no Internet?) - possible later from the web interface."
 fi
 
+echo "== Installing the voice helper =="
+install -m 755 -o root -g root "$PROJECT_ROOT/scripts/install_piper.sh" /usr/local/sbin/rukebox-piper
+echo "Piper is the natural voice: what the radio says out loud stops sounding"
+echo "like a machine. It costs about 90 MB (the program and one voice) and, on a"
+echo "Pi Zero 2 W, a few seconds per sentence - instant on a faster machine."
+if [ -n "${RUKEBOX_PIPER:-}" ]; then
+    PIPER="$RUKEBOX_PIPER"
+elif [ -t 0 ]; then
+    read -rp "Install it now? (y/N) " answer
+    if [[ "$answer" =~ ^[yY] ]]; then PIPER="yes"; else PIPER="no"; fi
+else
+    PIPER="no"
+fi
+if [ "$PIPER" = "yes" ]; then
+    /usr/local/sbin/rukebox-piper \
+        || echo "   Piper not installed (no Internet?) - run 'sudo rukebox-piper' later."
+else
+    echo "Skipped. To add it at any time:  sudo rukebox-piper"
+fi
+
 echo "== Adding $RUN_USER to the bluetooth group (for bluetoothctl without sudo) =="
 getent group bluetooth > /dev/null 2>&1 && usermod -aG bluetooth "$RUN_USER" || true
 

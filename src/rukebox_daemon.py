@@ -2307,7 +2307,8 @@ class RadioDaemon:
             log.warning("Cannot prepare %s", folder, exc_info=True)
         name = "".join(c for c in text if c not in "/\\").strip()[:120] + ".wav"
         path = os.path.join(folder, name)
-        return path if speech.render(text, self.cfg.get("SPEECH_LANGUAGE"), path) else None
+        return path if speech.render(text, self.cfg.get("SPEECH_LANGUAGE"), path,
+                                     self.cfg.get("PIPER_VOICE")) else None
 
     def _speak(self, kind, source, minutes=None):
         """Says the time (or the coming cutoff): the song pauses and comes back

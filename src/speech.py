@@ -1,12 +1,16 @@
 """Spoken sentences (the time, the date, the coming cutoff), rendered offline.
 
-pico2wave (libttspico-utils) has the better voice but no Dutch; espeak-ng
-covers every language, robotic but always there."""
+Piper sounds human and needs a model of its own; pico2wave is the better of the
+two lightweights but has no Dutch; espeak-ng covers every language, robotic but
+always there. Whatever is installed is used, in that order."""
 
+import hashlib
 import logging
 import os
 import shutil
 import subprocess
+
+import paths
 
 log = logging.getLogger("speech")
 
@@ -14,6 +18,30 @@ LANGUAGES = ("en", "fr", "de", "es", "it", "nl")
 KINDS = ("none", "time", "time_date")
 PICO_VOICES = {"en": "en-GB", "fr": "fr-FR", "de": "de-DE", "es": "es-ES", "it": "it-IT"}
 RENDER_TIMEOUT_SEC = 20
+# Piper is a neural network: it is slower than real time on a Pi Zero 2 W
+# (measured: 5.7s of work for 3.2s of speech, plus 3.5-4.4s to load the model).
+PIPER_TIMEOUT_SEC = 120
+# The natural voice each language gets. All of them are the "medium" quality:
+# the small ones are barely faster on a Pi (the model load dominates) and they
+# are missing phonemes French needs.
+PIPER_VOICES = {
+    "en": "en_US-lessac-medium",
+    "fr": "fr_FR-siwis-medium",
+    "de": "de_DE-thorsten-medium",
+    "es": "es_ES-davefx-medium",
+    "it": "it_IT-paola-medium",
+    "nl": "nl_NL-alex-medium",
+}
+# Where the program and its models live: the state root, not the install root,
+# because an update replaces the latter and a 63 MB model is not a file to
+# download again.
+PIPER_DIR_NAME = "piper"
+PIPER_BINARY = "piper"
+# Loading a model costs seconds, and the same sentence comes back every day
+# ("Il est 7 heures."): what has been said once is kept, keyed by engine, so a
+# machine that gains a better voice does not replay the old one.
+CACHE_DIR_NAME = "speech-cache"
+CACHE_KEEP = 200
 
 WEEKDAYS = {
     "en": ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
@@ -168,29 +196,119 @@ def sentence(kind, when, lang, minutes=None):
 
 def engines():
     """The speech programs installed here."""
-    return [name for name in ("pico2wave", "espeak-ng") if shutil.which(name)]
+    return [name for name in ("piper", "pico2wave", "espeak-ng") if shutil.which(name)]
 
 
-def render(text, lang, path):
-    """Writes `text` spoken to the WAV `path`; True when it was."""
+def default_voice(value):
+    """The Piper voice a language gets, or "" for one there is none for."""
+    return PIPER_VOICES.get(language(value), "")
+
+
+def piper_folder():
+    return os.path.join(paths.state_dir(), PIPER_DIR_NAME)
+
+
+def piper_files(voice):
+    """(program, model, its configuration) for one voice."""
+    folder = piper_folder()
+    return (os.path.join(folder, PIPER_BINARY),
+            os.path.join(folder, voice + ".onnx"),
+            os.path.join(folder, voice + ".onnx.json"))
+
+
+def piper_ready(voice):
+    """Whether that voice can be spoken here: the program AND its model."""
+    if not voice:
+        return False
+    binary, model, config = piper_files(voice)
+    return os.access(binary, os.X_OK) and os.path.exists(model) and os.path.exists(config)
+
+
+def engine(lang, choice=None):
+    """Which program says a sentence here, as a name - the cache is keyed by it."""
+    voice = (choice or "").strip() or default_voice(lang)
+    if piper_ready(voice):
+        return "piper:" + voice
+    if lang in PICO_VOICES and shutil.which("pico2wave"):
+        return "pico2wave"
+    if shutil.which("espeak-ng"):
+        return "espeak-ng"
+    return ""
+
+
+def _cache_path(text, lang, choice):
+    name = hashlib.sha1(
+        ("%s\0%s\0%s" % (engine(lang, choice), lang, text)).encode("utf-8")
+    ).hexdigest()
+    return os.path.join(paths.state_dir(), CACHE_DIR_NAME, name + ".wav")
+
+
+def _from_cache(text, lang, choice, path):
+    source = _cache_path(text, lang, choice)
+    if not os.path.exists(source):
+        return False
+    try:
+        shutil.copyfile(source, path)
+    except OSError:
+        log.debug("Could not reuse the spoken sentence", exc_info=True)
+        return False
+    return os.path.getsize(path) > 44
+
+
+def _remember(text, lang, choice, path):
+    """Keeps a copy of what was just said, and drops the oldest when it grows."""
+    target = _cache_path(text, lang, choice)
+    try:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        shutil.copyfile(path, target)
+        folder = os.path.dirname(target)
+        entries = [os.path.join(folder, n) for n in os.listdir(folder)]
+        if len(entries) > CACHE_KEEP:
+            entries.sort(key=os.path.getmtime)
+            for old in entries[:len(entries) - CACHE_KEEP]:
+                os.remove(old)
+    except OSError:
+        log.debug("Could not keep the spoken sentence", exc_info=True)
+
+
+def render(text, lang, path, choice=None):
+    """Writes `text` spoken to the WAV `path`; True when it was.
+
+    `choice` is the Piper voice asked for in the settings, empty for the
+    language's own - and a machine without Piper just says it another way."""
     lang = language(lang)
     if not text:
         return False
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    if _from_cache(text, lang, choice, path):
+        return True
+    stdin = text.encode("utf-8")
     commands = []
+    voice = (choice or "").strip() or default_voice(lang)
+    if piper_ready(voice):
+        binary, model, config = piper_files(voice)
+        common = ["--model", model, "--config", config]
+        # 2023.11 writes with --output_file; piper 1.2 and later with -f.
+        commands.append(([binary] + common + ["--output_file", path], PIPER_TIMEOUT_SEC, stdin))
+        commands.append(([binary] + common + ["-f", path], PIPER_TIMEOUT_SEC, stdin))
     if lang in PICO_VOICES and shutil.which("pico2wave"):
-        commands.append(["pico2wave", "-l", PICO_VOICES[lang], "-w", path, text])
+        commands.append((["pico2wave", "-l", PICO_VOICES[lang], "-w", path, text],
+                         RENDER_TIMEOUT_SEC, None))
     if shutil.which("espeak-ng"):
-        commands.append(["espeak-ng", "-v", lang, "-w", path, text])
-    for command in commands:
+        commands.append((["espeak-ng", "-v", lang, "-w", path, text], RENDER_TIMEOUT_SEC, None))
+    for command, timeout, input_bytes in commands:
         try:
-            done = subprocess.run(command, capture_output=True, timeout=RENDER_TIMEOUT_SEC)
+            done = subprocess.run(command, capture_output=True, timeout=timeout, input=input_bytes)
         except (OSError, subprocess.TimeoutExpired):
             log.warning("%s did not answer", command[0])
             continue
         if done.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 44:
+            # Only the best program's own voice is kept: a sentence said by a
+            # fallback is said again, so a repaired voice is heard at once.
+            if commands and command[0] == commands[0][0][0]:
+                _remember(text, lang, choice, path)
             return True
         log.warning("%s failed: %s", command[0], done.stderr.decode(errors="replace").strip()[:200])
     if not commands:
-        log.warning("No speech program installed (pico2wave or espeak-ng)")
+        log.warning("No speech program installed (piper, pico2wave or espeak-ng)")
     return False

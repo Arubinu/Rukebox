@@ -43,35 +43,91 @@ class SentenceTest(unittest.TestCase):
 
 
 class RenderTest(unittest.TestCase):
-    def run_with(self, installed, lang, fails=()):
+    def setUp(self):
+        import shutil as shutil_mod
+        import tempfile
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil_mod.rmtree, self.dir, ignore_errors=True)
+        # What has been said once is kept under the state root: a test's own, so
+        # a sentence another test cached is never found here.
+        state = mock.patch.object(speech.paths, "state_dir", lambda: self.dir)
+        state.start()
+        self.addCleanup(state.stop)
+
+    def install_piper(self):
+        """Piper's program and the French model, where the project looks."""
+        voice = speech.default_voice("fr")
+        binary, model, config = speech.piper_files(voice)
+        os.makedirs(os.path.dirname(binary), exist_ok=True)
+        for path in (binary, model, config):
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("x")
+        os.chmod(binary, 0o755)
+        return voice
+
+    def run_with(self, installed, lang, fails=(), text="Il est 7 heures.", voice=None):
         calls = []
+
+        def written_path(command):
+            for flag in ("-w", "--output_file", "-f"):
+                if flag in command:
+                    return command[command.index(flag) + 1]
+            return None
 
         def run(command, **kwargs):
             calls.append(command[0])
             ok = command[0] not in fails
-            if ok:
-                with open(command[command.index("-w") + 1], "wb") as f:
-                    f.write(b"\0" * 100)
+            if ok and written_path(command):
+                with open(written_path(command), "wb") as handle:
+                    handle.write(b"\0" * 100)
             return mock.Mock(returncode=0 if ok else 1, stderr=b"")
 
         path = os.path.join(self.dir, "out.wav")
-        with mock.patch.object(speech.shutil, "which", lambda name: name if name in installed else None), \
+        with mock.patch.object(speech.shutil, "which",
+                               lambda name: name if name in installed else None), \
                 mock.patch.object(speech.subprocess, "run", run):
-            done = speech.render("Il est 7 heures.", lang, path)
+            done = speech.render(text, lang, path, voice)
         return done, calls
-
-    def setUp(self):
-        import tempfile
-        self.dir = tempfile.mkdtemp()
 
     def test_pico_first_espeak_for_dutch(self):
         self.assertEqual(self.run_with({"pico2wave", "espeak-ng"}, "fr"), (True, ["pico2wave"]))
-        self.assertEqual(self.run_with({"pico2wave", "espeak-ng"}, "nl"), (True, ["espeak-ng"]))
+        self.assertEqual(self.run_with({"pico2wave", "espeak-ng"}, "nl", text="Het is 7 uur."),
+                         (True, ["espeak-ng"]))
 
     def test_a_failure_falls_back_and_nothing_installed_says_no(self):
         self.assertEqual(self.run_with({"pico2wave", "espeak-ng"}, "fr", fails={"pico2wave"}),
                          (True, ["pico2wave", "espeak-ng"]))
-        self.assertEqual(self.run_with(set(), "fr"), (False, []))
+        self.assertEqual(self.run_with(set(), "fr", text="Rien du tout."), (False, []))
+
+    def test_piper_speaks_first_when_its_model_is_there(self):
+        voice = self.install_piper()
+        done, calls = self.run_with({"piper", "pico2wave", "espeak-ng"}, "fr")
+        self.assertTrue(done)
+        self.assertEqual(calls, [speech.piper_files(voice)[0]],
+                         "the natural voice, and not the light ones")
+
+    def test_a_sentence_already_said_is_not_said_again(self):
+        """Loading a model costs 3.5-4.4s on a Pi Zero 2 W, and the same
+        sentence comes back every day at the same hour."""
+        voice = self.install_piper()
+        self.assertEqual(self.run_with({"piper"}, "fr"),
+                         (True, [speech.piper_files(voice)[0]]))
+        self.assertEqual(self.run_with({"piper"}, "fr"), (True, []),
+                         "what was said once is reused")
+
+    def test_the_kept_sentence_belongs_to_the_voice_and_the_language(self):
+        voice = self.install_piper()
+        said = speech._cache_path("Il est 7 heures.", "fr", None)
+        self.assertIn(voice, speech.engine("fr") or "", "the cache is keyed by the voice")
+        self.assertNotEqual(said, speech._cache_path("Il est 7 heures.", "nl", None))
+        self.assertNotEqual(said, speech._cache_path("Il est 8 heures.", "fr", None))
+
+    def test_every_spoken_language_has_a_natural_voice(self):
+        for lang in speech.LANGUAGES:
+            voice = speech.default_voice(lang)
+            self.assertTrue(voice.startswith({"en": "en_", "fr": "fr_", "de": "de_",
+                                              "es": "es_", "it": "it_", "nl": "nl_"}[lang]), voice)
+            self.assertTrue(voice.endswith("-medium"), voice)
 
 
 class DaemonSpeechTest(DaemonCase):
@@ -79,7 +135,7 @@ class DaemonSpeechTest(DaemonCase):
         super().setUp()
         self.spoken = []
 
-        def render(text, lang, path):
+        def render(text, lang, path, choice=None):
             self.spoken.append(text)
             with open(path, "wb") as f:
                 f.write(b"\0" * 100)

@@ -478,9 +478,14 @@ schedule:
   cutoff_warning_min: 0
 
   # Language of what the radio says out loud (the time, the date, the
-  # cutoff warning): en, fr, de, es, it or nl. Needs pico2wave or
+  # cutoff warning): en, fr, de, es, it or nl. Needs pico2wave, piper or
   # espeak-ng (installed with the radio).
   speech_language: "en"
+
+  # The natural-sounding voice to say things with, when its model is
+  # installed: a Piper voice name (scripts/install_piper.sh fetches the
+  # program and one). Empty uses pico2wave or espeak-ng instead.
+  piper_voice: ""
 
   # Like a radio host: every N songs, the next one is introduced out
   # loud ("Up next: title, by artist") between the two. 0 = never.

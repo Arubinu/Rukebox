@@ -1254,9 +1254,33 @@ schedule, a button or you say so.
 
 ### The talking clock
 
-The radio can say the time out loud, offline, through `pico2wave`
-(`libttspico-utils`) or, for Dutch and as a fallback, `espeak-ng` - both
-installed with the radio, and by the updater when they are missing.
+The radio can say the time out loud, offline. Three programs can do it, and the
+best one installed is used:
+
+| | Voice | Where it comes from |
+|---|---|---|
+| **Piper** | natural, neural | `sudo rukebox-piper` (the program + one voice, ~90 MB) |
+| **pico2wave** | clear, dated | `libttspico-utils`, installed with the radio |
+| **espeak-ng** | robotic, everywhere | `espeak-ng`, installed with the radio |
+
+**Piper is the one to install if the voice bothers you.** It is a small neural
+network that runs here, with no Internet: `sudo rukebox-piper` fetches the
+build for this machine and the voice of the **Spoken language**, and sets
+**Spoken voice (Piper)** (`schedule.piper_voice`) for you. It costs about
+90 MB, and the installer offers it (`RUKEBOX_PIPER=yes` answers without a
+terminal). Measured on a Pi Zero 2 W: **5.7 s of work for 3.2 s of speech**,
+plus **3.5–4.4 s to load the model** the first time - so an announcement is
+prepared a few seconds before it is heard, and **each sentence is kept** once
+said (the time comes back every day at the same hour), which makes it instant
+from the second time on. On a mini-PC or a container it is quicker than
+real time.
+
+`sudo rukebox-piper fr_FR-tom-medium` installs another voice instead (the names
+are on [the voices page](https://rhasspy.github.io/piper-samples/)); the ones
+this project knows by default are `en_US-lessac-medium`, `fr_FR-siwis-medium`,
+`de_DE-thorsten-medium`, `es_ES-davefx-medium`, `it_IT-paola-medium` and
+`nl_NL-alex-medium`. Clearing **Spoken voice** goes back to pico2wave or
+espeak-ng, which the radio installs for itself.
 
 - **A button**: "Say the time" is one more click action (single, double, the
   speaker's buttons). The song pauses, the time is said, and the song goes on

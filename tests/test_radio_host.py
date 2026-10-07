@@ -145,7 +145,7 @@ class DaemonTest(unittest.TestCase):
         mock.patch.object(rukebox_daemon, "audio_env", return_value={}).start()
         self.said = []
 
-        def render(text, lang, path):
+        def render(text, lang, path, choice=None):
             self.said.append(text)
             os.makedirs(os.path.dirname(path), exist_ok=True)
             open(path, "wb").close()
