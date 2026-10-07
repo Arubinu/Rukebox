@@ -425,6 +425,19 @@ moved = config_file.retarget_announcements("/home/pi/audio", audio_root, sys.arg
     if audio_root else 0
 folders = config_file.retarget_folders("/home/pi/audio", audio_root, sys.argv[2], sys.argv[3]) \
     if audio_root else []
+# The prepared introductions are a folder this version introduced: an
+# installation that was updated has never created it, and it is where the files
+# go. Owned like the music beside it, or the interface could not write there.
+prepared = str(values.get("DJ_ANNOUNCE_DIR") or "").strip()
+if prepared and not os.path.isdir(prepared):
+    try:
+        os.makedirs(prepared, exist_ok=True)
+        music = str(values.get("MUSIC_DIR") or "").strip()
+        if os.path.isdir(music):
+            owner = os.stat(music)
+            os.chown(prepared, owner.st_uid, owner.st_gid)
+    except OSError:
+        pass
 print(action, count, moved, audio_root, len(folders))
 PYENSURE
 )"; then
