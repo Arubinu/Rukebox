@@ -96,6 +96,23 @@ class SpeakerHoldTest(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.dir, ignore_errors=True)
 
+    def test_waiting_for_the_speaker_only_matters_when_the_speaker_is_the_output(self):
+        """Reported as: with the sound going to the USB sound card, the radio
+        still waited for the Bluetooth speaker and said so on Now playing. The
+        setting keeps its value - the interface strikes it through - and it means
+        "at startup" while the output is a wired one."""
+        self.assertEqual(self.daemon._start_mode(), "boot", "the chosen mode")
+        self.daemon.cfg["MUSIC_START_MODE"] = "bluetooth"
+        self.assertEqual(self.daemon._start_mode(), "bluetooth",
+                         "the speaker IS the output: waiting makes sense")
+        self.daemon.cfg["AUDIO_OUTPUT"] = "usb"
+        self.assertEqual(self.daemon._start_mode(), "boot",
+                         "the speaker is not the output: nothing to wait for")
+        status = self.daemon._build_status()
+        self.assertTrue(status["music_start_mode_inert"])
+        self.assertEqual(status["music_start_mode"], "bluetooth",
+                         "and the setting itself is left alone")
+
     def speaker_goes_away(self):
         self.daemon._on_speaker_lost(MAC)
 

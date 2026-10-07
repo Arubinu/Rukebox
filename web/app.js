@@ -1510,6 +1510,11 @@ async function refreshStatus() {
     restartDirect = !!d.restart_direct;
     paintRestartAfterSong();
   }
+  // A start mode that cannot act here (it waits for the speaker while the sound
+  // goes to a wired output) is struck through where it is chosen: the setting is
+  // kept as it is, it simply means "at startup" for now.
+  const inert = document.querySelector('#musicStartMode option[value="bluetooth"]');
+  if (inert) inert.classList.toggle("option-inert", !!d.music_start_mode_inert);
   // A click's sentence is the only one that cannot be prepared in advance: said
   // once when the synthesis starts, so a Pi that thinks for ten seconds does not
   // look like a button that did nothing.
@@ -1774,8 +1779,12 @@ function applyNotices(d) {
     if (mode === "scheduled" && d.music_start_time) {
       add("info", "clock", d.music_started_today ? "notice.start_tomorrow" : "notice.start_scheduled",
           { time: d.music_start_time });
-    } else if (mode === "bluetooth" && !d.speaker_connected) {
+    } else if (mode === "bluetooth" && !d.speaker_connected && !d.music_start_mode_inert) {
       add("info", "bluetooth", "notice.start_bluetooth");
+    } else if (mode === "bluetooth" && d.music_start_mode_inert) {
+      // The chosen mode waits for a speaker the sound does not even go to: the
+      // radio starts at boot instead, and the option says so where it is chosen.
+      add("info", "play", "notice.start_action");
     } else {
       add("info", "play", "notice.start_action");
     }

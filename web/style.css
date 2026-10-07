@@ -1986,6 +1986,11 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
 /* A hint between two options is not a row, so the line that separates rows
    would be missing under the option above it. Only when a row follows the
    hint: after the last option of a card the line would be one too many. */
+/* A start mode that cannot act with the output in use - struck through, not
+   removed: the setting keeps its value and means "at startup" until the output
+   is the speaker again. */
+select option.option-inert { text-decoration: line-through; opacity: 0.55; }
+
 /* No rule for a `.hint` between two rows any more: a message is placed BEFORE
    the row it belongs to (see the audio output card), so the next row's own
    border is the separation. The old `.field-row:has(+ .hint + .field-row)` used

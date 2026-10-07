@@ -586,7 +586,7 @@ class RadioDaemon:
         )
         self._resume_armed = bool(self.cfg["MUSIC_KEEP_PROGRESS"])
 
-        if self.cfg["MUSIC_START_MODE"] == "boot":
+        if self._start_mode() == "boot":
             self._music_started_mono = time.monotonic()
             self._start_music_faded(self._play_next_track)
         else:
@@ -3331,9 +3331,22 @@ class RadioDaemon:
             self._fade_out_and_pause(self.cfg["LONGPRESS_FADE_DURATION_SEC"])
         self._do_shutdown_sequence(force=True, reason=reason)
 
+    def _start_mode(self):
+        """The start mode in force, which is not always the chosen one.
+
+        "at the speaker's connection" means the speaker is the on switch. With
+        the sound going to a wired output it says nothing at all: the radio then
+        waited in silence for a speaker it does not even play to, while the USB
+        card was already there. The setting itself is left alone - the interface
+        strikes it through - and boot is what it means in that case."""
+        chosen = self.cfg.get("MUSIC_START_MODE", "boot")
+        if chosen == "bluetooth" and (self.cfg.get("AUDIO_OUTPUT") or "bluetooth") != "bluetooth":
+            return "boot"
+        return chosen
+
     def _start_music_on_speaker_connect(self, mac):
         """MUSIC_START_MODE=bluetooth."""
-        if self.cfg["MUSIC_START_MODE"] != "bluetooth":
+        if self._start_mode() != "bluetooth":
             return
         if self.mode not in ("idle", "stopped"):
             return
@@ -3598,6 +3611,10 @@ class RadioDaemon:
             "previous_restart_sec": self.PREVIOUS_RESTART_AFTER_SEC,
             "music_loop": self.cfg["MUSIC_LOOP"],
             "music_start_mode": self.cfg["MUSIC_START_MODE"],
+            # True when the chosen start mode cannot act here (it waits for the
+            # speaker while the sound goes to a wired output): the interface
+            # shows the option struck through, and says nothing is waiting.
+            "music_start_mode_inert": self._start_mode() != self.cfg["MUSIC_START_MODE"],
             "music_start_time": "%02d:%02d" % (
                 self.cfg["MUSIC_START_HOUR"], self.cfg["MUSIC_START_MINUTE"]),
             "clock_ready": self._clock_ready.is_set(),
