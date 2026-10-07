@@ -47,6 +47,11 @@ test("the Pi offers every card and row that asks for a capability", async (t) =>
   assert.match(caps, /set_clock/);
   assert.doesNotMatch(caps, /platform/, "the platform name is not a capability");
   assert.deepEqual(rowsOf(page.document).filter((row) => row.hidden), []);
+  // A file input is opened by its own button, never shown: a capability pass
+  // that unhid one put a bare "Choose file" in the middle of the page.
+  const files = Array.from(page.document.querySelectorAll('input[type="file"]'));
+  assert.deepEqual(files.filter((input) => !input.hidden).map((input) => input.id), [],
+                   "no file input is ever offered to the reader");
   const network = tilesOf(page.document, "network");
   assert.equal(network.find((tile) => tile.page === "accesspoint").hidden, false);
   assert.equal(network.find((tile) => tile.page === "clients").hidden, false);

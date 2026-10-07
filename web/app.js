@@ -1636,9 +1636,11 @@ function applyCapabilities(d) {
   const on = Object.keys(caps || {}).filter((name) => caps[name] !== false && name !== "platform");
   document.body.setAttribute("data-caps", on.join(" "));
   // The card is hidden by CSS, which cannot compare two attributes; a row
-  // inside a card has no page of its own, so it is toggled here.
+  // inside a card has no page of its own, so it is toggled here - and only ever
+  // HIDDEN: an element that is hidden for its own reason (a file input its own
+  // button opens) must stay hidden when the capability IS there.
   document.querySelectorAll("[data-needs]").forEach((el) => {
-    if (!el.classList.contains("card")) el.hidden = !canDo(el.dataset.needs);
+    if (!el.classList.contains("card") && !canDo(el.dataset.needs)) el.hidden = true;
   });
   if (JSON.stringify(caps) === before) return;
   if (document.body.dataset.page && !pageIsAvailable(
