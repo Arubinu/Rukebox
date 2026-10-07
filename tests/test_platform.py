@@ -35,11 +35,37 @@ class DetectionTest(unittest.TestCase):
 
     def with_only_environment(self, **values):
         """The environment detection sees, and nothing else: what the suite set
-        must not leak into a test about detection."""
+        must not leak into a test about detection - nor the machine the suite
+        itself runs on, which may well be a container of its own."""
+        self.no_container_markers()
         for name in ("RUKEBOX_PLATFORM", "container"):
             os.environ.pop(name, None)
         os.environ.update(values)
         host.reset()
+
+    def no_container_markers(self):
+        """Hides this machine's own container signs from detection.
+
+        A runner that is itself in a container has /.dockerenv (and a `container=`
+        in PID 1's environment), which is answered before the sign a test is
+        about - so a test that only set an environment variable used to pass on
+        a laptop and fail on CI. What each test sets is what detection sees."""
+        real_exists, real_read = os.path.exists, host._read_first
+
+        def exists(path):
+            if str(path) in ("/.dockerenv", "/run/.containerenv"):
+                return False
+            return real_exists(path)
+
+        def read_first(*paths):
+            if any(str(p) in ("/run/systemd/container", "/proc/1/environ") for p in paths):
+                return ""
+            return real_read(*paths)
+
+        for patcher in (mock.patch.object(host.os.path, "exists", side_effect=exists),
+                        mock.patch.object(host, "_read_first", side_effect=read_first)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def test_a_forced_platform_wins(self):
         for name in (host.PI, host.LXC, host.DOCKER, host.HOST):

@@ -234,7 +234,9 @@ class ListenerTest(unittest.TestCase):
         The listener attaches before anything is fed: the encoder thread reads
         the pipe as soon as it exists, and what it read while nobody was
         listening is gone - a real pipe behaves exactly like this, and a test
-        that fed first would be racing it."""
+        that fed first would be racing it. A pipe also has no message
+        boundaries: two writes can come back as one chunk, so what is checked
+        is the bytes and the end, not how they were cut."""
         server = build_server()
         process = FakeProcess()
         with mock.patch.object(stream.subprocess, "Popen", return_value=process):
@@ -243,10 +245,16 @@ class ListenerTest(unittest.TestCase):
             process.feed(b"aaa")
             process.feed(b"bbb")
             process.eof()
-            chunks = [box.get(timeout=1) for _ in range(3)]
+            chunks = []
+            while True:
+                chunk = box.get(timeout=1)
+                if chunk is None:
+                    break
+                chunks.append(chunk)
             process.stdout.close()
-        self.assertEqual(chunks, [b"aaa", b"bbb", None],
-                         "two chunks of audio, then the end")
+        self.assertEqual(b"".join(chunks), b"aaabbb",
+                         "every byte reaches the listener")
+        self.assertIsNone(chunk, "and then the end")
 
     def test_every_listener_gets_what_is_encoded_from_then_on(self):
         """Two listeners, one encoder: the second hears what follows its
