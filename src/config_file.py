@@ -347,7 +347,10 @@ def merge_missing(path=None, env_path=None):
         lines = f.readlines()
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"
-    _insert_settings(lines, [BY_ENV[k] for k in missing], {})
+    # `merged_values`, not the documented defaults: a setting added to an
+    # existing file is added to a machine, and that machine's own roots are in
+    # DEFAULTS. The template stays the Pi's - this is not the template.
+    _insert_settings(lines, [BY_ENV[k] for k in missing], merged_values)
     _atomic_write(path, "".join(lines))
     write_env_file(path, env_path, values=merged_values)
     return missing
@@ -451,6 +454,34 @@ def retarget_announcements(old_root, new_root, yaml_path=None, env_path=None):
     yaml_path = find_yaml_file(yaml_path)
     ann_path, _, _ = _announcement_paths(yaml_path, env_path or ENV_FILE)
     return announcements.retarget(ann_path, old_root, new_root)
+
+
+def retarget_folders(old_root, new_root, yaml_path=None, env_path=None):
+    """Moves the `folders` settings that name a path under `old_root` to
+    `new_root`, and answers the keys that changed.
+
+    A setting a version adds arrives with the template's path - the Pi's own.
+    A container keeps its sounds elsewhere (and the interface only writes in
+    the folders the settings name), so a folder left at the Pi's path points at
+    nothing and lets the interface write outside the tree it belongs in."""
+    import config_schema  # noqa: E402
+
+    old_root = str(old_root or "").strip().rstrip("/")
+    new_root = str(new_root or "").strip().rstrip("/")
+    if not old_root or not new_root or old_root == new_root:
+        return []
+    yaml_path = find_yaml_file(yaml_path)
+    env_path = env_path or ENV_FILE
+    values = dict(DEFAULTS)
+    values.update(read_values(yaml_path, env_path))
+    updates = {}
+    for setting in config_schema.SETTINGS:
+        if setting.section != "folders":
+            continue
+        text = str(values.get(setting.env) or "").strip()
+        if text == old_root or text.startswith(old_root + "/"):
+            updates[setting.env] = new_root + text[len(old_root):]
+    return write_values(updates, path=yaml_path, env_path=env_path) if updates else []
 
 
 def ensure_file(yaml_path=None, env_path=None):

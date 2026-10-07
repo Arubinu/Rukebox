@@ -345,6 +345,35 @@ class WebTest(unittest.TestCase):
                    and ws.cfg().get(setting.env) not in ws._allowed_roots()]
         self.assertEqual(missing, [])
 
+    def test_the_folder_picker_stays_inside_the_folders_configured(self):
+        """Reported as: lock "Choose a folder" on the allowed path and its
+        subfolders. It used to browse the whole of /home/pi, next to the music."""
+        music = os.path.realpath(tempfile.mkdtemp())
+        album = os.path.join(music, "Album")
+        os.makedirs(album)
+        self.addCleanup(shutil.rmtree, music, True)
+        was = dict(type(self).extra)
+        type(self).extra.update({"MUSIC_DIR": music})
+        try:
+            owner = self.owner()
+            root = owner.get("/api/browse", query_string={"path": music}).get_json()["data"]
+            self.assertEqual([entry["name"] for entry in root["dirs"]], ["Album"])
+            self.assertIsNone(root["parent"], "no way up out of a configured folder")
+            if os.sep == "/":
+                # _inside_roots compares with a forward slash, which is what the
+                # product runs on: the Pi and every container are Linux.
+                inside = owner.get("/api/browse", query_string={"path": album}).get_json()["data"]
+                self.assertEqual(inside["parent"], music, "one step up, still inside")
+            for outside in (os.path.dirname(music), "/home/pi", "/etc", "/media/usb", "/srv"):
+                answer = owner.get("/api/browse", query_string={"path": outside})
+                self.assertEqual((answer.status_code, answer.get_json().get("error")),
+                                 (400, "bad_path"), outside)
+            self.assertFalse(ws._inside_roots(os.path.join(os.path.dirname(music), "other.mp3")),
+                             "and a write there is refused too")
+        finally:
+            type(self).extra.clear()
+            type(self).extra.update(was)
+
     def test_the_prepared_introductions_are_counted(self):
         music = tempfile.mkdtemp()
         intros = tempfile.mkdtemp()

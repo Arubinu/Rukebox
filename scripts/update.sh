@@ -416,13 +416,16 @@ import config_file
 action, count = config_file.ensure_file(sys.argv[2], sys.argv[3])
 # The announcement folders were seeded from the template's audio root (the Pi's):
 # this installation keeps its own, and a folder outside it is one the interface
-# may not write to - and one the radio would play from an empty folder.
+# may not write to - and one the radio would play from an empty folder. The same
+# goes for the folder settings a new version added.
 values = dict(config_file.DEFAULTS)
 values.update(config_file.read_values(sys.argv[2], sys.argv[3]))
 audio_root = os.path.dirname(str(values.get("MEME_DIR") or "").strip())
 moved = config_file.retarget_announcements("/home/pi/audio", audio_root, sys.argv[2], sys.argv[3]) \
     if audio_root else 0
-print(action, count, moved, audio_root)
+folders = config_file.retarget_folders("/home/pi/audio", audio_root, sys.argv[2], sys.argv[3]) \
+    if audio_root else []
+print(action, count, moved, audio_root, len(folders))
 PYENSURE
 )"; then
     case "$RESULT" in
@@ -432,6 +435,8 @@ PYENSURE
     esac
     moved="$(echo "$RESULT" | cut -d' ' -f3)"
     [ "$moved" = "0" ] || say "   $moved announcement folder(s) moved to $(echo "$RESULT" | cut -d' ' -f4)"
+    folders="$(echo "$RESULT" | cut -d' ' -f5)"
+    [ "$folders" = "0" ] || say "   $folders folder setting(s) moved to $(echo "$RESULT" | cut -d' ' -f4)"
 else
     echo "WARNING: could not update $CONFIG_FILE." >&2
     echo "         The radio will use built-in defaults for anything missing;" >&2

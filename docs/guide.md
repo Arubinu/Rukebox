@@ -2734,7 +2734,9 @@ Bookworm) is the simplest path.
 
 Every folder below is scanned recursively (useful if you have more than
 1000 tracks organized by artist/album), and each is a plain setting in
-`rukebox.yaml` you can point anywhere you like:
+`rukebox.yaml` you can point anywhere you like - by hand in the file: these
+are the folders the interface may read and write, so a path typed here is also
+what the folder picker and the uploads are allowed to reach:
 
 | Folder | Default path | Setting |
 | --- | --- | --- |
@@ -2970,8 +2972,13 @@ with:
   below). The **Browse…** button beside that field walks the Pi's own
   directories instead of asking you to type a path on a phone keyboard:
   directories only, each one showing how many audio files it holds
-  directly, and confined to `/home/pi`, `/media`, `/mnt` and `/srv` so
-  the picker can never become a way to browse the machine,
+  directly, and **confined to the folders the settings name** - the music,
+  the prepared introductions, the button sounds, the announcement folders and
+  the system sounds, and their subfolders. Nothing else on the machine is
+  reachable, and no write is accepted outside them either: to keep the music
+  somewhere else entirely, change `music` (`folders:`) in
+  `/etc/rukebox/rukebox.yaml` - the folder picker is for choosing *inside* the
+  tree the radio already uses,
 - **what starts it** (the music fades out first and resumes afterward):
   - every day at a **fixed time**;
   - a **delay after the music starts**, or **after the Pi starts** - once,

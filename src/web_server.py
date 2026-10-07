@@ -5938,7 +5938,6 @@ def api_stats_sessions():
 CONFIG_IMPORT_MAX_BYTES = 2 * 1024 * 1024
 
 
-BROWSABLE_ROOTS = ("/home/pi", "/media", "/mnt", "/srv")
 AUDIO_EXTENSIONS = (".mp3", ".opus", ".ogg", ".oga", ".wav", ".m4a", ".aac",
                     ".flac", ".wma", ".mp4", ".webm")
 
@@ -5946,8 +5945,14 @@ AUDIO_EXTENSIONS = (".mp3", ".opus", ".ogg", ".oga", ".wav", ".m4a", ".aac",
 def _allowed_roots():
     """Every folder this installation keeps sounds in, whether it exists yet or
     not: a sound uploaded into a folder the interface has not created is the
-    case that matters, so the write checks cannot ask the filesystem."""
-    roots = list(BROWSABLE_ROOTS)
+    case that matters, so the write checks cannot ask the filesystem.
+
+    Nothing else on the machine is reachable from the interface - the picker
+    browses these and their subfolders, and every write is refused outside them.
+    The Pi's home used to be a root of its own, which opened /home/pi, and the
+    music folder beside it, to anyone reading the page (reported as: lock the
+    folder picker on the allowed path and its subfolders)."""
+    roots = []
     values = cfg()
     for key in ("MUSIC_DIR", "DJ_ANNOUNCE_DIR", "MEME_DIR", "CUTOFF_ANNOUNCE_DIR"):
         folder = str(values.get(key) or "").strip()
@@ -5966,13 +5971,15 @@ def _allowed_roots():
 
 
 def _browse_roots():
-    """The roots that actually exist, in order: the Pi's usual places, then every
-    folder this installation keeps its sounds in - a container keeps them
-    elsewhere, and each announcement type and system sound has its own."""
+    """The roots that actually exist, in order: every folder this installation
+    keeps its sounds in - a container keeps them elsewhere, and each
+    announcement type and system sound has its own."""
     return [root for root in _allowed_roots() if os.path.isdir(root)]
 
 
 def _inside_roots(path):
+    """Whether a path is one the interface may read or write: a configured
+    folder, or something inside one."""
     for root in _allowed_roots():
         if path == root or path.startswith(root.rstrip("/") + "/"):
             return True

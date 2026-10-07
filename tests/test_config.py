@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 import unittest
+import unittest.mock
 
 import _path
 import config_file
@@ -50,6 +51,44 @@ class ConfigFileTest(unittest.TestCase):
         self.assertEqual(_path.read("config", "rukebox.yaml").replace("\r\n", "\n"),
                          config_file.render_template().replace("\r\n", "\n"),
                          "regenerate: python3 src/config_file.py template > config/rukebox.yaml")
+
+    def test_a_new_setting_is_added_with_this_machines_own_path(self):
+        """A setting a new version introduces is added to a *machine*: a
+        container that got the Pi's documented path would keep its sounds
+        somewhere that does not exist there (reported as: the music folder
+        settings still said /home/pi)."""
+        values = dict(config_file.DEFAULTS)
+        values["DJ_ANNOUNCE_DIR"] = "/srv/rukebox/audio/dj_announcements"
+        lines = [line for line in self.text(self.yaml).splitlines(True)
+                 if not line.startswith("  dj_announcements:")]
+        with open(self.yaml, "w", encoding="utf-8", newline="\n") as f:
+            f.writelines(lines)
+        with unittest.mock.patch.dict(config_file.DEFAULTS, values):
+            self.assertIn("DJ_ANNOUNCE_DIR",
+                          config_file.merge_missing(self.yaml, self.env))
+        self.assertIn('dj_announcements: "/srv/rukebox/audio/dj_announcements"',
+                      self.text(self.yaml), "the machine's own audio root, not the Pi's")
+        self.assertIn("DJ_ANNOUNCE_DIR='/srv/rukebox/audio/dj_announcements'",
+                      self.text(self.env))
+
+    def test_the_repository_template_still_documents_the_pis_own_paths(self):
+        self.assertIn('dj_announcements: "/home/pi/audio/dj_announcements"',
+                      _path.read("config", "rukebox.yaml"))
+
+    def test_a_folder_settings_left_at_the_pis_root_follows_this_machine(self):
+        """An installation whose audio tree is elsewhere gets the folders a new
+        version added moved with it: left at the Pi's path, the interface would
+        write outside the tree it belongs in and the radio would read nothing."""
+        nothing = config_file.retarget_folders("/home/pi/audio", "/home/pi/audio",
+                                               self.yaml, self.env)
+        self.assertEqual(nothing, [], "a Pi is already there")
+        moved = config_file.retarget_folders("/home/pi/audio", "/srv/rukebox/audio",
+                                             self.yaml, self.env)
+        self.assertIn("DJ_ANNOUNCE_DIR", moved)
+        self.assertIn('dj_announcements: "/srv/rukebox/audio/dj_announcements"',
+                      self.text(self.yaml))
+        self.assertIn("MUSIC_DIR='/srv/rukebox/audio/music'", self.text(self.env),
+                      "the environment file follows the same move")
 
     def point_announcements_at(self, folder):
         """A configuration whose announcements file is the test's own."""
