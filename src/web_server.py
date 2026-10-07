@@ -5175,15 +5175,21 @@ def _storage_health(path, role):
             fs_errors = None
     io_errors = _io_errors(info.get("disk"))
     read_only = "ro" in options
+    # A share or a bind mount that is read-only is a decision - a container's
+    # music arrives with `:ro` - while a device is remounted read-only after
+    # write errors, which is what "usually a failing card" is about. Only the
+    # second one is a failure.
+    read_only_on_purpose = read_only and info.get("part") is None
     status = "ok"
     if usage["free"] < max(500e6, usage["total"] * 0.05) or io_errors:
         status = "warn"
-    if read_only or fs_errors:
+    if (read_only and not read_only_on_purpose) or fs_errors:
         status = "error"
     return {
         "role": role, "mount": mnt, "fs": fstype, "kind": info.get("kind"), "model": info.get("model"),
         "size": info.get("size"), "total": usage["total"], "free": usage["free"],
-        "read_only": read_only, "fs_errors": fs_errors, "io_errors": io_errors, "status": status,
+        "read_only": read_only, "read_only_on_purpose": read_only_on_purpose,
+        "fs_errors": fs_errors, "io_errors": io_errors, "status": status,
     }
 
 

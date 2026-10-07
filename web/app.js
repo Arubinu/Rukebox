@@ -9382,7 +9382,7 @@ function renderHealthInfo(info) {
     const lines = [t("storage.kind_" + (s.kind || "unknown")) + (s.model ? " · " + s.model : "")
       + (s.size ? " · " + formatBytes(s.size) : ""),
       t("health.free_of", { free: formatBytes(s.free), total: formatBytes(s.total) })];
-    if (s.read_only) lines.push(t("storage.read_only"));
+    if (s.read_only) lines.push(t(s.read_only_on_purpose ? "storage.read_only_mounted" : "storage.read_only"));
     if (s.fs_errors) lines.push(t("storage.fs_errors", { n: s.fs_errors }));
     if (s.io_errors) lines.push(t("storage.io_errors", { n: s.io_errors }));
     if (s.status === "warn" && !s.io_errors) lines.push(t("storage.low_space"));
