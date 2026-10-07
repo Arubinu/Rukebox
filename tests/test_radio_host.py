@@ -127,6 +127,7 @@ class DaemonTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.addCleanup(mock.patch.stopall)
         self.music = os.path.join(self.dir, "music")
+        self.intros = os.path.join(self.dir, "dj_announcements")
         touch(self.music, "a.mp3", "b.mp3", "c.mp3", "d.mp3")
         cfg = load_config()
         cfg.update({
@@ -201,6 +202,59 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual(self.said, [])
         self.assertEqual(self.played()[-1], "b.mp3")
         self.assertEqual(self.daemon.state.dedications(), {})
+
+    def prepared(self, *names):
+        """A prepared introduction in the folder, as the owner would drop one."""
+        self.daemon.cfg.update({"DJ_ANNOUNCE_EVERY": 1, "DJ_ANNOUNCE_DIR": self.intros})
+        os.makedirs(self.intros, exist_ok=True)
+        for name in names:
+            with open(os.path.join(self.intros, name), "wb") as handle:
+                handle.write(b"x")
+        return [os.path.join(self.intros, name) for name in names]
+
+    def test_a_prepared_file_is_played_instead_of_the_voice(self):
+        prepared = self.prepared("b.wav")[0]
+        self.daemon.cfg["DJ_ANNOUNCE_MODE"] = "files_first"
+        self.daemon._play_next_track(user=True)      # a, asked for: no introduction
+        self.end_song()                              # b is introduced
+        self.assertEqual(self.said, [], "the synthesizer was not asked for anything")
+        self.assertEqual(self.daemon.mpv.files[-1], prepared)
+        self.end_song()
+        self.assertEqual(self.played()[-1], "b.mp3", "then the song itself")
+
+    def test_the_jingle_covers_every_song(self):
+        everything = self.prepared("_any.wav")[0]
+        self.daemon.cfg["DJ_ANNOUNCE_MODE"] = "files"
+        self.daemon._play_next_track(user=True)
+        self.end_song()
+        self.assertEqual(self.daemon.mpv.files[-1], everything)
+
+    def test_the_files_mode_says_nothing_where_there_is_no_file(self):
+        self.prepared()
+        self.daemon.cfg["DJ_ANNOUNCE_MODE"] = "files"
+        self.daemon._play_next_track(user=True)
+        self.end_song()
+        self.assertEqual(self.said, [])
+        self.assertEqual(self.played()[-1], "b.mp3", "straight to the song")
+        self.assertEqual(self.daemon.mode, "music")
+
+    def test_the_radio_mode_ignores_the_prepared_files(self):
+        self.prepared("b.wav")
+        self.daemon.cfg["DJ_ANNOUNCE_MODE"] = "spoken"
+        self.daemon._play_next_track(user=True)
+        self.end_song()
+        self.assertEqual(self.said, ["Up next: b."])
+        self.assertNotEqual(self.daemon.mpv.files[-1], os.path.join(self.intros, "b.wav"))
+
+    def test_a_dedication_keeps_its_own_voice(self):
+        """The message is personal: a file prepared for the song cannot say it."""
+        self.prepared("b.wav")
+        self.daemon.cfg.update({"DJ_ANNOUNCE_MODE": "files", "DEDICATIONS_ENABLED": True})
+        self.daemon._play_next_track(user=True)
+        target = os.path.join(self.music, "b.mp3")
+        self.daemon.state.set_dedication(target, {"from": "Anne", "text": "For you"})
+        self.end_song()
+        self.assertEqual(self.said, ["A dedication from Anne: For you. Here is b."])
 
     def test_the_silence_at_the_end_is_skipped_once(self):
         self.daemon.cfg["SKIP_TRAILING_SILENCE"] = True

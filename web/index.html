@@ -758,6 +758,21 @@
                 <input type="number" id="djEvery" min="0" max="20" step="1" data-key="DJ_ANNOUNCE_EVERY"
                        class="num-input" inputmode="numeric" aria-describedby="djEveryDesc">
               </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="djMode" data-i18n="settings.dj_mode">Who introduces the songs</label>
+                  <p class="field-desc" id="djModeDesc" data-i18n="settings.dj_mode_desc">The radio says it itself, or plays a file you prepared.</p>
+                </div>
+                <select id="djMode" data-key="DJ_ANNOUNCE_MODE" aria-describedby="djModeDesc">
+                  <option value="spoken" data-i18n="settings.dj_mode_spoken">The radio</option>
+                  <option value="files" data-i18n="settings.dj_mode_files">Your files</option>
+                  <option value="files_first" data-i18n="settings.dj_mode_files_first">Your files, otherwise the radio</option>
+                </select>
+              </div>
+              <p class="hint" id="djIntroFolder" data-i18n="settings.dj_files_hint"
+                 data-i18n-var-folder="dj_announcements">Prepared introductions are read from {folder}.</p>
+              <p class="hint" id="djIntroCount" data-i18n="settings.dj_files_count" hidden
+                 data-i18n-var-files="0" data-i18n-var-covered="0" data-i18n-var-tracks="0">Prepared files: {files} · Songs covered: {covered} of {tracks}.</p>
             </details>
 
             <div class="form-actions">

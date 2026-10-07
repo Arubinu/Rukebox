@@ -21,6 +21,7 @@ import audio_diag  # noqa: E402
 import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 import cards  # noqa: E402
+import dj_intro  # noqa: E402
 from config_and_scan import DEFAULTS, get_music_list, load_config  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import hidden_tracks  # noqa: E402
@@ -932,9 +933,11 @@ class RadioDaemon:
         return every > 0 and self._dj_count + 1 >= every
 
     def _intro_text(self, track, introduce, natural):
+        """(what to say before `track`, and which of the two it is: "dedication"
+        or "dj"), or ("", "") when nothing is said."""
         dedication = self.state.pop_dedication(track)
         if not introduce:
-            return ""
+            return "", ""
         lang = self.cfg.get("SPEECH_LANGUAGE")
         info = self._track_info(track)
         if dedication and self.cfg.get("DEDICATIONS_ENABLED"):
@@ -943,24 +946,43 @@ class RadioDaemon:
             if text:
                 self.stats.record("dedication_played", label=os.path.basename(track),
                                   detail={"from": dedication.get("from")})
-                return text
+                return text, "dedication"
         every = self._dj_every()
         if every > 0 and natural:
             self._dj_count += 1
             if self._dj_count >= every:
                 self._dj_count = 0
-                return speech.track_sentence(info["title"], info["artist"], lang)
-        return ""
+                return speech.track_sentence(info["title"], info["artist"], lang), "dj"
+        return "", ""
+
+    def _intro_audio(self, track, text, kind):
+        """What is played before `track`: a prepared file when the settings say
+        so, the radio's own voice otherwise. None when nothing is said."""
+        if kind == "dj":
+            mode = self.cfg.get("DJ_ANNOUNCE_MODE") or "spoken"
+            if mode in ("files", "files_first"):
+                prepared = dj_intro.find(track, self.cfg.get("DJ_ANNOUNCE_DIR"),
+                                         self.cfg.get("MUSIC_DIR"))
+                if prepared:
+                    log.info("Introduction read from %s", prepared)
+                    return prepared
+                if mode == "files":
+                    log.info("No prepared introduction for %s: playing it as it is",
+                             os.path.basename(track))
+                    return None
+        if not text:
+            return None
+        return self._speech_text_file(text)
 
     def _play_with_intro(self, track, introduce=False, natural=False):
-        """Plays `track`, said out loud first when a dedication or the radio
-        host asks for it."""
-        text = self._intro_text(track, introduce, natural)
-        path = self._speech_text_file(text) if text else None
+        """Plays `track`, saying an introduction first when a dedication or the
+        radio host asks for it."""
+        text, kind = self._intro_text(track, introduce, natural)
+        path = self._intro_audio(track, text, kind)
         if not path:
             self._play_track(track)
             return
-        log.info("Before the song: %s", text)
+        log.info("Before the song: %s", text or path)
         if self._sound_volume is not None:
             self._restore_base_volume()
         self._xfade_in = 0.0

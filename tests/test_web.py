@@ -331,8 +331,31 @@ class WebTest(unittest.TestCase):
         self.assertEqual(guest.post("/api/action/standby").status_code, 401)
         self.assertEqual(guest.post("/api/mute", json={"on": True}).status_code, 401)
         self.assertEqual(guest.get("/api/settings").status_code, 401)
+        self.assertEqual(guest.get("/api/dj_announcements").status_code, 401,
+                         "what is prepared on the Pi is not a guest's business")
         self.assertEqual(guest.get("/api/today").status_code, 200)
         self.assertEqual(guest.get("/api/queue").status_code, 200)
+
+    def test_the_prepared_introductions_are_counted(self):
+        music = tempfile.mkdtemp()
+        intros = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, music, True)
+        self.addCleanup(shutil.rmtree, intros, True)
+        for name in ("a.mp3", "b.mp3"):
+            open(os.path.join(music, name), "wb").close()
+        open(os.path.join(intros, "a.wav"), "wb").close()
+        open(os.path.join(intros, "_any.mp3"), "wb").close()
+        was = dict(type(self).extra)
+        type(self).extra.update({"MUSIC_DIR": music, "DJ_ANNOUNCE_DIR": intros,
+                                 "MUSIC_CACHE_FILE": os.path.join(self.dir, "dj-cache.json")})
+        try:
+            data = self.owner().get("/api/dj_announcements").get_json()["data"]
+        finally:
+            type(self).extra.clear()
+            type(self).extra.update(was)
+        self.assertEqual((data["files"], data["covered"], data["tracks"]), (2, 2, 2),
+                         "two files: one song of its own, one jingle covering both")
+        self.assertEqual(data["dir"], intros)
 
     def test_an_update_that_died_halfway_is_not_still_running(self):
         # The shell appends the end marker after the updater returns, so a killed run leaves none.

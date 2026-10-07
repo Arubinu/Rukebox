@@ -1327,6 +1327,22 @@ The same voice can do three more things.
   Only when a song ends by itself: a "next" asked for goes straight to the
   song, and the first song of a start (which fades in from silence) is not
   introduced.
+- **Who says that introduction** (`schedule.dj_announce_mode`): *the radio*,
+  as above; *your files*, where nothing is said for a song you have not
+  prepared; or *your files, otherwise the radio*, which uses a file when there
+  is one and the radio's voice otherwise. The files are read from
+  `DJ_ANNOUNCE_DIR` (`folders.dj_announcements`,
+  `/home/pi/audio/dj_announcements`), which **mirrors the music folder**: a
+  file named after the song, or a file named `_any` beside it, which then
+  covers the whole album, the whole artist, or everything when it sits in the
+  folder itself. So `LMFAO/2011 - Sorry For Rocking/03 - Party Rock Anthem.wav`
+  introduces that one song, `LMFAO/_any.wav` every LMFAO song, and
+  `_any.wav` every song of the library. Any format mpv reads (wav, opus, mp3,
+  ogg, m4a, flac) - the **name** is what counts, and it is read without
+  caring about capitals. A prepared file is not synthesized: no waiting, no
+  model, nothing on the processor. Settings > Schedules shows how many files
+  there are and how many songs they cover. A dedication keeps its own voice: a
+  file prepared for the song cannot say "from Blue fox".
 - **Dedications** (Network > Guest access, **Dedications**,
   `security.dedications`, off by default): whoever puts a song up next is
   asked for an optional message, said just before the song - "A dedication
@@ -2720,6 +2736,7 @@ Every folder below is scanned recursively (useful if you have more than
 | Folder | Default path | Setting |
 | --- | --- | --- |
 | Music | `/home/pi/audio/music` | `music` (`folders:`) |
+| Prepared introductions (radio host) | `/home/pi/audio/dj_announcements` | `dj_announcements` (`folders:`) |
 | Button sounds (single click) | `/home/pi/audio/memes` | `memes` (`folders:`) |
 | Cutoff announcement | `/home/pi/audio/cutoff_announcements` | `cutoff_announcements` (`folders:`) |
 | Morning / double-click announcements | `/home/pi/audio/morning_announcements`, `/home/pi/audio/doubleclick_announcements` | the announcement's own folder (Custom Announcements card) |

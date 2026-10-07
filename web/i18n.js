@@ -665,6 +665,13 @@ const I18N = {
     "settings.piper_voice": "Spoken voice (Piper)",
     "settings.dj_every": "Introduce the songs (every N)",
     "settings.dj_every_desc": "Like a radio host: \"Up next: title, by artist\", between two songs. 0 = never.",
+    "settings.dj_mode": "Who introduces the songs",
+    "settings.dj_mode_desc": "The radio says it itself, or plays a file you prepared.",
+    "settings.dj_mode_spoken": "The radio",
+    "settings.dj_mode_files": "Your files",
+    "settings.dj_mode_files_first": "Your files, otherwise the radio",
+    "settings.dj_files_hint": "Prepared introductions are read from {folder}: a file named after the song, or one named \"_any\" beside it for its album, its artist or everything.",
+    "settings.dj_files_count": "Prepared files: {files} · Songs covered: {covered} of {tracks}.",
     "settings.speech_test": "Hear it",
     "confirm.delete_schedule": "Delete the schedule \"{name}\"?",
     "notice.schedule": "Schedule \"{name}\" until {time}.",
@@ -2657,6 +2664,13 @@ const I18N = {
     "settings.piper_voice": "Voix parlée (Piper)",
     "settings.dj_every": "Présenter les morceaux (tous les N)",
     "settings.dj_every_desc": "Comme un animateur radio : « Et maintenant : titre, de artiste », entre deux morceaux. 0 = jamais.",
+    "settings.dj_mode": "Qui présente les morceaux",
+    "settings.dj_mode_desc": "La radio les présente elle-même, ou joue un fichier que tu as préparé.",
+    "settings.dj_mode_spoken": "La radio",
+    "settings.dj_mode_files": "Tes fichiers",
+    "settings.dj_mode_files_first": "Tes fichiers, sinon la radio",
+    "settings.dj_files_hint": "Les annonces préparées sont lues dans {folder} : un fichier au nom de la chanson, ou un fichier nommé « _any » à côté, qui couvre alors son album, son artiste ou tout le reste.",
+    "settings.dj_files_count": "Fichiers préparés : {files} · Chansons couvertes : {covered} sur {tracks}.",
     "settings.speech_test": "Écouter",
     "confirm.delete_schedule": "Supprimer la programmation « {name} » ?",
     "notice.schedule": "Programmation « {name} » jusqu'à {time}.",
@@ -4649,6 +4663,13 @@ const I18N = {
     "settings.piper_voice": "Sprechstimme (Piper)",
     "settings.dj_every": "Lieder ansagen (alle N)",
     "settings.dj_every_desc": "Wie ein Radiomoderator: „Und jetzt: Titel von Künstler“ zwischen zwei Liedern. 0 = nie.",
+    "settings.dj_mode": "Wer die Titel ansagt",
+    "settings.dj_mode_desc": "Das Radio sagt sie selbst an oder spielt eine von dir vorbereitete Datei.",
+    "settings.dj_mode_spoken": "Das Radio",
+    "settings.dj_mode_files": "Deine Dateien",
+    "settings.dj_mode_files_first": "Deine Dateien, sonst das Radio",
+    "settings.dj_files_hint": "Vorbereitete Ansagen werden aus {folder} gelesen: eine Datei mit dem Namen des Titels, oder eine namens „_any“ daneben, die dann sein Album, seinen Künstler oder alles abdeckt.",
+    "settings.dj_files_count": "Vorbereitete Dateien: {files} · Abgedeckte Titel: {covered} von {tracks}.",
     "settings.speech_test": "Anhören",
     "confirm.delete_schedule": "Zeitplan „{name}“ löschen?",
     "notice.schedule": "Zeitplan „{name}“ bis {time}.",
@@ -6641,6 +6662,13 @@ const I18N = {
     "settings.piper_voice": "Voz hablada (Piper)",
     "settings.dj_every": "Presentar las canciones (cada N)",
     "settings.dj_every_desc": "Como un locutor: «Y ahora: título, de artista», entre dos canciones. 0 = nunca.",
+    "settings.dj_mode": "Quién presenta las canciones",
+    "settings.dj_mode_desc": "La radio las presenta ella misma, o reproduce un archivo que hayas preparado.",
+    "settings.dj_mode_spoken": "La radio",
+    "settings.dj_mode_files": "Tus archivos",
+    "settings.dj_mode_files_first": "Tus archivos, si no la radio",
+    "settings.dj_files_hint": "Las presentaciones preparadas se leen en {folder}: un archivo con el nombre de la canción, o uno llamado «_any» al lado, que cubre entonces su álbum, su artista o todo.",
+    "settings.dj_files_count": "Archivos preparados: {files} · Canciones cubiertas: {covered} de {tracks}.",
     "settings.speech_test": "Escuchar",
     "confirm.delete_schedule": "¿Eliminar la programación «{name}»?",
     "notice.schedule": "Programación «{name}» hasta las {time}.",
@@ -8633,6 +8661,13 @@ const I18N = {
     "settings.piper_voice": "Voce parlata (Piper)",
     "settings.dj_every": "Presentare i brani (ogni N)",
     "settings.dj_every_desc": "Come un conduttore radio: «E ora: titolo, di artista», tra due brani. 0 = mai.",
+    "settings.dj_mode": "Chi presenta i brani",
+    "settings.dj_mode_desc": "La radio li presenta da sola, oppure riproduce un file che hai preparato.",
+    "settings.dj_mode_spoken": "La radio",
+    "settings.dj_mode_files": "I tuoi file",
+    "settings.dj_mode_files_first": "I tuoi file, altrimenti la radio",
+    "settings.dj_files_hint": "Le presentazioni preparate si leggono in {folder}: un file con il nome del brano, o uno chiamato «_any» accanto, che copre allora il suo album, il suo artista o tutto.",
+    "settings.dj_files_count": "File preparati: {files} · Brani coperti: {covered} di {tracks}.",
     "settings.speech_test": "Ascolta",
     "confirm.delete_schedule": "Eliminare la programmazione «{name}»?",
     "notice.schedule": "Programmazione «{name}» fino alle {time}.",
@@ -10625,6 +10660,13 @@ const I18N = {
     "settings.piper_voice": "Gesproken stem (Piper)",
     "settings.dj_every": "Nummers aankondigen (elke N)",
     "settings.dj_every_desc": "Zoals een radiopresentator: 'En nu: titel, van artiest', tussen twee nummers. 0 = nooit.",
+    "settings.dj_mode": "Wie de nummers aankondigt",
+    "settings.dj_mode_desc": "De radio doet het zelf, of speelt een bestand dat je hebt voorbereid.",
+    "settings.dj_mode_spoken": "De radio",
+    "settings.dj_mode_files": "Je bestanden",
+    "settings.dj_mode_files_first": "Je bestanden, anders de radio",
+    "settings.dj_files_hint": "Voorbereide aankondigingen worden gelezen uit {folder}: een bestand met de naam van het nummer, of een bestand \"_any\" ernaast dat dan het album, de artiest of alles dekt.",
+    "settings.dj_files_count": "Voorbereide bestanden: {files} · Gedekte nummers: {covered} van {tracks}.",
     "settings.speech_test": "Beluisteren",
     "confirm.delete_schedule": "Schema '{name}' verwijderen?",
     "notice.schedule": "Schema '{name}' tot {time}.",
@@ -11998,16 +12040,22 @@ function t(key, vars) {
   return str;
 }
 
+/* The values a translated line needs: data-i18n-var-folder="..." fills {folder}.
+   Shared so a line repainted by app.js uses exactly the same rule. */
+function i18nVars(el) {
+  const vars = {};
+  Object.keys(el.dataset).forEach((k) => {
+    if (k.startsWith("i18nVar") && k.length > 7) {
+      vars[k.charAt(7).toLowerCase() + k.slice(8)] = el.dataset[k];
+    }
+  });
+  return vars;
+}
+
 function applyStaticTranslations() {
   document.documentElement.lang = currentLang;
   document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const vars = {};
-    Object.keys(el.dataset).forEach((k) => {
-      if (k.startsWith("i18nVar") && k.length > 7) {
-        vars[k.charAt(7).toLowerCase() + k.slice(8)] = el.dataset[k];
-      }
-    });
-    el.textContent = t(el.dataset.i18n, vars);
+    el.textContent = t(el.dataset.i18n, i18nVars(el));
   });
   document.querySelectorAll("[data-i18n-html]").forEach((el) => {
     el.innerHTML = t(el.dataset.i18nHtml);

@@ -58,6 +58,7 @@ import bt_link  # noqa: E402
 import library  # noqa: E402
 import blind_test  # noqa: E402
 import cards  # noqa: E402
+import dj_intro  # noqa: E402
 import likes  # noqa: E402
 import music_lists  # noqa: E402
 import schedules  # noqa: E402
@@ -3631,6 +3632,19 @@ def api_set_settings():
         "reboot_needed": reboot_needed,
         "audio_reloaded": audio_reloaded,
     }})
+
+
+@app.route("/api/dj_announcements")
+def api_dj_announcements():
+    """What the prepared introductions folder holds, and how many songs it
+    covers. Read when the settings are shown, never in the status: it walks the
+    library."""
+    c = cfg()
+    tracks = get_music_list(c["MUSIC_DIR"], c["MUSIC_CACHE_FILE"])
+    folder = c.get("DJ_ANNOUNCE_DIR") or ""
+    files, covered = dj_intro.scan(tracks, folder, c["MUSIC_DIR"])
+    return jsonify({"ok": True, "data": {"dir": folder, "files": files,
+                                         "covered": covered, "tracks": len(tracks)}})
 
 
 @app.route("/api/system/reboot", methods=["POST"])

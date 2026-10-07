@@ -143,6 +143,12 @@ bluetooth:
 folders:
   music: "/home/pi/audio/music"
 
+  # Introductions to play instead of the spoken one (see dj_announce_mode),
+  # mirroring the music folder: a file named after the song, or one named
+  # "_any" beside it - which then covers its album, its artist, or the
+  # whole library. Any format mpv reads; the name is what counts.
+  dj_announcements: "/home/pi/audio/dj_announcements"
+
   # Sounds played by a single click on the Flic button.
   memes: "/home/pi/audio/memes"
 
@@ -501,6 +507,13 @@ schedule:
   # Like a radio host: every N songs, the next one is introduced out
   # loud ("Up next: title, by artist") between the two. 0 = never.
   dj_announce_every: 0
+
+  # Who says that introduction:
+  #   spoken      -> the radio says it, as before (dj_announce_dir ignored)
+  #   files       -> only the files of dj_announce_dir: a song with none is
+  #                  played without an introduction
+  #   files_first -> the file when there is one, the radio's voice otherwise
+  dj_announce_mode: "spoken"
 
 # ---------------------------------------------------------------
 # Fade durations - every stop is progressive, never abrupt

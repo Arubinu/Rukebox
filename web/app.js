@@ -2859,11 +2859,31 @@ async function loadSettingsIntoForm() {
   updateSpeakerFadeVisibility();
   updateClickSoundRows();
   paintStreamRows();
+  loadDjIntroFiles();
 
   if ("ACT_LED" in result.data) {
     document.getElementById("actLedToggle").checked = result.data.ACT_LED !== "off";
     if (result.data.USB_PORT_MODE) document.getElementById("usbPortMode").value = result.data.USB_PORT_MODE;
   }
+}
+
+/* What the prepared introductions folder holds, and how much of the library it
+   covers: walked by the server, only when the settings are read. */
+async function loadDjIntroFiles() {
+  const folder = document.getElementById("djIntroFolder");
+  const count = document.getElementById("djIntroCount");
+  if (!folder || !count) return;
+  const result = await apiGet("/api/dj_announcements");
+  if (!result.ok) return;
+  const data = result.data || {};
+  folder.dataset.i18nVarFolder = data.dir || "";
+  count.dataset.i18nVarFiles = String(data.files || 0);
+  count.dataset.i18nVarCovered = String(data.covered || 0);
+  count.dataset.i18nVarTracks = String(data.tracks || 0);
+  count.hidden = false;
+  [folder, count].forEach((el) => {
+    el.textContent = t(el.dataset.i18n, i18nVars(el));
+  });
 }
 
 function updateSpeakerFadeVisibility() {

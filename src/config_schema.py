@@ -197,6 +197,15 @@ SETTINGS = [
 
     Setting("MUSIC_DIR", "folders", "music", "str", "/home/pi/audio/music",
             "", "Music folder"),
+    Setting(
+        "DJ_ANNOUNCE_DIR", "folders", "dj_announcements", "str",
+        "/home/pi/audio/dj_announcements",
+        "Introductions to play instead of the spoken one (see dj_announce_mode),\n"
+        "mirroring the music folder: a file named after the song, or one named\n"
+        "\"_any\" beside it - which then covers its album, its artist, or the\n"
+        "whole library. Any format mpv reads; the name is what counts.",
+        "Prepared introductions",
+    ),
     Setting("MEME_DIR", "folders", "memes", "str", "/home/pi/audio/memes",
             "Sounds played by a single click on the Flic button.", "Button sounds"),
     Setting("CUTOFF_ANNOUNCE_DIR", "folders", "cutoff_announcements", "str",
@@ -615,6 +624,15 @@ SETTINGS = [
             "Like a radio host: every N songs, the next one is introduced out\n"
             "loud (\"Up next: title, by artist\") between the two. 0 = never.",
             "Introduce the songs (every N)"),
+    Setting(
+        "DJ_ANNOUNCE_MODE", "schedule", "dj_announce_mode", "str", "spoken",
+        "Who says that introduction:\n"
+        "  spoken      -> the radio says it, as before (dj_announce_dir ignored)\n"
+        "  files       -> only the files of dj_announce_dir: a song with none is\n"
+        "                 played without an introduction\n"
+        "  files_first -> the file when there is one, the radio's voice otherwise",
+        "Who introduces the songs",
+    ),
     Setting("ANNOUNCE_MUSIC_UNDER", "fades", "music_under_announcements", "int", "0",
             "Keep the music playing under an announcement (the spoken time\n"
             "included), at this percentage of its volume. 0 = the music pauses\n"
@@ -1156,6 +1174,7 @@ def _environment_paths():
         "CLOCK_OK_SOUND": paths.resolve("CLOCK_OK_SOUND", paths.music("system", "clock_ok.wav")),
         "CUTOFF_ANNOUNCE_DIR": paths.resolve(
             "CUTOFF_ANNOUNCE_DIR", paths.music("cutoff_announcements")),
+        "DJ_ANNOUNCE_DIR": paths.resolve("DJ_ANNOUNCE_DIR", paths.music("dj_announcements")),
         "HIDDEN_FILE": paths.resolve("HIDDEN_FILE", paths.state("hidden.json")),
         "KEEPALIVE_SOUND": paths.resolve("KEEPALIVE_SOUND", paths.music("system", "keepalive.wav")),
         "LIBRARY_DB_FILE": paths.resolve("LIBRARY_DB_FILE", paths.state("library.db")),
