@@ -1941,6 +1941,27 @@ function timerSymbol(name, small) {
   return mark;
 }
 
+function legendLines(pairs) {
+  const legend = document.createElement("div");
+  legend.className = "timer-legend";
+  pairs.forEach(([icon, text]) => {
+    const line = document.createElement("p");
+    line.className = "timer-legend-line";
+    const label = document.createElement("span");
+    label.textContent = text;
+    line.append(timerSymbol(icon, true), label);
+    legend.appendChild(line);
+  });
+  return legend;
+}
+
+/* What the two ways of stopping the music do, under the buttons that do them:
+   the same legend as the timer's, with the icon each action carries. */
+function stopChoiceBody() {
+  return legendLines([["pause", t("home.legend_standby")],
+                      ["power", t("home.legend_poweroff")]]);
+}
+
 function timerChoiceBody(groups, intro) {
   const wrap = document.createElement("div");
   wrap.className = "timer-groups";
@@ -1967,17 +1988,8 @@ function timerChoiceBody(groups, intro) {
   });
 
   // Drawn icons, not the unicode pause/moon: many phone fonts have no glyph.
-  const legend = document.createElement("div");
-  legend.className = "timer-legend";
-  [["pause", t("timer.legend_pause")], ["moon", t("timer.legend_sleep")]].forEach(([icon, text]) => {
-    const line = document.createElement("p");
-    line.className = "timer-legend-line";
-    const label = document.createElement("span");
-    label.textContent = text;
-    line.append(timerSymbol(icon, true), label);
-    legend.appendChild(line);
-  });
-  wrap.appendChild(legend);
+  wrap.appendChild(legendLines([["pause", t("timer.legend_pause")],
+                               ["moon", t("timer.legend_sleep")]]));
 
   if (intro) {
     const line = document.createElement("p");
@@ -2479,10 +2491,15 @@ document.getElementById("btnDouble").addEventListener("click", async () => {
 document.getElementById("btnStart").addEventListener("click", () => apiPost("/api/action/start_music"));
 
 document.getElementById("btnLongPress").addEventListener("click", async () => {
-  const choice = await showChoice(t("home.stop_body"), [
-    { value: "standby", label: t("home.standby") },
-    { value: "poweroff", label: t("home.poweroff"), danger: true },
-  ], t("home.stop_title"));
+  const choice = await openModal({
+    title: t("home.stop_title"),
+    bodyNode: stopChoiceBody(),
+    confirm: true,
+    choices: [
+      { value: "standby", label: t("home.standby") },
+      { value: "poweroff", label: t("home.poweroff"), danger: true },
+    ],
+  });
   if (choice === "standby") {
     const r = await apiPost("/api/action/standby");
     if (!r.ok) showToolError(t("common.failed"), r);
