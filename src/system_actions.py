@@ -60,9 +60,12 @@ def _systemctl_available():
 def can_power_off():
     """Whether switching this machine off means anything.
 
-    True on a Pi and on any host that runs systemd. False in a container:
-    there is no machine to switch off, only this process to end, and the
-    platform profile says so rather than the filesystem."""
+    True on a Pi, and in a container that has a systemd of its own (an LXC).
+    False in Docker whatever is installed in the image: there is no machine to
+    switch off, only this process to end, and the restart policy brings it back.
+    """
+    if platform_mod.name() == platform_mod.DOCKER:
+        return False
     return platform_mod.name() == platform_mod.PI or _systemctl_available()
 
 
