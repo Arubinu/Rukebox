@@ -1501,6 +1501,12 @@ class RepeatedActionTest(unittest.TestCase):
         ws._repeats.clear()
         self.calls = []
         self.delay = 0.0
+        # An action can be held open by hand: a press that must land *during* it
+        # is then a fact, not a race against a sleep (CI stretched one past the
+        # window once, and the test failed for a reason that had nothing to do
+        # with the code).
+        self.gate = threading.Event()
+        self.gate.set()
         self.addCleanup(unittest.mock.patch.stopall)
         unittest.mock.patch.object(ws, "_quota_applies", return_value=False).start()
         unittest.mock.patch.object(ws, "_repeat_person",
@@ -1509,6 +1515,7 @@ class RepeatedActionTest(unittest.TestCase):
 
         def control(cmd, **kw):
             self.calls.append((cmd, kw))
+            self.gate.wait()
             time.sleep(self.delay)
             return {"ok": True, "data": {"cmd": cmd}}
         unittest.mock.patch.object(ws, "control", side_effect=control).start()
@@ -1530,13 +1537,16 @@ class RepeatedActionTest(unittest.TestCase):
                          "the one who just acted may go on (a second Previous goes further back)")
 
     def test_the_window_runs_from_the_end_of_a_fade(self):
-        self.delay = 1.3
+        self.gate.clear()
         first = threading.Thread(target=lambda: self.post("/api/action/next_track", "a"))
         first.start()
-        time.sleep(1.1)
-        self.post("/api/action/next_track", "b")
-        first.join()
-        self.delay = 0
+        while not self.calls:
+            time.sleep(0.01)
+        second = threading.Thread(target=lambda: self.post("/api/action/next_track", "b"))
+        second.start()
+        self.gate.set()
+        first.join(timeout=10)
+        second.join(timeout=10)
         self.post("/api/action/next_track", "c")
         self.assertEqual(self.cmds(), ["next_track"], "pressed during the fade, and just after it: one song")
 
