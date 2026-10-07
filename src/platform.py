@@ -81,17 +81,37 @@ def _is_raspberry_pi():
     return "raspberry pi" in model.lower()
 
 
+def _container_kind():
+    """What the container manager calls itself, or "" outside one.
+
+    `/run/systemd/container` is systemd's own answer, and the only sign that
+    reaches everywhere: LXC creates no `/dev/lxc`, and puts `container=lxc` in
+    the environment of PID 1 alone - so neither is visible to a service, an SSH
+    session, or a script run by hand. Without systemd, PID 1's environment is
+    the last place it is written down."""
+    declared = _read_first("/run/systemd/container").strip().lower()
+    if declared:
+        return declared
+    for entry in _read_first("/proc/1/environ").split("\0"):
+        if entry.startswith("container="):
+            return entry.split("=", 1)[1].strip().lower()
+    return ""
+
+
 def detect():
     """`docker`, `lxc`, `pi` or `host`, in that order of certainty."""
     forced = (os.environ.get("RUKEBOX_PLATFORM") or "").strip().lower()
     if forced in KNOWN:
         return forced
+    kind = _container_kind()
     if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
         return DOCKER
-    if os.environ.get("container") in ("docker", "podman", "containerd"):
+    if kind in ("docker", "podman", "containerd") \
+            or os.environ.get("container") in ("docker", "podman", "containerd"):
         return DOCKER
-    # LXC sets `container` too, so the two are told apart after Docker.
-    if os.path.isdir("/dev/lxc") or os.environ.get("container") == "lxc":
+    # LXC names itself too, so the two are told apart after Docker.
+    if kind in ("lxc", "lxc-libvirt") or os.path.isdir("/dev/lxc") \
+            or os.environ.get("container") == "lxc":
         return LXC
     if ":/lxc/" in _cgroup_text():
         return LXC
@@ -138,7 +158,18 @@ def _has_media_upload():
     goes there - a song, an announcement's sound, a system sound - and a
     container's usually arrives read-only (`:ro` in the compose file), where
     music is added from the host instead."""
-    return os.access(paths.music_dir(), os.W_OK)
+    return os.access(_music_dir(), os.W_OK)
+
+
+def _music_dir():
+    """The folder the library is read from, resolved as the rest of the project
+    resolves it: RUKEBOX_MUSIC_DIR, then the environment the units carry
+    (MUSIC_DIR, which is what the generated rukebox.env writes), then the root a
+    first start defaults to. `paths.music_dir()` alone answers /home/pi/audio on
+    an LXC, whose music is under /srv/rukebox/audio/music and named in the YAML."""
+    return (os.environ.get("RUKEBOX_MUSIC_DIR")
+            or os.environ.get("MUSIC_DIR")
+            or paths.music_dir())
 
 
 def _has_rtc():

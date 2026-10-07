@@ -6,6 +6,8 @@ out from here rather than from a missing file somewhere else. RUKEBOX_PLATFORM
 forces the answer, which is also how the suite runs the same checks the way a
 Docker image would."""
 import os
+import shutil
+import tempfile
 import unittest
 from unittest import mock
 
@@ -62,6 +64,41 @@ class DetectionTest(unittest.TestCase):
         self.assertEqual(host.detect(), host.LXC)
         self.with_only_environment(container="docker")
         self.assertEqual(host.detect(), host.DOCKER)
+
+    def test_media_upload_follows_the_configured_music_folder(self):
+        """Not the Pi's default root: an LXC keeps its music under
+        /srv/rukebox/audio/music, named in the YAML and carried to the units as
+        MUSIC_DIR. Reading paths.music_dir() alone hid "Add music" there."""
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        self.with_only_environment()
+        with mock.patch.dict(os.environ, {"MUSIC_DIR": folder}):
+            self.assertTrue(host.has("media_upload"))
+        with mock.patch.dict(os.environ, {"MUSIC_DIR": os.path.join(folder, "gone")}):
+            self.assertFalse(host.has("media_upload"))
+
+    def test_the_container_manager_systemd_names(self):
+        """The file systemd writes is what a Proxmox LXC is recognised by: it
+        creates no /dev/lxc, and `container=lxc` stays in PID 1's environment,
+        so a service and an SSH session see neither."""
+        for kind, expected in (("lxc", host.LXC), ("lxc-libvirt", host.LXC),
+                               ("docker", host.DOCKER), ("podman", host.DOCKER)):
+            self.with_only_environment()
+            with mock.patch.object(
+                    host, "_read_first",
+                    side_effect=lambda path, kind=kind: kind
+                    if path == "/run/systemd/container" else ""):
+                host.reset()
+                self.assertEqual(host.detect(), expected, kind)
+
+    def test_pid_one_environment_is_the_last_resort(self):
+        self.with_only_environment()
+        with mock.patch.object(
+                host, "_read_first",
+                side_effect=lambda path: "container=lxc\x00PATH=/usr/bin\x00"
+                if path == "/proc/1/environ" else ""):
+            host.reset()
+            self.assertEqual(host.detect(), host.LXC)
 
     def test_a_raspberry_pi_model_says_pi(self):
         self.with_only_environment()

@@ -15,16 +15,25 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # lxc) keeps systemd, the units, the updater and the web interface, and loses
 # what a container cannot have: the access point, the USB gadget, the hardware
 # clock, GPIO, the activity LED. src/platform.py reaches the same conclusion
-# at run time, from the same two signs - this is the installer's own copy, for
+# at run time, from the same signs - this is the installer's own copy, for
 # the things that are decided before anything runs.
 #
 # RUKEBOX_PROFILE=pi|lxc forces it, which is what the tests use.
 # RUKEBOX_SKIP_INTERNET_CHECK=yes goes past the access probe (an apt proxy
 # answers on neither port it tries).
 # ---------------------------------------------------------------------------
+# What systemd says this machine is running in. LXC creates no /dev/lxc and
+# leaves `container=lxc` in the environment of PID 1 alone - neither reaches a
+# shell - so that file is what tells a Proxmox container from a Pi here.
+CONTAINER_KIND=""
+if [ -r /run/systemd/container ]; then
+    CONTAINER_KIND="$(tr -d '[:space:]' < /run/systemd/container)"
+elif [ -r /proc/1/environ ]; then
+    CONTAINER_KIND="$(tr '\0' '\n' < /proc/1/environ | sed -n 's/^container=//p' | head -n1)"
+fi
 if [ -n "${RUKEBOX_PROFILE:-}" ]; then
     PROFILE="$RUKEBOX_PROFILE"
-elif [ -e /dev/lxc ] || [ "${container:-}" = "lxc" ]; then
+elif [ -e /dev/lxc ] || [ "${container:-}" = "lxc" ] || [[ "$CONTAINER_KIND" == *lxc* ]]; then
     PROFILE="lxc"
 else
     PROFILE="pi"

@@ -12,10 +12,18 @@ fi
 trap 'rm -f "$0"' EXIT
 
 # The Pi's own account and folders are not every machine's: a container runs the
-# units as its own account, and keeps its audio elsewhere.
+# units as its own account, and keeps its audio elsewhere. What is running here
+# is what systemd says: LXC creates no /dev/lxc and leaves `container=lxc` in
+# PID 1's environment alone, so a shell sees neither.
+CONTAINER_KIND=""
+if [ -r /run/systemd/container ]; then
+    CONTAINER_KIND="$(tr -d '[:space:]' < /run/systemd/container)"
+elif [ -r /proc/1/environ ]; then
+    CONTAINER_KIND="$(tr '\0' '\n' < /proc/1/environ | sed -n 's/^container=//p' | head -n1)"
+fi
 if [ -n "${RUKEBOX_PROFILE:-}" ]; then
     PROFILE="$RUKEBOX_PROFILE"
-elif [ -e /dev/lxc ] || [ "${container:-}" = "lxc" ]; then
+elif [ -e /dev/lxc ] || [ "${container:-}" = "lxc" ] || [[ "$CONTAINER_KIND" == *lxc* ]]; then
     PROFILE="lxc"
 else
     PROFILE="pi"
