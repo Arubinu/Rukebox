@@ -195,6 +195,24 @@ class FilesTest(unittest.TestCase):
             self.assertIn("/config:/config", text, name)
             self.assertIn("/data:/data", text, name)
 
+    def test_the_container_gets_a_sound_server_of_its_own(self):
+        """Written together, and useless apart: the three units, the null sink
+        they play into, and where they keep their sockets. An LXC that has them
+        is heard over the network; a Pi never enables any of them."""
+        for unit_name in ("rukebox-pipewire.service", "rukebox-wireplumber.service",
+                          "rukebox-pipewire-pulse.service"):
+            unit = _path.read("systemd", unit_name)
+            self.assertIn("User=pi", unit, unit_name)
+            self.assertIn("EnvironmentFile=-/etc/rukebox/container-runtime.env", unit, unit_name)
+            self.assertIn("ConditionPathExists=!/run/rukebox/pipewire-0", unit, unit_name)
+        runtime = _path.read("config", "container-runtime.env")
+        for variable in ("XDG_RUNTIME_DIR", "PIPEWIRE_RUNTIME_DIR", "PULSE_SERVER"):
+            self.assertIn(variable, runtime, variable)
+        installer = _path.read("scripts", "install.sh")
+        for needle in ("rukebox-pipewire.service", "rukebox-pipewire-pulse.service",
+                       "rukebox-wireplumber.service", "docker/pipewire-container.conf"):
+            self.assertIn(needle, installer, needle)
+
     def test_the_community_scripts_are_present_and_well_formed(self):
         """Three files, written to community-scripts' rules: the day this is
         proposed upstream they are copied, not rewritten. They cannot be run

@@ -468,6 +468,15 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
         systemctl enable rukebox-act-led.service 2>/dev/null || true
         systemctl enable --now rukebox-bt-radio.service 2>/dev/null || true
+    else
+        # The container's own sound server, for an installation made before it
+        # existed: the null sink, where its sockets live, and the three units.
+        install -D -m 644 -o root -g root "$SOURCE_DIR/docker/pipewire-container.conf" \
+            /etc/pipewire/pipewire.conf.d/rukebox-container.conf 2>/dev/null || true
+        install -D -m 600 -o "$RUKEBOX_USER" -g "$RUKEBOX_USER" "$SOURCE_DIR/config/container-runtime.env" \
+            /etc/rukebox/container-runtime.env 2>/dev/null || true
+        systemctl enable --now rukebox-pipewire.service rukebox-wireplumber.service \
+            rukebox-pipewire-pulse.service 2>/dev/null || true
     fi
     # WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
     if [ -f "$SOURCE_DIR/config/wireplumber-bluez.conf" ]; then

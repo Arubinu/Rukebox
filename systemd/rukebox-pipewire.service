@@ -1,0 +1,17 @@
+[Unit]
+Description=Rukebox's own sound server (a container has no card of its own)
+# A container given the host's sound server has its socket mounted at this path:
+# there is only ever one sound server, so these three step aside when it is there.
+ConditionPathExists=!/run/rukebox/pipewire-0
+Before=rukebox-pipewire-pulse.service rukebox-wireplumber.service rukebox-daemon.service
+
+[Service]
+EnvironmentFile=-/etc/rukebox/container-runtime.env
+RuntimeDirectory=rukebox
+ExecStart=/usr/bin/pipewire
+Restart=always
+RestartSec=2
+User=pi
+
+[Install]
+WantedBy=multi-user.target

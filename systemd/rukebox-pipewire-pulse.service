@@ -1,0 +1,17 @@
+[Unit]
+Description=PulseAudio compatibility for Rukebox's own sound server
+# The project lists the sinks with pw-dump, but the Pulse layer is what gives the
+# virtual output its MONITOR, and the network stream has nothing to encode without it.
+ConditionPathExists=!/run/rukebox/pipewire-0
+After=rukebox-pipewire.service
+Requires=rukebox-pipewire.service
+
+[Service]
+EnvironmentFile=-/etc/rukebox/container-runtime.env
+ExecStart=/usr/bin/pipewire-pulse
+Restart=always
+RestartSec=2
+User=pi
+
+[Install]
+WantedBy=multi-user.target

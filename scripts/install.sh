@@ -299,6 +299,17 @@ if [ "$PROFILE" = "lxc" ]; then
         "AP_CONNECT_SOUND=" \
         "BATTERY_LOW_SOUND=" > /dev/null
     echo ">> Audio folders moved to $AUDIO_ROOT (the template documents the Pi's)."
+    # A first start on a container gets the same two answers the Docker image
+    # writes: its own virtual output instead of a speaker it has not got, and the
+    # network stream, which is the only way a container is heard. An existing file
+    # is left alone - the choice is the reader's from then on.
+    case "$action" in
+        "created "*)
+            python3 "$PROJECT_ROOT/src/config_file.py" set \
+                "AUDIO_OUTPUT=docker" "STREAM_ENABLED=true" > /dev/null
+            echo ">> Virtual output and network stream set (a container has no card)."
+            ;;
+    esac
 fi
 
 # WirePlumber reads the offered codecs from a drop-in generated from the config.
@@ -384,6 +395,19 @@ if [ "$PROFILE" = "lxc" ]; then
     done
     echo ">> Skipped the units a container cannot use (access point, USB gadget,"
     echo "   LED, GPIO, hardware clock, personal Wi-Fi, the Flic button)."
+
+    echo "== The container's own sound server =="
+    # A container has no card of its own, so the radio plays into a virtual
+    # output and the network stream is what you hear. The same pieces as the
+    # Docker image: the null sink, PipeWire, WirePlumber, and the Pulse layer
+    # that gives the sink its monitor.
+    install -D -m 644 -o root -g root "$PROJECT_ROOT/docker/pipewire-container.conf" \
+        /etc/pipewire/pipewire.conf.d/rukebox-container.conf
+    install -D -m 600 -o "$RUN_USER" -g "$RUN_USER" "$PROJECT_ROOT/config/container-runtime.env" \
+        /etc/rukebox/container-runtime.env
+    systemctl enable --now rukebox-pipewire.service rukebox-wireplumber.service \
+        rukebox-pipewire-pulse.service 2>/dev/null || true
+    echo "   The radio now plays to a virtual output; you hear it over the network."
 else
     for unit in $PI_UNITS; do
         systemctl enable "$unit" 2>/dev/null || true

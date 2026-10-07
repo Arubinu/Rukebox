@@ -6,6 +6,9 @@ Requires=rukebox-config.service
 
 [Service]
 EnvironmentFile=/etc/rukebox/rukebox.env
+# Absent on a Pi; a container writes it so the daemon finds the sound server it
+# runs itself (see config/container-runtime.env).
+EnvironmentFile=-/etc/rukebox/container-runtime.env
 ExecStart=/usr/bin/python3 /opt/rukebox/src/rukebox_daemon.py
 Restart=always
 RestartSec=5

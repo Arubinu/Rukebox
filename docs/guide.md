@@ -543,6 +543,7 @@ What changes, compared with a Pi:
 | USB gadget, GPIO, activity LED | installed | skipped |
 | Hardware clock (RTC), boot tweaks, `config.txt` | installed | skipped |
 | Flic button | available | disabled (no controller of its own) |
+| Sound | the card, the speaker, the jack | a virtual output, heard over the network |
 | Daemon, web interface, schedules, statistics, updater | yes | yes |
 
 `RUKEBOX_USER` and `RUKEBOX_AUDIO_ROOT` override the account and the audio
@@ -554,11 +555,22 @@ written for `rukebox`, not for `pi`), the Flic SDK download needs the second.
 An update afterwards follows the same profile — same account in the units,
 same audio folder, and none of the Pi's units enabled.
 
-**Sound** is the part to think about before starting: a container has no card
-of its own. Either pass a USB sound card through to it, or let it play into a
-virtual output and listen over the network — the same choice the Docker
-section above describes, and `docker/pipewire-container.conf` is the
-PipeWire drop-in that does it.
+**Sound**: a container has no card of its own, so the installer gives it a
+virtual output — the same null sink the Docker image uses, plus PipeWire,
+WirePlumber and the Pulse layer as three systemd units of their own
+(`rukebox-pipewire.service`, `rukebox-wireplumber.service`,
+`rukebox-pipewire-pulse.service`). The radio plays into that sink and you hear
+it **over the network**: `Settings > Audio > Network audio stream`, then
+"Listen here", VLC or a network speaker. A first install also turns that stream
+on and sets **Audio output** to *Virtual output (container)*; an existing
+configuration is left as it is.
+
+Passing a sound card through still works, and is what to do for a local
+speaker: give the container `/dev/snd` (Proxmox: `pct set <id> -dev0 …`), and
+whatever output it makes appear is offered in the **Audio output** card exactly
+as on a Pi. A container given the *host's* sound server instead — its socket
+mounted at `/run/rukebox/pipewire-0` — keeps it: the three units notice the
+socket and step aside rather than starting a second sound server.
 
 **Bluetooth** works through the host's BlueZ, from inside the container, if
 the host's D-Bus socket is passed to it. Without that, pair the speaker on

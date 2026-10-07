@@ -1,0 +1,15 @@
+[Unit]
+Description=Session manager for Rukebox's own sound server
+ConditionPathExists=!/run/rukebox/pipewire-0
+After=rukebox-pipewire.service
+Requires=rukebox-pipewire.service
+
+[Service]
+EnvironmentFile=-/etc/rukebox/container-runtime.env
+ExecStart=/usr/bin/wireplumber
+Restart=always
+RestartSec=2
+User=pi
+
+[Install]
+WantedBy=multi-user.target
