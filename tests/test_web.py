@@ -221,6 +221,11 @@ class WebTest(unittest.TestCase):
         self.assertIn(os.path.realpath(music), [os.path.realpath(r) for r in ws._browse_roots()])
 
         key = ws.config_schema.SYSTEM_SOUNDS[0]
+        # The sound of a test installation is the test's own: the real one would
+        # have this create a folder outside the sandbox, which a runner running
+        # as an ordinary user cannot do.
+        self.extra[key] = os.path.join(self.dir, "system", "restart.wav")
+        self.addCleanup(self.extra.pop, key, None)
         custom = ws._system_sound_custom_dir(key)
         os.makedirs(custom, exist_ok=True)
         self.assertIn(os.path.realpath(custom),
