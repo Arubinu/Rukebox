@@ -86,6 +86,9 @@ tar czf "$ARCHIVE" -C "$PROJECT_ROOT" \
     --exclude='./docs' \
     --exclude='./tests' \
     --exclude='./.claude' \
+    --exclude='./.scratch' \
+    --exclude='./docker/data' \
+    --exclude='./docker/config' \
     --exclude='./CLAUDE.md' \
     --exclude='./TODO.md' \
     --exclude='./README.md' \
