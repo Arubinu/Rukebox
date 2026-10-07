@@ -48,6 +48,20 @@ _NO_LIST = object()
 NEVER = float("-inf")
 
 
+def _file_stamp(path):
+    """A file's date AND its size, which is what the three caches below compare.
+
+    The date alone is not enough: a filesystem with coarse timestamps - tmpfs, a
+    FAT card - leaves it untouched when a file is written twice inside the same
+    tick, and the daemon would then keep playing the list the page just deleted.
+    """
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    return (info.st_mtime_ns, info.st_size)
+
+
 def announcement_target(msg):
     """(source, item_id, chooser) for a play_announcement command.
 
@@ -656,10 +670,7 @@ class RadioDaemon:
         arrived - harmless: a stale list answered "that announcement no longer
         exists" for a "Jouer" that had every right to work."""
         path = self.cfg["ANNOUNCEMENTS_FILE"]
-        try:
-            stamp = os.path.getmtime(path)
-        except OSError:
-            stamp = None
+        stamp = _file_stamp(path)
         if stamp != self._announcements_stamp:
             items = announcements.read_items(path)
             if items is None:
@@ -680,10 +691,7 @@ class RadioDaemon:
         """The music lists, re-read whenever the file changed: the web
         interface is the only writer, and it says so on the socket too."""
         path = self.cfg["MUSIC_LISTS_FILE"]
-        try:
-            stamp = os.path.getmtime(path)
-        except OSError:
-            stamp = None
+        stamp = _file_stamp(path)
         if stamp != self._lists_stamp:
             self._music_lists = music_lists.load(path)
             self._lists_stamp = stamp
@@ -1906,10 +1914,7 @@ class RadioDaemon:
     def _schedules(self):
         """The schedules, re-read whenever the file changed."""
         path = self.cfg.get("SCHEDULES_FILE") or ""
-        try:
-            stamp = os.path.getmtime(path)
-        except OSError:
-            stamp = None
+        stamp = _file_stamp(path)
         if stamp != self._schedules_stamp:
             items = schedules.read_items(path) if path else []
             if items is None:

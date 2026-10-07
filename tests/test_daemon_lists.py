@@ -174,7 +174,12 @@ class DaemonListsTest(unittest.TestCase):
         entry = music_lists.add(self.lists_file, {"name": "Jazz", "kind": "genre",
                                                   "genres": ["Jazz"]})
         self.daemon._set_active_list(entry["id"], "test")
+        before = os.stat(self.lists_file).st_mtime_ns
         music_lists.delete(self.lists_file, entry["id"])
+        # A filesystem with coarse timestamps leaves the date alone when two
+        # writes land in the same tick: the daemon then kept playing the list
+        # the page had just deleted, and only its size told them apart.
+        os.utime(self.lists_file, ns=(before, before))
         self.assertEqual(sorted(self.daemon._playable_tracks()), sorted(self.paths.values()))
         self.assertIsNone(self.daemon.state.active_list())
 
