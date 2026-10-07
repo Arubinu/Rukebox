@@ -8659,7 +8659,15 @@ async function loadEvents(append) {
   const query = document.getElementById("eventSearch").value.trim();
   let url = "/api/journal/entries?limit=60";
   if (type) url += "&type=" + encodeURIComponent(type);
-  if (query) url += "&q=" + encodeURIComponent(query);
+  if (query) {
+    url += "&q=" + encodeURIComponent(query);
+    // What the reader searches for is what they READ: the type names are
+    // translated here, so the ones whose name matches are sent along - the
+    // database only knows `web_session`, never "Interface web ouverte".
+    const needle = query.toLowerCase();
+    const labels = EVENT_TYPE_KEYS.filter((key) => eventLabel(key).toLowerCase().includes(needle));
+    if (labels.length) url += "&labels=" + encodeURIComponent(labels.join(","));
+  }
   if (append && oldestEventId !== null) url += "&before_id=" + oldestEventId;
 
   const result = await apiGet(url);

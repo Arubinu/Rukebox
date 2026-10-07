@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 // The event log's search (web/app.js, src/web_server.py): the query goes to the
 // route - so it finds the entries "Load more" has not fetched - and the list
 // says so when nothing matches.
@@ -59,6 +59,32 @@ test("the event log is searched in the database, not in what it loaded", async (
   await until(() => rows(page) === 1);
   assert.match(page.document.getElementById("eventList").textContent, /Broken\.opus/,
                "only the matching event is listed");
+  await page.close();
+});
+
+test("what the reader reads is what the search searches", async (t) => {
+  const page = withLog();
+  await openLog(page);
+  await until(() => rows(page) === 3);
+
+  // The type names are translated in the page, and the database only knows the
+  // keys: typing a word of the name the reader sees must send that key along.
+  const option = Array.from(page.document.querySelectorAll("#eventTypeFilter option"))
+    .find((one) => one.value);
+  assert.ok(option, "the type filter lists the types");
+  const word = option.textContent.trim().split(/\s+/)[0];
+  t.diagnostic("searching for '" + word + "', from the label '" + option.textContent.trim() + "'");
+
+  const search = page.$("eventSearch");
+  search.value = word;
+  search.dispatchEvent(new page.window.Event("input", { bubbles: true }));
+  const labels = await until(() => {
+    const asked = page.sent("GET", "/api/journal/entries")
+      .map((r) => r.query.get("labels")).filter(Boolean);
+    return asked.length ? asked[asked.length - 1] : null;
+  });
+  assert.ok(labels.split(",").includes(option.value),
+            "the type whose name matched is sent: " + labels + " for " + word);
   await page.close();
 });
 

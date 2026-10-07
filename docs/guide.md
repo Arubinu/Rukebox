@@ -2149,7 +2149,9 @@ Open the **Stats** area of the web interface (detailed view), six pages:
   details, case-insensitive), loaded when its page is opened (it is the
   heaviest query). The search runs in the database, so it also finds the
   entries **Load more** has not fetched yet, and the count the page shows is
-  the number of matches.
+  the number of matches. **The names you read are searched too**: the event
+  types are named in your language by the page, which sends the ones your text
+  matches, so typing "interface" finds the *web session* lines.
 
 ### Deleting individual entries
 

@@ -5887,6 +5887,10 @@ def api_stats_events():
     # A search runs in the database, so it finds what "Load more" has not
     # fetched yet - and `total` is then the number of matches, not the log's.
     query = (request.args.get("q") or "").strip()[:120] or None
+    # Event types the page recognised in the search text: it shows translated
+    # names, so it is the only side that knows "interface" means web_session.
+    labels = [name.strip()[:60] for name in (request.args.get("labels") or "").split(",")
+              if name.strip()][:40] or None
     return jsonify({
         "ok": True,
         "data": {
@@ -5895,9 +5899,10 @@ def api_stats_events():
                 event_type=event_type,
                 before_id=before_id,
                 query=query,
+                labels=labels,
             )),
             "types": stats.event_types(),
-            "total": stats.count_rows("events", event_type, query),
+            "total": stats.count_rows("events", event_type, query, labels),
         },
     })
 

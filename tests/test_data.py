@@ -44,6 +44,26 @@ class StatsTest(unittest.TestCase):
         self.assertEqual(self.rec.count_rows("events", None, "nothing here"), 0)
         self.assertEqual(self.rec.events(query="Broken")[0]["type"], "playback_error")
 
+    def test_the_search_also_finds_the_names_as_they_are_read(self):
+        """Reported as: "interface" finds nothing although the page shows
+        "Interface web ouverte". The name the reader sees is a translation of the
+        type, so the page sends the types it matched and the search keeps them -
+        unless an explicit type filter was chosen, which is a deliberate choice."""
+        self.rec.record("web_session", label="192.168.1.5")
+        self.rec.record("track_played", label="Fine.opus")
+
+        self.assertEqual(self.rec.count_rows("events", None, "interface"), 0,
+                         "the type itself is not in the database under that name")
+        self.assertEqual(self.rec.count_rows("events", None, "interface", ["web_session"]), 1,
+                         "the page's own translation is what makes it findable")
+        self.assertEqual([e["type"] for e in
+                          self.rec.events(query="interface", labels=["web_session"])],
+                         ["web_session"])
+        self.assertEqual(self.rec.count_rows("events", "track_played", "interface", ["web_session"]), 0,
+                         "a type filter wins over the names the search guessed")
+        self.assertEqual(self.rec.count_rows("events", None, "192.168", ["web_session"]), 1,
+                         "the raw fields are still searched")
+
     def test_today_summary(self):
         for name in ("a.mp3", "b.mp3", "a.mp3"):
             self.played(name)

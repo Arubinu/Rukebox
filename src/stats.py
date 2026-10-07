@@ -557,27 +557,41 @@ class StatsRecorder:
         "events": ("events", "1=1"),
     }
 
-    def _events_filter(self, event_type=None, query=None):
+    def _events_filter(self, event_type=None, query=None, labels=None):
         """(where, params) for the event log's filters, shared by the page, the
-        count and the deletion, so what is shown and what is counted agree."""
+        count and the deletion, so what is shown and what is counted agree.
+
+        `labels` are event types the interface recognised in the search text -
+        the names it shows are translated, so "interface" has to become
+        `web_session` somewhere, and that somewhere is the page. An explicit
+        type filter wins over them: it is a choice, the search is a hint."""
         clauses, params = [], []
         if event_type:
             clauses.append("type = ?")
             params.append(event_type)
         if query:
             like = "%" + query + "%"
-            clauses.append("(label LIKE ? OR type LIKE ? OR detail LIKE ?)")
-            params.extend([like, like, like])
+            fields = "(label LIKE ? OR type LIKE ? OR detail LIKE ?)"
+            if labels and not event_type:
+                # Either the text is in the row, or the type is one whose
+                # translated name the page recognised - not both at once.
+                clauses.append("(%s OR type IN (%s))"
+                               % (fields, ", ".join("?" * len(labels))))
+                params.extend([like, like, like])
+                params.extend(labels)
+            else:
+                clauses.append(fields)
+                params.extend([like, like, like])
         return (" AND ".join(clauses) or "1=1"), tuple(params)
 
-    def count_rows(self, scope, event_type=None, query=None):
+    def count_rows(self, scope, event_type=None, query=None, labels=None):
         """How many rows a list holds in the database."""
         if not self.enabled or scope not in self._LIST_SCOPES:
             return 0
         table, where = self._LIST_SCOPES[scope]
         params = ()
         if scope == "events":
-            where, params = self._events_filter(event_type, query)
+            where, params = self._events_filter(event_type, query, labels)
         try:
             return self._rows("SELECT COUNT(*) AS n FROM %s WHERE %s" % (table, where), params)[0]["n"]
         except Exception:  # noqa: BLE001
@@ -755,12 +769,12 @@ class StatsRecorder:
             log.exception("Could not build the statistics summary")
             return {"enabled": False, "error": "query_failed"}
 
-    def events(self, limit=100, event_type=None, since=None, before_id=None, query=None):
+    def events(self, limit=100, event_type=None, since=None, before_id=None, query=None, labels=None):
         if not self.enabled:
             return []
         sql = ("SELECT id, session_id, ts, clock_ok, type, label, detail "
                "FROM events WHERE 1=1")
-        where, params = self._events_filter(event_type, query)
+        where, params = self._events_filter(event_type, query, labels)
         if where != "1=1":
             sql += " AND " + where
         params = list(params)
