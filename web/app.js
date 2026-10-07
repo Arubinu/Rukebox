@@ -1053,7 +1053,7 @@ function closeModal(value) {
   resolve(value);
 }
 
-function openModal({ title, body, bodyNode, confirm, choices, actions, modalClass }) {
+function openModal({ title, body, bodyNode, legend, confirm, choices, actions, modalClass }) {
   closeModal(false);
   return new Promise((resolve) => {
     modalResolve = resolve;
@@ -1069,6 +1069,12 @@ function openModal({ title, body, bodyNode, confirm, choices, actions, modalClas
       bodyBox.textContent = body || "";
     }
     bodyBox.hidden = !body && !bodyNode;
+
+    // Under the choices, as the timer dialog's legend is under its own buttons.
+    const legendBox = document.getElementById("modalLegend");
+    legendBox.replaceChildren();
+    legendBox.hidden = !legend;
+    if (legend) legendBox.append(legend);
 
     document.getElementById("modalCancel").hidden = !confirm;
     // A dialog whose content carries its own ways out shows the close cross and nothing else.
@@ -2491,10 +2497,12 @@ document.getElementById("btnDouble").addEventListener("click", async () => {
 document.getElementById("btnStart").addEventListener("click", () => apiPost("/api/action/start_music"));
 
 document.getElementById("btnLongPress").addEventListener("click", async () => {
+  // Closing is the cross (Esc, or a tap outside): "off" is the only thing here
+  // that cannot be taken back, and neither way of stopping is a mistake to undo.
   const choice = await openModal({
     title: t("home.stop_title"),
-    bodyNode: stopChoiceBody(),
-    confirm: true,
+    legend: stopChoiceBody(),
+    actions: false,
     choices: [
       { value: "standby", label: t("home.standby") },
       { value: "poweroff", label: t("home.poweroff"), danger: true },
