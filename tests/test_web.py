@@ -336,6 +336,15 @@ class WebTest(unittest.TestCase):
         self.assertEqual(guest.get("/api/today").status_code, 200)
         self.assertEqual(guest.get("/api/queue").status_code, 200)
 
+    def test_every_sound_folder_is_one_the_interface_may_write_to(self):
+        """A folder the settings name but the write checks refuse is a folder
+        nothing can ever be put in. Reported as: the prepared introductions
+        folder would have been refused."""
+        missing = [setting.env for setting in ws.config_schema.SETTINGS
+                   if setting.section == "folders" and setting.env.endswith("_DIR")
+                   and ws.cfg().get(setting.env) not in ws._allowed_roots()]
+        self.assertEqual(missing, [])
+
     def test_the_prepared_introductions_are_counted(self):
         music = tempfile.mkdtemp()
         intros = tempfile.mkdtemp()

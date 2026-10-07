@@ -257,7 +257,7 @@ fi
 
 echo "== Creating folders =="
 mkdir -p /opt/rukebox /etc/rukebox /var/lib/rukebox
-mkdir -p "$AUDIO_ROOT"/{music,memes,morning_announcements,cutoff_announcements,doubleclick_announcements,system}
+mkdir -p "$AUDIO_ROOT"/{music,dj_announcements,memes,morning_announcements,cutoff_announcements,doubleclick_announcements,system}
 
 if [ "$PROFILE" = "lxc" ] && ! id -u "$RUN_USER" > /dev/null 2>&1; then
     echo "== Creating the '$RUN_USER' account the services run as =="
@@ -296,6 +296,7 @@ if [ "$PROFILE" = "lxc" ]; then
     # The template documents the Pi's own folders; this machine's are elsewhere.
     python3 "$PROJECT_ROOT/src/config_file.py" set \
         "MUSIC_DIR=$AUDIO_ROOT/music" \
+        "DJ_ANNOUNCE_DIR=$AUDIO_ROOT/dj_announcements" \
         "MEME_DIR=$AUDIO_ROOT/memes" \
         "CUTOFF_ANNOUNCE_DIR=$AUDIO_ROOT/cutoff_announcements" \
         "KEEPALIVE_SOUND=$AUDIO_ROOT/system/keepalive.wav" \

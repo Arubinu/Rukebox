@@ -5949,7 +5949,7 @@ def _allowed_roots():
     case that matters, so the write checks cannot ask the filesystem."""
     roots = list(BROWSABLE_ROOTS)
     values = cfg()
-    for key in ("MUSIC_DIR", "MEME_DIR", "CUTOFF_ANNOUNCE_DIR"):
+    for key in ("MUSIC_DIR", "DJ_ANNOUNCE_DIR", "MEME_DIR", "CUTOFF_ANNOUNCE_DIR"):
         folder = str(values.get(key) or "").strip()
         if folder:
             roots.append(folder)

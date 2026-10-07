@@ -1342,7 +1342,10 @@ The same voice can do three more things.
   caring about capitals. A prepared file is not synthesized: no waiting, no
   model, nothing on the processor. Settings > Schedules shows how many files
   there are and how many songs they cover. A dedication keeps its own voice: a
-  file prepared for the song cannot say "from Blue fox".
+  file prepared for the song cannot say "from Blue fox". **A backup does not
+  take these files**: the *sounds* part of an export walks one folder deep, so
+  a mirrored tree would come back flattened - keep your own copy of what you
+  generated, the Pi's is only a copy of it.
 - **Dedications** (Network > Guest access, **Dedications**,
   `security.dedications`, off by default): whoever puts a song up next is
   asked for an optional message, said just before the song - "A dedication

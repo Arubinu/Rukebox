@@ -222,6 +222,18 @@ class FilesTest(unittest.TestCase):
         for helper in re.findall(r"/usr/local/sbin/(rukebox-[a-z-]+)", installer):
             self.assertIn("/usr/local/sbin/" + helper, updater, helper)
 
+    def test_the_lxc_profile_moves_every_sound_folder(self):
+        """The template documents the Pi's own folders. A container keeps its
+        tree elsewhere, and a folder setting left at the Pi's path is one the
+        interface refuses to write to, pointing at nothing."""
+        import config_schema
+
+        installer = _path.read("scripts", "install.sh")
+        missing = [setting.env for setting in config_schema.SETTINGS
+                   if setting.section == "folders" and setting.env.endswith("_DIR")
+                   and setting.env not in installer]
+        self.assertEqual(missing, [])
+
     def test_the_community_scripts_are_present_and_well_formed(self):
         """Three files, written to community-scripts' rules: the day this is
         proposed upstream they are copied, not rewritten. They cannot be run
