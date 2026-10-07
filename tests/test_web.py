@@ -345,6 +345,22 @@ class WebTest(unittest.TestCase):
                    and ws.cfg().get(setting.env) not in ws._allowed_roots()]
         self.assertEqual(missing, [])
 
+    def test_a_sound_that_is_off_has_no_folder_of_its_own(self):
+        """Its folder would only exist at the template's path - the Pi's own,
+        on a container that has no such tree (reported as: the music folder
+        settings still said /home/pi)."""
+        key = ws.config_schema.SYSTEM_SOUNDS[0]
+        was = dict(type(self).extra)
+        type(self).extra.update({key: ""})
+        try:
+            self.assertNotIn(os.path.join(os.path.dirname(ws.DEFAULTS[key]), "custom"),
+                             ws._allowed_roots())
+            type(self).extra.update({key: os.path.join(self.dir, "system", "sound.wav")})
+            self.assertIn(os.path.join(self.dir, "system", "custom"), ws._allowed_roots())
+        finally:
+            type(self).extra.clear()
+            type(self).extra.update(was)
+
     def test_the_folder_picker_stays_inside_the_folders_configured(self):
         """Reported as: lock "Choose a folder" on the allowed path and its
         subfolders. It used to browse the whole of /home/pi, next to the music."""

@@ -5966,6 +5966,10 @@ def _allowed_roots():
     except Exception:  # noqa: BLE001 - a broken list must not take browsing down
         log.debug("Could not read the announcement folders", exc_info=True)
     for key in config_schema.SYSTEM_SOUNDS:
+        # A sound that is off has no original to replace, and its folder would
+        # only exist at the template's path - the Pi's own, on a container.
+        if not str(values.get(key) or "").strip():
+            continue
         roots.append(_system_sound_custom_dir(key, values))
     return list(dict.fromkeys(roots))
 
