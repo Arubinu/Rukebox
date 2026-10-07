@@ -5915,8 +5915,16 @@ AUDIO_EXTENSIONS = (".mp3", ".opus", ".ogg", ".oga", ".wav", ".m4a", ".aac",
 
 
 def _browse_roots():
-    """The roots that actually exist on this machine, in order."""
-    return [root for root in BROWSABLE_ROOTS if os.path.isdir(root)]
+    """The roots that actually exist, in order: the Pi's usual places, then the
+    folders this installation plays from - a container keeps them elsewhere,
+    and the sounds the interface offers live in there."""
+    roots = list(BROWSABLE_ROOTS)
+    values = cfg()
+    for key in ("MUSIC_DIR", "MEME_DIR", "CUTOFF_ANNOUNCE_DIR"):
+        folder = str(values.get(key) or "").strip()
+        if folder:
+            roots.append(folder)
+    return [root for root in dict.fromkeys(roots) if os.path.isdir(root)]
 
 
 def _inside_roots(path):

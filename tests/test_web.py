@@ -210,6 +210,19 @@ class WebTest(unittest.TestCase):
         self.assertEqual(owner.post("/api/system_sounds/" + ws.config_schema.SYSTEM_SOUNDS[0] + "/off")
                          .status_code, 200)
 
+    def test_the_folders_this_installation_plays_from_are_reachable(self):
+        # A container keeps its music outside the Pi's usual places, and both
+        # the folder browser and an announcement's own folder are checked
+        # against this list: without it, a container whose music is mounted
+        # writable could add a song but never a sound.
+        music = ws.cfg()["MUSIC_DIR"]
+        os.makedirs(music, exist_ok=True)
+        self.assertIn(os.path.realpath(music), [os.path.realpath(r) for r in ws._browse_roots()])
+        if os.sep == "/":
+            # _inside_roots compares with a forward slash, which is what the
+            # product runs on: the Pi and every container are Linux.
+            self.assertTrue(ws._inside_roots(os.path.join(music, "memes")))
+
     def test_another_sites_page_cannot_post(self):
         owner = self.owner()
         foreign = owner.post("/api/mute", json={"on": True}, headers={"Origin": "https://evil.example"})

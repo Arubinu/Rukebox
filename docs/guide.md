@@ -502,6 +502,18 @@ Two consequences worth knowing before you look for a card:
   schedule set for 07:00 fires at 07:00 UTC, two hours late in Paris in summer.
   Which zone the radio is running on is in **System health**, next to the
   uptime.
+- **The music volume decides whether files can be added from the interface.**
+  The examples mount it `:ro`, in which case the radio only reads it: **Add
+  music** leaves the menu, the buttons that send an announcement's sound or a
+  system sound go with it, and every route that would write there answers
+  `unsupported_here`. Music is added by dropping files in the folder on the
+  host instead. Drop the `:ro` and all of that comes back: an upload writes
+  **straight to where it belongs** - a song where you chose it inside the music
+  folder, an announcement's sound in that announcement's own folder
+  (`memes/`, `cutoff_announcements/`, or the one the type names), a system
+  sound in `system/custom/`. Nothing is copied or moved afterwards. An LXC
+  container keeps its music on its own disk (`/srv/rukebox/audio`), so it is
+  writable and the pages stay.
 
 ## Running in an LXC container (Proxmox, or any host with lxc)
 
