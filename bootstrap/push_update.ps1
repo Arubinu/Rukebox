@@ -60,6 +60,7 @@ $tarArgs = @(
     "--exclude=.DS_Store",
     "--exclude=node_modules",
     "--exclude=*.tar.gz",
+    "--exclude=./*.tgz",
     "--exclude=./.venv",
     "--exclude=./graphify-out",
     "--exclude=./src/graphify-out",
