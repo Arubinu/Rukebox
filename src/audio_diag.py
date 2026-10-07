@@ -181,6 +181,81 @@ def set_default_sink_volume(percent, env=None):
     return result is not None and result.returncode == 0
 
 
+def set_default_sink(name, env=None):
+    """Makes `name` the output new streams play to."""
+    if not name:
+        return False
+    result = _run(["pactl", "set-default-sink", name], timeout=5, env=env)
+    return result is not None and result.returncode == 0
+
+
+_SINK_INPUT_RE = re.compile(r"Sink Input #(\d+)")
+_SINK_RE = re.compile(r"^\s*Sink:\s*(\d+)")
+_APP_RE = re.compile(r'application\.name = "([^"]*)"')
+
+
+def parse_streams(text):
+    """[(stream index, sink index, application name)] from `pactl list sink-inputs`."""
+    streams = []
+    index = sink = app = None
+    for line in (text or "").splitlines():
+        found = _SINK_INPUT_RE.search(line)
+        if found:
+            if index is not None:
+                streams.append((index, sink, app or ""))
+            index, sink, app = int(found.group(1)), None, ""
+            continue
+        if index is None:
+            continue
+        found = _SINK_RE.match(line)
+        if found and sink is None:
+            sink = int(found.group(1))
+            continue
+        found = _APP_RE.search(line)
+        if found and not app:
+            app = found.group(1)
+    if index is not None:
+        streams.append((index, sink, app or ""))
+    return streams
+
+
+def sink_indexes(env=None):
+    """{node name: index} of the outputs that exist right now."""
+    result = _run(["pactl", "list", "short", "sinks"], timeout=6, env=env)
+    if result is None or result.returncode != 0:
+        return {}
+    found = {}
+    for line in result.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2 and parts[0].strip().isdigit():
+            found[parts[1].strip()] = int(parts[0])
+    return found
+
+
+def move_streams_to(sink_name, apps=("mpv",), env=None):
+    """Puts back on `sink_name` the streams those applications play elsewhere,
+    and answers how many had to be moved.
+
+    PipeWire hands a stream to the default output as soon as another device
+    appears - a Bluetooth speaker takes the music off the wired card the
+    settings chose, whatever device mpv asked for (its target.object is not
+    enough to hold it)."""
+    wanted = sink_indexes(env=env).get(sink_name)
+    if wanted is None:
+        return 0
+    result = _run(["pactl", "list", "sink-inputs"], timeout=6, env=env)
+    if result is None or result.returncode != 0:
+        return 0
+    moved = 0
+    for stream, sink, app in parse_streams(result.stdout):
+        if app not in apps or sink == wanted:
+            continue
+        answer = _run(["pactl", "move-sink-input", str(stream), str(wanted)], timeout=5, env=env)
+        if answer is not None and answer.returncode == 0:
+            moved += 1
+    return moved
+
+
 def mpv_properties(path):
     """What mpv says it plays and through what, {} when it is not there."""
     props = {}

@@ -23,6 +23,10 @@ log = logging.getLogger("supervisor")
 
 SRC = os.environ.get("RUKEBOX_SRC") or "/opt/rukebox/src"
 POLL_SEC = 2.0
+# Left by the daemon when "switch off" meant the container and not a restart
+# (see src/system_actions.py): without it, this supervisor would start the
+# radio again a second later.
+STOP_REQUEST = "switch-off-request"
 # How long a process waits for the sound server's socket before giving up and
 # starting anyway (it then fails on its own, and is restarted).
 READY_TIMEOUT_SEC = 20.0
@@ -219,17 +223,39 @@ def _needs_local_pipewire():
     return True
 
 
+def _state_dir():
+    return os.environ.get("RUKEBOX_STATE_DIR") or "/data"
+
+
+def _switch_off_request():
+    """The path of the daemon's request, or None once it has been read."""
+    path = os.path.join(_state_dir(), STOP_REQUEST)
+    if not os.path.exists(path):
+        return None
+    try:
+        os.unlink(path)
+    except OSError:
+        log.warning("Could not remove %s", path)
+    return path
+
+
 def main():
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, _on_signal)
 
     _drop_stale_socket()
+    # A request from the run before: the container was started again, so it is
+    # spent.
+    _switch_off_request()
     running = children()
     for child in running:
         child.start()
 
     while not _stopping:
         time.sleep(POLL_SEC)
+        if _switch_off_request():
+            log.info("The radio asked to be switched off: stopping the container")
+            break
         for child in running:
             if _stopping:
                 break

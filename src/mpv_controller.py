@@ -47,7 +47,7 @@ def audio_chain(equalizer, compression):
 def audio_env():
     """The environment mpv needs to reach the audio server, or None to inherit
     the current one unchanged."""
-    if os.environ.get("XDG_RUNTIME_DIR"):
+    if os.environ.get("XDG_RUNTIME_DIR") or not hasattr(os, "getuid"):
         return None
     runtime = os.path.join("/run/user", str(os.getuid()))
     if not os.path.isdir(runtime):

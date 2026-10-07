@@ -364,7 +364,7 @@ class RadioDaemon:
         return self._output_override or self.cfg.get("AUDIO_OUTPUT", "bluetooth")
 
     def _apply_audio_output(self, force=False):
-        """Points mpv at the chosen output."""
+        """Points mpv at the chosen output, and keeps the sound there."""
         now = time.monotonic()
         if not force and now - self._audio_output_checked < self.AUDIO_OUTPUT_RECHECK_SEC:
             return
@@ -378,17 +378,16 @@ class RadioDaemon:
                 self._output_override = None
                 self._bump_state()
         kind = self._output_kind()
+        # Every other kind names a sink, so the list has to be read even for a
+        # kind this version does not know: that is what makes the virtual sink
+        # of a container reachable at all.
+        sinks = audio_output.list_sinks(env=audio_env())
         if kind == "bluetooth":
             device, found = audio_output.mpv_device(kind, [])
+        elif kind in audio_output.KINDS:
+            device, found = audio_output.mpv_device(kind, sinks)
         else:
-            # Every other kind names a sink, so the list has to be read even
-            # for a kind this version does not know: that is what makes the
-            # virtual sink of a container reachable at all.
-            sinks = audio_output.list_sinks(env=audio_env())
-            if kind in audio_output.KINDS:
-                device, found = audio_output.mpv_device(kind, sinks)
-            else:
-                device, found = audio_output.any_device(sinks)
+            device, found = audio_output.any_device(sinks)
         if not found and self._audio_output_missing != kind:
             log.warning("Audio output '%s' not found, using the default output", kind)
         self._audio_output_missing = None if found else kind
@@ -399,6 +398,30 @@ class RadioDaemon:
                 self._audio_device = device
             except Exception:  # noqa: BLE001
                 log.exception("Could not switch the audio output")
+        self._hold_the_output(kind, device, sinks)
+
+    def _hold_the_output(self, kind, device, sinks):
+        """A chosen output keeps the sound, even when another device appears.
+
+        WirePlumber hands a stream to whatever output became the default the
+        moment it is connected: a speaker turned on takes the music off the
+        wired card the settings named, whatever device mpv was given (the
+        target it passes does not hold it). So the chosen output is also made
+        the default one - which is what a new connection then respects - and
+        mpv's streams are put back on it if they had already moved."""
+        if device.startswith("pipewire/"):
+            name = device[len("pipewire/"):]
+        elif kind == "bluetooth":
+            sink = audio_output.find("bluetooth", sinks)
+            name = sink["name"] if sink else None
+        else:
+            name = None
+        if not name:
+            return
+        env = audio_env()
+        audio_diag.set_default_sink(name, env=env)
+        if audio_diag.move_streams_to(name, env=env):
+            log.info("Audio output: the sound had left %s and was put back on it", name)
 
     def _wait_for_speaker_connected(self, timeout_sec):
         """Polls bluetoothctl until the speaker is connected, so the clock
@@ -3124,8 +3147,9 @@ class RadioDaemon:
         self._open_quick_steps()
         self._speaker_lost_at = None
         self.stats.record("speaker_reconnected", label=mac, counters={"speaker_recoveries": 1})
-        if self._output_override and self.cfg.get("AUDIO_OUTPUT", "bluetooth") == "bluetooth":
-            self._apply_audio_output(force=True)
+        # Also what puts the sound back on a wired output the speaker just took
+        # it from, and clears a fallback output that is no longer needed.
+        self._apply_audio_output(force=True)
         if self._paused_for_speaker:
             self._paused_for_speaker = False
             if self.mode == "music" and self._paused:

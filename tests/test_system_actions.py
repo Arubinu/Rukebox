@@ -1,10 +1,13 @@
 """What the machine is asked to do (src/system_actions.py).
 
 On a Pi these are the systemctl, date and hwclock calls that were always
-there. In a container there is no machine to switch off, so "off" ends this
-process and Docker's restart policy decides what happens next - which is why
-the tests here care as much about what is NOT run as about what is."""
+there. An LXC has a systemd of its own and switches itself off; Docker has no
+machine to switch off, so "off" there ends this process and the restart policy
+decides what happens next - which is why the tests here care as much about what
+is NOT run as about what is."""
 import os
+import shutil
+import tempfile
 import threading
 import time
 import unittest
@@ -85,13 +88,62 @@ class PowerTest(PlatformFixtures):
 
     def test_a_container_ends_its_process_instead(self):
         self.as_platform(host.DOCKER)
-        for verb in (sa.power_off, sa.reboot, sa.restart_daemon):
+        for verb in (sa.power_off, sa.reboot):
             with mock.patch.object(sa, "_run") as run:
+                with mock.patch.object(sa, "ask_the_supervisor_to_stop",
+                                       return_value=True) as asked:
+                    with mock.patch.object(sa, "_end_this_process",
+                                           return_value=True) as end:
+                        self.assertTrue(verb())
+            self.assertFalse(run.called, verb.__name__)
+            self.assertTrue(asked.called, verb.__name__)
+            self.assertTrue(end.called, verb.__name__)
+
+    def test_a_restart_in_a_container_only_ends_the_process(self):
+        """The supervisor is what starts it again: asking it to stand down here
+        would switch the radio off instead of restarting it."""
+        self.as_platform(host.DOCKER)
+        with mock.patch.object(sa, "ask_the_supervisor_to_stop") as asked:
+            with mock.patch.object(sa, "_end_this_process", return_value=True) as end:
+                self.assertTrue(sa.restart_daemon())
+        self.assertFalse(asked.called)
+        self.assertTrue(end.called)
+
+    def test_the_switch_off_request_lands_where_the_supervisor_looks(self):
+        self.as_platform(host.DOCKER)
+        where = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, where, ignore_errors=True)
+        with mock.patch.object(sa.paths, "state_dir", return_value=where):
+            self.assertTrue(sa.ask_the_supervisor_to_stop())
+        self.assertEqual(os.listdir(where), [sa.STOP_REQUEST])
+
+    def test_the_daemon_and_the_supervisor_name_that_request_alike(self):
+        """Two files, one name: a typo on either side and "switch off" would
+        only ever start the radio again."""
+        self.assertIn('STOP_REQUEST = "%s"' % sa.STOP_REQUEST,
+                      _path.read("docker", "supervisor.py"))
+
+    def test_an_lxc_switches_its_whole_container_off(self):
+        """Reported as: "Off" on the LXC only ended the daemon, which systemd
+        then started again - the radio came back instead of stopping. A
+        container with a systemd of its own switches itself off."""
+        self.as_platform(host.LXC)
+        with mock.patch.object(sa, "_systemctl_available", return_value=True):
+            with mock.patch.object(sa, "_run", return_value=fake_result()) as run:
+                with mock.patch.object(sa, "_end_this_process") as end:
+                    self.assertTrue(sa.power_off())
+        self.assertEqual(run.call_args[0][0], ["systemctl", "poweroff"])
+        self.assertTrue(run.call_args[1]["sudo"])
+        self.assertFalse(end.called)
+
+    def test_an_lxc_that_refuses_it_ends_its_process_anyway(self):
+        self.as_platform(host.LXC)
+        with mock.patch.object(sa, "_systemctl_available", return_value=True):
+            with mock.patch.object(sa, "_run", return_value=fake_result(returncode=1)):
                 with mock.patch.object(sa, "_end_this_process",
                                        return_value=True) as end:
-                    self.assertTrue(verb())
-            self.assertFalse(run.called, verb.__name__)
-            self.assertTrue(end.called, verb.__name__)
+                    self.assertTrue(sa.power_off())
+        self.assertTrue(end.called)
 
     def test_a_container_runs_its_exit_hooks_once(self):
         self.as_platform(host.DOCKER)

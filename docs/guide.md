@@ -493,9 +493,13 @@ Pi by default and as a container in `tests/web/platform.test.js` and
 
 Two consequences worth knowing before you look for a card:
 
-- **"Switch off" ends the container's processes**, and `restart:
-  unless-stopped` in the compose file is what brings them back — so "Restart
-  the service" and the evening cutoff both work, without a systemd.
+- **"Switch off" stops the container**, not just the radio: the daemon leaves
+  a request its supervisor reads, and that supervisor stands down. What
+  happens next is the compose file's business - `restart: unless-stopped`
+  starts the container again, so use `restart: no` if the evening cutoff is to
+  leave it down until you say otherwise. **An LXC switches itself off for
+  real**, through its own systemd, exactly like a Pi. "Restart the service"
+  still only ends the daemon, which the supervisor (or systemd) starts again.
 - **"Update"** cannot replace the tree in place: the image is the unit of
   update. The card shows the one line to run (`docker compose pull`), and
   `UPDATE_DOCKER_IMAGE` is the image it names. Until that image is published,
@@ -1107,9 +1111,10 @@ above.
   detailed view. A new change during a glide carries on from wherever it
   got to.
 - **Shutdown**: disconnects Bluetooth from the speaker then
-  `systemctl poweroff`. **After the cutoff** (Settings > Schedules > Every
+  `systemctl poweroff` - on a Pi, and in an LXC, whose own systemd stops the
+  container. **After the cutoff** (Settings > Schedules > Every
   day, `SHUTDOWN_AFTER_CUTOFF`) chooses what the daily cutoff ends with:
-  *Switch the Pi off*, or *Standby* - the Pi stays on, the speaker stays
+  *Switch the radio off*, or *Standby* - the radio stays on, the speaker stays
   connected, and it waits exactly as it does at startup, so the next start
   (a time, the speaker, a click, a schedule) works. A long press does what
   its own setting says (switch off or standby), regardless of this one. The install script grants the
@@ -1183,9 +1188,9 @@ disconnects"), all driven by that same check:
   `hdmi`) while the speaker is away; it takes the sound back when it
   returns. Empty (the default) keeps the pause above. If that output is not
   plugged in, the speaker loss is handled as usual.
-- `SPEAKER_LOSS_SHUTDOWN_MIN`: power the Pi off after the speaker has
+- `SPEAKER_LOSS_SHUTDOWN_MIN`: switch the radio off after the speaker has
   been gone that many minutes (0 = never).
-- `SPEAKER_ABSENT_SHUTDOWN_MIN`: power it off when no speaker has
+- `SPEAKER_ABSENT_SHUTDOWN_MIN`: switch it off when no speaker has
   connected that many minutes after startup (0 = never).
 
 The **activity LED** (the green light on the board) can be switched off
@@ -1230,7 +1235,7 @@ schedule has a name and:
   a floor, not a leash. A stop at or before the start is the next morning
   (22:00 to 01:30 is one evening). Without a stop the schedule runs to the end
   of its day; a schedule with only a stop is just that stop.
-- **At the stop**: pause the music, standby, or switch the Pi off.
+- **At the stop**: pause the music, standby, or switch the radio off.
 - **Opens with** (only with a start): one of your announcements, played
   before the first song - one file, like every other trigger.
 - **Volume** and **Music** (unchanged, the whole library, or one of your
@@ -1780,7 +1785,11 @@ log keeps "Blind test started" and who won it.
   HDMI (`audio: output`). What the Pi found is shown under the choice, and
   **Test** plays a short chime through it. A wired output is found again
   whenever it is plugged in; while it is missing, the sound goes to the
-  default output. With a wired output, a Bluetooth speaker that drops no
+  default output. **The chosen output keeps the sound**: a speaker connecting
+  no longer takes the music away from a wired card (WirePlumber handed any
+  stream to whatever output became the default, whatever mpv had been told),
+  which is what used to move the sound to the speakers - and to the next song
+  with it. With a wired output, a Bluetooth speaker that drops no
   longer pauses the music nor powers the Pi off.
 - **Network audio stream** (*Audio output* card): serves what the radio
   plays over HTTP, so another device can listen to it - a network speaker,
@@ -3409,9 +3418,10 @@ starts later if both fallbacks fail).
   who can reach the port. The stream is served to anyone who can reach it -
   the audio itself is not behind the password, only the button that offers
   the address is.
-- **In a container**, "switch off" ends its processes and the restart policy
-  brings them back: `restart: no` in the compose file is what makes the
-  evening cutoff leave the container down until you start it.
+- **In a container**, "switch off" stops the container itself: `restart: no`
+  in the compose file is what makes the evening cutoff leave it down until you
+  start it again, while `restart: unless-stopped` starts it again. An LXC has
+  a systemd of its own and simply switches off.
 - Updating from Git needs the Pi to have temporary network access. With
   no network it fails cleanly, changing nothing, and points at
   `setup_home_wifi.sh`.

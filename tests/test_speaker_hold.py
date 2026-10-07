@@ -11,6 +11,7 @@ from unittest import mock
 
 import _path  # noqa: F401
 from config_and_scan import load_config
+import audio_diag
 import audio_output
 import rukebox_daemon
 
@@ -53,7 +54,7 @@ class FakeMpv:
         pass
 
     def set_audio_device(self, device):
-        pass
+        self.audio_device = device
 
     def observe(self, prop_id, name):
         pass
@@ -92,6 +93,13 @@ class SpeakerHoldTest(unittest.TestCase):
         self.daemon.mpv = FakeMpv()
         self.daemon._clock_ready = threading.Event()
         self.daemon.mode = "music"
+        # Nothing here talks to an audio server: no pactl, no pw-dump.
+        for patcher in (
+            mock.patch.object(audio_diag, "set_default_sink", return_value=True),
+            mock.patch.object(audio_diag, "move_streams_to", return_value=0),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def tearDown(self):
         shutil.rmtree(self.dir, ignore_errors=True)
@@ -182,6 +190,69 @@ class SpeakerHoldTest(unittest.TestCase):
         self.daemon._play_track(self.track)
         self.assertTrue(self.daemon.mpv.paused)
         self.assertTrue(self.daemon._paused_for_speaker)
+
+
+USB_SINK = {"name": "alsa_output.usb-Card.analog-stereo", "kind": "usb"}
+BLUEZ_SINK = {"name": "bluez_output.AA_BB.1", "kind": "bluetooth"}
+
+
+class OutputHoldTest(unittest.TestCase):
+    """The sound stays on the output the settings chose: WirePlumber hands a
+    stream to whatever output became the default the moment it is connected, so
+    a speaker turned on took the music off the wired card. Reported as: the
+    sound goes to the speakers when they connect, and the song changes."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        cfg = load_config()
+        cfg.update({
+            "MUSIC_DIR": self.dir,
+            "MUSIC_CACHE_FILE": os.path.join(self.dir, "music_cache.json"),
+            "STATE_DIR": self.dir,
+            "STATS_ENABLED": False,
+            "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
+            "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
+            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
+            "BASE_VOLUME": 30,
+        })
+        self.daemon = rukebox_daemon.RadioDaemon(cfg)
+        self.daemon.mpv = FakeMpv()
+        self.daemon._clock_ready = threading.Event()
+        self.pins = []
+        self.moves = []
+        for patcher in (
+            mock.patch.object(audio_diag, "set_default_sink",
+                              side_effect=lambda name, env=None: self.pins.append(name) or True),
+            mock.patch.object(audio_diag, "move_streams_to",
+                              side_effect=lambda name, env=None: self.moves.append(name) or 0),
+            mock.patch.object(rukebox_daemon, "audio_env", return_value={}),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def apply(self, output, sinks):
+        self.daemon.cfg["AUDIO_OUTPUT"] = output
+        with mock.patch.object(audio_output, "list_sinks", return_value=sinks):
+            self.daemon._apply_audio_output(force=True)
+
+    def test_the_chosen_wired_output_becomes_the_default_one(self):
+        self.apply("usb", [USB_SINK, BLUEZ_SINK])
+        self.assertEqual(self.pins, [USB_SINK["name"]], "what a new connection then respects")
+        self.assertEqual(self.daemon.mpv.audio_device, "pipewire/" + USB_SINK["name"])
+        self.assertEqual(self.moves, [USB_SINK["name"]],
+                         "nothing had drifted yet: the stream is only looked at")
+
+    def test_the_speaker_is_the_default_one_when_it_is_the_output(self):
+        self.apply("bluetooth", [USB_SINK, BLUEZ_SINK])
+        self.assertEqual(self.pins, [BLUEZ_SINK["name"]])
+        self.assertEqual(self.daemon.mpv.audio_device, "auto",
+                         "mpv follows the default, which is now the speaker")
+
+    def test_a_wired_output_that_is_not_there_is_not_pinned(self):
+        self.apply("usb", [BLUEZ_SINK])
+        self.assertEqual(self.pins, [])
+        self.assertEqual(self.daemon.mpv.audio_device, "auto")
 
 
 if __name__ == "__main__":

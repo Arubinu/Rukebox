@@ -122,10 +122,13 @@ class RestartTest(unittest.TestCase):
             self.daemon._restart_now()
         self.assertTrue(end.called)
 
-    def test_a_container_never_asks_systemd_anything(self):
+    def test_a_docker_container_never_asks_systemd_anything(self):
+        """Docker has no machine to switch off: its restart policy is the only
+        thing left. An LXC does have a systemd of its own - see
+        tests/test_system_actions.py."""
         mock.patch.stopall()
-        with mock.patch.object(rukebox_daemon.system_actions, "is_container",
-                               return_value=True):
+        with mock.patch.object(rukebox_daemon.platform_mod, "name",
+                               return_value=rukebox_daemon.platform_mod.DOCKER):
             run = mock.patch.object(rukebox_daemon.system_actions, "_run").start()
             end = mock.patch.object(rukebox_daemon.system_actions,
                                     "_end_this_process").start()

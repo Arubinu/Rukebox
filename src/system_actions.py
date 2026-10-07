@@ -4,10 +4,11 @@ One function per verb, so the daemon and the web server call `reboot()` rather
 than spelling out `sudo systemctl reboot` in six places - and so a platform
 with no systemd, no RTC and no way to switch itself off can answer for itself.
 
-On a Pi these are the commands that were always there. In a container there is
-no machine to switch off: "off" ends the container's own processes, and Docker
-brings them back according to the restart policy, which is what the image's
-compose file sets. Nothing here ever tries to reach the host."""
+On a Pi these are the commands that were always there. An LXC has a systemd of
+its own, so "off" there switches the container off like any machine. Docker has
+none: "off" ends the container's own processes, and Docker brings them back
+according to the restart policy, which is what the image's compose file sets.
+Nothing here ever tries to reach the host."""
 
 import logging
 import os
@@ -212,19 +213,53 @@ def restart_web_server():
 # Power
 # --------------------------------------------------------------------------
 
+# The supervisor of a container (docker/supervisor.py) restarts whatever it
+# watches: left to itself it would bring the radio back a second after "switch
+# off". This is the word it waits for before standing down.
+STOP_REQUEST = "switch-off-request"
+
+
+def stop_request_path():
+    return os.path.join(paths.state_dir(), STOP_REQUEST)
+
+
+def ask_the_supervisor_to_stop():
+    """Leaves the word that says "off" meant the container, not a restart."""
+    try:
+        with open(stop_request_path(), "w", encoding="utf-8") as handle:
+            handle.write("off\n")
+        return True
+    except OSError:
+        log.warning("Could not write %s: the container will start the radio again",
+                    stop_request_path())
+        return False
+
 def power_off(delay=None):
-    """"Off" on a Pi; end of the container's processes anywhere else."""
-    if not can_power_off() or is_container():
+    """"Off" wherever there is a machine to switch off: the Pi, and an LXC,
+    whose own systemd stops the container. Docker has nothing of the sort -
+    there the process ends, and the container ends with it."""
+    if not can_power_off():
+        ask_the_supervisor_to_stop()
         return _end_this_process(0, EXIT_DELAY_SEC if delay is None else delay)
     result = _run(["systemctl", "poweroff"], sudo=True)
-    return bool(result is not None and result.returncode == 0)
+    if result is not None and result.returncode == 0:
+        return True
+    if is_container():
+        # A container that refuses the request is still a container: end it ours.
+        return _end_this_process(0, EXIT_DELAY_SEC if delay is None else delay)
+    return False
 
 
 def reboot(delay=None):
-    if not can_power_off() or is_container():
+    if not can_power_off():
+        ask_the_supervisor_to_stop()
         return _end_this_process(0, EXIT_DELAY_SEC if delay is None else delay)
     result = _run(["systemctl", "reboot"], sudo=True)
-    return bool(result is not None and result.returncode == 0)
+    if result is not None and result.returncode == 0:
+        return True
+    if is_container():
+        return _end_this_process(0, EXIT_DELAY_SEC if delay is None else delay)
+    return False
 
 
 def going_down():

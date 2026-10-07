@@ -1,6 +1,8 @@
 """The audio diagnostic (src/audio_diag.py): what it reads from a controller
 listing, which SBC bitpool a measured bitrate means, and what it concludes."""
+import types
 import unittest
+from unittest import mock
 
 import _path  # noqa: F401
 import audio_diag
@@ -40,6 +42,66 @@ class BitpoolTest(unittest.TestCase):
         self.assertEqual(audio_diag.bitpool_from_kbps(320), 53)
         self.assertEqual(audio_diag.bitpool_from_kbps(450), 76)
         self.assertIsNone(audio_diag.bitpool_from_kbps(40))
+
+
+# What `pactl list sink-inputs` prints, trimmed to what is read.
+STREAMS = """Sink Input #2534
+\tDriver: PipeWire
+\tSink: 2545
+\tClient: 2533
+\t\tapplication.name = "mpv"
+\t\tmedia.name = "Outside - mpv"
+
+Sink Input #2601
+\tSink: 59
+\tClient: 2600
+\t\tapplication.name = "firefox"
+"""
+
+
+class StreamTest(unittest.TestCase):
+    """Keeping the sound on the output the settings chose, when WirePlumber
+    would hand it to a speaker that just connected."""
+
+    def test_every_stream_is_read_with_its_output_and_its_owner(self):
+        self.assertEqual(audio_diag.parse_streams(STREAMS),
+                         [(2534, 2545, "mpv"), (2601, 59, "firefox")])
+        self.assertEqual(audio_diag.parse_streams(""), [])
+        self.assertEqual(audio_diag.parse_streams(None), [])
+
+    def run_with(self, streams, sinks):
+        """The commands sent, with `pactl` answering by name."""
+        sent = []
+
+        def fake(cmd, timeout=6, env=None):
+            sent.append(cmd)
+            text = ""
+            if cmd[:3] == ["pactl", "list", "short"]:
+                text = sinks
+            elif cmd[:3] == ["pactl", "list", "sink-inputs"]:
+                text = streams
+            return types.SimpleNamespace(returncode=0, stdout=text)
+
+        with mock.patch.object(audio_diag, "_run", side_effect=fake):
+            moved = audio_diag.move_streams_to("alsa_output.usb-X")
+        return moved, sent
+
+    def test_a_stream_that_drifted_is_put_back(self):
+        moved, sent = self.run_with(STREAMS, "59\talsa_output.usb-X\tPipeWire\n"
+                                             "2545\tbluez_output.SPK.1\tPipeWire\n")
+        self.assertEqual(moved, 1, "the browser stream is not ours to move")
+        self.assertIn(["pactl", "move-sink-input", "2534", "59"], sent)
+
+    def test_a_stream_already_there_is_left_alone(self):
+        moved, sent = self.run_with(STREAMS, "59\talsa_output.usb-X\tPipeWire\n"
+                                             "2545\talsa_output.usb-X\tPipeWire\n")
+        self.assertEqual(moved, 0)
+        self.assertNotIn(["pactl", "move-sink-input", "2534", "59"], sent)
+
+    def test_an_output_that_is_not_there_moves_nothing(self):
+        moved, sent = self.run_with(STREAMS, "2545\tbluez_output.SPK.1\tPipeWire\n")
+        self.assertEqual(moved, 0)
+        self.assertEqual(sent, [["pactl", "list", "short", "sinks"]])
 
 
 class VerdictTest(unittest.TestCase):
