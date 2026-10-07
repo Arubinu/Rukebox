@@ -1,5 +1,6 @@
 """Suggestion box: devices, reserved names, suggestions and votes (SQLite)."""
 
+import functools
 import os
 import re
 import secrets
@@ -142,10 +143,27 @@ def _text_key(text):
     return name_key(text)
 
 
+def _locked(method):
+    """Runs a method that touches the connection under the box's lock.
+
+    One connection is shared by every thread (check_same_thread=False), which
+    sqlite3 does not make safe by itself: two threads at once raise
+    InterfaceError("bad parameter or other API misuse") - measured, 24 of 240
+    concurrent reads. The helpers here are reached both from a caller that
+    already holds the lock and straight from a route, so the lock is
+    re-entrant and every way in takes it.
+    """
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapper
+
+
 class SuggestionBox:
     def __init__(self, path):
         self.path = path
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         directory = os.path.dirname(path)
         if directory:
             os.makedirs(directory, exist_ok=True)
@@ -168,6 +186,7 @@ class SuggestionBox:
         "name_changes": (("by_owner", "INTEGER NOT NULL DEFAULT 0"),),
     }
 
+    @_locked
     def _ensure_columns(self):
         """Adds the columns an older database does not have yet."""
         for table, columns in self._ADDED_COLUMNS.items():
@@ -225,16 +244,19 @@ class SuggestionBox:
     def _pid(self, device):
         return device.get("person") or self.person_id(device["id"])
 
+    @_locked
     def _name_of(self, device_id):
         row = self._db.execute("SELECT name FROM devices WHERE id = ?", (device_id,)).fetchone()
         return row["name"] if row else None
 
+    @_locked
     def _member_ids(self, person):
         """The person's devices, the one that carries the identity first."""
         return [person] + [r["device_id"] for r in self._db.execute(
             "SELECT s.device_id FROM device_state s JOIN devices d ON d.id = s.device_id"
             " WHERE s.linked_to = ? ORDER BY d.first_seen", (person,)).fetchall()]
 
+    @_locked
     def _macs_of(self, device_ids):
         macs = []
         for device_id in device_ids:
@@ -246,6 +268,7 @@ class SuggestionBox:
             macs.extend(mac for mac in found if mac not in macs)
         return macs
 
+    @_locked
     def linked_devices(self, device_id):
         """The other devices of the same person."""
         out = []
@@ -258,6 +281,7 @@ class SuggestionBox:
                             "last_seen": row["last_seen"]})
         return out
 
+    @_locked
     def _move_identity(self, src, dst, with_name):
         """Caller holds the lock and commits. Everything a person owns goes
         from one device's row to another's: what `dst` already has wins,
@@ -325,6 +349,7 @@ class SuggestionBox:
             self._set_state(device_id, linked_to=None)
         return True
 
+    @_locked
     def rename_wait(self, device, interval_sec):
         """Seconds before this device may change its name again. The owner's
         own renames do not count: the interval is there to stop a phone from
@@ -379,6 +404,7 @@ class SuggestionBox:
         device["name"] = display
         return display
 
+    @_locked
     def _set_state(self, device_id, **fields):
         """Caller holds the lock and commits."""
         self._db.execute("INSERT OR IGNORE INTO device_state (device_id) VALUES (?)", (device_id,))
@@ -387,6 +413,7 @@ class SuggestionBox:
                            "portal_released_at", "linked_to")
             self._db.execute("UPDATE device_state SET %s = ? WHERE device_id = ?" % key, (value, device_id))
 
+    @_locked
     def _state(self, device_id):
         row = self._db.execute("SELECT * FROM device_state WHERE device_id = ?", (device_id,)).fetchone()
         return dict(row) if row else {}
@@ -394,6 +421,7 @@ class SuggestionBox:
     def is_generated(self, device_id):
         return bool(self._state(self.person_id(device_id)).get("generated_name"))
 
+    @_locked
     def device_by_id(self, device_id):
         row = self._db.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
         return self._as_device(row) if row else None
@@ -406,6 +434,7 @@ class SuggestionBox:
             device["name"] = self._name_of(device["person"])
         return device
 
+    @_locked
     def device_by_mac(self, mac):
         """The device last seen with this MAC, or None."""
         row = self._db.execute(
@@ -436,6 +465,7 @@ class SuggestionBox:
             self._forget(device_id)
             self._db.commit()
 
+    @_locked
     def _forget(self, device_id):
         """Caller holds the lock and commits."""
         self._detach(device_id)
@@ -474,6 +504,7 @@ class SuggestionBox:
             self._set_state(self.person_id(device_id), banned_until=until)
             self._db.commit()
 
+    @_locked
     def banned_devices(self):
         now = time.time()
         rows = self._db.execute(
@@ -567,6 +598,7 @@ class SuggestionBox:
             "last_seen": device.get("last_seen"),
         }
 
+    @_locked
     def seen_devices(self, since, limit=200):
         """The devices seen at or after `since`, most recent first, with what
         the page is allowed to show about them."""
@@ -586,6 +618,7 @@ class SuggestionBox:
             out.append(entry)
         return out
 
+    @_locked
     def people(self):
         """Everyone who ever took a name, one entry per device: its current
         name, every name it went by (oldest first, with the date it took
@@ -652,6 +685,7 @@ class SuggestionBox:
             self._db.commit()
             return cur.lastrowid
 
+    @_locked
     def _get(self, suggestion_id):
         try:
             suggestion_id = int(suggestion_id)
@@ -699,6 +733,7 @@ class SuggestionBox:
             self._db.execute("UPDATE suggestions SET status = ? WHERE id = ?", (status, row["id"]))
             self._db.commit()
 
+    @_locked
     def list(self, device, admin=False):
         """Open ones first, best score first."""
         rows = self._db.execute(

@@ -2,6 +2,8 @@
 
 import os
 import tempfile
+import threading
+import time
 import unittest
 
 import _path  # noqa: F401
@@ -144,6 +146,61 @@ class LinkTest(unittest.TestCase):
         self.assertEqual(self.again(tablet_token)["name"], "Renard bleu")
         self.assertEqual(self.box.device_by_id(laptop["id"])["name"], "Renard bleu")
         self.assertEqual(len(self.box.linked_devices(phone["id"])), 2)
+
+    def test_two_threads_never_use_the_connection_at_once(self):
+        # The container's Python is not built like this machine's: there, the
+        # same route answers InterfaceError("bad parameter or other API
+        # misuse") under load (24 of 240 calls). What has to hold everywhere
+        # is that one thread at a time is inside the connection - the box's
+        # own lock is what says so, not the sqlite3 build.
+        device, token = self.device("aa:00:00:00:00:01", "Renard bleu")
+        self.box.list(device, admin=True)
+
+        class Watched:
+            """The connection, counting how many threads are inside it."""
+
+            def __init__(self, real):
+                self.real = real
+                self.inside = 0
+                self.worst = 0
+                self.guard = threading.Lock()
+
+            def execute(self, *args, **kwargs):
+                with self.guard:
+                    self.inside += 1
+                    self.worst = max(self.worst, self.inside)
+                try:
+                    time.sleep(0.0005)  # widen the window enough to catch an overlap
+                    return self.real.execute(*args, **kwargs)
+                finally:
+                    with self.guard:
+                        self.inside -= 1
+
+            def __getattr__(self, name):
+                return getattr(self.real, name)
+
+        watcher = Watched(self.box._db)
+        self.box._db = watcher
+        stop = threading.Event()
+
+        def hammer():
+            while not stop.is_set():
+                box = self.box
+                dev = box.resolve_device(token, None, "10.42.0.9")[0]
+                box.rename_wait(dev, 60)
+                box.is_generated(dev["id"])
+                box.list(dev, admin=True)
+                box.seen_devices(0)
+
+        threads = [threading.Thread(target=hammer) for _ in range(6)]
+        for thread in threads:
+            thread.start()
+        time.sleep(1.0)
+        stop.set()
+        for thread in threads:
+            thread.join(timeout=10)
+            self.assertFalse(thread.is_alive(), "a thread is stuck in the lock")
+        self.assertEqual(watcher.worst, 1, "two threads were in the connection at once")
 
     def test_an_older_database_gains_the_column(self):
         path = os.path.join(self.dir.name, "old.db")
