@@ -41,3 +41,11 @@ assets/icons/logo-qr-4x.png
 
 # The interface's tests (npm install)
 node_modules/
+
+# Never the repository's: the agent's scratch space (probes, tunnels, keys, a
+# stray archive) and the compose stack's own bind mounts, which hold a running
+# container's configuration - the web password hash included - and its database.
+.scratch/
+*.tgz
+docker/config/
+docker/data/
