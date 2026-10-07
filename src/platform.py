@@ -45,7 +45,7 @@ PLATFORM_ONLY = frozenset(
 
 CAPABILITY_NAMES = (
     "access_point", "bluetooth", "captive_portal", "gpio", "local_audio",
-    "music_upload", "power", "rtc", "self_update", "set_clock", "usb_gadget",
+    "media_upload", "power", "rtc", "self_update", "set_clock", "usb_gadget",
     "wireless",
 )
 
@@ -133,10 +133,11 @@ def _has_local_audio():
     return os.path.exists(os.path.join(runtime, "pipewire-0"))
 
 
-def _has_music_upload():
-    """A music folder this process may write to. A container's usually arrives
-    read-only (`:ro` in the compose file), and music is added from the host
-    there, so the page that uploads it has nothing to do."""
+def _has_media_upload():
+    """A music folder this process may write to. Everything the interface adds
+    goes there - a song, an announcement's sound, a system sound - and a
+    container's usually arrives read-only (`:ro` in the compose file), where
+    music is added from the host instead."""
     return os.access(paths.music_dir(), os.W_OK)
 
 
@@ -187,7 +188,7 @@ HARDWARE = {
     "captive_portal": _has_captive_portal,
     "gpio": _has_gpio,
     "local_audio": _has_local_audio,
-    "music_upload": _has_music_upload,
+    "media_upload": _has_media_upload,
     "power": _has_power,
     "rtc": _has_rtc,
     "self_update": _has_self_update,

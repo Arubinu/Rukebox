@@ -677,7 +677,7 @@ body[data-access="guest"] #searchBtn { display: none !important; }
 body:not([data-caps~="access_point"]) .card[data-needs~="access_point"],
 body:not([data-caps~="captive_portal"]) .card[data-needs~="captive_portal"],
 body:not([data-caps~="gpio"]) .card[data-needs~="gpio"],
-body:not([data-caps~="music_upload"]) .card[data-needs~="music_upload"],
+body:not([data-caps~="media_upload"]) .card[data-needs~="media_upload"],
 body:not([data-caps~="self_update"]) .card[data-needs~="self_update"],
 body:not([data-caps~="set_clock"]) .card[data-needs~="set_clock"],
 body:not([data-caps~="usb_gadget"]) .card[data-needs~="usb_gadget"],

@@ -565,6 +565,10 @@ def _refuse_what_this_machine_cannot_do():
     failing on a binary that is not installed. The interface hides the card as
     well - this is the door behind it."""
     needed = _ROUTE_CAPABILITIES.get(request.path)
+    if needed is None and request.url_rule is not None:
+        # A path that carries an id is in the table under its rule
+        # ("/api/announce_files/<path:source_id>"), so the id is anything.
+        needed = _ROUTE_CAPABILITIES.get(request.url_rule.rule)
     if not needed:
         return None
     missing = [name for name, methods in needed.items()
@@ -984,9 +988,11 @@ _repeats_lock = threading.Lock()
 _ROUTE_CAPABILITIES = {
     "/api/gpio/detect": {"gpio": ("POST",)},
     "/api/gpio/pinout": {"gpio": ("GET",)},
-    # A music folder that cannot be written to (a container's `:ro` mount) has
-    # no page to add music from, and no route to receive it.
-    "/api/music/upload": {"music_upload": ("POST",)},
+    # Everything the interface adds goes into the music folder (a song, an
+    # announcement's sound, a system sound), and a container mounts it `:ro`.
+    "/api/music/upload": {"media_upload": ("POST",)},
+    "/api/announce_files/<path:source_id>": {"media_upload": ("POST", "DELETE")},
+    "/api/system_sounds/<key>": {"media_upload": ("POST", "DELETE")},
     # The access point is the one feature whose routes ask nmcli with nothing
     # under them: everywhere else the missing binary answers an empty result.
     "/api/wifi/ap": {"access_point": ("GET", "POST")},

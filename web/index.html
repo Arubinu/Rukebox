@@ -404,7 +404,7 @@
           </div>
         </section>
 
-        <section class="card" id="musicCard" data-page="music" data-tab="home" data-owner data-needs="music_upload" aria-labelledby="musicTitle">
+        <section class="card" id="musicCard" data-page="music" data-tab="home" data-owner data-needs="media_upload" aria-labelledby="musicTitle">
           <h2 data-icon="upload" id="musicTitle"><span data-i18n="music.title">Add music</span></h2>
           <p class="hint" id="musicLibraryLine">—</p>
 
@@ -1434,10 +1434,10 @@
           <div id="announceVolumeHolder"></div>
           <p class="hint mac" id="annFilesFolder"></p>
           <div class="actions-row">
-            <button type="button" class="btn btn-primary" id="btnAnnFilesAdd" data-icon="upload" data-i18n="annfiles.add">Add files…</button>
+            <button type="button" class="btn btn-primary" id="btnAnnFilesAdd" data-icon="upload" data-needs="media_upload" data-i18n="annfiles.add">Add files…</button>
           </div>
           <p class="hint picker-note" hidden></p>
-          <input type="file" id="annFilesInput" multiple hidden
+          <input type="file" id="annFilesInput" multiple hidden data-needs="media_upload"
                  accept="audio/*,.mp3,.opus,.ogg,.wav,.m4a,.flac">
           <p class="hint" id="annFilesProgress" role="status" hidden></p>
           <div class="files-batch" id="annFilesBatch" hidden>
@@ -1452,7 +1452,7 @@
               <button type="button" class="btn btn-icon" id="annFilesBatchDown" data-icon="arrow-down"
                       data-i18n-aria-label="annfiles.batch_down" aria-label="Move the selection down"
                       data-i18n-title="annfiles.batch_down" title="Move the selection down" disabled></button>
-              <button type="button" class="btn btn-icon btn-danger-outline" id="annFilesBatchDelete" data-icon="trash"
+              <button type="button" class="btn btn-icon btn-danger-outline" id="annFilesBatchDelete" data-icon="trash" data-needs="media_upload"
                       data-i18n-aria-label="annfiles.batch_delete" aria-label="Delete the selection"
                       data-i18n-title="annfiles.batch_delete" title="Delete the selection" disabled></button>
             </span>
@@ -1473,7 +1473,7 @@
           </p>
           <ul class="device-list" id="systemSoundsList"></ul>
           <p class="hint picker-note" hidden></p>
-          <input type="file" id="systemSoundInput" hidden
+          <input type="file" id="systemSoundInput" hidden data-needs="media_upload"
                  accept="audio/*,.mp3,.opus,.ogg,.wav,.m4a,.flac">
         </section>
 

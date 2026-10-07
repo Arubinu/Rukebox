@@ -11,7 +11,7 @@ const { load, until, STATUS } = require("./harness");
 
 const PI = STATUS.capabilities;
 const DOCKER = { platform: "docker", access_point: false, bluetooth: true,
-                 captive_portal: false, gpio: false, local_audio: true, music_upload: false,
+                 captive_portal: false, gpio: false, local_audio: true, media_upload: false,
                  power: false, rtc: false, self_update: false, set_clock: false,
                  usb_gadget: false, wireless: false };
 
@@ -86,10 +86,13 @@ test("a card the machine cannot honour leaves the area's menu", async (t) => {
   assert.equal(page.document.querySelector('.card[data-page="clock"]').dataset.needs,
                "set_clock", "the card asks for what the page needs");
   // Adding music uploads files into the music folder, and a container's
-  // arrives read-only: the page that does it has nothing to do there.
+  // arrives read-only: the page that does it has nothing to do there, and the
+  // button that sends an announcement's sound goes with it.
   const music = tilesOf(page.document, "home").find((entry) => entry.page === "music");
   assert.ok(music, "adding music is a page of the home area");
   assert.equal(music.hidden, true, "and it is not offered");
+  assert.equal(page.$("btnAnnFilesAdd").hidden, true, "no send button either");
+  assert.equal(page.$("trackOrderList").hidden, false, "the list itself stays");
   await page.close();
 });
 

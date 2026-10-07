@@ -7174,9 +7174,16 @@ async function refreshSystemSounds() {
     });
 
     const right = [];
-    if (item.custom || item.off) right.push(restore);
-    if (!item.off) right.push(off);
-    splitActions(actions, [listen, replace], right);
+    // Both of these write into the music folder: where it is read-only (a
+    // container's `:ro` mount) there is nothing to replace and nothing to
+    // restore to, and the two buttons go.
+    if (canDo("media_upload")) {
+      if (item.custom || item.off) right.push(restore);
+      if (!item.off) right.push(off);
+      splitActions(actions, [listen, replace], right);
+    } else {
+      splitActions(actions, [listen], item.off ? [] : [off]);
+    }
     body.appendChild(actions);
     li.append(head, body);
     list.appendChild(li);

@@ -183,17 +183,32 @@ class WebTest(unittest.TestCase):
         self.assertFalse(answer.get_json()["data"]["configured"])
         self.assertEqual(owner.get("/api/wifi/ap/share").status_code, 200)
 
-    def test_the_upload_route_says_so_where_music_cannot_be_written(self):
-        # A container mounts the music `:ro` and music is added from the host:
-        # the card leaves the menu, and the route behind it answers a code
-        # rather than failing on a read-only file system.
+    def test_the_upload_routes_say_so_where_media_cannot_be_written(self):
+        # A container mounts the music `:ro` and files are added from the host:
+        # the page leaves the menu, the send button goes, and every route that
+        # would write into that folder answers a code rather than failing on a
+        # read-only file system. The id-carrying paths are matched by rule.
         owner = self.owner()
-        ws.platform_mod.override(music_upload=False)
-        self.addCleanup(ws.platform_mod.override, music_upload=None)
-        answer = owner.post("/api/music/upload", data={})
-        self.assertEqual(answer.status_code, 501)
-        self.assertEqual(answer.get_json()["error"], "unsupported_here")
-        self.assertIn("music_upload", answer.get_json()["missing"])
+        ws.platform_mod.override(media_upload=False)
+        self.addCleanup(ws.platform_mod.override, media_upload=None)
+        calls = [
+            ("post", "/api/music/upload", {}),
+            ("post", "/api/announce_files/meme", {}),
+            ("delete", "/api/announce_files/meme", None),
+            ("post", "/api/system_sounds/" + ws.config_schema.SYSTEM_SOUNDS[0], {}),
+            ("delete", "/api/system_sounds/" + ws.config_schema.SYSTEM_SOUNDS[0], None),
+        ]
+        for method, path, payload in calls:
+            answer = getattr(owner, method)(path, **({"data": payload} if payload is not None else {}))
+            self.assertEqual(answer.status_code, 501, path)
+            self.assertEqual(answer.get_json()["error"], "unsupported_here", path)
+            self.assertIn("media_upload", answer.get_json()["missing"], path)
+        # And what does not write into the folder is not refused: the list of
+        # sounds, and switching one off (that is a setting, not a file).
+        self.assertNotEqual(owner.get("/api/announce_files/meme").status_code, 501)
+        self.assertEqual(owner.get("/api/system_sounds").status_code, 200)
+        self.assertEqual(owner.post("/api/system_sounds/" + ws.config_schema.SYSTEM_SOUNDS[0] + "/off")
+                         .status_code, 200)
 
     def test_another_sites_page_cannot_post(self):
         owner = self.owner()
