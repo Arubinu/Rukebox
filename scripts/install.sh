@@ -19,6 +19,8 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # the things that are decided before anything runs.
 #
 # RUKEBOX_PROFILE=pi|lxc forces it, which is what the tests use.
+# RUKEBOX_SKIP_INTERNET_CHECK=yes goes past the access probe (an apt proxy
+# answers on neither port it tries).
 # ---------------------------------------------------------------------------
 if [ -n "${RUKEBOX_PROFILE:-}" ]; then
     PROFILE="$RUKEBOX_PROFILE"
@@ -151,11 +153,38 @@ else
 fi
 
 echo "== Checking Internet access (needed once, for apt/pip) =="
-if ! timeout 5 bash -c 'cat < /dev/null > /dev/tcp/deb.debian.org/443' 2>/dev/null; then
+# Three tries: a container's network is often still coming up when the
+# installer starts, and a lease that is a second late is not a missing host.
+# Both ports, because apt fetches over 80 and a network that only filters 443
+# would look dead here while apt works perfectly.
+internet="no"
+if [ "${RUKEBOX_SKIP_INTERNET_CHECK:-}" = "yes" ]; then
+    internet="skipped"
+else
+    for attempt in 1 2 3; do
+        for port in 80 443; do
+            if timeout 5 bash -c "cat < /dev/null > /dev/tcp/deb.debian.org/$port" 2>/dev/null; then
+                internet="yes"
+                break 2
+            fi
+        done
+        [ "$attempt" -lt 3 ] && sleep 3
+    done
+fi
+if [ "$internet" = "no" ]; then
     echo "ERROR: no Internet access detected (could not reach deb.debian.org:443)." >&2
-    echo "This Pi has no Wi-Fi by design - see README, 'Installing on a blank" >&2
-    echo "SD card', step 4 for how to get TEMPORARY access just for this step" >&2
-    echo "(Internet sharing over the USB cable, or a nearby Wi-Fi hotspot)." >&2
+    if [ "$PROFILE" = "lxc" ]; then
+        echo "A container borrows its host's network: check that it has one" >&2
+        echo "('ip -brief address', 'cat /etc/resolv.conf', 'apt-get update')." >&2
+        echo "If apt goes through a proxy this probe cannot see it: run it again" >&2
+        echo "with RUKEBOX_SKIP_INTERNET_CHECK=yes." >&2
+    else
+        echo "This Pi has no Wi-Fi by design - see README, 'Installing on a blank" >&2
+        echo "SD card', step 4 for how to get TEMPORARY access just for this step" >&2
+        echo "(Internet sharing over the USB cable, or a nearby Wi-Fi hotspot)." >&2
+        echo "If apt goes through a proxy this probe cannot see it: run it again" >&2
+        echo "with RUKEBOX_SKIP_INTERNET_CHECK=yes." >&2
+    fi
     exit 1
 fi
 

@@ -295,7 +295,10 @@ sudo ~/rukebox/scripts/install.sh
 `install.sh` checks for Internet access itself (a direct TCP connection
 test, not `ping` — more reliable over a phone hotspot or shared
 connection) and stops with a clear message if it can't reach anything,
-rather than failing confusingly partway through `apt-get`. While it has
+rather than failing confusingly partway through `apt-get`. It tries both
+80 and 443 three times, because `apt` fetches over 80 and a container's
+network is often still coming up; if `apt` goes through a proxy the probe
+cannot see, `RUKEBOX_SKIP_INTERNET_CHECK=yes` goes on anyway. While it has
 that access, it also **offers to upgrade the rest of the system
 packages** (`apt-get upgrade`, a few minutes on a Zero 2 W, declined by
 default) — this is the one moment where the Pi is online, plugged in and
