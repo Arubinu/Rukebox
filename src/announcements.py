@@ -348,3 +348,30 @@ def seed_defaults(path, audio_root=DEFAULT_AUDIO_ROOT):
         os.path.join(audio_root, "morning_announcements"), 5, 58,
         os.path.join(audio_root, "doubleclick_announcements")))
     return True
+
+
+def retarget(path, old_root, new_root):
+    """Moves the announcements' folders from one audio root to another, and says
+    how many moved.
+
+    A seeded list names the Pi's own folders; a container keeps its audio
+    elsewhere, and a folder outside those roots is one the interface may not
+    write to - and one the radio would play from an empty directory."""
+    if not path or not old_root or not new_root:
+        return 0
+    old_root = old_root.rstrip("/\\").replace("\\", "/")
+    new_root = new_root.rstrip("/\\").replace("\\", "/")
+    if old_root == new_root:
+        return 0
+    items = read_items(path)
+    if items is None:
+        return 0
+    changed = 0
+    for item in items:
+        folder = str(item.get("folder") or "").replace("\\", "/")
+        if folder == old_root or folder.startswith(old_root + "/"):
+            item["folder"] = new_root + folder[len(old_root):]
+            changed += 1
+    if changed:
+        save_all(path, items)
+    return changed

@@ -286,6 +286,12 @@ case "$action" in
     *)             echo ">> /etc/rukebox/rukebox.yaml already present, left untouched." ;;
 esac
 
+# The seeded announcement types name the template's audio root (the Pi's own): a
+# container keeps its tree elsewhere, and a folder outside those roots is one the
+# interface may not write to, and one the radio would play from an empty folder.
+moved="$(python3 "$PROJECT_ROOT/src/config_file.py" retarget_audio /home/pi/audio "$AUDIO_ROOT")"
+[ "$moved" = "moved 0" ] || echo ">> $moved announcement folder(s) moved to $AUDIO_ROOT."
+
 if [ "$PROFILE" = "lxc" ]; then
     # The template documents the Pi's own folders; this machine's are elsewhere.
     python3 "$PROJECT_ROOT/src/config_file.py" set \
@@ -428,6 +434,32 @@ if [ "$PROFILE" = "lxc" ]; then
     systemctl enable --now rukebox-pipewire.service rukebox-wireplumber.service \
         rukebox-pipewire-pulse.service 2>/dev/null || true
     echo "   The radio now plays to a virtual output; you hear it over the network."
+
+    echo "== Timezone of this container =="
+    # A container is on UTC unless someone says otherwise, and Proxmox does not
+    # inherit the host's zone: every schedule, and the time the radio says out
+    # loud, is then off by the difference.
+    ZONE="${RUKEBOX_TIMEZONE:-}"
+    current="$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
+    if [ -z "$ZONE" ] && [ -t 0 ]; then
+        read -rp "Timezone (Enter keeps '$current'): " ZONE
+    fi
+    if [ -n "$ZONE" ]; then
+        if timedatectl set-timezone "$ZONE" 2>/dev/null; then
+            echo ">> Timezone set to $ZONE."
+        else
+            echo "!! '$ZONE' is not a timezone this machine knows (see 'timedatectl list-timezones')." >&2
+        fi
+    else
+        case "$current" in
+            UTC|Etc/UTC|Etc/GMT*)
+                echo "!! This container is on $current: schedules, and the time the radio"
+                echo "!! says out loud, will be off by the difference. Set yours with:"
+                echo "!!   sudo timedatectl set-timezone Europe/Paris"
+                echo "!! or, from the Proxmox host:  pct set <id> --timezone Europe/Paris" ;;
+            *) echo ">> Timezone kept: $current" ;;
+        esac
+    fi
 else
     for unit in $PI_UNITS; do
         systemctl enable "$unit" 2>/dev/null || true

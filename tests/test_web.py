@@ -214,14 +214,35 @@ class WebTest(unittest.TestCase):
         # A container keeps its music outside the Pi's usual places, and both
         # the folder browser and an announcement's own folder are checked
         # against this list: without it, a container whose music is mounted
-        # writable could add a song but never a sound.
+        # writable could add a song but never a sound. Reported on the owner's
+        # LXC: an announcement's folder and a system sound were both refused.
         music = ws.cfg()["MUSIC_DIR"]
         os.makedirs(music, exist_ok=True)
         self.assertIn(os.path.realpath(music), [os.path.realpath(r) for r in ws._browse_roots()])
-        if os.sep == "/":
-            # _inside_roots compares with a forward slash, which is what the
-            # product runs on: the Pi and every container are Linux.
-            self.assertTrue(ws._inside_roots(os.path.join(music, "memes")))
+
+        key = ws.config_schema.SYSTEM_SOUNDS[0]
+        custom = ws._system_sound_custom_dir(key)
+        os.makedirs(custom, exist_ok=True)
+        self.assertIn(os.path.realpath(custom),
+                      [os.path.realpath(r) for r in ws._browse_roots()],
+                      "a system sound's own folder is written there")
+        self.assertEqual(os.path.dirname(custom),
+                         os.path.dirname(ws.cfg().get(key) or ws.DEFAULTS[key]),
+                         "and it follows the configured sound, not the template's")
+
+        folder = os.path.join(os.path.dirname(music.rstrip("/")), "morning_announcements")
+        os.makedirs(folder, exist_ok=True)
+        item = {"id": "morning", "name": "Morning", "folder": folder}
+        with unittest.mock.patch.object(ws.announcements, "read_items", return_value=[item]):
+            self.assertIn(os.path.realpath(folder),
+                          [os.path.realpath(r) for r in ws._browse_roots()],
+                          "an announcement type has a folder of its own")
+            if os.sep == "/":
+                # _inside_roots compares with a forward slash, which is what the
+                # product runs on: the Pi and every container are Linux.
+                self.assertTrue(ws._inside_roots(os.path.join(folder, "jingle.mp3")),
+                                "a folder it has not created yet is still written into")
+                self.assertTrue(ws._inside_roots(os.path.join(music, "memes")))
 
     def test_another_sites_page_cannot_post(self):
         owner = self.owner()

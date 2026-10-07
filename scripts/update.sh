@@ -409,11 +409,20 @@ trap 'restore_backup; rm -f "$0"' ERR
 
 step "Updating $CONFIG_FILE"
 if RESULT="$(python3 - "$INSTALL_DIR/src" "$CONFIG_FILE" "$ENV_FILE" <<'PYENSURE'
+import os
 import sys
 sys.path.insert(0, sys.argv[1])
 import config_file
 action, count = config_file.ensure_file(sys.argv[2], sys.argv[3])
-print(action, count)
+# The announcement folders were seeded from the template's audio root (the Pi's):
+# this installation keeps its own, and a folder outside it is one the interface
+# may not write to - and one the radio would play from an empty folder.
+values = dict(config_file.DEFAULTS)
+values.update(config_file.read_values(sys.argv[2], sys.argv[3]))
+audio_root = os.path.dirname(str(values.get("MEME_DIR") or "").strip())
+moved = config_file.retarget_announcements("/home/pi/audio", audio_root, sys.argv[2], sys.argv[3]) \
+    if audio_root else 0
+print(action, count, moved, audio_root)
 PYENSURE
 )"; then
     case "$RESULT" in
@@ -421,6 +430,8 @@ PYENSURE
         "updated "*)   say "   added $(echo "$RESULT" | cut -d' ' -f2) new setting(s), existing values untouched" ;;
         *)             say "   already up to date" ;;
     esac
+    moved="$(echo "$RESULT" | cut -d' ' -f3)"
+    [ "$moved" = "0" ] || say "   $moved announcement folder(s) moved to $(echo "$RESULT" | cut -d' ' -f4)"
 else
     echo "WARNING: could not update $CONFIG_FILE." >&2
     echo "         The radio will use built-in defaults for anything missing;" >&2
@@ -480,6 +491,11 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
             /etc/rukebox/container-runtime.env 2>/dev/null || true
         systemctl enable --now rukebox-pipewire.service rukebox-wireplumber.service \
             rukebox-pipewire-pulse.service 2>/dev/null || true
+        case "$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)" in
+            UTC|Etc/UTC|Etc/GMT*)
+                echo "!! This container is still on UTC: schedules and the spoken time"
+                echo "!! will be off. Fix it with: sudo timedatectl set-timezone Europe/Paris" >&2 ;;
+        esac
     fi
     # WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
     if [ -f "$SOURCE_DIR/config/wireplumber-bluez.conf" ]; then

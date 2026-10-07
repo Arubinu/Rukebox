@@ -3362,8 +3362,14 @@ def _store_upload(upload, dest, mtime_field):
 SYSTEM_SOUND_MAX_BYTES = 20 * 1024 * 1024
 
 
-def _system_sound_custom_dir(key):
-    return os.path.join(os.path.dirname(DEFAULTS[key]), "custom")
+def _system_sound_custom_dir(key, values=None):
+    """Where a replacement sound is uploaded.
+
+    The folder of the sound in use, not the template's: a container keeps its
+    audio under /srv/rukebox/audio, and the template still names the Pi's."""
+    values = cfg() if values is None else values
+    current = str(values.get(key) or "").strip() or DEFAULTS[key]
+    return os.path.join(os.path.dirname(current), "custom")
 
 
 def _is_system_sound_file(key, filename):
@@ -5914,21 +5920,37 @@ AUDIO_EXTENSIONS = (".mp3", ".opus", ".ogg", ".oga", ".wav", ".m4a", ".aac",
                     ".flac", ".wma", ".mp4", ".webm")
 
 
-def _browse_roots():
-    """The roots that actually exist, in order: the Pi's usual places, then the
-    folders this installation plays from - a container keeps them elsewhere,
-    and the sounds the interface offers live in there."""
+def _allowed_roots():
+    """Every folder this installation keeps sounds in, whether it exists yet or
+    not: a sound uploaded into a folder the interface has not created is the
+    case that matters, so the write checks cannot ask the filesystem."""
     roots = list(BROWSABLE_ROOTS)
     values = cfg()
     for key in ("MUSIC_DIR", "MEME_DIR", "CUTOFF_ANNOUNCE_DIR"):
         folder = str(values.get(key) or "").strip()
         if folder:
             roots.append(folder)
-    return [root for root in dict.fromkeys(roots) if os.path.isdir(root)]
+    try:
+        for item in announcements.read_items(values.get("ANNOUNCEMENTS_FILE")) or []:
+            folder = str(item.get("folder") or "").strip()
+            if folder:
+                roots.append(folder)
+    except Exception:  # noqa: BLE001 - a broken list must not take browsing down
+        log.debug("Could not read the announcement folders", exc_info=True)
+    for key in config_schema.SYSTEM_SOUNDS:
+        roots.append(_system_sound_custom_dir(key, values))
+    return list(dict.fromkeys(roots))
+
+
+def _browse_roots():
+    """The roots that actually exist, in order: the Pi's usual places, then every
+    folder this installation keeps its sounds in - a container keeps them
+    elsewhere, and each announcement type and system sound has its own."""
+    return [root for root in _allowed_roots() if os.path.isdir(root)]
 
 
 def _inside_roots(path):
-    for root in _browse_roots():
+    for root in _allowed_roots():
         if path == root or path.startswith(root.rstrip("/") + "/"):
             return True
     return False

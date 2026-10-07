@@ -51,6 +51,43 @@ class ConfigFileTest(unittest.TestCase):
                          config_file.render_template().replace("\r\n", "\n"),
                          "regenerate: python3 src/config_file.py template > config/rukebox.yaml")
 
+    def point_announcements_at(self, folder):
+        """A configuration whose announcements file is the test's own."""
+        ann_path = os.path.join(self.dir, "announcements.json")
+        config_file.write_values({"ANNOUNCEMENTS_FILE": ann_path},
+                                 path=self.yaml, env_path=self.env)
+        import announcements
+
+        return ann_path, announcements
+
+    def test_the_announcement_folders_move_to_this_machines_audio_root(self):
+        """A container keeps its audio elsewhere: seeded folders left under the
+        Pi's root are ones the interface may not write to, and ones the radio
+        would play from an empty folder. Reported by the owner, twice."""
+        ann_path, announcements = self.point_announcements_at(self.dir)
+        announcements.seed_defaults(ann_path, "/home/pi/audio")
+        moved = config_file.retarget_announcements("/home/pi/audio", "/srv/rukebox/audio",
+                                                   self.yaml, self.env)
+        self.assertEqual(moved, 2)
+        folders = [item["folder"] for item in announcements.read_items(ann_path)]
+        self.assertEqual(folders, ["/srv/rukebox/audio/morning_announcements",
+                                   "/srv/rukebox/audio/doubleclick_announcements"])
+        self.assertEqual(config_file.retarget_announcements(
+            "/home/pi/audio", "/srv/rukebox/audio", self.yaml, self.env), 0,
+            "a second run moves nothing")
+
+    def test_the_seeded_folders_follow_the_configured_audio_root(self):
+        """The folders a new radio is offered come from this machine's audio
+        root, not from the Pi's template - the template is a document."""
+        moved = os.path.join(self.dir, "audio")
+        ann_path, announcements = self.point_announcements_at(self.dir)
+        config_file.write_values({"MEME_DIR": os.path.join(moved, "memes")},
+                                 path=self.yaml, env_path=self.env)
+        self.assertTrue(config_file.seed_announcements(self.yaml, self.env))
+        folders = [item["folder"] for item in announcements.read_items(ann_path)]
+        self.assertEqual(folders, [os.path.join(moved, "morning_announcements"),
+                                   os.path.join(moved, "doubleclick_announcements")])
+
 
 class SchemaTest(unittest.TestCase):
     def test_env_names_unique(self):

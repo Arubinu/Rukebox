@@ -429,11 +429,28 @@ def seed_announcements(yaml_path=None, env_path=None):
     import announcements  # noqa: E402
 
     yaml_path = find_yaml_file(yaml_path)
-    ann_path, _, _ = _announcement_paths(yaml_path, env_path or ENV_FILE)
-    if announcements.seed_defaults(ann_path):
+    env_path = env_path or ENV_FILE
+    ann_path, _, _ = _announcement_paths(yaml_path, env_path)
+    # The audio root this machine actually uses, not the template's: a container
+    # keeps its tree elsewhere, and the folders seeded here are the ones the
+    # interface must be allowed to write to.
+    values = dict(DEFAULTS)
+    values.update(read_values(yaml_path, env_path))
+    audio_root = os.path.dirname(str(values.get("MEME_DIR") or "").strip()) \
+        or announcements.DEFAULT_AUDIO_ROOT
+    if announcements.seed_defaults(ann_path, audio_root):
         _match_owner(ann_path, os.path.dirname(yaml_path) or ".")
         return True
     return False
+
+
+def retarget_announcements(old_root, new_root, yaml_path=None, env_path=None):
+    """Moves the announcement folders seeded from `old_root` to `new_root`."""
+    import announcements  # noqa: E402
+
+    yaml_path = find_yaml_file(yaml_path)
+    ann_path, _, _ = _announcement_paths(yaml_path, env_path or ENV_FILE)
+    return announcements.retarget(ann_path, old_root, new_root)
 
 
 def ensure_file(yaml_path=None, env_path=None):
@@ -462,6 +479,7 @@ def _main(argv):
     config_file.py ensure   [yaml] [env]   create or merge, then sync
     config_file.py show     [yaml]         print the effective values
     config_file.py set      KEY=value ...  save settings
+    config_file.py retarget_audio OLD NEW  move the announcements' folders
     config_file.py template                print the documented template
     """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -497,6 +515,12 @@ def _main(argv):
         values.update(read_values(yaml_path, env_path))
         for setting in SETTINGS:
             print("%-32s %s" % (setting.env, values[setting.env]))
+        return 0
+    if command == "retarget_audio":
+        if len(argv) < 4:
+            print("Usage: config_file.py retarget_audio OLD_ROOT NEW_ROOT", file=sys.stderr)
+            return 2
+        print("moved %d" % retarget_announcements(argv[2], argv[3]))
         return 0
     if command == "template":
         print(render_template(), end="")
