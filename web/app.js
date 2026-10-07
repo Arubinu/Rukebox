@@ -1285,7 +1285,7 @@ function renderClockSync() {
   row.dataset.state = off ? "warn" : "ok";
 
   document.getElementById("btnUseDeviceTime").classList.toggle("btn-primary", off);
-  row.hidden = false;
+  row.hidden = !canDo("set_clock");
 }
 window.LANG_CHANGE_LISTENERS.push(renderClockSync);
 
