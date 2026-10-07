@@ -1,7 +1,9 @@
 """The three button bridges and the socket they talk through: a GPIO button's
 presses sorted into single, double and long (src/gpio_click.py), the speaker's
-own keys found and read (src/speaker_buttons.py), the Flic button's events
-(src/flic_click.py), and the control socket's client (src/control_client.py)."""
+own keys and a USB sound card's media keys found and read
+(src/speaker_buttons.py), what the daemon does with each of them, the Flic
+button's events (src/flic_click.py), and the control socket's client
+(src/control_client.py)."""
 import importlib
 import json
 import os
@@ -18,6 +20,7 @@ from unittest import mock
 import _path  # noqa: F401
 import control_client
 import gpio_click
+import rukebox_daemon
 import speaker_buttons
 
 DEBOUNCE = 0.03
@@ -173,6 +176,8 @@ class SpeakerButtonsTest(unittest.TestCase):
     def test_only_a_key_going_down_is_a_gesture(self):
         self.assertEqual(speaker_buttons.gesture_of(key(163)), "next")
         self.assertEqual(speaker_buttons.gesture_of(key(165)), "previous")
+        self.assertEqual(speaker_buttons.gesture_of(key(115)), "volumeup")
+        self.assertEqual(speaker_buttons.gesture_of(key(114)), "volumedown")
         for code in (164, 166, 200, 201, 207):
             self.assertEqual(speaker_buttons.gesture_of(key(code)), "playpause", code)
         self.assertIsNone(speaker_buttons.gesture_of(key(163, value=0)), "a release")
@@ -197,6 +202,158 @@ class SpeakerButtonsTest(unittest.TestCase):
         with mock.patch.object(speaker_buttons, "send_control_command", return_value={"ok": True}) as sent:
             speaker_buttons.send("/tmp/sock", "next")
         sent.assert_called_once_with("/tmp/sock", "speaker_button", gesture="next", source="speaker")
+
+    def test_a_sound_card_key_is_sent_as_the_sound_cards(self):
+        with mock.patch.object(speaker_buttons, "send_control_command", return_value={"ok": True}) as sent:
+            speaker_buttons.send("/tmp/sock", "volumeup", "usb")
+        sent.assert_called_once_with("/tmp/sock", "speaker_button", gesture="volumeup", source="usb")
+
+
+CARD = "DEVTYPE=usb_interface\nDRIVER=snd-usb-audio\nPRODUCT=8087/1024/100\n"
+CARD_KEYS = 'PRODUCT=3/8087/1024/201\nNAME="Generic USB2.0 Device"\n'
+
+
+def write(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+class UsbSoundCardTest(unittest.TestCase):
+    """A USB sound card's media keys - the buttons of the headphones plugged
+    into it - are read, and no other USB device's keys ever are. The kernel's
+    own description decides, so no device name has to be configured."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.sound = os.path.join(self.dir, "sound")
+        self.input = os.path.join(self.dir, "input")
+
+    def card(self, name, uevent):
+        write(os.path.join(self.sound, name, "device", "uevent"), uevent)
+
+    def device(self, name, uevent):
+        write(os.path.join(self.input, name, "device", "uevent"), uevent)
+
+    def find(self):
+        return speaker_buttons.find_usb_button_device(self.input, self.sound)
+
+    def test_the_sound_cards_keys_are_found(self):
+        self.card("card1", CARD)
+        self.device("event2", CARD_KEYS)
+        self.assertEqual(self.find(), "/dev/input/event2")
+
+    def test_another_usb_devices_keys_are_never_taken(self):
+        self.card("card1", CARD)
+        self.device("event2", 'PRODUCT=3/046d/c534/100\nNAME="A keyboard"\n')
+        self.assertIsNone(self.find())
+
+    def test_a_device_on_another_bus_is_not_a_usb_one(self):
+        self.card("card1", CARD)
+        self.device("event0", 'PRODUCT=1e/8087/1024/1\nNAME="vc4-hdmi"\n')
+        self.assertIsNone(self.find())
+
+    def test_a_card_that_is_not_a_usb_one_is_ignored(self):
+        self.card("card0", "DRIVER=vc4_hdmi\nOF_NAME=hdmi\nPRODUCT=0/0/0/0\n")
+        self.device("event0", 'PRODUCT=1e/0/0/1\nNAME="vc4-hdmi"\n')
+        self.assertIsNone(self.find())
+
+    def test_a_sound_card_with_no_keys_of_its_own_finds_nothing(self):
+        self.card("card1", CARD)
+        self.assertIsNone(self.find())
+
+    def test_no_sound_card_at_all(self):
+        self.device("event2", CARD_KEYS)
+        self.assertIsNone(self.find(), "a key device with no card behind it")
+
+    def test_both_kinds_of_device_are_read_and_named(self):
+        cfg = {"SPEAKER_MAC": "7C:E9:13:69:66:55"}
+        with mock.patch.object(speaker_buttons, "find_event_device", return_value="/dev/input/event9"), \
+                mock.patch.object(speaker_buttons, "find_usb_button_device", return_value="/dev/input/event2"):
+            self.assertEqual(speaker_buttons.targets(cfg),
+                             {"/dev/input/event9": "speaker", "/dev/input/event2": "usb"})
+
+
+class FakeMpv:
+    """Records what the daemon asked mpv to do."""
+
+    def set_volume(self, volume):
+        self.volume = volume
+
+    def set_pause(self, paused):
+        pass
+
+    def set_mute(self, muted):
+        pass
+
+    def stop_playback(self):
+        pass
+
+    def seek(self, seconds):
+        pass
+
+    def set_loop(self, mode="no"):
+        pass
+
+    def set_audio_device(self, device):
+        pass
+
+    def observe(self, prop_id, name):
+        pass
+
+    def on_event(self, callback):
+        pass
+
+
+class SpeakerKeyTest(unittest.TestCase):
+    """Each key the daemon hears looks its own setting up: a gesture and a
+    setting that do not spell the same thing is a button that does nothing."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        cfg = rukebox_daemon.load_config()
+        cfg.update({
+            "STATE_DIR": self.dir,
+            "STATS_ENABLED": False,
+            "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
+            "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
+            "MUSIC_DIR": self.dir,
+            "MUSIC_CACHE_FILE": os.path.join(self.dir, "music_cache.json"),
+            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
+            "SPEAKER_VOLUME_LINK": False,
+            "VOLUME_STEP": 10,
+            "BASE_VOLUME": 30,
+        })
+        self.daemon = rukebox_daemon.RadioDaemon(cfg)
+        self.daemon.mpv = FakeMpv()
+        self.daemon._clock_ready = threading.Event()
+        self.daemon.mode = "music"
+
+    def test_every_gesture_has_its_two_settings(self):
+        for gesture in rukebox_daemon.RadioDaemon.SPEAKER_GESTURES:
+            for suffix in ("ACTION", "SOURCE"):
+                self.assertIn("SPEAKER_%s_%s" % (gesture.upper(), suffix), self.daemon.cfg)
+
+    def test_the_volume_keys_move_the_volume(self):
+        self.daemon._handle_speaker_button("volumeup", "usb")
+        self.assertEqual(self.daemon.mpv.volume, 40)
+        self.daemon._handle_speaker_button("volumedown", "usb")
+        self.assertEqual(self.daemon.mpv.volume, 30)
+
+    def test_with_the_music_stopped_a_volume_key_does_nothing(self):
+        self.daemon.mode = "idle"
+        self.daemon._handle_speaker_button("volumeup", "usb")
+        self.assertIsNone(getattr(self.daemon.mpv, "volume", None))
+
+    def test_a_sound_card_key_is_recorded_under_the_speakers_counter(self):
+        with mock.patch.object(self.daemon.stats, "record") as record:
+            self.daemon._handle_speaker_button("volumeup", "usb")
+        clicked = [call for call in record.call_args_list if call.args[0] == "click"]
+        self.assertEqual(clicked[0].kwargs["label"], "speaker_volumeup")
+        self.assertEqual(clicked[0].kwargs["detail"], {"source": "usb", "action": "volume_up",
+                                                      "target": None})
 
 
 class FakeFlicClient:

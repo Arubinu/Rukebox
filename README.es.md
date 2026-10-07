@@ -21,9 +21,10 @@ cualquier móvil conectado al Wi-Fi de la Pi.
 - **Tus anuncios**: un mensaje de buenos días, un jingle entre canciones,
   un recordatorio cada hora... cada uno con su horario, e incluso «una vez
   de cada dos» para dar una pequeña sorpresa.
-- **Con un botón basta**: un botón Flic, un pulsador conectado a la Pi o
-  los botones del altavoz - siguiente, anterior, pausa, repetición,
-  volumen, temporizador, reposo.
+- **Con un botón basta**: un botón Flic, un pulsador conectado a la Pi, los
+  botones del altavoz o las teclas de los auriculares de una tarjeta de
+  sonido USB - siguiente, anterior, pausa, repetición, volumen,
+  temporizador, reposo.
 - **Una interfaz web clara** en el móvil, la tableta o el ordenador: lo
   que suena con carátula y letra, lo que viene después, una biblioteca
   para buscar, tus propias listas -todo o solo algunos géneros- y todos

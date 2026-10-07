@@ -517,10 +517,11 @@ SETTINGS = [
         "SPEAKER_PLAYPAUSE_ACTION", "buttons", "speaker_playpause_action", "str", "next",
         "The Bluetooth speaker's own buttons (src/speaker_buttons.py), as\n"
         "they reach the Pi over AVRCP - which ones a speaker sends depends on\n"
-        "the speaker. Same choices as the clicks (next, previous, sound,\n"
-        "playpause... see single_click_action), with a sound\n"
-        "first (the _source below). Its play/pause button starts the music\n"
-        "from idle, like a single click.",
+        "the speaker - and the media keys of a USB sound card, which are the\n"
+        "buttons of the headphones plugged into it. Same choices as the\n"
+        "clicks (next, previous, sound, playpause... see single_click_action),\n"
+        "with a sound first (the _source below). Its play/pause button starts\n"
+        "the music from idle, like a single click.",
         "Speaker play/pause action",
     ),
     Setting("SPEAKER_PLAYPAUSE_SOURCE", "buttons", "speaker_playpause_source", "str", "meme",
@@ -533,6 +534,20 @@ SETTINGS = [
             "", "Speaker previous action"),
     Setting("SPEAKER_PREVIOUS_SOURCE", "buttons", "speaker_previous_source", "str", "none",
             "", "Speaker previous sound"),
+    Setting(
+        "SPEAKER_VOLUMEUP_ACTION", "buttons", "speaker_volumeup_action", "str", "volume_up",
+        "A USB sound card often changes its own volume on that key as well, so\n"
+        "both may move at once - set it to \"off\" to let the card alone.",
+        "Speaker volume + action",
+    ),
+    Setting("SPEAKER_VOLUMEUP_SOURCE", "buttons", "speaker_volumeup_source", "str", "none",
+            "", "Speaker volume + sound"),
+    Setting(
+        "SPEAKER_VOLUMEDOWN_ACTION", "buttons", "speaker_volumedown_action", "str", "volume_down",
+        "", "Speaker volume - action",
+    ),
+    Setting("SPEAKER_VOLUMEDOWN_SOURCE", "buttons", "speaker_volumedown_source", "str", "none",
+            "", "Speaker volume - sound"),
     Setting(
         "GPIO_BUTTON_PIN", "buttons", "gpio_button_pin", "int", "20",
         "BCM pin number for an optional physical button wired directly to a\n"

@@ -410,10 +410,11 @@ buttons:
 
   # The Bluetooth speaker's own buttons (src/speaker_buttons.py), as
   # they reach the Pi over AVRCP - which ones a speaker sends depends on
-  # the speaker. Same choices as the clicks (next, previous, sound,
-  # playpause... see single_click_action), with a sound
-  # first (the _source below). Its play/pause button starts the music
-  # from idle, like a single click.
+  # the speaker - and the media keys of a USB sound card, which are the
+  # buttons of the headphones plugged into it. Same choices as the
+  # clicks (next, previous, sound, playpause... see single_click_action),
+  # with a sound first (the _source below). Its play/pause button starts
+  # the music from idle, like a single click.
   speaker_playpause_action: "next"
 
   speaker_playpause_source: "meme"
@@ -425,6 +426,16 @@ buttons:
   speaker_previous_action: "off"
 
   speaker_previous_source: "none"
+
+  # A USB sound card often changes its own volume on that key as well, so
+  # both may move at once - set it to "off" to let the card alone.
+  speaker_volumeup_action: "volume_up"
+
+  speaker_volumeup_source: "none"
+
+  speaker_volumedown_action: "volume_down"
+
+  speaker_volumedown_source: "none"
 
   # BCM pin number for an optional physical button wired directly to a
   # GPIO pin, in ADDITION to (or instead of) the Flic button - see

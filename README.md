@@ -22,8 +22,8 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
   reminder every hour... each on its own schedule, and even "one time out
   of two" for a little surprise.
 - **One button is enough**: a Flic button, a push-button wired to the Pi,
-  or the speaker's own buttons - next, previous, pause, loop, volume, sleep
-  timer, standby.
+  the speaker's own buttons or the headphone keys of a USB sound card - next,
+  previous, pause, loop, volume, sleep timer, standby.
 - **A clear web interface** on phone, tablet or computer: now playing with
   cover and lyrics, what comes next, a searchable library, lists of your
   own - everything, or only some genres - and every setting. Six

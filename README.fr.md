@@ -23,8 +23,9 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
   un rappel toutes les heures... chacune avec son propre horaire, et même
   « une fois sur deux » pour une petite surprise.
 - **Un seul bouton suffit** : un bouton Flic, un bouton-poussoir branché
-  sur le Pi ou les boutons de l'enceinte - suivant, précédent, pause,
-  boucle, volume, minuterie, veille.
+  sur le Pi, les boutons de l'enceinte ou les touches du casque branché sur
+  une carte son USB - suivant, précédent, pause, boucle, volume, minuterie,
+  veille.
 - **Une interface web claire** sur téléphone, tablette ou ordinateur :
   lecture en cours avec pochette et paroles, la suite, une bibliothèque
   où chercher, tes propres listes - tout, ou seulement certains genres -

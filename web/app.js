@@ -8579,8 +8579,9 @@ function describeEvent(event) {
       const source = d.source === "flic" ? t("evt.source_flic")
         : d.source === "gpio" ? t("evt.source_gpio")
         : d.source === "web" ? t("evt.source_web")
-        : d.source === "speaker" ? t("evt.source_speaker") : t("evt.source_unknown");
-      const speakerGesture = /^speaker_(playpause|next|previous)$/.exec(event.label || "");
+        : d.source === "speaker" ? t("evt.source_speaker")
+        : d.source === "usb" ? t("evt.source_usb") : t("evt.source_unknown");
+      const speakerGesture = /^speaker_(playpause|next|previous|volumeup|volumedown)$/.exec(event.label || "");
       const kind = event.label === "single" ? t("evt.click_single")
         : event.label === "double" ? t("evt.click_double")
         : event.label === "long" ? t("evt.click_long")

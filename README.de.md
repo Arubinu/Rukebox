@@ -22,9 +22,9 @@ Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
 - **Deine Ansagen**: eine Morgenbegrüßung, ein Jingle zwischen den Titeln,
   eine Erinnerung jede Stunde... jede mit eigenem Zeitplan, und sogar „nur
   jedes zweite Mal“ für eine kleine Überraschung.
-- **Eine Taste genügt**: ein Flic-Button, ein Taster am Pi oder die
-  Tasten des Lautsprechers - weiter, zurück, Pause, Wiederholen,
-  Lautstärke, Sleep-Timer, Ruhezustand.
+- **Eine Taste genügt**: ein Flic-Button, ein Taster am Pi, die Tasten des
+  Lautsprechers oder die Kopfhörertasten einer USB-Soundkarte - weiter,
+  zurück, Pause, Wiederholen, Lautstärke, Sleep-Timer, Ruhezustand.
 - **Eine übersichtliche Weboberfläche** auf Handy, Tablet oder Computer:
   der laufende Titel mit Cover und Songtext, was als Nächstes kommt, eine
   durchsuchbare Bibliothek, eigene Listen - alles oder nur bestimmte

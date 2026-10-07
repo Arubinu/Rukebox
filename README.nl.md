@@ -22,9 +22,9 @@ speaker of elke telefoon op de wifi van de Pi is genoeg.
 - **Jouw aankondigingen**: een ochtendbericht, een jingle tussen de
   nummers, een herinnering elk uur... elk met een eigen schema, en zelfs
   „één keer op de twee” voor een kleine verrassing.
-- **Eén knop is genoeg**: een Flic-knop, een drukknop aan de Pi of de
-  knoppen van de speaker - volgende, vorige, pauze, herhalen, volume,
-  slaaptimer, stand-by.
+- **Eén knop is genoeg**: een Flic-knop, een drukknop aan de Pi, de knoppen
+  van de speaker of de toetsen van de hoofdtelefoon op een USB-geluidskaart -
+  volgende, vorige, pauze, herhalen, volume, slaaptimer, stand-by.
 - **Een overzichtelijke webinterface** op telefoon, tablet of computer: wat
   er speelt met hoes en songtekst, wat er hierna komt, een doorzoekbare
   bibliotheek, je eigen lijsten - alles of alleen bepaalde genres - en alle

@@ -912,6 +912,15 @@ play/pause starts the music like a single click. Read by
 `rukebox-speaker-buttons.service`, which waits quietly while no speaker
 is connected.
 
+**A USB sound card's media keys** do the same, through the same rows: the
+play/pause, next and previous buttons of the headphones plugged into it,
+and its volume keys (`speaker_volumeup_action`,
+`speaker_volumedown_action`, `volume_up` and `volume_down` by default).
+The card is found by what the kernel says it is - a USB device providing a
+sound card - so another USB device's keys are never read, and no name has
+to be set. Many cards change their own volume on those two keys as well:
+set the actions to `off` to let the card alone.
+
 ## Cards and barcodes (RFID reader, barcode scanner)
 
 A cheap USB RFID reader (125 kHz or 13.56 MHz, the kind sold as a "USB ID

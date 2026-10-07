@@ -21,9 +21,10 @@ della cassa o qualsiasi telefono collegato al Wi-Fi del Pi.
 - **I tuoi annunci**: un messaggio del mattino, un jingle tra un brano e
   l'altro, un promemoria ogni ora... ognuno con il suo orario, e perfino
   «una volta su due» per una piccola sorpresa.
-- **Basta un pulsante**: un pulsante Flic, un pulsante collegato al Pi o i
-  tasti della cassa - successivo, precedente, pausa, ripetizione, volume,
-  timer di spegnimento, standby.
+- **Basta un pulsante**: un pulsante Flic, un pulsante collegato al Pi, i
+  tasti della cassa o i tasti delle cuffie di una scheda audio USB -
+  successivo, precedente, pausa, ripetizione, volume, timer di spegnimento,
+  standby.
 - **Un'interfaccia web chiara** su telefono, tablet o computer: il brano in
   corso con copertina e testo, cosa viene dopo, una libreria in cui
   cercare, le tue liste - tutto o solo alcuni generi - e tutte le

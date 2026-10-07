@@ -2726,10 +2726,11 @@ class RadioDaemon:
             "single", source, self.cfg["SINGLE_CLICK_ACTION"], self.cfg["SINGLE_CLICK_SOURCE"],
         )
 
-    SPEAKER_GESTURES = ("playpause", "next", "previous")
+    SPEAKER_GESTURES = ("playpause", "next", "previous", "volumeup", "volumedown")
 
     def _handle_speaker_button(self, gesture, source="speaker"):
-        """A button of the Bluetooth speaker."""
+        """A button of the Bluetooth speaker, or a media key of a USB sound
+        card: both arrive as the same key presses."""
         kind = "speaker_" + gesture
         key = gesture.upper()
         if self.mode in ("idle", "stopped"):
@@ -2740,7 +2741,8 @@ class RadioDaemon:
                 self._record_click(kind, source, "ignored", target=self.mode)
             return
         if self.mode != "music":
-            log.info("Speaker %s ignored: an action is already in progress (%s)", gesture, self.mode)
+            log.info("%s button %s ignored: an action is already in progress (%s)",
+                     source, gesture, self.mode)
             self._record_click(kind, source, "ignored", target=self.mode)
             return
         self._perform_click_action(
@@ -3642,7 +3644,8 @@ class RadioDaemon:
         def handle_command(msg):
             cmd = msg.get("cmd")
             source = msg.get("source", "unknown")
-            if source not in ("flic", "gpio", "web", "speaker", "push", "vote", "card", "unknown"):
+            if source not in ("flic", "gpio", "web", "speaker", "usb", "push", "vote", "card",
+                              "unknown"):
                 source = "unknown"
             self._announcements()
 

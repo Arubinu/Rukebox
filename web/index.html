@@ -1210,8 +1210,77 @@
                   <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
                 </select>
               </div>
+              <div class="field-row">
+                <label for="spkVolumeupClickAction" data-i18n="speakerbtn.volumeup">Volume +</label>
+                <div class="input-with-action">
+                  <select id="spkVolumeupClickAction" data-key="SPEAKER_VOLUMEUP_ACTION" class="click-action-select" data-click="spkVolumeup">
+                    <option value="next" data-i18n="click.next">Next track</option>
+                    <option value="previous" data-i18n="click.previous">Previous track</option>
+                    <option value="sound" data-i18n="click.sound">Play the sound</option>
+                    <option value="time" data-i18n="click.time">Say the time</option>
+                    <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
+                    <option value="pause" data-i18n="click.pause">Pause</option>
+                    <option value="play" data-i18n="click.play">Play</option>
+                    <option value="loop_track" data-i18n="click.loop_track">Loop this track</option>
+                    <option value="loop_album" data-i18n="click.loop_album">Loop this album</option>
+                    <option value="loop_off" data-i18n="click.loop_off">Normal playback</option>
+                    <option value="volume_up" data-i18n="click.volume_up">Volume +</option>
+                    <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
+                    <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
+                    <option value="mute" data-i18n="click.mute">Mute / unmute</option>
+                    <option value="standby" data-i18n="click.standby">Standby</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="off" data-i18n="click.off">Do nothing</option>
+                  </select>
+                  <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkVolumeup" data-kind="speaker_volumeup"
+                          data-i18n-aria-label="click.test" aria-label="Try it" data-i18n-title="click.test" title="Try it"></button>
+                </div>
+              </div>
+              <div class="field-row click-sound-row" data-click="spkVolumeup">
+                <label for="spkVolumeupClickSource" data-i18n="click.sound_before">Sound played first</label>
+                <select id="spkVolumeupClickSource" data-key="SPEAKER_VOLUMEUP_SOURCE" class="click-source-select">
+                  <option value="none" data-i18n="click.no_sound">No sound</option>
+                  <option value="meme" data-i18n="source.meme">Button sounds</option>
+                  <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="spkVolumedownClickAction" data-i18n="speakerbtn.volumedown">Volume −</label>
+                <div class="input-with-action">
+                  <select id="spkVolumedownClickAction" data-key="SPEAKER_VOLUMEDOWN_ACTION" class="click-action-select" data-click="spkVolumedown">
+                    <option value="next" data-i18n="click.next">Next track</option>
+                    <option value="previous" data-i18n="click.previous">Previous track</option>
+                    <option value="sound" data-i18n="click.sound">Play the sound</option>
+                    <option value="time" data-i18n="click.time">Say the time</option>
+                    <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
+                    <option value="pause" data-i18n="click.pause">Pause</option>
+                    <option value="play" data-i18n="click.play">Play</option>
+                    <option value="loop_track" data-i18n="click.loop_track">Loop this track</option>
+                    <option value="loop_album" data-i18n="click.loop_album">Loop this album</option>
+                    <option value="loop_off" data-i18n="click.loop_off">Normal playback</option>
+                    <option value="volume_up" data-i18n="click.volume_up">Volume +</option>
+                    <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
+                    <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
+                    <option value="mute" data-i18n="click.mute">Mute / unmute</option>
+                    <option value="standby" data-i18n="click.standby">Standby</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="off" data-i18n="click.off">Do nothing</option>
+                  </select>
+                  <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkVolumedown" data-kind="speaker_volumedown"
+                          data-i18n-aria-label="click.test" aria-label="Try it" data-i18n-title="click.test" title="Try it"></button>
+                </div>
+              </div>
+              <div class="field-row click-sound-row" data-click="spkVolumedown">
+                <label for="spkVolumedownClickSource" data-i18n="click.sound_before">Sound played first</label>
+                <select id="spkVolumedownClickSource" data-key="SPEAKER_VOLUMEDOWN_SOURCE" class="click-source-select">
+                  <option value="none" data-i18n="click.no_sound">No sound</option>
+                  <option value="meme" data-i18n="source.meme">Button sounds</option>
+                  <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
+                </select>
+              </div>
               <p class="hint help-text" data-i18n="speakerbtn.help" hidden>
-                What the speaker's own buttons do, when the speaker sends them.
+                What the speaker's own buttons do, when the speaker sends them,
+                and the same for the headphone keys of a USB sound card.
               </p>
             </details>
             <details data-level="detail" class="subsection" data-needs="gpio">
