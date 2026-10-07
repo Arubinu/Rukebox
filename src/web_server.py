@@ -984,6 +984,9 @@ _repeats_lock = threading.Lock()
 _ROUTE_CAPABILITIES = {
     "/api/gpio/detect": {"gpio": ("POST",)},
     "/api/gpio/pinout": {"gpio": ("GET",)},
+    # A music folder that cannot be written to (a container's `:ro` mount) has
+    # no page to add music from, and no route to receive it.
+    "/api/music/upload": {"music_upload": ("POST",)},
     # The access point is the one feature whose routes ask nmcli with nothing
     # under them: everywhere else the missing binary answers an empty result.
     "/api/wifi/ap": {"access_point": ("GET", "POST")},

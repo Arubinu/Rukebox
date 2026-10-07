@@ -183,6 +183,18 @@ class WebTest(unittest.TestCase):
         self.assertFalse(answer.get_json()["data"]["configured"])
         self.assertEqual(owner.get("/api/wifi/ap/share").status_code, 200)
 
+    def test_the_upload_route_says_so_where_music_cannot_be_written(self):
+        # A container mounts the music `:ro` and music is added from the host:
+        # the card leaves the menu, and the route behind it answers a code
+        # rather than failing on a read-only file system.
+        owner = self.owner()
+        ws.platform_mod.override(music_upload=False)
+        self.addCleanup(ws.platform_mod.override, music_upload=None)
+        answer = owner.post("/api/music/upload", data={})
+        self.assertEqual(answer.status_code, 501)
+        self.assertEqual(answer.get_json()["error"], "unsupported_here")
+        self.assertIn("music_upload", answer.get_json()["missing"])
+
     def test_another_sites_page_cannot_post(self):
         owner = self.owner()
         foreign = owner.post("/api/mute", json={"on": True}, headers={"Origin": "https://evil.example"})

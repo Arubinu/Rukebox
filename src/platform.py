@@ -45,7 +45,8 @@ PLATFORM_ONLY = frozenset(
 
 CAPABILITY_NAMES = (
     "access_point", "bluetooth", "captive_portal", "gpio", "local_audio",
-    "power", "rtc", "self_update", "set_clock", "usb_gadget", "wireless",
+    "music_upload", "power", "rtc", "self_update", "set_clock", "usb_gadget",
+    "wireless",
 )
 
 _detected = None
@@ -132,6 +133,13 @@ def _has_local_audio():
     return os.path.exists(os.path.join(runtime, "pipewire-0"))
 
 
+def _has_music_upload():
+    """A music folder this process may write to. A container's usually arrives
+    read-only (`:ro` in the compose file), and music is added from the host
+    there, so the page that uploads it has nothing to do."""
+    return os.access(paths.music_dir(), os.W_OK)
+
+
 def _has_rtc():
     # The two names the kernel gives a Pi's RTC first, then anything else.
     if os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc"):
@@ -179,6 +187,7 @@ HARDWARE = {
     "captive_portal": _has_captive_portal,
     "gpio": _has_gpio,
     "local_audio": _has_local_audio,
+    "music_upload": _has_music_upload,
     "power": _has_power,
     "rtc": _has_rtc,
     "self_update": _has_self_update,

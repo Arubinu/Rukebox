@@ -28,6 +28,7 @@ import library  # noqa: E402
 from mpv_controller import MPVController, audio_chain, audio_env, compression_filter  # noqa: E402
 import music_lists  # noqa: E402
 import playlist  # noqa: E402
+import platform as platform_mod  # noqa: E402
 import schedules  # noqa: E402
 import speech  # noqa: E402
 from state import RadioState  # noqa: E402
@@ -2863,7 +2864,10 @@ class RadioDaemon:
     def _start_watchdogs(self):
         threading.Thread(target=self._speaker_watch_loop, daemon=True).start()
         threading.Thread(target=self._volume_watch_loop, daemon=True).start()
-        if self.cfg["AP_WATCH_INTERVAL_SEC"] > 0:
+        # A machine without an access point has no uap0 to read, and asking iw
+        # for it only earns a warning about an interface that was never meant
+        # to be there.
+        if self.cfg["AP_WATCH_INTERVAL_SEC"] > 0 and platform_mod.has("access_point"):
             threading.Thread(target=self._ap_watch_loop, daemon=True).start()
 
     # flicd takes a controller for itself, so the Flic button competes with the speaker.

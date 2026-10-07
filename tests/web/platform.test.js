@@ -11,9 +11,9 @@ const { load, until, STATUS } = require("./harness");
 
 const PI = STATUS.capabilities;
 const DOCKER = { platform: "docker", access_point: false, bluetooth: true,
-                 captive_portal: false, gpio: false, local_audio: true, power: false,
-                 rtc: false, self_update: false, set_clock: false, usb_gadget: false,
-                 wireless: false };
+                 captive_portal: false, gpio: false, local_audio: true, music_upload: false,
+                 power: false, rtc: false, self_update: false, set_clock: false,
+                 usb_gadget: false, wireless: false };
 
 function withCaps(caps, options = {}) {
   // A caller that brings its own status keeps it: this only fills in the
@@ -85,6 +85,11 @@ test("a card the machine cannot honour leaves the area's menu", async (t) => {
   assert.equal(clock.hidden, true, "the clock page goes with the rest");
   assert.equal(page.document.querySelector('.card[data-page="clock"]').dataset.needs,
                "set_clock", "the card asks for what the page needs");
+  // Adding music uploads files into the music folder, and a container's
+  // arrives read-only: the page that does it has nothing to do there.
+  const music = tilesOf(page.document, "home").find((entry) => entry.page === "music");
+  assert.ok(music, "adding music is a page of the home area");
+  assert.equal(music.hidden, true, "and it is not offered");
   await page.close();
 });
 
