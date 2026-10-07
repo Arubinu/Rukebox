@@ -213,6 +213,15 @@ class FilesTest(unittest.TestCase):
                        "rukebox-wireplumber.service", "docker/pipewire-container.conf"):
             self.assertIn(needle, installer, needle)
 
+    def test_a_helper_an_install_puts_there_an_update_puts_back(self):
+        """The commands the guide sends people to (`sudo rukebox-piper`) live in
+        /usr/local/sbin, and an installation that was updated has to have them
+        too - install.sh alone is only the first day."""
+        installer = _path.read("scripts", "install.sh")
+        updater = _path.read("scripts", "update.sh")
+        for helper in re.findall(r"/usr/local/sbin/(rukebox-[a-z-]+)", installer):
+            self.assertIn("/usr/local/sbin/" + helper, updater, helper)
+
     def test_the_community_scripts_are_present_and_well_formed(self):
         """Three files, written to community-scripts' rules: the day this is
         proposed upstream they are copied, not rewritten. They cannot be run

@@ -461,6 +461,9 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     if [ -f "$SOURCE_DIR/scripts/account_setup.sh" ]; then
         install -m 755 -o root -g root "$SOURCE_DIR/scripts/account_setup.sh" /usr/local/sbin/rukebox-account-setup 2>/dev/null || true
     fi
+    if [ -f "$SOURCE_DIR/scripts/install_piper.sh" ]; then
+        install -m 755 -o root -g root "$SOURCE_DIR/scripts/install_piper.sh" /usr/local/sbin/rukebox-piper 2>/dev/null || true
+    fi
     if [ "$PROFILE" = "pi" ]; then
         # Nothing to drive for any of these in a container, where enabling one
         # only gives a red line at every boot.
