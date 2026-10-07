@@ -85,7 +85,7 @@ KNOWN_COUNTERS = [
     "playback_errors", "playback_stalls",
     "speaker_drops", "speaker_recoveries",
     "ap_client_connections", "web_sessions",
-    "clock_rtc", "clock_bluetooth", "clock_manual", "clock_unreliable",
+    "clock_rtc", "clock_bluetooth", "clock_manual", "clock_host", "clock_unreliable",
     "cutoff_triggers", "custom_announces",
     "shutdowns_cutoff", "shutdowns_longpress", "shutdowns_service",
     "shutdowns_speaker",
@@ -374,6 +374,8 @@ class StatsRecorder:
             "rtc": "clock_rtc",
             "bluetooth": "clock_bluetooth",
             "manual": "clock_manual",
+            # A container's clock is its host's: not ours to set, and not a doubt.
+            "host": "clock_host",
         }.get(source, "clock_unreliable")
         offset = float(offset_sec or 0.0)
         try:

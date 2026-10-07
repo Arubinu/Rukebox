@@ -469,6 +469,14 @@ class RadioDaemon:
         self._clock_ready = threading.Event()
         self._cue_played = threading.Event()
 
+        if not system_actions.can_set_clock():
+            # A container's clock is its host's, kept by the host and not ours
+            # to write: no RTC to read, nothing to recover, nothing to doubt.
+            log.info("The clock is this machine's own, kept by the host")
+            self.stats.set_clock("host")
+            self._clock_ready.set()
+            return
+
         if os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc"):
             log.info("Hardware RTC module detected, clock considered reliable")
             self.stats.set_clock("rtc", offset_sec=0.0)

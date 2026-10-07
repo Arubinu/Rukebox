@@ -34,6 +34,18 @@ class StatsTest(unittest.TestCase):
         self.assertEqual(today["seconds_music"], 180)
         self.assertEqual(today["top"][0], {"name": "a.mp3", "count": 2})
 
+    def test_a_clock_that_is_the_machines_own_is_not_a_doubt(self):
+        # A container cannot set its clock and does not need to: the host keeps
+        # it, so the time is established rather than unreliable (asked for as:
+        # "is it normal that the journal says no reliable time source?").
+        self.rec.set_clock("host")
+        counters = self.rec.counters()
+        self.assertEqual(counters["clock_host"], 1)
+        self.assertEqual(counters["clock_unreliable"], 0)
+        kinds = [row["type"] for row in self.rec._rows("SELECT type FROM events ORDER BY id")]
+        self.assertIn("clock_ready", kinds)
+        self.assertNotIn("clock_unreliable", kinds)
+
     def test_counters_survive_deleting_rows(self):
         self.played("a.mp3")
         ids = [r["id"] for r in self.rec._rows("SELECT id FROM events WHERE type = 'track_played'")]

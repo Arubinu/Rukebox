@@ -8144,7 +8144,7 @@ function eventLabel(type) {
   return EVENT_TYPE_KEYS.includes(type) ? t("event." + type) : type;
 }
 
-const CLOCK_SOURCE_KEYS = ["rtc", "bluetooth", "manual", "none"];
+const CLOCK_SOURCE_KEYS = ["rtc", "bluetooth", "manual", "host", "none"];
 function clockSourceLabel(source) {
   return CLOCK_SOURCE_KEYS.includes(source) ? t("clocksrc." + source) : t("clocksrc.unknown");
 }
@@ -8278,8 +8278,10 @@ function renderKpis(summary) {
       t("kpi.speaker_lost_sub", { n: Math.round(c.speaker_recoveries || 0) }), { warn: speakerLostCount > 0, keys: keysIf(["speaker_drops", "speaker_recoveries"]) }),
     kpiTile("wifi", t("kpi.access_point"), Math.round(c.ap_client_connections || 0),
       t("kpi.access_point_sub", { n: Math.round(c.web_sessions || 0) }), { keys: keysIf(["ap_client_connections", "web_sessions"]) }),
-    kpiTile("clock", t("kpi.time_established"), t("kpi.time_established_value", { n: Math.round(c.clock_rtc || 0) }),
-      t("kpi.time_established_sub", { bt: Math.round(c.clock_bluetooth || 0), manual: Math.round(c.clock_manual || 0), failed: Math.round(c.clock_unreliable || 0) }), { keys: keysIf(["clock_rtc", "clock_bluetooth", "clock_manual", "clock_unreliable"]) }),
+    kpiTile("clock", t("kpi.time_established"),
+      ["clock_rtc", "clock_bluetooth", "clock_manual", "clock_host"]
+        .reduce((total, key) => total + Math.round(c[key] || 0), 0),
+      t("kpi.time_established_sub", { host: Math.round(c.clock_host || 0), bt: Math.round(c.clock_bluetooth || 0), manual: Math.round(c.clock_manual || 0), failed: Math.round(c.clock_unreliable || 0) }), { keys: keysIf(["clock_rtc", "clock_bluetooth", "clock_manual", "clock_host", "clock_unreliable"]) }),
   );
 
   if (placeholder) {

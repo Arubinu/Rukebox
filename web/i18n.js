@@ -1809,8 +1809,7 @@ const I18N = {
     "kpi.access_point": "Access point",
     "kpi.access_point_sub": "{n} web session(s)",
     "kpi.time_established": "Time established",
-    "kpi.time_established_value": "{n} RTC",
-    "kpi.time_established_sub": "{bt} Bluetooth, {manual} manual, {failed} failed",
+    "kpi.time_established_sub": "{host} by the machine, {bt} Bluetooth, {manual} manual, {failed} failed",
     "stats.since_prefix": "Since {date} · {count} events kept ({days} days, {size})",
 
     "top.music": "Most played tracks",
@@ -1898,6 +1897,7 @@ const I18N = {
     "clocksrc.rtc": "hardware RTC",
     "clocksrc.bluetooth": "Bluetooth",
     "clocksrc.manual": "set manually",
+    "clocksrc.host": "the machine",
     "clocksrc.none": "not established",
 
     "endreason.cutoff": "scheduled cutoff",
@@ -3792,8 +3792,7 @@ const I18N = {
     "kpi.access_point": "Point d'accès",
     "kpi.access_point_sub": "{n} session(s) web",
     "kpi.time_established": "Heure établie",
-    "kpi.time_established_value": "{n} RTC",
-    "kpi.time_established_sub": "{bt} Bluetooth, {manual} manuel, {failed} échec(s)",
+    "kpi.time_established_sub": "{host} par la machine, {bt} Bluetooth, {manual} manuel, {failed} échec(s)",
     "stats.since_prefix": "Depuis le {date} · {count} événements conservés ({days} jours, {size})",
 
     "top.music": "Morceaux les plus joués",
@@ -3881,6 +3880,7 @@ const I18N = {
     "clocksrc.rtc": "RTC matérielle",
     "clocksrc.bluetooth": "Bluetooth",
     "clocksrc.manual": "réglée manuellement",
+    "clocksrc.host": "la machine",
     "clocksrc.none": "non établie",
 
     "endreason.cutoff": "coupure planifiée",
@@ -5775,8 +5775,7 @@ const I18N = {
     "kpi.access_point": "Access Point",
     "kpi.access_point_sub": "{n} Web-Sitzung(en)",
     "kpi.time_established": "Uhrzeit ermittelt",
-    "kpi.time_established_value": "{n} RTC",
-    "kpi.time_established_sub": "{bt} Bluetooth, {manual} manuell, {failed} fehlgeschlagen",
+    "kpi.time_established_sub": "{host} von der Maschine, {bt} Bluetooth, {manual} manuell, {failed} fehlgeschlagen",
     "stats.since_prefix": "Seit {date} · {count} Ereignisse gespeichert ({days} Tage, {size})",
 
     "top.music": "Meistgespielte Titel",
@@ -5864,6 +5863,7 @@ const I18N = {
     "clocksrc.rtc": "Hardware-RTC",
     "clocksrc.bluetooth": "Bluetooth",
     "clocksrc.manual": "manuell eingestellt",
+    "clocksrc.host": "die Maschine",
     "clocksrc.none": "nicht ermittelt",
 
     "endreason.cutoff": "geplante Abschaltung",
@@ -7758,8 +7758,7 @@ const I18N = {
     "kpi.access_point": "Punto de acceso",
     "kpi.access_point_sub": "{n} sesión(es) web",
     "kpi.time_established": "Hora establecida",
-    "kpi.time_established_value": "{n} RTC",
-    "kpi.time_established_sub": "{bt} Bluetooth, {manual} manual, {failed} fallida(s)",
+    "kpi.time_established_sub": "{host} por la máquina, {bt} Bluetooth, {manual} manual, {failed} fallida(s)",
     "stats.since_prefix": "Desde {date} · {count} eventos conservados ({days} días, {size})",
 
     "top.music": "Pistas más reproducidas",
@@ -7847,6 +7846,7 @@ const I18N = {
     "clocksrc.rtc": "RTC de hardware",
     "clocksrc.bluetooth": "Bluetooth",
     "clocksrc.manual": "ajustada manualmente",
+    "clocksrc.host": "la máquina",
     "clocksrc.none": "no establecida",
 
     "endreason.cutoff": "corte programado",
@@ -9741,8 +9741,7 @@ const I18N = {
     "kpi.access_point": "Punto di accesso",
     "kpi.access_point_sub": "{n} sessione/i web",
     "kpi.time_established": "Ora stabilita",
-    "kpi.time_established_value": "{n} RTC",
-    "kpi.time_established_sub": "{bt} Bluetooth, {manual} manuale, {failed} fallita/e",
+    "kpi.time_established_sub": "{host} dalla macchina, {bt} Bluetooth, {manual} manuale, {failed} fallita/e",
     "stats.since_prefix": "Dal {date} · {count} eventi conservati ({days} giorni, {size})",
 
     "top.music": "Brani più riprodotti",
@@ -9830,6 +9829,7 @@ const I18N = {
     "clocksrc.rtc": "RTC hardware",
     "clocksrc.bluetooth": "Bluetooth",
     "clocksrc.manual": "impostata manualmente",
+    "clocksrc.host": "la macchina",
     "clocksrc.none": "non stabilita",
 
     "endreason.cutoff": "interruzione pianificata",
@@ -11724,8 +11724,7 @@ const I18N = {
     "kpi.access_point": "Toegangspunt",
     "kpi.access_point_sub": "{n} websessie(s)",
     "kpi.time_established": "Tijd vastgesteld",
-    "kpi.time_established_value": "{n} RTC",
-    "kpi.time_established_sub": "{bt} Bluetooth, {manual} handmatig, {failed} mislukt",
+    "kpi.time_established_sub": "{host} door de machine, {bt} Bluetooth, {manual} handmatig, {failed} mislukt",
     "stats.since_prefix": "Sinds {date} · {count} gebeurtenissen bewaard ({days} dagen, {size})",
 
     "top.music": "Meest gespeelde nummers",
@@ -11813,6 +11812,7 @@ const I18N = {
     "clocksrc.rtc": "hardware-RTC",
     "clocksrc.bluetooth": "Bluetooth",
     "clocksrc.manual": "handmatig ingesteld",
+    "clocksrc.host": "de machine",
     "clocksrc.none": "niet vastgesteld",
 
     "endreason.cutoff": "geplande afsluiting",

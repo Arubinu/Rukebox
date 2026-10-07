@@ -1551,6 +1551,7 @@ body.lyrics-fullscreen { overflow: hidden; }
 .cards-empty { text-align: center; }
 .recap-heading { font-size: 1rem; margin: 20px 0 8px; }
 .recap-list li { display: flex; justify-content: space-between; gap: 12px; }
+#recapEmpty { text-align: center; }
 .memories { margin-bottom: 14px; }
 .card-last { display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 14px; margin-bottom: 12px; border-radius: var(--radius); background: var(--accent-soft); }
