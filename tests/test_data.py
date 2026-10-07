@@ -26,6 +26,24 @@ class StatsTest(unittest.TestCase):
         self.rec.record("track_played", label=name, counters={"tracks_played": 1, "seconds_music": seconds},
                         daily={"tracks_played": 1, "seconds_music": seconds}, item=("music", name), seconds=seconds)
 
+    def test_the_event_log_can_be_searched(self):
+        """Asked for as: a search bar for the event log. The filter is the
+        database's, so it finds what the page has not loaded - and the count the
+        interface shows is the number of MATCHES, not the size of the log."""
+        self.rec.record("playback_error", label="Broken.opus")
+        self.rec.record("track_played", label="Fine.opus")
+        self.rec.record("track_skipped", label="Song", detail={"by": "web"})
+
+        self.assertEqual([e["label"] for e in self.rec.events(query="Broken")], ["Broken.opus"])
+        self.assertEqual(self.rec.count_rows("events", None, "broken"), 1,
+                         "the search ignores case")
+        self.assertEqual(self.rec.count_rows("events", "track_played", "opus"), 1,
+                         "and it combines with the type filter")
+        self.assertEqual(self.rec.count_rows("events", None, "web"), 1,
+                         "the details of an event are searched too")
+        self.assertEqual(self.rec.count_rows("events", None, "nothing here"), 0)
+        self.assertEqual(self.rec.events(query="Broken")[0]["type"], "playback_error")
+
     def test_today_summary(self):
         for name in ("a.mp3", "b.mp3", "a.mp3"):
             self.played(name)

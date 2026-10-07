@@ -3232,6 +3232,7 @@ select {
   gap: 10px;
   margin-bottom: 12px;
 }
+.log-controls .text-input { flex: 1 1 14rem; min-width: 0; }
 .log-controls select { flex: 1 1 12rem; }
 .event-list {
   list-style: none;

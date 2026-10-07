@@ -8618,7 +8618,9 @@ function renderEvents(events, append) {
   if (!events.length && !append) {
     const li = document.createElement("li");
     li.className = "event-empty";
-    li.textContent = t("stats.no_event");
+    const filtered = document.getElementById("eventSearch").value.trim()
+      || document.getElementById("eventTypeFilter").value;
+    li.textContent = t(filtered ? "stats.no_match" : "stats.no_event");
     list.appendChild(li);
     return;
   }
@@ -8654,8 +8656,10 @@ function renderEvents(events, append) {
 
 async function loadEvents(append) {
   const type = document.getElementById("eventTypeFilter").value;
+  const query = document.getElementById("eventSearch").value.trim();
   let url = "/api/journal/entries?limit=60";
   if (type) url += "&type=" + encodeURIComponent(type);
+  if (query) url += "&q=" + encodeURIComponent(query);
   if (append && oldestEventId !== null) url += "&before_id=" + oldestEventId;
 
   const result = await apiGet(url);
@@ -9551,6 +9555,14 @@ document.getElementById("btnRefreshEvents").addEventListener("click", () => {
 document.getElementById("eventTypeFilter").addEventListener("change", () => {
   oldestEventId = null;
   loadEvents(false);
+});
+let eventSearchTimer = null;
+document.getElementById("eventSearch").addEventListener("input", () => {
+  clearTimeout(eventSearchTimer);
+  eventSearchTimer = setTimeout(() => {
+    oldestEventId = null;
+    loadEvents(false);
+  }, 300);
 });
 document.getElementById("btnMoreEvents").addEventListener("click", () => loadEvents(true));
 

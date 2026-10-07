@@ -249,6 +249,22 @@ class WebTest(unittest.TestCase):
                                 "a folder it has not created yet is still written into")
                 self.assertTrue(ws._inside_roots(os.path.join(music, "memes")))
 
+    def test_the_event_log_is_searched_in_the_database(self):
+        """Asked for as: a search bar for the event log. The query goes to the
+        recorder (so it covers what the page has not loaded) and the total the
+        interface shows is the number of matches."""
+        owner = self.owner()
+        with unittest.mock.patch.object(ws, "stats") as fake:
+            fake.events.return_value = []
+            fake.event_types.return_value = []
+            fake.count_rows.return_value = 3
+            answer = owner.get("/api/journal/entries?q=error&type=playback_error")
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(fake.events.call_args.kwargs.get("query"), "error")
+        self.assertEqual(fake.events.call_args.kwargs.get("event_type"), "playback_error")
+        self.assertEqual(fake.count_rows.call_args.args[2], "error")
+        self.assertEqual(answer.get_json()["data"]["total"], 3)
+
     def test_another_sites_page_cannot_post(self):
         owner = self.owner()
         foreign = owner.post("/api/mute", json={"on": True}, headers={"Origin": "https://evil.example"})

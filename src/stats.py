@@ -557,14 +557,27 @@ class StatsRecorder:
         "events": ("events", "1=1"),
     }
 
-    def count_rows(self, scope, event_type=None):
+    def _events_filter(self, event_type=None, query=None):
+        """(where, params) for the event log's filters, shared by the page, the
+        count and the deletion, so what is shown and what is counted agree."""
+        clauses, params = [], []
+        if event_type:
+            clauses.append("type = ?")
+            params.append(event_type)
+        if query:
+            like = "%" + query + "%"
+            clauses.append("(label LIKE ? OR type LIKE ? OR detail LIKE ?)")
+            params.extend([like, like, like])
+        return (" AND ".join(clauses) or "1=1"), tuple(params)
+
+    def count_rows(self, scope, event_type=None, query=None):
         """How many rows a list holds in the database."""
         if not self.enabled or scope not in self._LIST_SCOPES:
             return 0
         table, where = self._LIST_SCOPES[scope]
         params = ()
-        if scope == "events" and event_type:
-            where, params = "type = ?", (event_type,)
+        if scope == "events":
+            where, params = self._events_filter(event_type, query)
         try:
             return self._rows("SELECT COUNT(*) AS n FROM %s WHERE %s" % (table, where), params)[0]["n"]
         except Exception:  # noqa: BLE001
@@ -742,15 +755,15 @@ class StatsRecorder:
             log.exception("Could not build the statistics summary")
             return {"enabled": False, "error": "query_failed"}
 
-    def events(self, limit=100, event_type=None, since=None, before_id=None):
+    def events(self, limit=100, event_type=None, since=None, before_id=None, query=None):
         if not self.enabled:
             return []
         sql = ("SELECT id, session_id, ts, clock_ok, type, label, detail "
                "FROM events WHERE 1=1")
-        params = []
-        if event_type:
-            sql += " AND type = ?"
-            params.append(event_type)
+        where, params = self._events_filter(event_type, query)
+        if where != "1=1":
+            sql += " AND " + where
+        params = list(params)
         if since is not None:
             sql += " AND ts >= ?"
             params.append(float(since))

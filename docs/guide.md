@@ -2144,8 +2144,12 @@ Open the **Stats** area of the web interface (detailed view), six pages:
 - **Playback errors** — the files that keep failing;
 - **Startups & shutdowns** — one line per boot: time, duration, cause,
   and how the clock was established;
-- **Event log** — the raw chronological log, filterable by event type,
-  loaded when its page is opened (it is the heaviest query).
+- **Event log** — the raw chronological log, filterable by event type and
+  searchable (**Search**: a type, a label, or something inside an event's
+  details, case-insensitive), loaded when its page is opened (it is the
+  heaviest query). The search runs in the database, so it also finds the
+  entries **Load more** has not fetched yet, and the count the page shows is
+  the number of matches.
 
 ### Deleting individual entries
 

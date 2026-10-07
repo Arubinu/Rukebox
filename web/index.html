@@ -2429,6 +2429,9 @@
         <section class="card card-wide" data-level="detail" id="statsEventsCard" data-page="events" data-tab="stats" aria-labelledby="statsEventsTitle">
           <h2 data-icon="list" id="statsEventsTitle"><span data-i18n="stats.eventlog_section">Event log</span></h2>
           <div class="log-controls">
+            <label class="sr-only" for="eventSearch" data-i18n="stats.search_label">Search the event log</label>
+            <input type="search" id="eventSearch" class="text-input" autocomplete="off" enterkeyhint="search"
+                   data-i18n-placeholder="stats.search_placeholder" placeholder="Type, label, detail…">
             <label class="sr-only" for="eventTypeFilter" data-i18n="stats.all_events">All events</label>
             <select id="eventTypeFilter" class="chart-range">
               <option value="" data-i18n="stats.all_events">All events</option>

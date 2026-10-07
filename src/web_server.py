@@ -5884,6 +5884,9 @@ def api_stats_events():
     except ValueError:
         before_id = None
     event_type = request.args.get("type") or None
+    # A search runs in the database, so it finds what "Load more" has not
+    # fetched yet - and `total` is then the number of matches, not the log's.
+    query = (request.args.get("q") or "").strip()[:120] or None
     return jsonify({
         "ok": True,
         "data": {
@@ -5891,9 +5894,10 @@ def api_stats_events():
                 limit=limit,
                 event_type=event_type,
                 before_id=before_id,
+                query=query,
             )),
             "types": stats.event_types(),
-            "total": stats.count_rows("events", event_type),
+            "total": stats.count_rows("events", event_type, query),
         },
     })
 
