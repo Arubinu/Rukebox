@@ -9,6 +9,7 @@ URL="https://codeload.github.com/50ButtonsEach/fliclib-linux-hci/tar.gz/$REF"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+command -v curl > /dev/null 2>&1 || { echo "curl is missing: apt-get install curl" >&2; exit 1; }
 curl -fsSL --max-time 180 "$URL" -o "$TMP/sdk.tar.gz"
 mkdir -p "$TMP/sdk"
 tar -xzf "$TMP/sdk.tar.gz" -C "$TMP/sdk" --strip-components=1

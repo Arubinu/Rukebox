@@ -172,7 +172,8 @@ else
     done
 fi
 if [ "$internet" = "no" ]; then
-    echo "ERROR: no Internet access detected (could not reach deb.debian.org:443)." >&2
+    echo "ERROR: no Internet access detected (could not reach deb.debian.org on" >&2
+    echo "port 80 or 443)." >&2
     if [ "$PROFILE" = "lxc" ]; then
         echo "A container borrows its host's network: check that it has one" >&2
         echo "('ip -brief address', 'cat /etc/resolv.conf', 'apt-get update')." >&2
@@ -192,7 +193,11 @@ echo "== Installing system packages =="
 apt-get update
 # rtkit gives the audio server realtime priority, so a busy moment does not make the sound stutter.
 # util-linux-extra carries hwclock, which writes a time set by hand into the clock module.
+# A container template carries neither sudo nor curl: the first is what visudo
+# and the interface's own systemctl calls need, the second what the Flic SDK
+# helper downloads with.
 apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit util-linux-extra \
+    sudo curl \
     espeak-ng \
     pipewire pipewire-bin wireplumber pipewire-audio \
     pipewire-pulse pulseaudio-utils
@@ -297,8 +302,13 @@ echo "== Passwordless sudo for shutdown, clock, and web admin =="
 SUDOERS_FILE=/etc/sudoers.d/rukebox-poweroff
 SUDOERS_CANDIDATE="$(mktemp)"
 # sudoers rejects the whole file over one CR (a checkout made on Windows).
-tr -d '\r' < "$PROJECT_ROOT/config/sudoers-rukebox" > "$SUDOERS_CANDIDATE"
-if visudo -cqf "$SUDOERS_CANDIDATE"; then
+# The grants name the account the services run as, which is not pi everywhere.
+tr -d '\r' < "$PROJECT_ROOT/config/sudoers-rukebox" | sed "s/^pi /$RUN_USER /" > "$SUDOERS_CANDIDATE"
+if ! command -v visudo > /dev/null 2>&1; then
+    echo "!! visudo is not on this machine (the 'sudo' package), so the sudoers" >&2
+    echo "!! rules were not installed. The web interface will not be able to" >&2
+    echo "!! apply settings. Install sudo and run this script again." >&2
+elif visudo -cqf "$SUDOERS_CANDIDATE"; then
     install -m 440 -o root -g root "$SUDOERS_CANDIDATE" "$SUDOERS_FILE"
 else
     echo "!! config/sudoers-rukebox rejected by visudo, not installed." >&2
@@ -452,6 +462,8 @@ else
     echo "   http://<this host's address>:${WEB_PORT:-80} - see docs/guide.md,"
     echo "   'Running in a container'."
     AP_SSID=""
+    # The web password below asks whether to reuse it; a container never set one.
+    AP_PASSWORD=""
 fi
 
 echo ""

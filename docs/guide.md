@@ -545,6 +545,12 @@ What changes, compared with a Pi:
 `RUKEBOX_USER` and `RUKEBOX_AUDIO_ROOT` override the account and the audio
 folder; the installer moves the paths in the generated YAML to match.
 
+A Debian template carries neither `sudo` nor `curl`, and the installer adds
+both: the interface's service restarts need the first (the sudo grants are
+written for `rukebox`, not for `pi`), the Flic SDK download needs the second.
+An update afterwards follows the same profile — same account in the units,
+same audio folder, and none of the Pi's units enabled.
+
 **Sound** is the part to think about before starting: a container has no card
 of its own. Either pass a USB sound card through to it, or let it play into a
 virtual output and listen over the network — the same choice the Docker

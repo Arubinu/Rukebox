@@ -1,4 +1,4 @@
-# Passwordless sudo for the pi account: specific commands only.
+# Passwordless sudo for the account the services run as: specific commands only.
 # Installed by scripts/install.sh and scripts/update.sh (checked with visudo).
 
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff
