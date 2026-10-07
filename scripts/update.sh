@@ -11,15 +11,32 @@ if [ "${RUKEBOX_UPDATE_REEXEC:-}" != "1" ]; then
 fi
 trap 'rm -f "$0"' EXIT
 
+# The Pi's own account and folders are not every machine's: a container runs the
+# units as its own account, and keeps its audio elsewhere.
+if [ -n "${RUKEBOX_PROFILE:-}" ]; then
+    PROFILE="$RUKEBOX_PROFILE"
+elif [ -e /dev/lxc ] || [ "${container:-}" = "lxc" ]; then
+    PROFILE="lxc"
+else
+    PROFILE="pi"
+fi
+if [ "$PROFILE" = "lxc" ]; then
+    DEFAULT_USER="rukebox"
+    DEFAULT_AUDIO_SYSTEM="/srv/rukebox/audio/system"
+else
+    DEFAULT_USER="pi"
+    DEFAULT_AUDIO_SYSTEM="/home/pi/audio/system"
+fi
+
 INSTALL_DIR="${RUKEBOX_INSTALL_DIR:-/opt/rukebox}"
 CONFIG_FILE="${RUKEBOX_CONFIG_FILE:-/etc/rukebox/rukebox.yaml}"
 ENV_FILE="${RUKEBOX_ENV_FILE:-/etc/rukebox/rukebox.env}"
 STATE_DIR="${RUKEBOX_STATE_DIR:-/var/lib/rukebox}"
-AUDIO_SYSTEM_DIR="${RUKEBOX_AUDIO_SYSTEM_DIR:-/home/pi/audio/system}"
+AUDIO_SYSTEM_DIR="${RUKEBOX_AUDIO_SYSTEM_DIR:-$DEFAULT_AUDIO_SYSTEM}"
 UPDATE_WRAPPER="${RUKEBOX_UPDATE_WRAPPER:-/usr/local/sbin/rukebox-update}"
 SUDOERS_FILE="${RUKEBOX_SUDOERS_FILE:-/etc/sudoers.d/rukebox-poweroff}"
 SYSTEMD_DIR="${RUKEBOX_SYSTEMD_DIR:-/etc/systemd/system}"
-RUKEBOX_USER="${RUKEBOX_USER:-pi}"
+RUKEBOX_USER="${RUKEBOX_USER:-$DEFAULT_USER}"
 BACKUP_DIR="$STATE_DIR/backups"
 VERSION_FILE="$STATE_DIR/version.json"
 GIT_CHECKOUT="$STATE_DIR/git-source"
@@ -416,9 +433,17 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     step "Updating the systemd units"
     # Mode 644: a tree pushed from Windows is all 755, and systemd warns about it at every reload.
     install -m 644 "$SOURCE_DIR/systemd/"*.service "$SYSTEMD_DIR/"
+    # The units are written for the Pi's own user; this machine may not have one.
+    if [ "$RUKEBOX_USER" != "pi" ]; then
+        for unit in "$SYSTEMD_DIR"/rukebox-*.service "$SYSTEMD_DIR"/bt-connect.service \
+                    "$SYSTEMD_DIR"/flic*.service "$SYSTEMD_DIR"/home-wifi-connect.service \
+                    "$SYSTEMD_DIR"/create-uap0.service; do
+            [ -f "$unit" ] || continue
+            sed -i "s|^User=pi$|User=$RUKEBOX_USER|" "$unit"
+        done
+    fi
     systemctl daemon-reload
     systemctl enable rukebox-config.service 2>/dev/null || true
-    systemctl enable rukebox-gpio-reset.service 2>/dev/null || true
     if [ -f "$SOURCE_DIR/scripts/usb_gadget.sh" ]; then
         install -m 755 -o root -g root             "$SOURCE_DIR/scripts/usb_gadget.sh" /usr/local/sbin/rukebox-usb-gadget 2>/dev/null || true
     fi
@@ -428,9 +453,14 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     if [ -f "$SOURCE_DIR/scripts/account_setup.sh" ]; then
         install -m 755 -o root -g root "$SOURCE_DIR/scripts/account_setup.sh" /usr/local/sbin/rukebox-account-setup 2>/dev/null || true
     fi
-    systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
-    systemctl enable rukebox-act-led.service 2>/dev/null || true
-    systemctl enable --now rukebox-bt-radio.service 2>/dev/null || true
+    if [ "$PROFILE" = "pi" ]; then
+        # Nothing to drive for any of these in a container, where enabling one
+        # only gives a red line at every boot.
+        systemctl enable rukebox-gpio-reset.service 2>/dev/null || true
+        systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
+        systemctl enable rukebox-act-led.service 2>/dev/null || true
+        systemctl enable --now rukebox-bt-radio.service 2>/dev/null || true
+    fi
     # WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
     if [ -f "$SOURCE_DIR/config/wireplumber-bluez.conf" ]; then
         install -D -m 644 -o root -g root "$SOURCE_DIR/config/wireplumber-bluez.conf" \
@@ -443,22 +473,30 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     if [ -f "$SOURCE_DIR/config/journald-rukebox.conf" ] \
             && ! cmp -s "$SOURCE_DIR/config/journald-rukebox.conf" /etc/systemd/journald.conf.d/50-rukebox.conf; then
         install -D -m 644 -o root -g root "$SOURCE_DIR/config/journald-rukebox.conf" \
-            /etc/systemd/journald.conf.d/50-rukebox.conf 2>/dev/null \
-            && systemctl restart systemd-journald 2>/dev/null && journalctl --flush 2>/dev/null || true
+            /etc/systemd/journald.conf.d/50-rukebox.conf 2>/dev/null || true
+        # A container has no journald of its own to reload.
+        if [ "$PROFILE" = "pi" ]; then
+            systemctl restart systemd-journald 2>/dev/null && journalctl --flush 2>/dev/null || true
+        fi
     fi
     if [ -f "$SOURCE_DIR/config/rtkit-quiet.conf" ]; then
         install -D -m 644 -o root -g root "$SOURCE_DIR/config/rtkit-quiet.conf" \
             /etc/systemd/system/rtkit-daemon.service.d/50-rukebox-quiet.conf 2>/dev/null || true
     fi
-    systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
-    systemctl enable --now rukebox-card-reader.service 2>/dev/null || true
-    systemctl enable --now home-wifi-connect.service 2>/dev/null || true
-    loginctl enable-linger pi 2>/dev/null || true
+    if [ "$PROFILE" = "pi" ]; then
+        systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
+        systemctl enable --now rukebox-card-reader.service 2>/dev/null || true
+        systemctl enable --now home-wifi-connect.service 2>/dev/null || true
+        loginctl enable-linger "$RUKEBOX_USER" 2>/dev/null || true
+    fi
     if ! command -v hwclock >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
         apt-get install -y util-linux-extra >/dev/null 2>&1 \
             || echo "WARNING: hwclock is missing (util-linux-extra): a time set by hand stays out of the clock module."
     fi
-    if ! command -v pico2wave >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+    # pico2wave is the nicer voice and not in every release; espeak-ng is what
+    # the radio falls back to, so only both missing is a problem.
+    if ! command -v pico2wave >/dev/null 2>&1 && ! command -v espeak-ng >/dev/null 2>&1 \
+            && command -v apt-get >/dev/null 2>&1; then
         apt-get install -y libttspico-utils espeak-ng >/dev/null 2>&1 \
             || echo "WARNING: no speech program (libttspico-utils, espeak-ng): the radio cannot say the time."
     fi
@@ -475,7 +513,8 @@ if [ -f "$INSTALL_DIR/config/sudoers-rukebox" ]; then
     step "Updating the sudo grants"
     SUDOERS_CANDIDATE="$(mktemp)"
     # sudoers rejects the whole file over one CR (a checkout made on Windows).
-    tr -d '\r' < "$INSTALL_DIR/config/sudoers-rukebox" > "$SUDOERS_CANDIDATE"
+    # The grants name the account the services run as, which is not pi everywhere.
+    tr -d '\r' < "$INSTALL_DIR/config/sudoers-rukebox" | sed "s/^pi /$RUKEBOX_USER /" > "$SUDOERS_CANDIDATE"
     if visudo -cqf "$SUDOERS_CANDIDATE" 2>/dev/null; then
         install -m 440 -o root -g root "$SUDOERS_CANDIDATE" "$SUDOERS_FILE"
         say "   $SUDOERS_FILE"
