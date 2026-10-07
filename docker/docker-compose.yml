@@ -8,6 +8,9 @@
 # no access point: a container has neither, so the Network cards are hidden and
 # what is left is the radio itself.
 
+# Named here: without it the stack is called after the docker/ folder it sits in.
+name: rukebox
+
 services:
   rukebox:
     image: ghcr.io/arubinu/rukebox:latest

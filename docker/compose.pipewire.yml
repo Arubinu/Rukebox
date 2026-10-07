@@ -9,6 +9,9 @@
 #
 # Replace 1000 with your own user id (`id -u`): /run/user/<id> is where the
 # socket lives, and it is a per-user path.
+# Named here: without it the stack is called after the docker/ folder it sits in.
+name: rukebox
+
 services:
   rukebox:
     image: ghcr.io/arubinu/rukebox:latest

@@ -14,6 +14,9 @@
 # Pair the speaker once from the interface (Audio > Bluetooth). Stop the
 # host's own Rukebox services first: two daemons fighting over one speaker
 # both lose.
+# Named here: without it the stack is called after the docker/ folder it sits in.
+name: rukebox
+
 services:
   rukebox:
     image: ghcr.io/arubinu/rukebox:latest
