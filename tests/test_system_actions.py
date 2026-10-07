@@ -5,6 +5,7 @@ there. An LXC has a systemd of its own and switches itself off; Docker has no
 machine to switch off, so "off" there ends this process and the restart policy
 decides what happens next - which is why the tests here care as much about what
 is NOT run as about what is."""
+import importlib.util
 import os
 import shutil
 import tempfile
@@ -122,6 +123,22 @@ class PowerTest(PlatformFixtures):
         only ever start the radio again."""
         self.assertIn('STOP_REQUEST = "%s"' % sa.STOP_REQUEST,
                       _path.read("docker", "supervisor.py"))
+
+    def test_the_supervisor_stands_down_on_that_request(self):
+        """The other end of it, read the way the supervisor reads it."""
+        spec = importlib.util.spec_from_file_location(
+            "supervisor", _path.repo_file("docker", "supervisor.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        where = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, where, ignore_errors=True)
+        with mock.patch.dict(os.environ, {"RUKEBOX_STATE_DIR": where}):
+            self.assertIsNone(module._switch_off_request(), "nothing asked for it")
+            with mock.patch.object(sa.paths, "state_dir", return_value=where):
+                sa.ask_the_supervisor_to_stop()
+            self.assertEqual(module._switch_off_request(),
+                             os.path.join(where, sa.STOP_REQUEST))
+            self.assertIsNone(module._switch_off_request(), "read once, and gone")
 
     def test_an_lxc_switches_its_whole_container_off(self):
         """Reported as: "Off" on the LXC only ended the daemon, which systemd
