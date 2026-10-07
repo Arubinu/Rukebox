@@ -1986,7 +1986,10 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
 /* A hint between two options is not a row, so the line that separates rows
    would be missing under the option above it. Only when a row follows the
    hint: after the last option of a card the line would be one too many. */
-.field-row:has(+ .hint + .field-row) { border-bottom: 1px solid var(--border); }
+/* No rule for a `.hint` between two rows any more: a message is placed BEFORE
+   the row it belongs to (see the audio output card), so the next row's own
+   border is the separation. The old `.field-row:has(+ .hint + .field-row)` used
+   to add a second one exactly when the USB detection message appeared. */
 .field-row > label,
 .field-row > .field-label {
   flex: 1 1 10rem;

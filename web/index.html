@@ -1480,6 +1480,7 @@
         <section class="card" id="audioOutputCard" data-page="output" data-tab="audio" aria-labelledby="audioOutTitle">
           <h2 data-icon="speaker" id="audioOutTitle"><span data-i18n="audioout.title">Audio output</span></h2>
           <form id="audioOutputForm" class="settings-form">
+            <p class="hint audio-detected" id="audioOutputDetected"></p>
             <div class="field-row">
               <label for="audioOutputSelect" data-i18n="audioout.label">Sound goes to</label>
               <select id="audioOutputSelect" data-key="AUDIO_OUTPUT">
@@ -1490,7 +1491,6 @@
                 <option value="docker" data-i18n="audioout.network">Virtual output (container)</option>
               </select>
             </div>
-            <p class="hint audio-detected" id="audioOutputDetected"></p>
             <div class="field-row" id="audioFallbackRow">
               <div class="field-text">
                 <label for="audioFallbackSelect" data-i18n="audioout.fallback">If the speaker is lost</label>
