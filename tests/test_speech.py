@@ -179,6 +179,51 @@ class DaemonSpeechTest(DaemonCase):
         self.assertTrue(files[0].endswith(".wav") and "Nous sommes" in files[0])
         self.assertEqual(files[1], "/a/jingle.mp3")
 
+    def test_a_sentence_that_is_coming_is_prepared_in_the_background(self):
+        """A Piper model costs seconds to load on a Pi, and a scheduled
+        sentence is known ahead: it is rendered before its moment, one at a
+        time, and the interface is told while it happens."""
+        import threading
+        import time
+
+        started, release = threading.Event(), threading.Event()
+        calls = []
+
+        def slow_render(text, lang, path, choice=None):
+            calls.append(text)
+            started.set()
+            release.wait(2)
+            with open(path, "wb") as handle:
+                handle.write(b"\0" * 100)
+            return True
+
+        with mock.patch.object(speech, "render", slow_render):
+            self.assertTrue(self.daemon._warm_speech("Il est 7 heures."))
+            self.assertTrue(started.wait(2), "the preparation runs in the background")
+            self.assertTrue(self.daemon._build_status()["speech_preparing"],
+                            "the interface can say what is going on")
+            self.assertFalse(self.daemon._warm_speech("Une autre phrase."),
+                             "one at a time: the music comes first")
+            release.set()
+            deadline = time.monotonic() + 3
+            while self.daemon._speech_warming and time.monotonic() < deadline:
+                time.sleep(0.02)
+        self.assertEqual(calls, ["Il est 7 heures."])
+        self.assertFalse(self.daemon._build_status()["speech_preparing"])
+        self.assertFalse(self.daemon._warm_speech("Il est 7 heures."),
+                         "what is already prepared is not prepared again")
+        self.assertIsNone(self.daemon._speech_warming)
+
+    def test_the_cutoff_warning_is_prepared_before_its_minute(self):
+        self.daemon.cfg.update({"CUTOFF_WARNING_MIN": 10, "CUTOFF_HOUR": 7, "CUTOFF_MINUTE": 0,
+                                "CUTOFF_ENABLED": True})
+        self.daemon.mode = "music"
+        with mock.patch.object(self.daemon, "_warm_speech") as warm:
+            self.daemon._check_cutoff_warning(datetime(2026, 10, 4, 6, 45, 0))
+            warm.assert_not_called()
+            self.daemon._check_cutoff_warning(datetime(2026, 10, 4, 6, 48, 0))
+            warm.assert_called_once()
+
     def test_the_cutoff_warning_is_said_once_at_its_minute(self):
         self.daemon.cfg.update({"CUTOFF_WARNING_MIN": 10, "CUTOFF_HOUR": 7, "CUTOFF_MINUTE": 0,
                                 "CUTOFF_ENABLED": True})

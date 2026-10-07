@@ -258,6 +258,12 @@ class RadioDaemon:
         self._speaker_move_failed = False
         self._restart_pending = False
         self._restart_target = "service"
+        # What is being said right now, and what is being prepared for later:
+        # a Piper model costs seconds to load, so a sentence known in advance is
+        # rendered in the background and the interface can say so.
+        self._speech_warm = None
+        self._speech_warming = None
+        self._speech_busy = 0
         self._audio_device = None
         self._audio_output_checked = NEVER
         self._audio_output_missing = None
@@ -2307,8 +2313,55 @@ class RadioDaemon:
             log.warning("Cannot prepare %s", folder, exc_info=True)
         name = "".join(c for c in text if c not in "/\\").strip()[:120] + ".wav"
         path = os.path.join(folder, name)
-        return path if speech.render(text, self.cfg.get("SPEECH_LANGUAGE"), path,
-                                     self.cfg.get("PIPER_VOICE")) else None
+        self._speech_busy += 1
+        try:
+            return path if speech.render(text, self.cfg.get("SPEECH_LANGUAGE"), path,
+                                         self.cfg.get("PIPER_VOICE")) else None
+        finally:
+            self._speech_busy -= 1
+
+    def _warm_speech(self, text):
+        """Prepares a sentence that is coming, in the background.
+
+        The rendering fills the cache `_speech_text_file` reads first, so the
+        moment itself costs nothing - and nobody waits while a model loads. One
+        at a time, at a lower priority than the music, and never for a sentence
+        that was already prepared."""
+        text = (text or "").strip()
+        if not text or text == self._speech_warm or self._speech_warming is not None:
+            return False
+        self._speech_warming = text
+        threading.Thread(target=self._warm_speech_now, args=(text,), daemon=True).start()
+        return True
+
+    def _warm_speech_now(self, text):
+        try:
+            os.nice(10)
+        except (AttributeError, OSError):
+            # No os.nice on Windows, and no permission for it on some systems.
+            pass
+        try:
+            folder = self._speech_dir()
+            os.makedirs(folder, exist_ok=True)
+            speech.render(text, self.cfg.get("SPEECH_LANGUAGE"),
+                          os.path.join(folder, "warm.wav"), self.cfg.get("PIPER_VOICE"))
+        except Exception:  # noqa: BLE001 - a preparation must never take the radio down
+            log.debug("Could not prepare the sentence", exc_info=True)
+        finally:
+            self._speech_warming = None
+            self._speech_warm = text
+
+    def _warm_announcement_speech(self, item, now, lead_min=2):
+        """Prepares an announcement's spoken time a few minutes before it is due."""
+        kind = item.get("speech")
+        if not kind or kind == "none":
+            return False
+        due = now.replace(hour=item["hour"], minute=item["minute"], second=0, microsecond=0)
+        left = (due - now).total_seconds() / 60
+        if not 0 < left <= lead_min:
+            return False
+        return self._warm_speech(
+            speech.sentence(kind, due, self.cfg.get("SPEECH_LANGUAGE")))
 
     def _speak(self, kind, source, minutes=None):
         """Says the time (or the coming cutoff): the song pauses and comes back
@@ -2590,6 +2643,11 @@ class RadioDaemon:
         cutoff = now.replace(hour=self.cfg["CUTOFF_HOUR"], minute=self.cfg["CUTOFF_MINUTE"],
                              second=0, microsecond=0)
         left = (cutoff - now.replace(second=0, microsecond=0)).total_seconds() / 60
+        if 0 < left - minutes <= 2:
+            # A sentence said every day at a known minute: prepare it now, so the
+            # minute itself is not spent loading a model.
+            self._warm_speech(speech.sentence("cutoff", cutoff, self.cfg.get("SPEECH_LANGUAGE"),
+                                              minutes=minutes))
         if left != minutes or self.state.already_triggered_today("cutoff_warning"):
             return
         self.state.mark_triggered_today("cutoff_warning")
@@ -3404,6 +3462,7 @@ class RadioDaemon:
                 continue
             if trigger != "time":
                 continue
+            self._warm_announcement_speech(item, now)
             if (
                 now.hour == item["hour"]
                 and now.minute == item["minute"]
@@ -3517,6 +3576,10 @@ class RadioDaemon:
             "music_started_today": self.state.already_triggered_today("last_music_start"),
             "version": self._state_version,
             "restart_pending": self._restart_pending,
+            # True while a sentence is being synthesised here: the interface says
+            # so rather than looking frozen (a click's sentence is the only one
+            # that cannot be prepared in advance).
+            "speech_preparing": self._speech_busy > 0 or self._speech_warming is not None,
             "restart_target": self._restart_target,
             "restart_direct": self._restart_is_direct(),
             "powering_off": self._powering_off,

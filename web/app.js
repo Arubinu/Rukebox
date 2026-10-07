@@ -1510,6 +1510,14 @@ async function refreshStatus() {
     restartDirect = !!d.restart_direct;
     paintRestartAfterSong();
   }
+  // A click's sentence is the only one that cannot be prepared in advance: said
+  // once when the synthesis starts, so a Pi that thinks for ten seconds does not
+  // look like a button that did nothing.
+  const preparing = !!d.speech_preparing;
+  if (preparing !== speechPreparing) {
+    speechPreparing = preparing;
+    if (preparing) toast(t("speech.preparing"), "info");
+  }
 
   const flicBadge = document.getElementById("flicBadge");
   flicBadge.textContent = d.flic_active ? t("system.flic_active") : t("system.flic_not_used");
@@ -2914,6 +2922,7 @@ refreshEvery(refreshSettingsIfIdle, 20000);
 
 let restartPending = false;
 let restartDirect = false;
+let speechPreparing = false;
 let restartTarget = "service";
 // The label stays; a clock instead of the button's own icon says it waits for the end of the song.
 const RESTART_BUTTONS = {
