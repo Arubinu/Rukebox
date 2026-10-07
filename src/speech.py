@@ -195,8 +195,17 @@ def sentence(kind, when, lang, minutes=None):
 
 
 def engines():
-    """The speech programs installed here."""
-    return [name for name in ("piper", "pico2wave", "espeak-ng") if shutil.which(name)]
+    """The speech programs installed here, best first - what the radio says with."""
+    found = ["piper"] if _any_piper_model() else []
+    return found + [name for name in ("pico2wave", "espeak-ng") if shutil.which(name)]
+
+
+def _any_piper_model():
+    """Whether a model is installed, whichever voice it is for."""
+    try:
+        return any(name.endswith(".onnx") for name in os.listdir(piper_folder()))
+    except OSError:
+        return False
 
 
 def default_voice(value):

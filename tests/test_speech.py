@@ -129,6 +129,13 @@ class RenderTest(unittest.TestCase):
                                               "es": "es_", "it": "it_", "nl": "nl_"}[lang]), voice)
             self.assertTrue(voice.endswith("-medium"), voice)
 
+    def test_the_diagnostic_names_piper_when_a_model_is_there(self):
+        with mock.patch.object(speech.shutil, "which", lambda name: None):
+            self.assertEqual(speech.engines(), [])
+            self.install_piper()
+            self.assertEqual(speech.engines(), ["piper"],
+                             "the program is not on the PATH: its model is what says so")
+
 
 class DaemonSpeechTest(DaemonCase):
     def setUp(self):
