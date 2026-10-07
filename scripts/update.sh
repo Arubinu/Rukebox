@@ -425,6 +425,10 @@ moved = config_file.retarget_announcements("/home/pi/audio", audio_root, sys.arg
     if audio_root else 0
 folders = config_file.retarget_folders("/home/pi/audio", audio_root, sys.argv[2], sys.argv[3]) \
     if audio_root else []
+if folders:
+    # The file moved under us: what follows reads it back, or it would create a
+    # folder at the path it has just left.
+    values.update(config_file.read_values(sys.argv[2], sys.argv[3]))
 # The prepared introductions are a folder this version introduced: an
 # installation that was updated has never created it, and it is where the files
 # go. Owned like the music beside it, or the interface could not write there.
