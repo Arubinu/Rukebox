@@ -162,6 +162,27 @@ class WebTest(unittest.TestCase):
         self.assertFalse(answer["data"]["written_to_rtc"])
         self.assertIn(["sudo", "hwclock", "-w"], calls)
 
+    def test_the_access_point_routes_say_so_where_there_cannot_be_one(self):
+        # A container has no NetworkManager, and those routes ask nmcli with
+        # nothing under them: they answer a code rather than a traceback.
+        owner = self.owner()
+        ws.platform_mod.override(access_point=False)
+        self.addCleanup(ws.platform_mod.override, access_point=None)
+        for method, path in (("get", "/api/wifi/ap"), ("get", "/api/wifi/ap/share"),
+                             ("post", "/api/wifi/ap")):
+            answer = getattr(owner, method)(path, json={})
+            self.assertEqual(answer.status_code, 501, path)
+            self.assertEqual(answer.get_json()["error"], "unsupported_here", path)
+            self.assertIn("access_point", answer.get_json()["missing"], path)
+
+        ws.platform_mod.override(access_point=True)
+        # Where there is one, a machine without nmcli (this one) still gets an
+        # answer instead of a FileNotFoundError.
+        answer = owner.get("/api/wifi/ap")
+        self.assertEqual(answer.status_code, 200)
+        self.assertFalse(answer.get_json()["data"]["configured"])
+        self.assertEqual(owner.get("/api/wifi/ap/share").status_code, 200)
+
     def test_another_sites_page_cannot_post(self):
         owner = self.owner()
         foreign = owner.post("/api/mute", json={"on": True}, headers={"Origin": "https://evil.example"})

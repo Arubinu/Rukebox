@@ -984,6 +984,10 @@ _repeats_lock = threading.Lock()
 _ROUTE_CAPABILITIES = {
     "/api/gpio/detect": {"gpio": ("POST",)},
     "/api/gpio/pinout": {"gpio": ("GET",)},
+    # The access point is the one feature whose routes ask nmcli with nothing
+    # under them: everywhere else the missing binary answers an empty result.
+    "/api/wifi/ap": {"access_point": ("GET", "POST")},
+    "/api/wifi/ap/share": {"access_point": ("GET",)},
     "/api/time": {"set_clock": ("POST",)},
     "/api/time/timezone": {"set_clock": ("POST",)},
     "/api/system/reboot": {"power": ("POST",)},
@@ -4957,11 +4961,15 @@ _ap_save_lock = threading.Lock()
 
 def _ap_connection_exists():
     """Whether the admin access point's NetworkManager profile exists, active
-    or not."""
-    result = subprocess.run(
-        ["nmcli", "-t", "-f", "NAME", "connection", "show"],
-        capture_output=True, text=True,
-    )
+    or not. False where nmcli is not installed at all (a container has no
+    NetworkManager), rather than an exception in a caller's face."""
+    try:
+        result = subprocess.run(
+            ["nmcli", "-t", "-f", "NAME", "connection", "show"],
+            capture_output=True, text=True,
+        )
+    except OSError:
+        return False
     return AP_CONNECTION_NAME in result.stdout.splitlines()
 
 
