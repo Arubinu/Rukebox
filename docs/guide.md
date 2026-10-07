@@ -386,8 +386,10 @@ pin, no hardware clock and no USB gadget. The interface hides the cards that
 would lead nowhere (see "What a machine can do" below); what is left is the
 radio, its music, its schedules, its statistics and its web interface.
 
-The image is `ghcr.io/arubinu/rukebox`, published for `amd64`, `arm64` and
-`armv7` — a Pi Zero 2 W runs the armv7 one. Four `docker compose` files in
+The image is `ghcr.io/arubinu/rukebox`. It is published for `amd64`, `arm64`
+and `armv7` once the release workflow has run (a Pi Zero 2 W runs the armv7
+one); until then, and on any machine that has the sources, the compose files
+**build it from the checkout themselves**. Four `docker compose` files in
 `docker/` are the four ways of hearing it:
 
 ```bash
@@ -496,7 +498,8 @@ Two consequences worth knowing before you look for a card:
   the service" and the evening cutoff both work, without a systemd.
 - **"Update"** cannot replace the tree in place: the image is the unit of
   update. The card shows the one line to run (`docker compose pull`), and
-  `UPDATE_DOCKER_IMAGE` is the image it names.
+  `UPDATE_DOCKER_IMAGE` is the image it names. Until that image is published,
+  rebuild from the checkout instead: `docker compose build && docker compose up -d`.
 - **The clock is the machine's, and so is its timezone.** A container can
   neither set the time nor change the zone, so **the Clock card is not offered
   at all** there: its whole page is "set the clock", and a card with nothing to

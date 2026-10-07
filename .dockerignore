@@ -13,6 +13,9 @@ tests
 *.pyc
 *.pyo
 *.log
+*.tgz
+docker/config
+docker/data
 CLAUDE.md
 PLAN.md
 TODO.md

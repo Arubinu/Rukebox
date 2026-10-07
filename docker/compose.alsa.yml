@@ -14,6 +14,11 @@ name: rukebox
 services:
   rukebox:
     image: ghcr.io/arubinu/rukebox:latest
+    # Built from the checkout while the image is not published yet; the tag above
+    # is what a published one would be.
+    build:
+      context: ..
+      dockerfile: Dockerfile
     container_name: rukebox
     restart: unless-stopped
     environment:
