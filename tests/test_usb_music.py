@@ -183,6 +183,19 @@ class UsbMusicTest(unittest.TestCase):
         self.assertTrue(unmount.called, "the first key is unmounted before the second is taken")
         self.assertEqual(answer["data"]["device"], "/dev/sdb1")
 
+    def test_a_device_with_no_volume_label_keeps_the_disks_name(self):
+        """What the page shows instead of /dev/sdc1, and what comes back on the
+        row once the device is unplugged and only remembered."""
+        unlabelled = {"device": "/dev/sdc1", "label": "", "model": "Elements 25A2",
+                      "fstype": "exfat", "size": "1.8T", "uuid": "", "mountpoint": "",
+                      "removable": True}
+        self.plugged([unlabelled])
+        answer = self.daemon._usb_music_command({"device": "/dev/sdc1"}, source="web")
+        self.assertTrue(answer["ok"], answer)
+        self.assertEqual(answer["data"]["model"], "Elements 25A2")
+        self.assertEqual(answer["data"]["remembered"]["model"], "Elements 25A2")
+        self.assertEqual(answer["data"]["devices"][0]["model"], "Elements 25A2")
+
     def test_the_status_says_the_port_mode_and_the_devices(self):
         self.plugged([KEY, OTHER])
         self.daemon._check_usb_music()

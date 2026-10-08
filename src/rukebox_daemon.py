@@ -1046,15 +1046,20 @@ class RadioDaemon:
         self._usb_error = None
         self._usb_music = {
             "dir": usb_storage.mount_point(), "device": entry["device"],
-            "label": entry.get("label") or "", "key": usb_storage.key_of(entry),
+            "label": entry.get("label") or "", "model": entry.get("model") or "",
+            "key": usb_storage.key_of(entry),
         }
         self.state.set_value("usb_music", {"key": self._usb_music["key"],
-                                           "label": self._usb_music["label"]})
+                                           "label": self._usb_music["label"],
+                                           "model": self._usb_music["model"]})
         self._usb_tracks, self._usb_bytes = usb_storage.count_music(self._usb_music["dir"])
         log.info("Music read from the USB key '%s' (%s): %d tracks",
-                 self._usb_music["label"] or self._usb_music["device"],
+                 self._usb_music["label"] or self._usb_music["model"]
+                 or self._usb_music["device"],
                  self._usb_music["device"], self._usb_tracks)
-        self.stats.record("usb_music_used", label=self._usb_music["label"] or self._usb_music["device"],
+        self.stats.record("usb_music_used",
+                          label=self._usb_music["label"] or self._usb_music["model"]
+                          or self._usb_music["device"],
                           detail={"tracks": self._usb_tracks, "source": source})
         self._switch_music_source("usb_in")
         return True
@@ -1138,7 +1143,7 @@ class RadioDaemon:
             key = usb_storage.key_of(entry)
             devices.append({
                 "key": key, "device": entry["device"], "label": entry["label"],
-                "fstype": entry["fstype"], "size": entry["size"],
+                "model": entry.get("model") or "", "fstype": entry["fstype"], "size": entry["size"],
                 "remembered": bool(remembered and remembered.get("key") == key),
                 "active": bool(active_key and active_key == key),
             })
@@ -1149,6 +1154,7 @@ class RadioDaemon:
             "port_mode": self.cfg.get("USB_PORT_MODE") or "",
             "device": (self._usb_music or {}).get("device"),
             "label": (self._usb_music or {}).get("label"),
+            "model": (self._usb_music or {}).get("model"),
             "tracks": self._usb_tracks,
             "bytes": self._usb_bytes,
             "space": usb_storage.space(self._music_dir()),

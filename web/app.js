@@ -1620,7 +1620,9 @@ function applyUsbMusic(d) {
 }
 
 function usbDeviceLabel(entry) {
-  return entry.label || entry.device || "";
+  // The volume label is the name Windows writes when you rename a disk; a
+  // device that has none is called by its model rather than by /dev/sdb1.
+  return entry.label || entry.model || entry.device || "";
 }
 
 function paintUsbMusic(state) {
@@ -1634,7 +1636,7 @@ function paintUsbMusic(state) {
   if (!state) return;
 
   now.textContent = state.active
-    ? t("usb.playing_from", { label: state.label || state.device || "", tracks: state.tracks || 0 })
+    ? t("usb.playing_from", { label: usbDeviceLabel(state), tracks: state.tracks || 0 })
     : t("usb.internal", { dir: state.internal || "" });
   if (state.error) hint.textContent = errorLabel(state.error);
   else if (state.port_mode && state.port_mode !== "host") {
@@ -1647,7 +1649,8 @@ function paintUsbMusic(state) {
   const plugged = (state.devices || []).some((one) => one.remembered);
   if (remembered && !plugged) {
     list.append(usbRow(state, { key: remembered.key, label: remembered.label,
-                                device: "", size: "", fstype: "", unplugged: true }));
+                                model: remembered.model, device: "",
+                                size: "", fstype: "", unplugged: true }));
   }
   if (!list.children.length) hint.textContent = t("usb.no_devices");
 }
@@ -1791,6 +1794,7 @@ function applyCapabilities(d) {
     if (!el.classList.contains("card") && !canDo(el.dataset.needs)) el.hidden = true;
   });
   if (JSON.stringify(caps) === before) return;
+  updateStartTimeVisibility();
   if (document.body.dataset.page && !pageIsAvailable(
         cardOfPage(document.body.dataset.tab, document.body.dataset.page))) {
     setActiveView(document.body.dataset.tab, null, { hash: false });
@@ -8378,6 +8382,10 @@ function updateStartTimeVisibility() {
   document.getElementById("transferLimitUsbRow").hidden = document.getElementById("transferLimitMode").value !== "auto";
 
   document.getElementById("audioFallbackRow").hidden = document.getElementById("audioOutputSelect").value !== "bluetooth";
+
+  // The codecs are a Bluetooth question: another output has none to negotiate.
+  document.getElementById("btCodecsRow").hidden =
+    document.getElementById("audioOutputSelect").value !== "bluetooth" || !canDo("bluetooth");
 
   const cutoff = document.getElementById("cutoffEnabled").checked;
   ["cutoffTime", "cutoffWarning", "cutoffMode", "afterCutoff"].forEach((id) => {

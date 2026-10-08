@@ -1526,7 +1526,9 @@ What it usually shows, in order of likelihood:
   profile instead (telephone quality), and PipeWire on Raspberry Pi OS has no
   AAC encoder - so a Bluetooth speaker that does LDAC or aptX is the only way
   to a better link. **Which codecs the Pi offers is a setting** (*Audio output >
-  Bluetooth codecs offered*): the row shows what is offered now and opens the
+  Bluetooth codecs offered*, which only appears while *Sound goes to* is
+  **Bluetooth speaker** - a wired output has no codec to negotiate): the row
+  shows what is offered now and opens the
   list, where you tick only what the speaker accepts (the last one cannot be
   unticked - offering none leaves the speaker nothing to negotiate). Saving it
   writes a WirePlumber drop-in (`/etc/wireplumber/wireplumber.conf.d/
@@ -1646,6 +1648,11 @@ numbers: used, total and what is left free. It turns red under 500 MB or 5% of
 free space left - the same rule the System health card uses, so the two never
 disagree. It follows the folder on the Pi too when no device is in use.
 
+- **Each device is listed under the name it carries**: the volume label, which
+  is what Windows writes when you rename a disk (*Rename* in Explorer), and the
+  disk's own model (*Elements 25A2*, *Portable SSD T7*) for one that was never
+  renamed. Its file system, its size and whether it is in use follow on the
+  same line.
 - **Read-only, so it can be unplugged at any moment**: the storage is mounted
   `ro,nosuid,nodev,noexec`. Pull it out whenever you like - the radio notices
   within a few seconds, stops using it, and comes back to its own folder by

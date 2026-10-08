@@ -193,6 +193,21 @@ test("the virtual output is only offered by a machine that has one", async (t) =
   assert.ok(option(container), "a container offers it");
 });
 
+test("the Bluetooth codecs row only shows for a Bluetooth speaker", async (t) => {
+  const held = { AUDIO_OUTPUT: "jack", AUDIO_FALLBACK_OUTPUT: "", BT_AUDIO_CODECS: "sbc_xq,sbc" };
+  const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
+  await until(() => page.$("bootOverlay").hidden);
+  await until(() => page.$("audioOutputSelect").value === "jack");
+  assert.equal(page.$("btCodecsRow").hidden, true,
+               "a jack has no codec to negotiate: the row is not offered");
+
+  page.$("audioOutputSelect").value = "bluetooth";
+  page.$("audioOutputSelect").dispatchEvent(new page.window.Event("change"));
+  assert.equal(page.$("btCodecsRow").hidden, false,
+               "asking for the Bluetooth speaker brings the codecs back");
+  assert.deepEqual(page.errors, []);
+});
+
 test("the announcement name only shows while the stream is on", async (t) => {
   const held = { AUDIO_OUTPUT: "bluetooth", STREAM_ENABLED: "false", STREAM_ENCODER: "",
                  STREAM_SOURCE: "", STREAM_VOLUME: "100",
@@ -1091,7 +1106,11 @@ test("a USB key is offered, taken and given back", async (t) => {
                  device: null, label: null, tracks: 0, bytes: 0, remembered: null, error: null,
                  space: { total: 15 * GiB, used: 9 * GiB, free: 6 * GiB, percent: 60 },
                  devices: [{ key: "uuid:1A2B", device: "/dev/sda1", label: "MUSIQUE",
-                             fstype: "exfat", size: "29.5G", remembered: false, active: false }] };
+                             model: "Ultra Fit", fstype: "exfat", size: "29.5G",
+                             remembered: false, active: false },
+                           { key: "label:DISQUE", device: "/dev/sdb1", label: "",
+                             model: "Elements 25A2", fstype: "exfat", size: "1.8T",
+                             remembered: false, active: false }] };
   const taken = Object.assign({}, idle, {
     active: true, dir: "/media/rukebox-usb", device: "/dev/sda1", label: "MUSIQUE", tracks: 312,
     space: { total: 30 * GiB, used: 29 * GiB, free: 1 * GiB, percent: 97 },
@@ -1109,6 +1128,8 @@ test("a USB key is offered, taken and given back", async (t) => {
   const row = page.$("usbList").children[0];
   assert.match(row.textContent, /MUSIQUE/);
   assert.match(row.textContent, /exfat/);
+  assert.match(page.$("usbList").children[1].textContent, /Elements 25A2/,
+               "a device that was never renamed is called by the disk's own name");
 
   assert.equal(page.$("usbSpace").hidden, false, "the storage that plays is shown full");
   assert.equal(page.$("usbSpaceFill").style.width, "60%");

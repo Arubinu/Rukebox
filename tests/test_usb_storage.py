@@ -72,6 +72,20 @@ class DevicesTest(unittest.TestCase):
         swap = dict(KEY, children=[dict(KEY["children"][0], fstype="swap")])
         self.assertEqual(usb_storage.devices([swap]), [])
 
+    def test_a_device_that_was_never_renamed_keeps_the_disks_own_name(self):
+        """The volume label is what Windows writes when a disk is renamed, and
+        a partition does not carry the model: it is taken from the disk."""
+        unlabelled = dict(KEY, model="Ultra Fit",
+                          children=[dict(KEY["children"][0], label=None, model=None)])
+        entry = usb_storage.devices([unlabelled])[0]
+        self.assertEqual(entry["label"], "")
+        self.assertEqual(entry["model"], "Ultra Fit")
+
+        flat = {"name": "sdb", "path": "/dev/sdb", "label": None, "fstype": "exfat",
+                "model": "Elements 25A2", "size": "1.8T", "rm": True, "type": "disk",
+                "uuid": None, "tran": "usb", "mountpoint": None}
+        self.assertEqual(usb_storage.devices([flat])[0]["model"], "Elements 25A2")
+
     def test_the_key_is_recognised_from_one_plug_to_the_next(self):
         entry = usb_storage.devices([KEY])[0]
         self.assertEqual(usb_storage.key_of(entry), "uuid:1A2B-3C4D")

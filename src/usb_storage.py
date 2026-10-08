@@ -21,7 +21,7 @@ MOUNT_POINT = "/media/rukebox-usb"
 # What a walk of the key stops at, so a lying 2 TB disk cannot stall a tick.
 MAX_SCAN_FILES = 20000
 
-_LSBLK_FIELDS = "NAME,PATH,LABEL,FSTYPE,SIZE,RM,TYPE,UUID,MOUNTPOINT,TRAN"
+_LSBLK_FIELDS = "NAME,PATH,LABEL,FSTYPE,SIZE,RM,TYPE,UUID,MOUNTPOINT,TRAN,MODEL"
 
 
 def mount_point():
@@ -59,10 +59,14 @@ def _lsblk():
         return {}
 
 
-def _entry(raw, hotplug):
+def _entry(raw, hotplug, model=""):
     return {
         "device": raw.get("path") or ("/dev/" + str(raw.get("name") or "")),
         "label": raw.get("label") or "",
+        # The disk's own name, which a partition does not carry: what a device
+        # with no volume label (the name Windows writes when you rename a disk)
+        # is called instead of `/dev/sdb1`.
+        "model": (raw.get("model") or model or "").strip(),
         "fstype": (raw.get("fstype") or "").lower(),
         "size": raw.get("size") or "",
         "uuid": raw.get("uuid") or "",
@@ -101,7 +105,7 @@ def devices(disks=None):
                 found.append(entry)
             continue
         for child in children:
-            entry = _entry(child, hotplug or bool(child.get("rm")))
+            entry = _entry(child, hotplug or bool(child.get("rm")), disk.get("model") or "")
             if entry["removable"] and _usable(entry):
                 found.append(entry)
     found.sort(key=lambda e: e["device"])

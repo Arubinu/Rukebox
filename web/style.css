@@ -2966,8 +2966,6 @@ select {
 .prepared-size { flex: none; font-size: 13px; color: var(--text-muted); }
 .usb-meta { flex: none; font-size: 13px; color: var(--text-muted); }
 .space { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; }
-/* `display: flex` would beat the UA rule for a hidden element. */
-.space[hidden] { display: none; }
 .space-bar {
   height: 12px;
   border: 1px solid var(--border);
