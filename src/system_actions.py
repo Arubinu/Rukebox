@@ -352,3 +352,30 @@ def list_timezones():
             return sorted(set(zones))
     except OSError:
         return []
+
+
+# --------------------------------------------------------------------------
+# The USB key a music library can live on
+# --------------------------------------------------------------------------
+
+USB_MUSIC_HELPER = "/usr/local/sbin/rukebox-usb-music"
+
+
+def usb_mount(device, timeout=30):
+    """Mounts a key read-only where the radio reads its music from, as
+    (ok, what the helper said). The helper is the only thing that runs as
+    root here, and it checks the device itself."""
+    result = _run([USB_MUSIC_HELPER, "mount", device], timeout=timeout, sudo=True)
+    if result is None:
+        return False, "unsupported_here"
+    said = (result.stderr or result.stdout or "").strip()
+    return result.returncode == 0, said[-200:]
+
+
+def usb_umount(timeout=30):
+    """Takes that key away again, as (ok, what the helper said)."""
+    result = _run([USB_MUSIC_HELPER, "umount"], timeout=timeout, sudo=True)
+    if result is None:
+        return False, "unsupported_here"
+    said = (result.stderr or result.stdout or "").strip()
+    return result.returncode == 0, said[-200:]

@@ -4,7 +4,7 @@
 
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { load, until, wait } = require("./harness");
+const { load, until, wait, STATUS } = require("./harness");
 
 // The page is closed whatever the test does: its timers would keep the run alive.
 function open(t, options) {
@@ -1082,6 +1082,40 @@ test("the prepared covers are browsed, added to and cleaned", async (t) => {
   page.$("modalOk").click();
   const gone = await until(() => page.sent("DELETE", "/api/prepared/covers/file")[0]);
   assert.equal(gone.query.get("path"), "LMFAO/cover.jpg");
+  assert.deepEqual(page.errors, []);
+});
+
+test("a USB key is offered, taken and given back", async (t) => {
+  const idle = { active: false, dir: null, internal: "/home/pi/audio/music", port_mode: "host",
+                 device: null, label: null, tracks: 0, bytes: 0, remembered: null, error: null,
+                 devices: [{ key: "uuid:1A2B", device: "/dev/sda1", label: "MUSIQUE",
+                             fstype: "exfat", size: "29.5G", remembered: false, active: false }] };
+  const taken = Object.assign({}, idle, {
+    active: true, dir: "/media/rukebox-usb", device: "/dev/sda1", label: "MUSIQUE", tracks: 312,
+    remembered: { key: "uuid:1A2B", label: "MUSIQUE" },
+    devices: [Object.assign({}, idle.devices[0], { active: true })],
+  });
+  let isTaken = false;
+  const page = open(t, { hash: "#system/usb", routes: {
+    "GET /api/status": () => Object.assign({}, STATUS, { usb_music: isTaken ? taken : idle }),
+    "POST /api/usb_music": () => { isTaken = true; return taken; },
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  await until(() => page.$("usbList").children.length);
+  assert.match(page.$("usbNow").textContent, /home\/pi\/audio\/music/, "the Pi's own folder");
+  const row = page.$("usbList").children[0];
+  assert.match(row.textContent, /MUSIQUE/);
+  assert.match(row.textContent, /exfat/);
+
+  row.querySelector("button").click();
+  const asked = await until(() => page.sent("POST", "/api/usb_music")[0]);
+  assert.deepEqual(asked.body, { key: "uuid:1A2B" });
+  await until(() => /MUSIQUE/.test(page.$("usbNow").textContent));
+  assert.match(page.$("usbNow").textContent, /312/, "and how many tracks it holds");
+
+  page.$("usbList").children[0].querySelector("button").click();
+  const forgotten = await until(() => page.sent("POST", "/api/usb_music")[1]);
+  assert.deepEqual(forgotten.body, { forget: true }, "the way back to the Pi's folder");
   assert.deepEqual(page.errors, []);
 });
 

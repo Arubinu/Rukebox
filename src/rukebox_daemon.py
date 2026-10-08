@@ -37,6 +37,7 @@ from stats import StatsRecorder  # noqa: E402
 import system_actions  # noqa: E402
 import track_media  # noqa: E402
 import track_order  # noqa: E402
+import usb_storage  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -338,6 +339,14 @@ class RadioDaemon:
         self._timer_due = {}
         self._track_count = None
         self._output_override = None
+        # The USB key the library reads from, while one is in use: None means
+        # the configured music folder, which is also where a pulled key lands.
+        self._usb_music = None
+        self._usb_devices = []
+        self._usb_error = None
+        self._usb_tracks = 0
+        self._usb_bytes = 0
+        self._usb_left_behind = None
 
     def _bluetoothctl(self, *args, timeout=15):
         """Runs bluetoothctl, explicitly selecting the configured interface."""
@@ -604,7 +613,7 @@ class RadioDaemon:
         self._start_watchdogs()
 
         self.state.ensure_queue(
-            self._playable_tracks(), self.cfg["MUSIC_ORDER_MODE"], self.cfg["MUSIC_DIR"],
+            self._playable_tracks(), self.cfg["MUSIC_ORDER_MODE"], self._music_dir(),
             self.cfg["MUSIC_KEEP_PROGRESS"], self.cfg["MUSIC_RESUME_MODE"],
             custom_order=music_lists.custom_order(self._active_list_entry()),
         )
@@ -687,10 +696,10 @@ class RadioDaemon:
         return {"ok": True, "applied": sorted(applied), "restart": sorted(later)}
 
     def _get_music_list(self):
-        tracks = get_music_list(self.cfg["MUSIC_DIR"], self.cfg["MUSIC_CACHE_FILE"])
+        tracks = get_music_list(self._music_dir(), self.cfg["MUSIC_CACHE_FILE"])
         self._track_count = len(tracks or [])
         if not tracks:
-            log.warning("No tracks found in %s", self.cfg["MUSIC_DIR"])
+            log.warning("No tracks found in %s", self._music_dir())
         return tracks
 
     def _announcements(self):
@@ -807,7 +816,7 @@ class RadioDaemon:
         """Restarts the playing pass from whatever is active now."""
         entry = self._active_list_entry()
         tracks = self._playable_tracks() if tracks is None else tracks
-        self.state.rebuild_queue(tracks, self.cfg["MUSIC_ORDER_MODE"], self.cfg["MUSIC_DIR"],
+        self.state.rebuild_queue(tracks, self.cfg["MUSIC_ORDER_MODE"], self._music_dir(),
                                  music_lists.custom_order(entry))
         return tracks
 
@@ -962,7 +971,7 @@ class RadioDaemon:
             mode = self.cfg.get("DJ_ANNOUNCE_MODE") or "spoken"
             if mode in ("files", "files_first"):
                 prepared = dj_intro.find(track, self.cfg.get("DJ_ANNOUNCE_DIR"),
-                                         self.cfg.get("MUSIC_DIR"))
+                                         self._music_dir())
                 if prepared:
                     log.info("Introduction read from %s", prepared)
                     return prepared
@@ -1004,6 +1013,147 @@ class RadioDaemon:
         if self._waiting_for_tracks and self._track_count and self.mode in ("idle", "stopped"):
             self._start_or_restart_playback(log_label="library")
         return self._track_count
+
+    def _music_dir(self):
+        """Where the library reads from: the USB key in use, or the folder the
+        settings name. Everything that walks the library goes through here."""
+        return (self._usb_music or {}).get("dir") or self.cfg["MUSIC_DIR"]
+
+    def _check_usb_music(self):
+        """A key plugged in or pulled out: the library follows it, and comes
+        back to the internal folder as soon as it is gone."""
+        remembered = self.state.value("usb_music") or None
+        self._usb_devices = usb_storage.devices()
+        entry = usb_storage.find(self._usb_devices, (remembered or {}).get("key"))
+        if self._usb_music is not None:
+            if entry is None:
+                return self._release_usb_music("gone")
+            if not usb_storage.is_mounted():
+                return self._release_usb_music("unmounted")
+            return False
+        if remembered and entry is not None:
+            return self._adopt_usb_music(entry, source="remembered")
+        return False
+
+    def _adopt_usb_music(self, entry, source="usb"):
+        """Mounts a key read-only and reads the library from it."""
+        ok, said = system_actions.usb_mount(entry["device"])
+        if not ok:
+            self._usb_error = said or "mount_failed"
+            log.warning("Could not mount %s (%s): %s",
+                        entry["device"], entry.get("label") or "no label", self._usb_error)
+            return False
+        self._usb_error = None
+        self._usb_music = {
+            "dir": usb_storage.mount_point(), "device": entry["device"],
+            "label": entry.get("label") or "", "key": usb_storage.key_of(entry),
+        }
+        self.state.set_value("usb_music", {"key": self._usb_music["key"],
+                                           "label": self._usb_music["label"]})
+        self._usb_tracks, self._usb_bytes = usb_storage.count_music(self._usb_music["dir"])
+        log.info("Music read from the USB key '%s' (%s): %d tracks",
+                 self._usb_music["label"] or self._usb_music["device"],
+                 self._usb_music["device"], self._usb_tracks)
+        self.stats.record("usb_music_used", label=self._usb_music["label"] or self._usb_music["device"],
+                          detail={"tracks": self._usb_tracks, "source": source})
+        self._switch_music_source("usb_in")
+        return True
+
+    def _release_usb_music(self, reason="", forget=False):
+        """Back to the internal folder. The key stays remembered, so plugging it
+        in again resumes where it was - unless `forget` says otherwise."""
+        was = self._usb_music
+        if usb_storage.is_mounted():
+            ok, said = system_actions.usb_umount()
+            if not ok:
+                log.warning("Could not unmount the USB key: %s", said)
+        if was is not None:
+            self._usb_left_behind = (was or {}).get("dir")
+            self._usb_music = None
+            self._usb_tracks = 0
+            self._usb_bytes = 0
+            log.info("Back to the internal music folder (%s)", reason or "released")
+            self.stats.record("usb_music_released",
+                              label=(was or {}).get("label") or (was or {}).get("device") or "",
+                              detail={"reason": reason})
+        if forget:
+            self.state.set_value("usb_music", None)
+        if was is not None:
+            self._switch_music_source("usb_out")
+        return was is not None
+
+    def _switch_music_source(self, source):
+        """The library reads somewhere else now: read it again, and go on with
+        the next track of the new folder rather than the one that just left."""
+        was_on_the_key = bool(
+            self._current_track and self._usb_left_behind
+            and os.path.realpath(self._current_track).startswith(
+                os.path.realpath(self._usb_left_behind) + os.sep))
+        self._usb_left_behind = None
+        self._rescan_music(source)
+        with self._command_lock:
+            self._rebuild_queue()
+            if was_on_the_key and self.mode in ("music", "idle", "stopped"):
+                log.info("The track was on the folder that just left: moving on")
+                self._play_next_track()
+        self._bump_state()
+
+    def _usb_music_command(self, msg, source="web"):
+        """Reads the library from a plugged key, or gives it back to the
+        internal folder. `forget` also drops the key the daemon remembers."""
+        if "key" not in msg and "device" not in msg and not msg.get("forget"):
+            # A plain refresh: the interface wants the list of devices now.
+            self._check_usb_music()
+            return {"ok": True, "data": self._usb_music_status()}
+        if msg.get("forget"):
+            # Going back to the Pi's own folder, and not taking this key again
+            # by itself: it stays offered, one click away, while it is plugged.
+            self._release_usb_music("forgotten", forget=True)
+            self._check_usb_music()
+            return {"ok": True, "data": self._usb_music_status()}
+        wanted = str(msg.get("key") or msg.get("device") or "").strip()
+        self._usb_devices = usb_storage.devices()
+        entry = usb_storage.find(self._usb_devices, wanted) if wanted.startswith("uuid:") \
+            or wanted.startswith("label:") or wanted.startswith("path:") else None
+        if entry is None:
+            entry = next((d for d in self._usb_devices if d["device"] == wanted), None)
+        if entry is None:
+            self._usb_error = "no_such_device"
+            return {"ok": False, "error": "no_such_device"}
+        if self._usb_music is not None and self._usb_music.get("key") != usb_storage.key_of(entry):
+            self._release_usb_music("switched")
+        if self._usb_music is None and not self._adopt_usb_music(entry, source=source):
+            return {"ok": False, "error": "mount_failed", "detail": self._usb_error}
+        self._bump_state()
+        return {"ok": True, "data": self._usb_music_status()}
+
+    def _usb_music_status(self):
+        """What the interface shows about it: the devices there are, the one in
+        use, and the one that would be taken again on the next plug."""
+        remembered = self.state.value("usb_music") or None
+        active_key = (self._usb_music or {}).get("key")
+        devices = []
+        for entry in self._usb_devices:
+            key = usb_storage.key_of(entry)
+            devices.append({
+                "key": key, "device": entry["device"], "label": entry["label"],
+                "fstype": entry["fstype"], "size": entry["size"],
+                "remembered": bool(remembered and remembered.get("key") == key),
+                "active": bool(active_key and active_key == key),
+            })
+        return {
+            "active": self._usb_music is not None,
+            "dir": (self._usb_music or {}).get("dir"),
+            "internal": self.cfg["MUSIC_DIR"],
+            "port_mode": self.cfg.get("USB_PORT_MODE") or "",
+            "device": (self._usb_music or {}).get("device"),
+            "label": (self._usb_music or {}).get("label"),
+            "tracks": self._usb_tracks,
+            "bytes": self._usb_bytes,
+            "remembered": remembered,
+            "error": self._usb_error,
+            "devices": devices,
+        }
 
     def _play_track(self, path, start=0.0):
         """Plays one music file, from `start` seconds."""
@@ -1202,7 +1352,7 @@ class RadioDaemon:
         album = [t for t in self._playable_tracks() if os.path.dirname(t) == folder]
         if not album:
             return None
-        album = playlist.order_files(album, self.cfg["MUSIC_DIR"], "ordered")
+        album = playlist.order_files(album, self._music_dir(), "ordered")
         if path not in album:
             return album[0]
         return album[(album.index(path) + step) % len(album)]
@@ -1210,7 +1360,7 @@ class RadioDaemon:
     def _library_path(self, raw):
         """`raw` as a real file of the music library, or None."""
         path = os.path.realpath(str(raw or ""))
-        root = os.path.realpath(self.cfg["MUSIC_DIR"])
+        root = os.path.realpath(self._music_dir())
         if not path.startswith(root + os.sep) or not os.path.isfile(path):
             return None
         tracks = self._get_music_list()
@@ -2538,14 +2688,14 @@ class RadioDaemon:
 
     def _play_folder(self, folder, source):
         """Plays one folder of the library, in order; the radio goes on afterwards."""
-        root = os.path.realpath(self.cfg["MUSIC_DIR"])
+        root = os.path.realpath(self._music_dir())
         folder = os.path.realpath(os.path.join(root, folder) if not folder.startswith("/") else folder)
         if folder != root and not folder.startswith(root + os.sep):
             return "not_found"
         tracks = [t for t in self._playable_tracks() if os.path.realpath(t).startswith(folder + os.sep)]
         if not tracks:
             return "not_found"
-        self.state.rebuild_queue(tracks, "ordered", self.cfg["MUSIC_DIR"])
+        self.state.rebuild_queue(tracks, "ordered", self._music_dir())
         self._loop_mode = "off"
         self._forced_next = None
         self.stats.record("folder_played", label=os.path.basename(folder),
@@ -3485,6 +3635,7 @@ class RadioDaemon:
 
     def _scheduler_tick(self):
         self._announcements()
+        self._check_usb_music()
         now = datetime.now()
         with self._command_lock:
             self._schedule_tick(now)
@@ -3650,6 +3801,7 @@ class RadioDaemon:
             "loop_mode": self._loop_mode,
             "muted": self._muted,
             "output_override": self._output_override,
+            "usb_music": self._usb_music_status(),
             "pause_durations": self._pause_durations(),
             "sleep_durations": self._sleep_durations(),
             "timers": {name: (round(max(0.0, due - time.monotonic())) if due else None)
@@ -3871,6 +4023,8 @@ class RadioDaemon:
                 self._apply_audio_output(force=True)
                 self._bump_state()
                 return {"ok": True}
+            if cmd == "usb_music":
+                return self._usb_music_command(msg, source)
             if cmd == "set_loop":
                 mode = msg.get("mode")
                 if mode == "cycle":

@@ -371,3 +371,12 @@ class RadioState:
         with self._lock:
             self.data[key] = bool(value)
             self._save()
+
+    def value(self, key, default=None):
+        """A plain fact of any kind the daemon remembers across restarts."""
+        return self.data.get(key, default)
+
+    def set_value(self, key, value):
+        with self._lock:
+            self.data[key] = value
+            self._save()

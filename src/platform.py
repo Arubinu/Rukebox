@@ -32,11 +32,11 @@ KNOWN = (PI, LXC, DOCKER, HOST)
 # bind-mounted in would still not be a hardware clock of our own.
 BY_PLATFORM = {
     PI: frozenset({"access_point", "captive_portal", "gpio", "power", "rtc",
-                   "self_update", "set_clock", "usb_gadget", "wireless"}),
+                   "self_update", "set_clock", "usb_gadget", "usb_storage", "wireless"}),
     DOCKER: frozenset(),
     LXC: frozenset({"power", "self_update"}),
     HOST: frozenset({"access_point", "captive_portal", "gpio", "power", "rtc",
-                     "self_update", "set_clock", "usb_gadget", "wireless"}),
+                     "self_update", "set_clock", "usb_gadget", "usb_storage", "wireless"}),
 }
 
 PLATFORM_ONLY = frozenset(
@@ -46,7 +46,7 @@ PLATFORM_ONLY = frozenset(
 CAPABILITY_NAMES = (
     "access_point", "bluetooth", "captive_portal", "gpio", "local_audio",
     "media_upload", "power", "rtc", "self_update", "set_clock", "usb_gadget",
-    "wireless",
+    "usb_storage", "wireless",
 )
 
 _detected = None
@@ -203,6 +203,13 @@ def _has_usb_gadget():
     return os.path.isdir("/sys/class/udc")
 
 
+def _has_usb_storage():
+    """A USB bus a music key can be plugged into. Only its own machine has one:
+    a container sees the host's devices through nothing, and the helper that
+    mounts the key read-only is installed beside the units, on a host."""
+    return name() in (PI, HOST)
+
+
 def _has_access_point():
     """A wireless card AND NetworkManager, which is what creates and shares
     `rukebox-ap`."""
@@ -225,6 +232,7 @@ HARDWARE = {
     "self_update": _has_self_update,
     "set_clock": _has_set_clock,
     "usb_gadget": _has_usb_gadget,
+    "usb_storage": _has_usb_storage,
     "wireless": _has_wireless,
 }
 

@@ -1926,6 +1926,19 @@
           </div>
         </section>
 
+        <section class="card" id="usbCard" data-page="usb" data-tab="system" data-owner
+                 data-needs="usb_storage" aria-labelledby="usbTitle">
+          <h2 data-icon="usb" id="usbTitle"><span data-i18n="usb.title">Music on a USB key</span></h2>
+          <p class="hint help-text" data-i18n="usb.help" hidden>
+            A key plugged into the radio can hold the music. It is mounted
+            read-only, so it can be taken out at any moment, and the radio
+            comes back to its own folder as soon as it is gone.
+          </p>
+          <p class="hint" id="usbNow" role="status"></p>
+          <ul class="device-list" id="usbList"></ul>
+          <p class="hint" id="usbHint"></p>
+        </section>
+
         <section class="card" id="healthCard" data-page="health" data-tab="system" aria-labelledby="healthTitle">
           <h2 data-icon="chip" id="healthTitle"><span data-i18n="health.title">System health</span></h2>
           <dl class="health-grid" id="healthInfo"></dl>

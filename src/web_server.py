@@ -120,6 +120,28 @@ def control(cmd, **kwargs):
     return send_control_command(cfg()["CONTROL_SOCKET"], cmd, **kwargs)
 
 
+def _effective_music_dir():
+    """Where the library is right now: the USB key being played from, or the
+    folder the settings name.
+
+    The daemon is what mounts a key, so it is the one asked - and the answer is
+    remembered for a moment, since the page asks for the library often."""
+    planned = cfg().get("MUSIC_DIR") or ""
+
+    def from_daemon():
+        result = control("get_status")
+        data = (result.get("data") or {}) if result.get("ok") else {}
+        return (data.get("usb_music") or {}).get("dir") or None
+
+    return _status_probe("music_dir", from_daemon) or planned
+
+
+def _usb_music_in_use():
+    """Whether what plays is a key: it is mounted read-only, so nothing can be
+    written there, and the interface says so rather than failing a write."""
+    return _effective_music_dir() != (cfg().get("MUSIC_DIR") or "")
+
+
 def notify_daemon(cmd, **kwargs):
     """Best-effort control() call whose result nobody is waiting on."""
     try:
@@ -999,6 +1021,8 @@ _ROUTE_CAPABILITIES = {
     # container that mounts it read-only may read them and not write them.
     "/api/prepared/<kind>/file": {"media_upload": ("POST", "DELETE")},
     "/api/prepared/<kind>/folder": {"media_upload": ("POST",)},
+    # A key is mounted from the machine's own USB bus.
+    "/api/usb_music": {"usb_storage": ("POST",)},
     # The access point is the one feature whose routes ask nmcli with nothing
     # under them: everywhere else the missing binary answers an empty result.
     "/api/wifi/ap": {"access_point": ("GET", "POST")},
@@ -1884,14 +1908,14 @@ def _library_loop():
     while True:
         try:
             c = cfg()
-            tracks = get_music_list(c["MUSIC_DIR"], c["MUSIC_CACHE_FILE"])
-            _library.sync(tracks, c["MUSIC_DIR"])
+            tracks = get_music_list(_effective_music_dir(), c["MUSIC_CACHE_FILE"])
+            _library.sync(tracks, _effective_music_dir())
             while True:
                 batch = _library.unread(20)
                 if not batch:
                     break
                 for path in batch:
-                    _library.store(path, library.read_tags(path), c["MUSIC_DIR"])
+                    _library.store(path, library.read_tags(path), _effective_music_dir())
             # The endings are quick (30 seconds of each file), so before the loudness.
             while not _library_wake.is_set():
                 batch = _library.untailed(10)
@@ -2090,7 +2114,7 @@ def _with_counts(entries):
     """Lists as the interface shows them: how many tracks each stands for
     right now, which is what the radio would play."""
     lib = _get_library()
-    tracks = get_music_list(cfg()["MUSIC_DIR"], cfg()["MUSIC_CACHE_FILE"])
+    tracks = get_music_list(_effective_music_dir(), cfg()["MUSIC_CACHE_FILE"])
     return [dict(entry, count=len(music_lists.resolved(entry, tracks, lib.paths_for_genres)))
             for entry in entries]
 
@@ -2370,6 +2394,25 @@ def api_audio_fallback():
         return jsonify({"ok": False, "error": "output_not_missing"}), 400
     result = control("set_output_override", output=kind)
     return jsonify(result), (200 if result.get("ok") else 400)
+
+
+@app.route("/api/usb_music", methods=["POST"])
+def api_usb_music():
+    """Reads the library from a plugged USB key, gives it back to the internal
+    folder, or forgets the key the radio would take again.
+
+    The daemon does the work - it is the one that mounts the key read-only and
+    switches the library - so this only carries the request over."""
+    body = request.get_json(silent=True) or {}
+    if body.get("forget"):
+        answer = control("usb_music", forget=True)
+    else:
+        wanted = str(body.get("key") or body.get("device") or "").strip()
+        answer = control("usb_music", key=wanted) if wanted else control("usb_music")
+    if not answer.get("ok"):
+        return jsonify({"ok": False, "error": answer.get("error", "daemon_unreachable"),
+                        "detail": answer.get("detail")}), 409
+    return jsonify({"ok": True, "data": answer.get("data")})
 
 
 def _seen_on_the_network(box, mac, ip=None):
@@ -3654,9 +3697,9 @@ def api_dj_announcements():
     covers. Read when the settings are shown, never in the status: it walks the
     library."""
     c = cfg()
-    tracks = get_music_list(c["MUSIC_DIR"], c["MUSIC_CACHE_FILE"])
+    tracks = get_music_list(_effective_music_dir(), c["MUSIC_CACHE_FILE"])
     folder = c.get("DJ_ANNOUNCE_DIR") or ""
-    files, covered = dj_intro.scan(tracks, folder, c["MUSIC_DIR"])
+    files, covered = dj_intro.scan(tracks, folder, _effective_music_dir())
     return jsonify({"ok": True, "data": {"dir": folder, "files": files,
                                          "covered": covered, "tracks": len(tracks)}})
 
@@ -3667,9 +3710,9 @@ def api_covers():
     Read when the settings are shown, never in the status: it walks the
     library."""
     c = cfg()
-    tracks = get_music_list(c["MUSIC_DIR"], c["MUSIC_CACHE_FILE"])
+    tracks = get_music_list(_effective_music_dir(), c["MUSIC_CACHE_FILE"])
     folder = c.get("COVER_DIR") or ""
-    files, covered = dj_intro.scan(tracks, folder, c["MUSIC_DIR"],
+    files, covered = dj_intro.scan(tracks, folder, _effective_music_dir(),
                                    extensions=track_media.IMAGE_EXTENSIONS)
     return jsonify({"ok": True, "data": {"dir": folder, "files": files,
                                          "covered": covered, "tracks": len(tracks)}})
@@ -4859,6 +4902,9 @@ def api_music_upload():
     root = _music_root()
     if not root:
         return jsonify({"ok": False, "error": "music_dir_unset"}), 400
+    if _usb_music_in_use():
+        # The key is mounted read-only: say so rather than fail a write.
+        return jsonify({"ok": False, "error": "usb_read_only", "detail": _effective_music_dir()}), 400
     if not os.path.isdir(root):
         return jsonify({"ok": False, "error": "music_dir_missing", "detail": root}), 400
 
@@ -5373,7 +5419,7 @@ def _storages():
     system = _storage_health("/", "system")
     if system:
         out.append(system)
-    music_dir = cfg().get("MUSIC_DIR") or ""
+    music_dir = _effective_music_dir() or ""
     if music_dir and os.path.isdir(music_dir):
         music = _storage_health(music_dir, "music")
         if music and (not system or music["mount"] != system["mount"]):

@@ -1603,6 +1603,108 @@ function applyTrackProgress(d) {
   applyListen(d);
   applyMute(d);
   applyFallback(d);
+  applyUsbMusic(d);
+}
+
+/* Music on a USB key: what is plugged in, what the library reads from, and the
+   ways of changing it. The daemon mounts the key read-only and switches the
+   library itself, so every action here is one control command. */
+let usbMusicPainted = "";
+
+function applyUsbMusic(d) {
+  const state = d.usb_music || null;
+  const signature = JSON.stringify(state);
+  if (signature === usbMusicPainted) return;
+  usbMusicPainted = signature;
+  paintUsbMusic(state);
+}
+
+function usbDeviceLabel(entry) {
+  return entry.label || entry.device || "";
+}
+
+function paintUsbMusic(state) {
+  const list = document.getElementById("usbList");
+  const now = document.getElementById("usbNow");
+  const hint = document.getElementById("usbHint");
+  if (!list || !now) return;
+  list.replaceChildren();
+  now.textContent = "";
+  hint.textContent = "";
+  if (!state) return;
+
+  now.textContent = state.active
+    ? t("usb.playing_from", { label: state.label || state.device || "", tracks: state.tracks || 0 })
+    : t("usb.internal", { dir: state.internal || "" });
+  if (state.error) hint.textContent = errorLabel(state.error);
+  else if (state.port_mode && state.port_mode !== "host") {
+    hint.textContent = t("usb.port_mode", { mode: t("system.usb_" + state.port_mode) });
+  }
+
+  (state.devices || []).forEach((entry) => list.append(usbRow(state, entry)));
+  const remembered = state.remembered;
+  const plugged = (state.devices || []).some((one) => one.remembered);
+  if (remembered && !plugged) {
+    list.append(usbRow(state, { key: remembered.key, label: remembered.label,
+                                device: "", size: "", fstype: "", unplugged: true }));
+  }
+  if (!list.children.length) hint.textContent = t("usb.no_devices");
+}
+
+function usbRow(state, entry) {
+  const row = document.createElement("li");
+  row.className = "usb-row";
+  const name = document.createElement("span");
+  name.className = "usb-name";
+  name.textContent = entry.unplugged
+    ? t("usb.unplugged", { label: usbDeviceLabel(entry) })
+    : usbDeviceLabel(entry);
+  const meta = document.createElement("span");
+  meta.className = "usb-meta";
+  meta.textContent = [entry.fstype, entry.size,
+                      entry.active ? t("usb.in_use")
+                        : (entry.remembered ? t("usb.remembered") : "")]
+    .filter(Boolean).join(" · ");
+  const actions = document.createElement("span");
+  actions.className = "device-actions";
+  if (entry.active) {
+    const stop = document.createElement("button");
+    stop.type = "button";
+    stop.className = "btn btn-small";
+    stop.dataset.icon = "restart";
+    stop.textContent = t("usb.stop");
+    stop.addEventListener("click", () => usbMusicPost({ forget: true }));
+    actions.append(stop);
+  } else if (!entry.unplugged) {
+    const use = document.createElement("button");
+    use.type = "button";
+    use.className = "btn btn-small btn-primary";
+    use.dataset.icon = "check";
+    use.textContent = t("usb.use");
+    use.addEventListener("click", () => usbMusicPost({ key: entry.key }));
+    actions.append(use);
+  }
+  if (entry.unplugged) {
+    const forget = document.createElement("button");
+    forget.type = "button";
+    forget.className = "btn btn-small btn-danger-outline";
+    forget.dataset.icon = "trash";
+    forget.textContent = t("usb.forget");
+    forget.addEventListener("click", () => usbMusicPost({ forget: true }));
+    actions.append(forget);
+  }
+  row.append(name, meta, actions);
+  return row;
+}
+
+async function usbMusicPost(body) {
+  const result = await apiPost("/api/usb_music", body);
+  if (!result.ok) {
+    showToast(t("common.failed"), errorLabel(result.error), { error: true });
+    return;
+  }
+  usbMusicPainted = JSON.stringify(result.data);
+  paintUsbMusic(result.data);
 }
 
 let guestQuota = null;
@@ -8517,7 +8619,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
   "list_selected", "list_added", "list_changed", "list_removed",
-  "announcement_volume_set", "prepared_file_added"];
+  "announcement_volume_set", "prepared_file_added", "usb_music_used", "usb_music_released"];
 function eventLabel(type) {
   return EVENT_TYPE_KEYS.includes(type) ? t("event." + type) : type;
 }

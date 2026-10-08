@@ -538,6 +538,62 @@ class WebTest(unittest.TestCase):
         self.assertEqual(guest.delete("/api/prepared/covers/file",
                                       query_string={"path": "a.jpg"}).status_code, 401)
 
+    def test_the_usb_key_switch_is_carried_to_the_daemon(self):
+        """The daemon is what mounts the key and switches the library; the
+        server only carries the request over."""
+        guest = ws.app.test_client()
+        self.assertEqual(guest.post("/api/usb_music", json={"key": "uuid:1A2B"}).status_code, 401)
+        self.assertEqual(guest.post("/api/usb_music", json={"forget": True}).status_code, 401)
+
+        sent = []
+
+        def fake(cmd, **kwargs):
+            sent.append((cmd, kwargs))
+            return {"ok": True, "data": {"active": {"key": "uuid:1A2B"} in [kwargs.get("key")]}}
+
+        with unittest.mock.patch.object(ws, "control", side_effect=fake):
+            owner = self.owner()
+            taken = owner.post("/api/usb_music", json={"key": "uuid:1A2B"})
+            forgotten = owner.post("/api/usb_music", json={"forget": True})
+        self.assertTrue(taken.get_json()["ok"], taken.get_json())
+        self.assertTrue(forgotten.get_json()["ok"])
+        self.assertEqual(sent, [("usb_music", {"key": "uuid:1A2B"}),
+                                ("usb_music", {"forget": True})])
+
+    def test_the_usb_key_switch_says_when_it_failed(self):
+        with unittest.mock.patch.object(ws, "control",
+                                        return_value={"ok": False, "error": "mount_failed",
+                                                      "detail": "unknown filesystem type"}):
+            answer = self.owner().post("/api/usb_music", json={"key": "uuid:1A2B"})
+        self.assertEqual(answer.status_code, 409)
+        self.assertEqual(answer.get_json()["error"], "mount_failed")
+        self.assertEqual(answer.get_json()["detail"], "unknown filesystem type")
+
+    def test_the_library_reads_from_the_key_while_one_is_in_use(self):
+        key_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, key_dir, True)
+        with unittest.mock.patch.object(ws, "control",
+                                        return_value={"ok": True, "data": {
+                                            "usb_music": {"dir": key_dir, "active": True}}}), \
+                unittest.mock.patch.object(ws, "_status_probes", {}):
+            self.assertEqual(ws._effective_music_dir(), key_dir)
+            self.assertTrue(ws._usb_music_in_use())
+            refused = self.owner().post("/api/music/upload", data={"path": "a.mp3"},
+                                        content_type="multipart/form-data")
+        self.assertEqual(refused.get_json()["error"], "usb_read_only",
+                         "a key is read-only: the interface says so rather than failing a write")
+
+    def test_without_a_key_the_configured_folder_is_what_is_read(self):
+        with unittest.mock.patch.object(ws, "control",
+                                        return_value={"ok": True, "data": {"usb_music": {}}}), \
+                unittest.mock.patch.object(ws, "_status_probes", {}):
+            self.assertEqual(ws._effective_music_dir(), ws.cfg()["MUSIC_DIR"])
+            self.assertFalse(ws._usb_music_in_use())
+        with unittest.mock.patch.object(ws, "control", return_value={"ok": False}), \
+                unittest.mock.patch.object(ws, "_status_probes", {}):
+            self.assertEqual(ws._effective_music_dir(), ws.cfg()["MUSIC_DIR"],
+                             "a daemon that cannot be reached is not a key")
+
     def test_an_update_that_died_halfway_is_not_still_running(self):
         # The shell appends the end marker after the updater returns, so a killed run leaves none.
         log = os.path.join(self.dir, "update.log")

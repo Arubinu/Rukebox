@@ -491,6 +491,10 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     if [ -f "$SOURCE_DIR/scripts/usb_gadget.sh" ]; then
         install -m 755 -o root -g root             "$SOURCE_DIR/scripts/usb_gadget.sh" /usr/local/sbin/rukebox-usb-gadget 2>/dev/null || true
     fi
+    if [ -f "$SOURCE_DIR/scripts/usb_music.sh" ]; then
+        install -m 755 -o root -g root             "$SOURCE_DIR/scripts/usb_music.sh" /usr/local/sbin/rukebox-usb-music 2>/dev/null || true
+        mkdir -p /media/rukebox-usb 2>/dev/null || true
+    fi
     if [ -f "$SOURCE_DIR/scripts/install_flic_sdk.sh" ]; then
         install -m 755 -o root -g root "$SOURCE_DIR/scripts/install_flic_sdk.sh" /usr/local/sbin/rukebox-flic-sdk 2>/dev/null || true
     fi

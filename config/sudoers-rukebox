@@ -5,6 +5,9 @@ pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rukebox-usb-gadget.service
 pi ALL=(ALL) NOPASSWD: /usr/local/sbin/rukebox-flic-sdk
+# The USB key the radio plays from. The helper is what checks the device, and
+# it mounts read-only; nothing else on the machine is reachable through it.
+pi ALL=(ALL) NOPASSWD: /usr/local/sbin/rukebox-usb-music mount *, /usr/local/sbin/rukebox-usb-music umount
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl enable --now flicd.service flic-bridge.service
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl disable --now flicd.service flic-bridge.service
 # The daemon puts the Flic button on hold while the speaker needs the only

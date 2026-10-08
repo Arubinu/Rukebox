@@ -350,6 +350,11 @@ install -m 755 -o root -g root "$PROJECT_ROOT/scripts/update.sh" /usr/local/sbin
 echo "== Installing the USB network gadget helper =="
 install -m 755 -o root -g root "$PROJECT_ROOT/scripts/usb_gadget.sh" /usr/local/sbin/rukebox-usb-gadget
 
+echo "== Installing the USB key helper =="
+install -m 755 -o root -g root "$PROJECT_ROOT/scripts/usb_music.sh" /usr/local/sbin/rukebox-usb-music
+# Where a key is mounted read-only when you play your music from one.
+mkdir -p /media/rukebox-usb
+
 echo "== Installing the account helper =="
 install -m 755 -o root -g root "$PROJECT_ROOT/scripts/account_setup.sh" /usr/local/sbin/rukebox-account-setup
 
