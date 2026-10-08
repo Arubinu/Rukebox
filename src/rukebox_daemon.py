@@ -1073,9 +1073,12 @@ class RadioDaemon:
         self._switch_music_source("usb_in", change=change or self._usb_switch_mode())
         return True
 
-    def _release_usb_music(self, reason="", forget=False):
+    def _release_usb_music(self, reason="", forget=False, change="after"):
         """Back to the internal folder. The key stays remembered, so plugging it
-        in again resumes where it was - unless `forget` says otherwise."""
+        in again resumes where it was - unless `forget` says otherwise.
+        `change` is what the switch does with the song playing: a deliberate
+        give-back fades it out like any other action, a key that vanished has
+        no sound left to fade."""
         was = self._usb_music
         if usb_storage.is_mounted():
             ok, said = system_actions.usb_umount()
@@ -1093,7 +1096,7 @@ class RadioDaemon:
         if forget:
             self.state.set_value("usb_music", None)
         if was is not None:
-            self._switch_music_source("usb_out")
+            self._switch_music_source("usb_out", change=change)
         return was is not None
 
     def _switch_music_source(self, source, change="after"):
@@ -1102,7 +1105,8 @@ class RadioDaemon:
 
         `change` says what happens to the song that is playing: "after" leaves
         it alone (the next one comes from the new folder, which is what the
-        queue now holds), "now" replaces it with one of the new folder."""
+        queue now holds), "now" replaces it with one of the new folder, under
+        the action fade the fades section gives it."""
         was_on_the_key = bool(
             self._current_track and self._usb_left_behind
             and os.path.realpath(self._current_track).startswith(
@@ -1114,21 +1118,31 @@ class RadioDaemon:
             if self.mode in ("music", "idle", "stopped"):
                 if was_on_the_key:
                     log.info("The track was on the folder that just left: moving on")
-                    self._play_next_track()
+                    if change == "now":
+                        # Given back on purpose: fade it out like any action.
+                        self._play_from_the_new_folder(start_if_idle=False)
+                    else:
+                        # The device went away with the file: nothing to fade.
+                        self._play_next_track()
                 elif change == "now":
                     self._play_from_the_new_folder()
         self._bump_state()
 
-    def _play_from_the_new_folder(self):
-        """Plays a track of the folder the library reads now, straight away."""
-        log.info("Playing from the folder that was just taken, now")
+    def _play_from_the_new_folder(self, start_if_idle=True):
+        """Plays a track of the folder the library reads now, straight away:
+        the Next button's road, with the fade the settings give an action.
+        From a standstill it starts the music instead - under the start fade -
+        unless the caller only wants the track changed, which is what giving a
+        folder back does."""
         if self.mode in ("idle", "stopped"):
-            self._start_or_restart_playback(log_label="usb")
-        else:
-            # The same road the Next button takes: the new song replaces this one.
-            self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
-            self._restore_base_volume()
-            self._play_next_track(user=True)
+            if start_if_idle:
+                log.info("Starting the music from the folder the library reads now")
+                self._start_or_restart_playback(log_label="usb")
+            return
+        log.info("Playing from the folder the library reads now, faded")
+        self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
+        self._restore_base_volume()
+        self._play_next_track(user=True)
 
     def _usb_music_command(self, msg, source="web"):
         """Reads the library from a plugged key, or gives it back to the
@@ -1144,7 +1158,7 @@ class RadioDaemon:
         if msg.get("forget"):
             # Going back to the Pi's own folder, and not taking this key again
             # by itself: it stays offered, one click away, while it is plugged.
-            self._release_usb_music("forgotten", forget=True)
+            self._release_usb_music("forgotten", forget=True, change="now")
             self._check_usb_music()
             return {"ok": True, "data": self._usb_music_status()}
         wanted = str(msg.get("key") or msg.get("device") or "").strip()
@@ -1157,7 +1171,7 @@ class RadioDaemon:
             self._usb_error = "no_such_device"
             return {"ok": False, "error": "no_such_device"}
         if self._usb_music is not None and self._usb_music.get("key") != usb_storage.key_of(entry):
-            self._release_usb_music("switched")
+            self._release_usb_music("switched", change="now")
         if self._usb_music is None:
             if not self._adopt_usb_music(entry, source=source, change=change):
                 return {"ok": False, "error": "mount_failed", "detail": self._usb_error}

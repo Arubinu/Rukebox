@@ -143,16 +143,33 @@ class UsbMusicTest(unittest.TestCase):
         self.assertEqual(self.daemon._usb_music_status()["remembered"]["key"], "uuid:1A2B-3C4D",
                          "and the key is not forgotten: only put aside")
 
+    def test_giving_the_folder_back_fades_the_song_that_was_on_the_key(self):
+        """Asked for as: a fade, as the fades section gives one, when the music
+        comes back to the radio's own folder."""
+        self.plugged([KEY])
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.daemon.mode = "music"
+        self.daemon._current_track = os.path.join(self.mount, "Artiste", "b1.mp3")
+        self.daemon.cfg["INTERACTIVE_FADE_DURATION_SEC"] = 2.5
+        self.daemon._fade_out_and_pause = mock.Mock()
+        self.daemon._play_next_track = mock.Mock()
+        self.daemon._usb_music_command({"forget": True}, source="web")
+        self.daemon._fade_out_and_pause.assert_called_once_with(2.5)
+        self.daemon._play_next_track.assert_called_once_with(user=True)
+
     def test_a_key_that_leaves_while_its_music_plays_moves_on(self):
         self.plugged([KEY])
         self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
         self.daemon.mode = "music"
         self.daemon._current_track = os.path.join(self.mount, "a.mp3")
         self.daemon._play_next_track = mock.Mock()
+        self.daemon._fade_out_and_pause = mock.Mock()
         with mock.patch.object(usb_storage, "devices", return_value=[]), \
                 mock.patch.object(usb_storage, "is_mounted", return_value=False):
             self.daemon._check_usb_music()
         self.daemon._play_next_track.assert_called_once_with()
+        self.daemon._fade_out_and_pause.assert_not_called()
 
     def test_a_key_that_cannot_be_mounted_says_why_and_changes_nothing(self):
         self.plugged([KEY])

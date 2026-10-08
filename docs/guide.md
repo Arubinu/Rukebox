@@ -1646,9 +1646,13 @@ the next insertion, and a reboot with it still in, resume it by themselves.
 Taking a device **does not cut the song that is playing**: the queue is rebuilt
 from it at once, so the next song - and all those after it, in *Up next* - are
 already its own. The song playing at that moment came from the folder before,
-and the card says so; **Play now** replaces it straight away, with the
-same short fade as the Next button. Doing nothing is the other answer: the
-current song finishes and the device takes over on the following one.
+and the card says so; **Play now** replaces it straight away, under the **Action
+fade** of the fades section (*Settings > Playback*), the same one the Next
+button uses - and **Back to the radio's folder** fades the same way when what
+was playing came from the device. Doing nothing is the other answer: the
+current song finishes and the device takes over on the following one, and if
+the radio was stopped, taking a device starts its music under the **Start
+fade-in** instead.
 
 That second answer is a **setting**, at the bottom of the same card:
 **Changing to a storage device** - **At the end of the song** (the default) or
