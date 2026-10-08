@@ -221,7 +221,10 @@ class RadioDaemon:
         self._state_cond = threading.Condition()
         self._state_version = 0
         self._mode = "idle"
-        self._command_lock = threading.Lock()
+        # One action at a time, and re-entrant: the control socket holds it for
+        # every command that is not a read, and a command that needs it again
+        # inside (the USB key switch) would otherwise wait on itself for ever.
+        self._command_lock = threading.RLock()
         self._speaker_watch_lock = threading.Lock()
         self._waiting_for_tracks = False
         self.cfg = cfg

@@ -53,6 +53,7 @@ from config_and_scan import DEFAULTS, get_music_list, load_config, update_config
 from control_client import send_control_command  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
 import suggestions  # noqa: E402
+import usb_storage  # noqa: E402
 import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 import library  # noqa: E402
@@ -5396,10 +5397,11 @@ def _storage_health(path, role):
     io_errors = _io_errors(info.get("disk"))
     read_only = "ro" in options
     # A share or a bind mount that is read-only is a decision - a container's
-    # music arrives with `:ro` - while a device is remounted read-only after
-    # write errors, which is what "usually a failing card" is about. Only the
-    # second one is a failure.
-    read_only_on_purpose = read_only and info.get("part") is None
+    # music arrives with `:ro` - and so is the key the radio plays from, which
+    # is mounted read-only on purpose so it can be pulled out at any moment.
+    # A device remounted read-only after write errors is the failure case.
+    on_purpose = info.get("part") is None or mnt == usb_storage.mount_point()
+    read_only_on_purpose = read_only and on_purpose
     status = "ok"
     if usage["free"] < max(500e6, usage["total"] * 0.05) or io_errors:
         status = "warn"

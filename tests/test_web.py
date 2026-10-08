@@ -1636,6 +1636,39 @@ class SpeakerNudgeTest(unittest.TestCase):
 
 
 @unittest.skipUnless(flask, "Flask is not installed")
+class StorageHealthTest(unittest.TestCase):
+    """The key the radio plays from is mounted read-only on purpose, so the
+    health card must not call it a failing device. Reported as: "a storage has
+    a problem (errors, read-only or nearly full)" while the key was fine."""
+
+    def health(self, options, mount="/media/rukebox-usb", part="/dev/sda1", fstype="vfat",
+               total=32_000_000_000, free=20_000_000_000):
+        with unittest.mock.patch.object(ws, "_mount_of",
+                                        return_value=("/dev/sda1", mount, fstype, options)), \
+                unittest.mock.patch.object(ws, "_disk",
+                                           return_value={"total": total, "free": free}), \
+                unittest.mock.patch.object(ws, "_block_info", return_value={"part": part}), \
+                unittest.mock.patch.object(ws, "_io_errors", return_value=0):
+            return ws._storage_health(mount, "music")
+
+    def test_a_read_only_key_is_read_only_on_purpose(self):
+        health = self.health("ro,nosuid,nodev,noexec")
+        self.assertTrue(health["read_only"])
+        self.assertTrue(health["read_only_on_purpose"])
+        self.assertEqual(health["status"], "ok", "our own read-only mount is not a fault")
+
+    def test_a_device_remounted_read_only_is_still_a_failure(self):
+        health = self.health("ro", mount="/", part="/dev/mmcblk0p2", fstype="ext4")
+        self.assertTrue(health["read_only"])
+        self.assertFalse(health["read_only_on_purpose"])
+        self.assertEqual(health["status"], "error", "a card that went read-only by itself is one")
+
+    def test_a_full_storage_is_a_warning(self):
+        health = self.health("rw", total=32_000_000_000, free=1_000_000)
+        self.assertEqual(health["status"], "warn")
+
+
+@unittest.skipUnless(flask, "Flask is not installed")
 class RepairAfterRestoreTest(unittest.TestCase):
     """A restored configuration keeps addresses, never pairings: "To finish" says so."""
 

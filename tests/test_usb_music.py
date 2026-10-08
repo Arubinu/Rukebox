@@ -196,6 +196,25 @@ class UsbMusicTest(unittest.TestCase):
         self.assertEqual(answer["data"]["remembered"]["model"], "Elements 25A2")
         self.assertEqual(answer["data"]["devices"][0]["model"], "Elements 25A2")
 
+    def test_the_switch_never_takes_the_command_lock_twice(self):
+        """The control socket holds `_command_lock` for every command that is
+        not a read, so a non-reentrant lock taken again inside (the USB switch
+        did) waits on itself for ever: the radio then answers `get_status` and
+        nothing else until it is restarted. This is what a real switch did."""
+        self.plugged([KEY])
+        answer = []
+
+        def command():
+            with self.daemon._command_lock:
+                answer.append(self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web"))
+
+        thread = threading.Thread(target=command, daemon=True)
+        thread.start()
+        thread.join(10)
+        self.assertFalse(thread.is_alive(), "the USB switch took the command lock twice")
+        self.assertTrue(answer and answer[0]["ok"], answer)
+        self.assertEqual(self.daemon._music_dir(), self.mount)
+
     def test_the_status_says_the_port_mode_and_the_devices(self):
         self.plugged([KEY, OTHER])
         self.daemon._check_usb_music()
