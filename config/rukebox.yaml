@@ -926,6 +926,12 @@ hardware:
   # Applied by rukebox-usb-gadget.service; takes full effect after a reboot.
   usb_port_mode: "gadget"
 
+  # What happens when a storage device is plugged in:
+  #   offer -> it is listed on the storage card, and taken with a tap
+  #   use   -> the music comes from it at once (see usb_music_switch)
+  # A device already used before is taken again either way.
+  usb_music_on_plug: "offer"
+
   # What happens to the song playing when the music starts coming from a
   # storage device (a key or a disk the radio reads its music from):
   #   after -> it finishes, and the device takes over on the next one

@@ -1679,11 +1679,17 @@ With the port in **USB devices** mode, a key or a disk holding music appears in
 **System > Music on a storage device** as soon as it is plugged in, and its
 button hands the radio over to it: what plays then comes from it instead of
 `/home/pi/audio/music`, and **Back to the radio's folder** gives the folder
-back. A device plugged in while the radio plays is not taken on its own - the
-choice stays yours - with one exception: **a device that has been taken once is
-remembered**, by its filesystem UUID (or its name, for one that has none), so
-the next insertion, and a reboot with it still in, resume it by themselves.
-**Forget** drops that memory and returns to the radio's own folder.
+back. **When a storage device is plugged in** (a setting on the same card)
+decides what a new device does: **Offer it** (the default) only lists it, the
+choice staying yours; **Play from it** makes the music come from it as soon as
+it appears, a device already plugged in when the radio starts included. Only a
+device that has just arrived is taken: one given back by hand stays given back
+until it is unplugged and plugged in again. Either way, **a device that has
+been taken once is remembered**, by its filesystem UUID (or its name, for one
+that has none), so the next insertion, and a reboot with it still in, resume it
+by themselves. **Forget** drops that memory and returns to the radio's own
+folder. The exact setting is `usb_music_on_plug` under `hardware:`, `offer` or
+`use`.
 
 Taking a device **does not cut the song that is playing**: the queue is rebuilt
 from it at once, so the next song - and all those after it, in *Up next* - are

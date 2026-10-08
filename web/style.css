@@ -2819,10 +2819,10 @@ select {
 }
 /* The storage card's own option: the line above it separates it from the
    devices, whether or not a message sits between. */
-#usbSwitchRow { border-top: 1px solid var(--border); }
+#usbPlugRow, #usbSwitchRow { border-top: 1px solid var(--border); }
 /* With no message between the devices and the option the line would separate
    nothing: a gap instead. */
-#usbCard .hint:empty + #usbSwitchRow { border-top: 0; margin-top: 14px; }
+#usbCard .hint:empty + #usbPlugRow { border-top: 0; margin-top: 14px; }
 
 .device-list.library-list li, .device-list.upnext-list li { flex-wrap: nowrap; }
 .device-list.library-list li > .recent-main,

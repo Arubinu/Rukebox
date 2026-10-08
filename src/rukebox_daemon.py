@@ -344,6 +344,7 @@ class RadioDaemon:
         # the configured music folder, which is also where a pulled key lands.
         self._usb_music = None
         self._usb_devices = []
+        self._usb_seen = set()
         self._usb_error = None
         self._usb_tracks = 0
         self._usb_bytes = 0
@@ -1159,6 +1160,9 @@ class RadioDaemon:
         back to the internal folder as soon as it is gone."""
         remembered = self.state.value("usb_music") or None
         self._usb_devices = usb_storage.devices()
+        keys = [usb_storage.key_of(one) for one in self._usb_devices]
+        plugged = [one for one, key in zip(self._usb_devices, keys) if key not in self._usb_seen]
+        self._usb_seen = set(keys)
         entry = usb_storage.find(self._usb_devices, (remembered or {}).get("key"))
         if self._usb_music is not None:
             if entry is None:
@@ -1168,6 +1172,8 @@ class RadioDaemon:
             return False
         if remembered and entry is not None:
             return self._adopt_usb_music(entry, source="remembered")
+        if plugged and str(self.cfg.get("USB_MUSIC_ON_PLUG") or "").strip().lower() == "use":
+            return self._adopt_usb_music(plugged[0], source="plugged")
         return False
 
     def _usb_switch_mode(self):

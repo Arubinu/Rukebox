@@ -1057,6 +1057,14 @@ SETTINGS = [
         "USB port",
     ),
     Setting(
+        "USB_MUSIC_ON_PLUG", "hardware", "usb_music_on_plug", "str", "offer",
+        "What happens when a storage device is plugged in:\n"
+        "  offer -> it is listed on the storage card, and taken with a tap\n"
+        "  use   -> the music comes from it at once (see usb_music_switch)\n"
+        "A device already used before is taken again either way.",
+        "When a storage device is plugged in",
+    ),
+    Setting(
         "USB_MUSIC_SWITCH", "hardware", "usb_music_switch", "str", "after",
         "What happens to the song playing when the music starts coming from a\n"
         "storage device (a key or a disk the radio reads its music from):\n"

@@ -306,6 +306,31 @@ class UsbMusicTest(unittest.TestCase):
         self.daemon._check_usb_music()
         self.daemon._play_next_track.assert_called_once_with(user=True)
 
+    def test_a_device_plugged_in_is_only_offered_by_default(self):
+        self.plugged([])
+        self.daemon._check_usb_music()
+        with mock.patch.object(usb_storage, "devices", return_value=[KEY]):
+            self.daemon._check_usb_music()
+        self.assertEqual(self.daemon._music_dir(), self.music)
+
+    def test_a_device_plugged_in_is_played_from_when_the_setting_says_so(self):
+        self.plugged([])
+        self.daemon.cfg["USB_MUSIC_ON_PLUG"] = "use"
+        self.daemon._check_usb_music()
+        with mock.patch.object(usb_storage, "devices", return_value=[KEY]):
+            self.daemon._check_usb_music()
+        self.assertEqual(self.daemon._music_dir(), self.mount)
+
+    def test_only_a_device_that_just_arrived_is_taken(self):
+        """Given back by hand, a device still plugged in stays given back."""
+        self.plugged([KEY])
+        self.daemon.cfg["USB_MUSIC_ON_PLUG"] = "use"
+        self.daemon._check_usb_music()
+        self.assertEqual(self.daemon._music_dir(), self.mount)
+        self.daemon._usb_music_command({"forget": True})
+        self.daemon._check_usb_music()
+        self.assertEqual(self.daemon._music_dir(), self.music)
+
     def test_the_switch_never_takes_the_command_lock_twice(self):
         """The control socket holds `_command_lock` for every command that is
         not a read, so a non-reentrant lock taken again inside (the USB switch

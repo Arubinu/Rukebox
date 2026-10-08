@@ -2036,6 +2036,16 @@
           </div>
           <ul class="device-list" id="usbList"></ul>
           <p class="hint" id="usbHint"></p>
+          <div class="field-row" id="usbPlugRow">
+            <div class="field-text">
+              <label for="usbPlug" data-i18n="usb.plug_label">When a storage device is plugged in</label>
+              <p class="field-desc" id="usbPlugDesc" data-i18n="usb.plug_desc">A device already used before is taken again either way.</p>
+            </div>
+            <select id="usbPlug" data-key="USB_MUSIC_ON_PLUG" aria-describedby="usbPlugDesc">
+              <option value="offer" data-i18n="usb.plug_offer">Offer it</option>
+              <option value="use" data-i18n="usb.plug_use">Play from it</option>
+            </select>
+          </div>
           <div class="field-row" id="usbSwitchRow">
             <div class="field-text">
               <label for="usbSwitch" data-i18n="usb.switch_label">Changing to a storage device</label>

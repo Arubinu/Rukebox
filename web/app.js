@@ -3061,18 +3061,20 @@ document.getElementById("usbPortMode").addEventListener("change", async (e) => {
   offerReboot(t(value === "host" ? "system.usb_host_done" : "system.usb_gadget_done"));
 });
 
-document.getElementById("usbSwitch").addEventListener("change", async (e) => {
-  const select = e.target;
-  const value = select.value;
-  const previous = settingsBaseline.USB_MUSIC_SWITCH || "after";
-  const r = await apiPost("/api/settings", { USB_MUSIC_SWITCH: value });
-  if (!r.ok) {
-    select.value = previous;
-    showError(r.error);
-    return;
-  }
-  settingsBaseline.USB_MUSIC_SWITCH = value;
-  showToast(t("alert.settings_saved"));
+[["usbPlug", "USB_MUSIC_ON_PLUG", "offer"], ["usbSwitch", "USB_MUSIC_SWITCH", "after"]].forEach(([id, key, fallback]) => {
+  document.getElementById(id).addEventListener("change", async (e) => {
+    const select = e.target;
+    const value = select.value;
+    const previous = settingsBaseline[key] || fallback;
+    const r = await apiPost("/api/settings", { [key]: value });
+    if (!r.ok) {
+      select.value = previous;
+      showError(r.error);
+      return;
+    }
+    settingsBaseline[key] = value;
+    showToast(t("alert.settings_saved"));
+  });
 });
 
 document.getElementById("actLedToggle").addEventListener("change", async (e) => {
