@@ -1067,7 +1067,10 @@ test("the prepared covers are browsed, added to and cleaned", async (t) => {
   assert.equal(page.document.body.dataset.page, "covers", "the address opened the card's page");
   assert.match(page.$("coversCount").textContent, /46/);
   assert.equal(page.$("coversUp").disabled, true, "nothing above the prepared root");
-  assert.match(page.$("coversPath").textContent, /covers/);
+  assert.equal(page.$("coversPath").hidden, true,
+               "the prepared folder's own name is not a crumb: its title and the guide say it");
+  assert.equal(page.$("coversPath").textContent, "");
+  assert.equal(page.$("coversHint").children.length, 0, "a folder to browse is not an empty folder");
   const row = page.$("coversList").children[0];
   assert.equal(row.className.includes("is-dir"), true);
 
@@ -1097,6 +1100,25 @@ test("the prepared covers are browsed, added to and cleaned", async (t) => {
   page.$("modalOk").click();
   const gone = await until(() => page.sent("DELETE", "/api/prepared/covers/file")[0]);
   assert.equal(gone.query.get("path"), "LMFAO/cover.jpg");
+  assert.deepEqual(page.errors, []);
+});
+
+test("an empty prepared folder says so, the statement on a centred line of its own", async (t) => {
+  const page = open(t, { hash: "#settings/djfiles", routes: {
+    "GET /api/dj_announcements": { dir: "/home/pi/audio/dj_announcements", files: 0, covered: 0,
+                                   tracks: 1175 },
+    "GET /api/prepared/intros": { kind: "intros", root: "/home/pi/audio/dj_announcements", path: "",
+                                  parent: null, missing: false, extensions: [".wav"],
+                                  dirs: [], files: [] },
+  } });
+  await until(() => page.$("introsHint").children.length);
+  const hint = page.$("introsHint");
+  assert.equal(hint.children.length, 2, "the statement and the advice, one line each");
+  assert.equal(hint.children[0].className, "prepared-empty", "the statement is the centred one");
+  assert.match(hint.children[0].textContent, /sound here yet\.$/);
+  assert.equal(hint.children[1].className, "prepared-empty-advice");
+  assert.match(hint.children[1].textContent, /_any/);
+  assert.equal(page.$("introsPath").hidden, true, "and no crumb of the prepared folder's own name");
   assert.deepEqual(page.errors, []);
 });
 

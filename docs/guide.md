@@ -2837,9 +2837,13 @@ echo '{"cmd":"rescan_music"}' | nc -U /tmp/rukebox_control.sock
 Two of those folders are **filled from the interface** rather than over SSH,
 because both mirror the music tree and mirroring it by hand is tedious:
 **Prepared covers** (Home) and **Prepared introductions** (Settings). Each card
-shows the breadcrumb of where you are (`covers › LMFAO › 2011 - Sorry For
-Rocking`), the folders below, and the files already there - a cover with its
-thumbnail, a sound with a button to hear it. **Add pictures…** / **Add files…**
+shows where you are and the folders below, and the files already there - a
+cover with its thumbnail, a sound with a button to hear it. **The breadcrumb
+starts at the first sub-folder**: the prepared folder's own name is not shown
+(it is the card's title, and the guide is here for the exact path), so at the
+top the crumb line is simply absent and the arrow button above takes you back
+up a level. A folder with nothing in it says so on one centred line, with the
+naming advice under it. **Add pictures…** / **Add files…**
 puts what you choose in the folder being shown; **New folder…** creates an
 artist or album folder that does not exist yet; the bin on a row removes that
 file. A file whose name the lookup never uses (a stray `notes.txt`, a `.gif`, a

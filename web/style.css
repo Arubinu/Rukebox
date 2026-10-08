@@ -2905,6 +2905,8 @@ select {
 .prepared-crumb:not(.is-here):hover { background: var(--surface-2); }
 .prepared-crumb.is-here { color: var(--text); font-weight: 600; cursor: default; }
 .prepared-sep { color: var(--text-muted); font-size: 14px; }
+.prepared-empty { display: block; text-align: center; }
+.prepared-empty-advice { display: block; text-align: center; }
 
 .device-list li.prepared-row.is-dir { padding: 0; }
 .prepared-open {

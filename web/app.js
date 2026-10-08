@@ -7588,11 +7588,13 @@ const PREPARED = {
   covers: { list: "coversList", path: "coversPath", count: "coversCount", hint: "coversHint",
             add: "coversAdd", input: "coversInput", up: "coversUp", folder: "coversNewFolder",
             progress: "coversProgress", counts: "/api/covers", countKey: "settings.cover_count",
-            empty: "prepared.empty_pictures", picture: true, icon: "image" },
+            empty: "prepared.empty_pictures", emptyAdvice: "prepared.empty_pictures_advice",
+            picture: true, icon: "image" },
   intros: { list: "introsList", path: "introsPath", count: "introsCount", hint: "introsHint",
             add: "introsAdd", input: "introsInput", up: "introsUp", folder: "introsNewFolder",
             progress: "introsProgress", counts: "/api/dj_announcements",
             countKey: "settings.dj_files_count", empty: "prepared.empty_files",
+            emptyAdvice: "prepared.empty_files_advice",
             picture: false, icon: "audio-lines" },
 };
 const preparedPath = { covers: "", intros: "" };
@@ -7642,17 +7644,28 @@ function paintPrepared(kind, data) {
   data.dirs.forEach((dir) => list.append(preparedDirRow(kind, dir.name)));
   data.files.forEach((file) => list.append(preparedFileRow(kind, file)));
   const empty = data.missing || (!data.dirs.length && !data.files.length);
-  document.getElementById(spec.hint).textContent = empty ? t(spec.empty) : "";
+  const hint = document.getElementById(spec.hint);
+  hint.replaceChildren();
+  if (empty) {
+    // Two lines, both centred: the plain statement, then the advice under it.
+    const lead = document.createElement("span");
+    lead.className = "prepared-empty";
+    lead.textContent = t(spec.empty);
+    const advice = document.createElement("span");
+    advice.className = "prepared-empty-advice";
+    advice.textContent = t(spec.emptyAdvice);
+    hint.append(lead, advice);
+  }
 }
 
 function paintPreparedPath(kind, data) {
   const box = document.getElementById(PREPARED[kind].path);
   box.replaceChildren();
-  const rootName = String(data.root || "").split("/").filter(Boolean).pop() || kind;
-  const parts = data.path ? data.path.split("/") : [];
-  const crumbs = [{ label: rootName, path: "" }];
-  parts.forEach((name, index) => crumbs.push({ label: name, path: parts.slice(0, index + 1).join("/") }));
-  crumbs.forEach((crumb, index) => {
+  // Only what is below the prepared folder gets a crumb: its own name is what
+  // the card's title and the guide already say, and an empty level has nothing.
+  const parts = String(data.path || "").split("/").filter(Boolean);
+  box.hidden = !parts.length;
+  parts.forEach((name, index) => {
     if (index) {
       const sep = document.createElement("span");
       sep.className = "prepared-sep";
@@ -7661,10 +7674,10 @@ function paintPreparedPath(kind, data) {
     }
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "prepared-crumb" + (index === crumbs.length - 1 ? " is-here" : "");
-    btn.textContent = crumb.label;
-    if (index === crumbs.length - 1) btn.disabled = true;
-    else btn.addEventListener("click", () => openPrepared(kind, crumb.path));
+    btn.className = "prepared-crumb" + (index === parts.length - 1 ? " is-here" : "");
+    btn.textContent = name;
+    if (index === parts.length - 1) btn.disabled = true;
+    else btn.addEventListener("click", () => openPrepared(kind, parts.slice(0, index + 1).join("/")));
     box.append(btn);
   });
 }
