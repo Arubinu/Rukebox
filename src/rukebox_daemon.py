@@ -1129,7 +1129,8 @@ class RadioDaemon:
 
     def _usb_music_status(self):
         """What the interface shows about it: the devices there are, the one in
-        use, and the one that would be taken again on the next plug."""
+        use, the one that would be taken again on the next plug, and how full
+        the storage that is playing is."""
         remembered = self.state.value("usb_music") or None
         active_key = (self._usb_music or {}).get("key")
         devices = []
@@ -1150,6 +1151,7 @@ class RadioDaemon:
             "label": (self._usb_music or {}).get("label"),
             "tracks": self._usb_tracks,
             "bytes": self._usb_bytes,
+            "space": usb_storage.space(self._music_dir()),
             "remembered": remembered,
             "error": self._usb_error,
             "devices": devices,

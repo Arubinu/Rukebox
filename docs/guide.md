@@ -1629,35 +1629,41 @@ the Pi when offered. Use an OTG adapter on the port marked USB.
 - The System health card lists the USB devices the Pi sees - the quick
   way to check that a dongle is detected.
 
-### Music on a USB key
+### Music on a storage device
 
-With the port in **USB devices** mode, a key holding music appears in
-**System > Music on a USB key** as soon as it is plugged in, and its button
-hands the radio over to it: what plays then comes from the key instead of
-`/home/pi/audio/music`, and **Back to the Pi's folder** gives the folder back.
-A key plugged in while the radio plays is not taken on its own - the choice
-stays yours - with one exception: **a key that has been taken once is
-remembered**, by its filesystem UUID (or its name, for a key that has none), so
-the next insertion, and a reboot with the key still in, resume it by
-themselves. **Forget** drops that memory and returns to the Pi's folder.
+With the port in **USB devices** mode, a key or a disk holding music appears in
+**System > Music on a storage device** as soon as it is plugged in, and its
+button hands the radio over to it: what plays then comes from it instead of
+`/home/pi/audio/music`, and **Back to the radio's folder** gives the folder
+back. A device plugged in while the radio plays is not taken on its own - the
+choice stays yours - with one exception: **a device that has been taken once is
+remembered**, by its filesystem UUID (or its name, for one that has none), so
+the next insertion, and a reboot with it still in, resume it by themselves.
+**Forget** drops that memory and returns to the radio's own folder.
 
-- **Read-only, so it can be unplugged at any moment**: the key is mounted
+Under that line, a bar shows **how full the storage being played is**, with the
+numbers: used, total and what is left free. It turns red under 500 MB or 5% of
+free space left - the same rule the System health card uses, so the two never
+disagree. It follows the folder on the Pi too when no device is in use.
+
+- **Read-only, so it can be unplugged at any moment**: the storage is mounted
   `ro,nosuid,nodev,noexec`. Pull it out whenever you like - the radio notices
   within a few seconds, stops using it, and comes back to its own folder by
-  itself. Nothing is ever written to a key, and uploading music is refused
+  itself. Nothing is ever written to it, and uploading music is refused
   while one is in use.
-- **The whole key is the music folder** while it is in use: the library, the
+- **The whole device is the music folder** while it is in use: the library, the
   statistics, the queues and the lists all follow it. Prepared covers and
   announcement files do not - they stay on the Pi, which is also where they are
   written from the interface.
-- **Formats**: whatever the kernel can mount - `vfat`, `exfat`, an NTFS key
+- **Formats**: whatever the kernel can mount - `vfat`, `exfat`, an NTFS device
   through the kernel's own driver (no extra package), and the Linux
   filesystems. A disk that is removable, or simply on the USB bus (a drive in a
-  USB caddy), counts as a key; the SD card the Pi booted from never does.
+  USB caddy, a hard disk), counts; the SD card the Pi booted from never does.
 - Mounting and unmounting are the only root commands involved: a small helper
   (`/usr/local/sbin/rukebox-usb-music`, granted in `config/sudoers-rukebox`
   like the rest). Everything the card knows - what is plugged in, whether it is
-  mounted, how many tracks it holds - is read without privileges.
+  mounted, how many tracks it holds, how much room is left - is read without
+  privileges.
 
 ### Over the USB cable
 

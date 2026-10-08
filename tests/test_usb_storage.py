@@ -136,5 +136,30 @@ class CountTest(unittest.TestCase):
         self.assertEqual(usb_storage.count_music(None), (0, 0))
 
 
+class SpaceTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+
+    def test_it_reports_the_used_free_and_total_of_the_file_system(self):
+        usage = shutil.disk_usage("/")
+        with mock.patch.object(usb_storage.shutil, "disk_usage", return_value=usage):
+            space = usb_storage.space(self.dir)
+        self.assertEqual(space["total"], usage.total)
+        self.assertEqual(space["free"], usage.free)
+        self.assertEqual(space["used"], usage.used)
+        self.assertEqual(space["percent"], round(usage.used * 100.0 / usage.total))
+
+    def test_something_that_cannot_be_measured_says_nothing(self):
+        self.assertIsNone(usb_storage.space(os.path.join(self.dir, "nope")))
+        self.assertIsNone(usb_storage.space(""))
+        self.assertIsNone(usb_storage.space(None))
+        with mock.patch.object(usb_storage.shutil, "disk_usage", side_effect=OSError("gone")):
+            self.assertIsNone(usb_storage.space(self.dir))
+        empty = mock.Mock(total=0, used=0, free=0)
+        with mock.patch.object(usb_storage.shutil, "disk_usage", return_value=empty):
+            self.assertIsNone(usb_storage.space(self.dir), "a size of zero says nothing")
+
+
 if __name__ == "__main__":
     unittest.main()

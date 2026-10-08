@@ -193,6 +193,22 @@ class UsbMusicTest(unittest.TestCase):
         self.assertFalse(status["active"])
         self.assertEqual(status["internal"], self.music)
 
+    def test_the_status_says_how_full_the_storage_that_is_playing_is(self):
+        self.plugged([KEY])
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        full = {"total": 1000, "used": 620, "free": 380, "percent": 62}
+        with mock.patch.object(usb_storage, "space", return_value=full) as space:
+            status = self.daemon._usb_music_status()
+        self.assertEqual(status["space"], full)
+        space.assert_called_with(self.mount)
+
+    def test_the_space_of_the_folder_on_the_pi_is_reported_too(self):
+        self.plugged([])
+        with mock.patch.object(usb_storage, "space", return_value=None) as space:
+            status = self.daemon._usb_music_status()
+        self.assertIsNone(status["space"])
+        space.assert_called_with(self.music)
+
 
 if __name__ == "__main__":
     unittest.main()

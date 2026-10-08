@@ -1086,12 +1086,15 @@ test("the prepared covers are browsed, added to and cleaned", async (t) => {
 });
 
 test("a USB key is offered, taken and given back", async (t) => {
+  const GiB = 1024 ** 3;
   const idle = { active: false, dir: null, internal: "/home/pi/audio/music", port_mode: "host",
                  device: null, label: null, tracks: 0, bytes: 0, remembered: null, error: null,
+                 space: { total: 15 * GiB, used: 9 * GiB, free: 6 * GiB, percent: 60 },
                  devices: [{ key: "uuid:1A2B", device: "/dev/sda1", label: "MUSIQUE",
                              fstype: "exfat", size: "29.5G", remembered: false, active: false }] };
   const taken = Object.assign({}, idle, {
     active: true, dir: "/media/rukebox-usb", device: "/dev/sda1", label: "MUSIQUE", tracks: 312,
+    space: { total: 30 * GiB, used: 29 * GiB, free: 1 * GiB, percent: 97 },
     remembered: { key: "uuid:1A2B", label: "MUSIQUE" },
     devices: [Object.assign({}, idle.devices[0], { active: true })],
   });
@@ -1107,15 +1110,22 @@ test("a USB key is offered, taken and given back", async (t) => {
   assert.match(row.textContent, /MUSIQUE/);
   assert.match(row.textContent, /exfat/);
 
+  assert.equal(page.$("usbSpace").hidden, false, "the storage that plays is shown full");
+  assert.equal(page.$("usbSpaceFill").style.width, "60%");
+  assert.match(page.$("usbSpaceText").textContent, /6\.0 GB free/);
+  assert.equal(page.$("usbSpaceBar").classList.contains("warn"), false, "room to spare");
+
   row.querySelector("button").click();
   const asked = await until(() => page.sent("POST", "/api/usb_music")[0]);
   assert.deepEqual(asked.body, { key: "uuid:1A2B" });
   await until(() => /MUSIQUE/.test(page.$("usbNow").textContent));
   assert.match(page.$("usbNow").textContent, /312/, "and how many tracks it holds");
+  assert.equal(page.$("usbSpaceFill").style.width, "97%");
+  assert.equal(page.$("usbSpaceBar").classList.contains("warn"), true, "nearly full");
 
   page.$("usbList").children[0].querySelector("button").click();
   const forgotten = await until(() => page.sent("POST", "/api/usb_music")[1]);
-  assert.deepEqual(forgotten.body, { forget: true }, "the way back to the Pi's folder");
+  assert.deepEqual(forgotten.body, { forget: true }, "the way back to the radio's folder");
   assert.deepEqual(page.errors, []);
 });
 

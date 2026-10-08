@@ -2411,7 +2411,7 @@ select {
 .hint.warning { color: var(--danger); font-weight: 600; }
 
 #homeWifiHere { text-align: center; }
-#coverCount, #coversCount, #introsCount { text-align: center; }
+#coverCount, #coversCount, #introsCount, #usbNow { text-align: center; }
 
 .clock-status,
 .status-line {
@@ -2965,6 +2965,30 @@ select {
 }
 .prepared-size { flex: none; font-size: 13px; color: var(--text-muted); }
 .usb-meta { flex: none; font-size: 13px; color: var(--text-muted); }
+.space { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; }
+/* `display: flex` would beat the UA rule for a hidden element. */
+.space[hidden] { display: none; }
+.space-bar {
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.space-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 240ms ease;
+}
+.space-bar.warn .space-fill { background: var(--danger); }
+.space-text {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
 .prepared-dialog { display: flex; flex-direction: column; gap: 10px; }
 .prepared-dialog .text-input { width: 100%; }
 

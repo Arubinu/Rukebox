@@ -1641,6 +1641,7 @@ function paintUsbMusic(state) {
     hint.textContent = t("usb.port_mode", { mode: t("system.usb_" + state.port_mode) });
   }
 
+  paintUsbSpace(state);
   (state.devices || []).forEach((entry) => list.append(usbRow(state, entry)));
   const remembered = state.remembered;
   const plugged = (state.devices || []).some((one) => one.remembered);
@@ -1649,6 +1650,32 @@ function paintUsbMusic(state) {
                                 device: "", size: "", fstype: "", unplugged: true }));
   }
   if (!list.children.length) hint.textContent = t("usb.no_devices");
+}
+
+const USB_LOW_SPACE = 500e6;
+
+function paintUsbSpace(state) {
+  const box = document.getElementById("usbSpace");
+  const bar = document.getElementById("usbSpaceBar");
+  const fill = document.getElementById("usbSpaceFill");
+  const text = document.getElementById("usbSpaceText");
+  if (!box || !bar || !fill || !text) return;
+  const space = state.space || null;
+  if (!space || !space.total) {
+    box.hidden = true;
+    return;
+  }
+  const percent = Math.min(100, Math.max(0, Math.round(Number(space.percent) || 0)));
+  box.hidden = false;
+  fill.style.width = percent + "%";
+  // The health card's own "nearly full" rule, so the two never disagree.
+  bar.classList.toggle("warn", space.free < Math.max(USB_LOW_SPACE, space.total * 0.05));
+  bar.setAttribute("aria-label", t("usb.space_aria", { percent: percent,
+                                                       free: formatBytes(space.free),
+                                                       total: formatBytes(space.total) }));
+  text.textContent = t("usb.space_line", { used: formatBytes(space.used),
+                                           total: formatBytes(space.total),
+                                           free: formatBytes(space.free) });
 }
 
 function usbRow(state, entry) {

@@ -10,6 +10,7 @@ out at any moment."""
 import json
 import logging
 import os
+import shutil
 import subprocess
 
 import announcements
@@ -115,6 +116,22 @@ def find(devices_list, key):
         if key_of(entry) == key:
             return entry
     return None
+
+
+def space(path):
+    """How full the file system holding a path is: total, used, free, percent.
+    None when there is nothing there to measure."""
+    if not path or not os.path.isdir(path):
+        return None
+    try:
+        usage = shutil.disk_usage(path)
+    except OSError as exc:
+        log.debug("No space to report for %s: %s", path, exc)
+        return None
+    if not usage.total:
+        return None
+    return {"total": usage.total, "used": usage.used, "free": usage.free,
+            "percent": int(round(usage.used * 100.0 / usage.total))}
 
 
 def count_music(root):
