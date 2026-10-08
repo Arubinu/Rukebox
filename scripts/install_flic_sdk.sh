@@ -2,7 +2,7 @@
 set -euo pipefail
 
 DEST="${RUKEBOX_FLIC_SDK_DIR:-/opt/fliclib-linux-hci}"
-# A fixed commit, not "master": flicd runs as root, so what is installed must be what was looked at.
+# A pinned commit: flicd runs as root.
 REF="${RUKEBOX_FLIC_SDK_REF:-f96d7a8658ba762d811c5f73ed0ed5be6c8c2cf1}"
 URL="https://codeload.github.com/50ButtonsEach/fliclib-linux-hci/tar.gz/$REF"
 

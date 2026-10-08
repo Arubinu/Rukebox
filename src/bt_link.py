@@ -1,10 +1,5 @@
-"""Which controller actually carries a Bluetooth device.
-
-BlueZ exports a device per controller: the same speaker can be paired on two
-of them, connected on one, and unknown to the other - and `bluetoothctl info`
-run against the wrong one answers "not available", which reads exactly like a
-device that is switched off. Everything here asks every controller before
-answering, and says which one carries it."""
+"""Which controller actually carries a Bluetooth device."""
+# BlueZ exports a device per controller: the wrong one answers "not available".
 
 import logging
 import re
@@ -21,10 +16,8 @@ CONNECT_TIMEOUT_SEC = 25
 
 
 def bluetoothctl(script, timeout=INFO_TIMEOUT_SEC):
-    """Runs bluetoothctl with these commands on stdin; None when it failed.
-
-    The whole script goes to ONE session: `select` only applies to the process
-    that runs it, so a separate call would answer about another controller."""
+    """Runs bluetoothctl with these commands on stdin; None when it failed."""
+    # One session: `select` only applies to the process that runs it.
     try:
         done = subprocess.run(["bluetoothctl"], input=script, capture_output=True,
                               text=True, timeout=timeout)
@@ -104,12 +97,8 @@ def device_info(mac, adapter=None):
 
 
 def locate(mac, adapter=""):
-    """Whether the device is connected, and which controller carries it.
-
-    The controller `adapter` names (empty: BlueZ's default) is asked first, so
-    the usual case stays one call; the others are asked only when it answers
-    no. `unknown` means no controller answered at all, which must not be read
-    as "disconnected"."""
+    """Whether the device is connected, and which controller carries it."""
+    # `unknown` (no controller answered) must not be read as disconnected.
     mac = str(mac or "").strip().upper()
     state = {"mac": mac, "connected": False, "controller": None, "expected": None,
              "paired_here": False, "known_here": False, "name": "", "unknown": False,
@@ -152,10 +141,7 @@ def locate(mac, adapter=""):
 
 
 def connect_here(mac, adapter):
-    """Asks that controller to connect the device; True when it reports it.
-
-    This is what moves the sound from one radio to the other: the audio
-    follows the controller the speaker is connected to."""
+    """Asks that controller to connect the device; True when it reports it."""
     mac = str(mac or "").strip().upper()
     if not adapter or not _MAC_RE.match(mac):
         return False

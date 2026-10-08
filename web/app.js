@@ -218,9 +218,8 @@ let booting = false;
 const BOOT_QUIET_MS = 250;
 const BOOT_POPULATE_TIMEOUT_MS = 6000;
 
-// Arriving on the player, what it shows is asked for alone; the rest waits for
-// the loading screen to go. A Pi Zero answers one request in 80 ms, the first
-// of forty in more than a second.
+// Asked for alone on arrival: a small board answers one request far faster than
+// forty at once.
 const BOOT_FIRST_PATHS = ["/api/portal/status", "/api/device", "/api/status", "/api/likes",
                           "/api/audio/fallback", "/api/queue", "/api/now/lyrics"];
 let bootHolding = false;
@@ -516,12 +515,7 @@ function cardOfPage(tab, page) {
   return areaCards(tab).find((card) => card.dataset.page === page) || null;
 }
 
-/* What this machine can do, from /api/status. A card carries data-needs="a b"
-   and is dropped from the menus as soon as one of the two is not there; a
-   single row can carry the same attribute and is hidden outright. On a
-   container there is no access point, no GPIO pin, no USB gadget and no
-   clock to set. Declared up here because pageIsAvailable() reads it before
-   the first status answer has even been asked for. */
+/* Declared up here: pageIsAvailable() reads it before the first status answer. */
 let capabilities = null;
 
 function canDo(need) {
@@ -534,10 +528,8 @@ function capabilityHidden(card) {
   return !canDo(card.dataset.needs);
 }
 
-/* What a guest is served: the pages whose data the server lets a guest ask for
-   (src/web_server.py's _GUEST_PATHS). Anything else - every setting, the
-   system, the network - is a page they would open onto an empty shell with
-   made-up default values, which is worse than not having the page at all. */
+/* Must agree with src/web_server.py's _GUEST_PATHS: any other page would open
+   onto an empty shell. */
 const GUEST_PAGES = new Set(["player", "upnext", "recent", "today",
                              "library", "suggest", "game"]);
 
@@ -657,10 +649,7 @@ function refreshPageMenus() {
   paintAreaTabs();
 }
 
-/* An area whose every page needs something this machine has not got is not an
-   area any more: on a container the whole Network tab is the access point, the
-   connected devices and the personal Wi-Fi. Its button goes, and a page that
-   was open in it lands back on Home rather than on an empty grid. */
+/* An area with no page left (Network on a container) loses its tab. */
 function paintAreaTabs() {
   document.querySelectorAll(".tab-btn[data-tab]").forEach((btn) => {
     const empty = availablePages(btn.dataset.tab).length === 0;
@@ -673,13 +662,8 @@ function paintAreaTabs() {
   }
 }
 
-/* One empty cell per column left in the last row, so every line of the rows above
-   carries on down to the edge - a cell spanning what is left draws no line inside it,
-   and its own left edge cuts the line it was meant to continue. A grid on a single row
-   gets none at all: it is auto-fit, so its tiles spread over the whole width and
-   nothing is left hanging after the last one. The column count comes from the first
-   row's own tiles, never from the computed track list, which still reads its old value
-   while the layout settles. */
+/* One cell per missing column (a spanning cell draws no line inside it). The count
+   comes from the first row's tiles: the computed tracks lag while the layout settles. */
 function fillPageGrid(grid) {
   if (grid.hidden || !grid.offsetParent) return;
   const tiles = Array.from(grid.querySelectorAll(".page-tile")).filter((t) => !t.hidden);
@@ -1516,14 +1500,11 @@ async function refreshStatus() {
     restartDirect = !!d.restart_direct;
     paintRestartAfterSong();
   }
-  // A start mode that cannot act here (it waits for the speaker while the sound
-  // goes to a wired output) is struck through where it is chosen: the setting is
-  // kept as it is, it simply means "at startup" for now.
+  // Struck through, not removed: the setting keeps its value.
   const inert = document.querySelector('#musicStartMode option[value="bluetooth"]');
   if (inert) inert.classList.toggle("option-inert", !!d.music_start_mode_inert);
-  // A click's sentence is the only one that cannot be prepared in advance: said
-  // once when the synthesis starts, so a Pi that thinks for ten seconds does not
-  // look like a button that did nothing.
+  // A click's sentence cannot be prepared ahead: said once, so a slow synthesis
+  // does not look like a dead button.
   const preparing = !!d.speech_preparing;
   if (preparing !== speechPreparing) {
     speechPreparing = preparing;
@@ -1606,9 +1587,7 @@ function applyTrackProgress(d) {
   applyUsbMusic(d);
 }
 
-/* Music on a USB key: what is plugged in, what the library reads from, and the
-   ways of changing it. The daemon mounts the key read-only and switches the
-   library itself, so every action here is one control command. */
+/* The daemon mounts the key and switches the library: each action is one command. */
 let usbMusicPainted = "";
 
 function applyUsbMusic(d) {
@@ -1797,10 +1776,8 @@ function applyCapabilities(d) {
   capabilities = caps;
   const on = Object.keys(caps || {}).filter((name) => caps[name] !== false && name !== "platform");
   document.body.setAttribute("data-caps", on.join(" "));
-  // The card is hidden by CSS, which cannot compare two attributes; a row
-  // inside a card has no page of its own, so it is toggled here - and only ever
-  // HIDDEN: an element that is hidden for its own reason (a file input its own
-  // button opens) must stay hidden when the capability IS there.
+  // Only ever hides: an element hidden for its own reason (a file input) must stay
+  // hidden when the capability is there.
   document.querySelectorAll("[data-needs]").forEach((el) => {
     if (!el.classList.contains("card") && !canDo(el.dataset.needs)) el.hidden = true;
   });
@@ -2150,15 +2127,8 @@ function timerChoiceBody(groups, intro) {
   return wrap;
 }
 
-/* The network output: the same radio, heard on the device reading this page.
-   Nothing here starts the encoder - the server does that - and an <audio>
-   element pointed at the URL is all a browser needs for a stream that never
-   ends. A phone that locks the screen stops the sound, which is the phone's
-   decision, not ours.
-
-   When there is nothing to play, the button says WHY: "the stream is off" and
-   "there is no sound server" are very different answers, and a browser cannot
-   see either of them. The codes come from src/stream.py's why_unavailable(). */
+/* A browser cannot tell why a stream is silent: the reason comes from
+   src/stream.py's why_unavailable(). */
 let listenAudio = null;
 let listenUrl = "";
 let listenWhy = "";
@@ -2188,14 +2158,11 @@ function applyListen(d) {
   // player is parsed, and paintListen() reads it.
   if (!btn || !tell) return;
   const stream = d.stream || {};
-  // A status that says nothing about the stream (an older daemon, or another
-  // server answering the same address) leaves the page as it is, rather than
-  // accusing this machine of having no source.
+  // No stream field (an older daemon): leave the page as it is.
   if (!("enabled" in stream)) return;
   const available = !!stream.available && !!stream.url;
   listenUrl = stream.url || "";
-  // A stream that is simply switched off needs no line: the button is not there
-  // and the setting is the owner's. The other causes are worth saying.
+  // Switched off needs no line; the other causes do.
   listenWhy = available || stream.why === "off" ? "" : (stream.why || "no_source");
   btn.hidden = !available;
   if (!available) {
@@ -4427,9 +4394,7 @@ let audioOutputs = [];
 let audioOutputsKnown = false;
 
 function paintStreamRows() {
-  // Nothing is announced while nothing is streamed: a player handed an empty
-  // folder keeps it until it is restarted, which is what made the owner
-  // restart VLC. The rows follow the switch, so the card says so too.
+  // UPnP follows the stream: a player keeps an empty folder until it restarts.
   const on = document.getElementById("streamEnabled").checked;
   ["upnpNameRow"].forEach((id) => {
     document.getElementById(id).hidden = !on;
@@ -4438,9 +4403,7 @@ function paintStreamRows() {
 }
 
 function paintAudioOutputChoices() {
-  // The virtual output belongs to a container: offering it on a machine that
-  // has none would be a choice that leads nowhere. Never hidden before the
-  // outputs have been read once, nor while it is the chosen one.
+  // Never hidden before the outputs are read, nor while it is the chosen one.
   if (!audioOutputsKnown) return;
   const select = document.getElementById("audioOutputSelect");
   const option = select.querySelector('option[value="docker"]');
@@ -4726,7 +4689,7 @@ function excludedRow(item) {
   when.textContent = [shortDate(item.excluded_at), excludedOrigin(item.origin)]
     .filter(Boolean).join(" \u00b7 ");
   li.append(when);
-  // No key: the library no longer knows that file, so there is nothing to queue or give back.
+  // No key: the library lost the file, nothing to queue or give back.
   if (item.key && !item.missing) li.append(libraryButton(item, true), excludedRestoreButton(item));
   return li;
 }
@@ -6590,7 +6553,7 @@ async function refreshSuggestions() {
   if (suggestState.owner && names.open) refreshSuggestNames();
 }
 
-// Per browser: the owner's phone and computer each keep what they have already shown.
+// Per browser: each screen keeps what it has already shown.
 const SUGGEST_SEEN_KEY = "rukebox_suggest_seen";
 let suggestNewCount = 0;
 let suggestNewLatest = null;
@@ -7550,9 +7513,7 @@ async function refreshSystemSounds() {
     });
 
     const right = [];
-    // Both of these write into the music folder: where it is read-only (a
-    // container's `:ro` mount) there is nothing to replace and nothing to
-    // restore to, and the two buttons go.
+    // Both write into the music folder, read-only in some containers.
     if (canDo("media_upload")) {
       if (item.custom || item.off) right.push(restore);
       if (!item.off) right.push(off);
@@ -7733,9 +7694,7 @@ document.getElementById("btnTrackOrderReset").addEventListener("click", async ()
 
 loadTrackOrder();
 
-/* The two folders you prepare yourself - cover pictures and the introductions
-   the radio host reads - both mirror the music folder, so both get the same
-   browser: one card each, one list of folders and files, one upload. */
+/* Covers and introductions both mirror the music folder: one browser for both. */
 const PREPARED = {
   covers: { list: "coversList", path: "coversPath", count: "coversCount", hint: "coversHint",
             add: "coversAdd", input: "coversInput", up: "coversUp", folder: "coversNewFolder",
@@ -9335,9 +9294,8 @@ async function loadEvents(append) {
   if (type) url += "&type=" + encodeURIComponent(type);
   if (query) {
     url += "&q=" + encodeURIComponent(query);
-    // What the reader searches for is what they READ: the type names are
-    // translated here, so the ones whose name matches are sent along - the
-    // database only knows `web_session`, never "Interface web ouverte".
+    // The database only knows type names: the translated labels that match are
+    // sent along.
     const needle = query.toLowerCase();
     const labels = EVENT_TYPE_KEYS.filter((key) => eventLabel(key).toLowerCase().includes(needle));
     if (labels.length) url += "&labels=" + encodeURIComponent(labels.join(","));

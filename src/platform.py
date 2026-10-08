@@ -1,16 +1,5 @@
-"""What this machine can do: the platform, and the features it allows.
-
-Everything that only exists on a Raspberry Pi - the access point, GPIO, the
-hardware clock, the USB gadget, powering the board off - is asked for here
-rather than guessed at from a missing file somewhere else. The web interface
-hides what is missing and the routes answer `unsupported_here`.
-
-RUKEBOX_PLATFORM forces the answer (`pi`, `lxc`, `docker`, `host`), which is
-what the test suite uses: the same routes must answer politely on a machine
-that has none of it.
-
-This module is named `platform` like the standard library's; nothing here
-imports that one, and the tests run with `src/` first on the path."""
+"""What this machine can do: the platform, and the features it allows."""
+# Named like the stdlib module; nothing here imports that one.
 
 import glob
 import os
@@ -24,11 +13,8 @@ HOST = "host"
 
 KNOWN = (PI, LXC, DOCKER, HOST)
 
-# Features that belong to the machine rather than to a piece of hardware a
-# probe could find: no PCI-less container has them, and they are exactly what
-# the Pi profile keeps and the others drop. `rtc` is in the list because a
-# container shares the host's clock and may not write it, so a /dev/rtc0
-# bind-mounted in would still not be a hardware clock of our own.
+# Decided by the platform, never by a probe: a /dev/rtc0 bind-mounted into a
+# container is still the host's clock, not ours to write.
 BY_PLATFORM = {
     PI: frozenset({"access_point", "captive_portal", "gpio", "power", "rtc",
                    "self_update", "set_clock", "usb_gadget", "usb_storage", "wireless"}),
@@ -81,13 +67,8 @@ def _is_raspberry_pi():
 
 
 def _container_kind():
-    """What the container manager calls itself, or "" outside one.
-
-    `/run/systemd/container` is systemd's own answer, and the only sign that
-    reaches everywhere: LXC creates no `/dev/lxc`, and puts `container=lxc` in
-    the environment of PID 1 alone - so neither is visible to a service, an SSH
-    session, or a script run by hand. Without systemd, PID 1's environment is
-    the last place it is written down."""
+    """What the container manager calls itself, or "" outside one."""
+    # LXC puts container=lxc in PID 1's environment only: services and shells never see it.
     declared = _read_first("/run/systemd/container").strip().lower()
     if declared:
         return declared

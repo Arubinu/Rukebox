@@ -1,14 +1,4 @@
-"""Everything that asks the machine to do something: services, power, the clock.
-
-One function per verb, so the daemon and the web server call `reboot()` rather
-than spelling out `sudo systemctl reboot` in six places - and so a platform
-with no systemd, no RTC and no way to switch itself off can answer for itself.
-
-On a Pi these are the commands that were always there. An LXC has a systemd of
-its own, so "off" there switches the container off like any machine. Docker has
-none: "off" ends the container's own processes, and Docker brings them back
-according to the restart policy, which is what the image's compose file sets.
-Nothing here ever tries to reach the host."""
+"""Everything that asks the machine to do something: services, power, the clock."""
 
 import logging
 import os
@@ -43,11 +33,8 @@ def is_container():
 
 
 def _systemctl_available():
-    """Whether there is a systemd to talk to.
-
-    The Pi profile answers yes without looking: everything under systemd/*.service
-    is installed there, and a test that says "this is a Pi" must not be told
-    otherwise by the machine it happens to run on."""
+    """Whether there is a systemd to talk to."""
+    # The Pi profile answers yes without looking, so a test that says pi is not contradicted.
     if platform_mod.name() in (platform_mod.PI, platform_mod.HOST):
         return True
     if sys.platform.startswith("win"):
@@ -59,12 +46,7 @@ def _systemctl_available():
 
 
 def can_power_off():
-    """Whether switching this machine off means anything.
-
-    True on a Pi, and in a container that has a systemd of its own (an LXC).
-    False in Docker whatever is installed in the image: there is no machine to
-    switch off, only this process to end, and the restart policy brings it back.
-    """
+    """Whether switching this machine off means anything."""
     if platform_mod.name() == platform_mod.DOCKER:
         return False
     return platform_mod.name() == platform_mod.PI or _systemctl_available()
@@ -92,10 +74,6 @@ def read_uptime():
     except (OSError, ValueError, IndexError):
         return None
 
-
-# --------------------------------------------------------------------------
-# Services
-# --------------------------------------------------------------------------
 
 def _run(command, timeout=15, sudo=False):
     full = (["sudo"] + command) if sudo else list(command)
@@ -134,12 +112,7 @@ def service_show(units, props=("LoadState", "ActiveState", "SubState", "UnitFile
 
 
 def systemctl(*args, timeout=15, sudo=False):
-    """Systemd's own answer for a verb, as (ok, stdout, stderr).
-
-    For the callers that need the words systemd prints rather than a yes or a
-    no - `is-enabled` answers "enabled", "disabled", "static"... and the
-    daemon reacts differently to each. `ok` is False when there is no systemd
-    at all, which is what keeps a container out of every one of these."""
+    """Systemd's own answer for a verb, as (ok, stdout, stderr)."""
     result = _run(["systemctl"] + list(args), timeout=timeout, sudo=sudo)
     if result is None:
         return False, "", ""
@@ -147,20 +120,11 @@ def systemctl(*args, timeout=15, sudo=False):
 
 
 def local_service_units():
-    """The unit names this installation runs.
-
-    On a Pi they are installed systemd units. In a container systemd is not
-    there at all, and the supervisor's own children are the services - the
-    interface then shows nothing rather than a list of units that cannot
-    exist."""
+    """The unit names this installation runs."""
     if _systemctl_available():
         return [DAEMON_UNIT, WEB_UNIT]
     return []
 
-
-# --------------------------------------------------------------------------
-# The daemon and the web server themselves
-# --------------------------------------------------------------------------
 
 _exit_hooks = []
 _exiting = threading.Event()
@@ -209,13 +173,8 @@ def restart_web_server():
     return bool(result is not None and result.returncode == 0)
 
 
-# --------------------------------------------------------------------------
-# Power
-# --------------------------------------------------------------------------
-
-# The supervisor of a container (docker/supervisor.py) restarts whatever it
-# watches: left to itself it would bring the radio back a second after "switch
-# off". This is the word it waits for before standing down.
+# docker/supervisor.py stands down when it finds this, instead of restarting
+# the radio.
 STOP_REQUEST = "switch-off-request"
 
 
@@ -277,10 +236,6 @@ def going_down():
             return targets[parts[-1]]
     return None
 
-
-# --------------------------------------------------------------------------
-# The clock
-# --------------------------------------------------------------------------
 
 def set_clock(value, utc=False):
     """Sets the system clock. Returns (ok, detail)."""
@@ -359,10 +314,6 @@ def list_timezones():
     except OSError:
         return []
 
-
-# --------------------------------------------------------------------------
-# The USB key a music library can live on
-# --------------------------------------------------------------------------
 
 USB_MUSIC_HELPER = "/usr/local/sbin/rukebox-usb-music"
 

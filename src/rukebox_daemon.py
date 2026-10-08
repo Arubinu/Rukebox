@@ -53,12 +53,8 @@ NEVER = float("-inf")
 
 
 def _file_stamp(path):
-    """A file's date AND its size, which is what the three caches below compare.
-
-    The date alone is not enough: a filesystem with coarse timestamps - tmpfs, a
-    FAT card - leaves it untouched when a file is written twice inside the same
-    tick, and the daemon would then keep playing the list the page just deleted.
-    """
+    """A file's date AND its size, which is what the three caches below compare."""
+    # A coarse filesystem clock leaves the date unchanged for two writes in one tick.
     try:
         info = os.stat(path)
     except OSError:
@@ -67,14 +63,8 @@ def _file_stamp(path):
 
 
 def announcement_target(msg):
-    """(source, item_id, chooser) for a play_announcement command.
-
-    `source` carries two different things: the announcement to play, and where
-    the command came from ("web", "flic", "gpio", "speaker", "push" - the web
-    server adds source="web" to everything, and an update script pushing to the
-    Pi adds "push"). Only a real announcement source counts
-    as one here, or the row's own "Play" - which names its announcement by id
-    - is answered "unknown source"."""
+    """(source, item_id, chooser) for a play_announcement command."""
+    # `source` also says where a command came from ("web"...): only a real announcement source counts.
     source = msg.get("source")
     item_id = msg.get("id")
     if source and not (source in announcements.BUILTIN_SOURCES
@@ -223,9 +213,8 @@ class RadioDaemon:
         self._state_cond = threading.Condition()
         self._state_version = 0
         self._mode = "idle"
-        # One action at a time, and re-entrant: the control socket holds it for
-        # every command that is not a read, and a command that needs it again
-        # inside (the USB key switch) would otherwise wait on itself for ever.
+        # Re-entrant: the control socket already holds it around every command, and
+        # a command that takes it again would otherwise wait on itself.
         self._command_lock = threading.RLock()
         self._speaker_watch_lock = threading.Lock()
         self._waiting_for_tracks = False
@@ -265,9 +254,8 @@ class RadioDaemon:
         self._speaker_move_failed = False
         self._restart_pending = False
         self._restart_target = "service"
-        # What is being said right now, and what is being prepared for later:
-        # a Piper model costs seconds to load, so a sentence known in advance is
-        # rendered in the background and the interface can say so.
+        # A Piper model costs seconds to load: a sentence known in advance is
+        # rendered in the background.
         self._speech_warm = None
         self._speech_warming = None
         self._speech_busy = 0
@@ -401,9 +389,8 @@ class RadioDaemon:
                 self._output_override = None
                 self._bump_state()
         kind = self._output_kind()
-        # Every other kind names a sink, so the list has to be read even for a
-        # kind this version does not know: that is what makes the virtual sink
-        # of a container reachable at all.
+        # Read even for an unknown kind: that is how a container's virtual sink is
+        # found.
         sinks = audio_output.list_sinks(env=audio_env())
         if kind == "bluetooth":
             device, found = audio_output.mpv_device(kind, [])
@@ -424,14 +411,8 @@ class RadioDaemon:
         self._hold_the_output(kind, device, sinks)
 
     def _hold_the_output(self, kind, device, sinks):
-        """A chosen output keeps the sound, even when another device appears.
-
-        WirePlumber hands a stream to whatever output became the default the
-        moment it is connected: a speaker turned on takes the music off the
-        wired card the settings named, whatever device mpv was given (the
-        target it passes does not hold it). So the chosen output is also made
-        the default one - which is what a new connection then respects - and
-        mpv's streams are put back on it if they had already moved."""
+        """A chosen output keeps the sound, even when another device appears."""
+        # WirePlumber moves streams to a newly connected default device.
         if device.startswith("pipewire/"):
             name = device[len("pipewire/"):]
         elif kind == "bluetooth":
@@ -728,7 +709,7 @@ class RadioDaemon:
             self._clock_ready.set()
             return
 
-        # Measured before `date -s`: the statistics correct the wrong-clock timestamps with it.
+        # Taken before `date -s`: the statistics correct earlier timestamps by it.
         offset = dt.timestamp() - time.time()
         formatted = dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
         ok, detail = system_actions.set_clock(formatted)
@@ -747,9 +728,8 @@ class RadioDaemon:
         os.makedirs(self.cfg["STATE_DIR"], exist_ok=True)
         self._install_signal_handlers()
         self.stats.open_session()
-        # In a container "off" ends this process instead of the machine, so the
-        # session has to be closed by the hook rather than by the shutdown
-        # sequence alone.
+        # In a container "off" ends this process, not the machine: the hook closes
+        # the session.
         system_actions.on_exit(self._on_process_end)
         self._init_clock_sync()
         self.mpv.start()
@@ -1252,13 +1232,8 @@ class RadioDaemon:
         return was is not None
 
     def _switch_music_source(self, source, change="after"):
-        """The library reads somewhere else now: read it again, and go on with
-        the next track of the new folder rather than the one that just left.
-
-        `change` says what happens to the song that is playing: "after" leaves
-        it alone (the next one comes from the new folder, which is what the
-        queue now holds), "now" replaces it with one of the new folder, under
-        the action fade the fades section gives it."""
+        """Reads the library from its new folder; `change` is "after" (the song playing
+        finishes) or "now" (it is replaced)."""
         was_on_the_key = bool(
             self._current_track and self._usb_left_behind
             and os.path.realpath(self._current_track).startswith(
@@ -1543,12 +1518,8 @@ class RadioDaemon:
         return max(0.0, point[1] - self.RESUME_REWIND_SEC)
 
     def _hold_music_without_speaker(self):
-        """Keeps a song paused when it starts while the speaker is away.
-
-        A click - or an announcement - otherwise undoes the pause
-        `_on_speaker_lost()` just made, and the radio plays to nothing for as
-        long as the speaker is gone (measured: ten minutes, 2026-09-29).
-        `_on_speaker_back()` lifts it like the pause it replaced."""
+        """Keeps a song paused when it starts while the speaker is away."""
+        # A click would otherwise undo the pause _on_speaker_lost() made.
         if not self.cfg.get("SPEAKER_LOSS_PAUSE"):
             return
         if self._output_kind() != "bluetooth":
@@ -2738,12 +2709,7 @@ class RadioDaemon:
             self._speech_busy -= 1
 
     def _warm_speech(self, text):
-        """Prepares a sentence that is coming, in the background.
-
-        The rendering fills the cache `_speech_text_file` reads first, so the
-        moment itself costs nothing - and nobody waits while a model loads. One
-        at a time, at a lower priority than the music, and never for a sentence
-        that was already prepared."""
+        """Prepares a sentence that is coming, in the background."""
         text = (text or "").strip()
         if not text or text == self._speech_warm or self._speech_warming is not None:
             return False
@@ -3348,9 +3314,7 @@ class RadioDaemon:
     def _start_watchdogs(self):
         threading.Thread(target=self._speaker_watch_loop, daemon=True).start()
         threading.Thread(target=self._volume_watch_loop, daemon=True).start()
-        # A machine without an access point has no uap0 to read, and asking iw
-        # for it only earns a warning about an interface that was never meant
-        # to be there.
+        # No access point, no uap0: asking iw would only log a warning.
         if self.cfg["AP_WATCH_INTERVAL_SEC"] > 0 and platform_mod.has("access_point"):
             threading.Thread(target=self._ap_watch_loop, daemon=True).start()
 
@@ -3755,13 +3719,8 @@ class RadioDaemon:
         self._do_shutdown_sequence(force=True, reason=reason)
 
     def _start_mode(self):
-        """The start mode in force, which is not always the chosen one.
-
-        "at the speaker's connection" means the speaker is the on switch. With
-        the sound going to a wired output it says nothing at all: the radio then
-        waited in silence for a speaker it does not even play to, while the USB
-        card was already there. The setting itself is left alone - the interface
-        strikes it through - and boot is what it means in that case."""
+        """The start mode in force, which is not always the chosen one."""
+        # Waiting for a speaker means nothing with a wired output: it then means boot.
         chosen = self.cfg.get("MUSIC_START_MODE", "boot")
         if chosen == "bluetooth" and (self.cfg.get("AUDIO_OUTPUT") or "bluetooth") != "bluetooth":
             return "boot"
@@ -4013,9 +3972,8 @@ class RadioDaemon:
             "music_started_today": self.state.already_triggered_today("last_music_start"),
             "version": self._state_version,
             "restart_pending": self._restart_pending,
-            # True while a sentence is being synthesised here: the interface says
-            # so rather than looking frozen (a click's sentence is the only one
-            # that cannot be prepared in advance).
+            # A click's sentence cannot be prepared in advance: the interface says
+            # it is being synthesised.
             "speech_preparing": self._speech_busy > 0 or self._speech_warming is not None,
             "restart_target": self._restart_target,
             "restart_direct": self._restart_is_direct(),
@@ -4036,9 +3994,8 @@ class RadioDaemon:
             "previous_restart_sec": self.PREVIOUS_RESTART_AFTER_SEC,
             "music_loop": self.cfg["MUSIC_LOOP"],
             "music_start_mode": self.cfg["MUSIC_START_MODE"],
-            # True when the chosen start mode cannot act here (it waits for the
-            # speaker while the sound goes to a wired output): the interface
-            # shows the option struck through, and says nothing is waiting.
+            # The start mode waits for a speaker while the sound goes to a wire: the
+            # interface strikes it through.
             "music_start_mode_inert": self._start_mode() != self.cfg["MUSIC_START_MODE"],
             "music_start_time": "%02d:%02d" % (
                 self.cfg["MUSIC_START_HOUR"], self.cfg["MUSIC_START_MINUTE"]),

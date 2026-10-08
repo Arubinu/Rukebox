@@ -1,7 +1,4 @@
-"""RFID cards: what each card starts when it is held on the reader.
-
-Plain JSON like likes.json: a growable list with its own form, keyed by the
-number the reader types."""
+"""RFID cards: what each card starts when it is held on the reader."""
 
 import re
 

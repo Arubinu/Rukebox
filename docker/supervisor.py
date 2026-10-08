@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""The container's own supervisor: what systemd does on a Pi.
-
-A container has no systemd, so nothing would restart the daemon after it ends
-by itself - which is how "restart the service" works there, and how "switch
-off" ends the container. This runs the two processes, restarts them when they
-stop asking to, and stops everything on SIGTERM.
-
-It is deliberately small and uses nothing but the standard library: the project
-has no dependencies to install (see CLAUDE.md), and a supervisor is not worth
-being the first one."""
+"""The container's own supervisor: what systemd does on a Pi."""
 
 import logging
 import os
@@ -23,9 +14,7 @@ log = logging.getLogger("supervisor")
 
 SRC = os.environ.get("RUKEBOX_SRC") or "/opt/rukebox/src"
 POLL_SEC = 2.0
-# Left by the daemon when "switch off" meant the container and not a restart
-# (see src/system_actions.py): without it, this supervisor would start the
-# radio again a second later.
+# Left by "switch off" (src/system_actions.py): stand down instead of restarting.
 STOP_REQUEST = "switch-off-request"
 # How long a process waits for the sound server's socket before giving up and
 # starting anyway (it then fails on its own, and is restarted).
@@ -39,12 +28,7 @@ _stopping = False
 
 
 class Child:
-    """One process, restarted whenever it stops.
-
-    `ready` is what the sound server has to have produced before this one is
-    started: PipeWire takes a moment to create its socket, and anything that
-    connects to it - the Pulse layer, mpv, the web server's `pw-dump` - dies
-    at once if it is not there yet."""
+    """One process, restarted whenever it stops."""
 
     def __init__(self, name, argv, ready=None):
         self.name = name
@@ -122,15 +106,8 @@ def _on_signal(signum, _frame):
 
 
 def children():
-    """What this container runs, in order.
-
-    PipeWire is only started when nothing else provides a sound server: a
-    container given the host's PipeWire socket, or a sound card of its own,
-    must not have a second one started on top of it.
-
-    `pipewire-pulse` is the PulseAudio compatibility layer. The project talks
-    to PipeWire with `pw-dump`, but the layer is what gives the virtual output
-    a MONITOR - the stream has nothing to encode without it."""
+    """What this container runs, in order."""
+    # pipewire-pulse is what gives the virtual sink a monitor to encode.
     started = []
     if _needs_local_pipewire():
         started.append(Child("pipewire", ["pipewire"]))
@@ -169,13 +146,8 @@ def _socket_answers(path):
 
 
 def _drop_stale_socket():
-    """Forgets a socket file nothing listens on.
-
-    /run survives a restart of this container, so the sound server of the run
-    before is still there as a file: it would stop us starting our own, and the
-    daemon would wait on a socket nobody ever answers on. A socket that was
-    given to us (a bind mount, see the third compose variant) is reported
-    rather than deleted - it is not ours."""
+    """Forgets a socket file nothing listens on."""
+    # /run survives a container restart; a bind-mounted socket is not ours to delete.
     path = os.path.join(_runtime_dir(), "pipewire-0")
     if not os.path.exists(path) or _socket_answers(path):
         return False
@@ -193,14 +165,8 @@ def _drop_stale_socket():
 
 
 def _audio_ready():
-    """PipeWire has its socket AND something to play to.
-
-    The socket comes first by a moment: a daemon started on the socket alone
-    finds no sink, gives mpv "auto", and only corrects itself on its next
-    output check 30 seconds later - which is what made the virtual sink work
-    on a first start and not after a restart. Waiting for one Audio/Sink here
-    is the whole fix; if none ever appears the daemon starts anyway and says
-    so itself."""
+    """PipeWire has its socket AND something to play to."""
+    # The socket comes a moment before the sinks.
     if not _pipewire_socket():
         return False
     try:

@@ -177,11 +177,8 @@ cat > "$APPLY_LOCAL" <<APPLY
 set -e
 STAGING="\$(mktemp -d /tmp/rukebox-staging-XXXXXX)"
 cleanup() {
-    # install.sh just ran under sudo and may have left root-owned files
-    # in here (e.g. __pycache__/*.pyc from importing the staged Python
-    # source) that this script, running as the plain SSH user, cannot
-    # remove - that must never be mistaken for the install itself
-    # failing, which is why every branch below ends in "|| true".
+    # Root-owned __pycache__ may be left here: a failed cleanup must never fail
+    # the install, hence "|| true".
     sudo rm -rf "\$STAGING" 2>/dev/null || rm -rf "\$STAGING" 2>/dev/null || true
     rm -f "$REMOTE_ARCHIVE" "$REMOTE_APPLY"
 }

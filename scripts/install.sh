@@ -8,23 +8,8 @@ fi
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# ---------------------------------------------------------------------------
-# Which machine is this?
-#
-# A Raspberry Pi gets everything. An LXC container (Proxmox, or any host with
-# lxc) keeps systemd, the units, the updater and the web interface, and loses
-# what a container cannot have: the access point, the USB gadget, the hardware
-# clock, GPIO, the activity LED. src/platform.py reaches the same conclusion
-# at run time, from the same signs - this is the installer's own copy, for
-# the things that are decided before anything runs.
-#
-# RUKEBOX_PROFILE=pi|lxc forces it, which is what the tests use.
-# RUKEBOX_SKIP_INTERNET_CHECK=yes goes past the access probe (an apt proxy
-# answers on neither port it tries).
-# ---------------------------------------------------------------------------
-# What systemd says this machine is running in. LXC creates no /dev/lxc and
-# leaves `container=lxc` in the environment of PID 1 alone - neither reaches a
-# shell - so that file is what tells a Proxmox container from a Pi here.
+# Same signs as src/platform.py. LXC creates no /dev/lxc and keeps
+# `container=lxc` in PID 1's environment only: this file is what a shell sees.
 CONTAINER_KIND=""
 if [ -r /run/systemd/container ]; then
     CONTAINER_KIND="$(tr -d '[:space:]' < /run/systemd/container)"
@@ -162,10 +147,7 @@ else
 fi
 
 echo "== Checking Internet access (needed once, for apt/pip) =="
-# Three tries: a container's network is often still coming up when the
-# installer starts, and a lease that is a second late is not a missing host.
-# Both ports, because apt fetches over 80 and a network that only filters 443
-# would look dead here while apt works perfectly.
+# Three tries (a container's network comes up late), on both ports apt may use.
 internet="no"
 if [ "${RUKEBOX_SKIP_INTERNET_CHECK:-}" = "yes" ]; then
     internet="skipped"
@@ -200,23 +182,15 @@ fi
 
 echo "== Installing system packages =="
 apt-get update
-# rtkit gives the audio server realtime priority, so a busy moment does not make the sound stutter.
-# util-linux-extra carries hwclock, which writes a time set by hand into the clock module.
-# A container template carries neither sudo nor curl: the first is what visudo
-# and the interface's own systemctl calls need, the second what the Flic SDK
-# helper downloads with.
+# util-linux-extra carries hwclock; a container template has neither sudo nor
+# curl, which the grants and the Flic SDK helper need.
 apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit util-linux-extra \
     sudo curl \
     espeak-ng \
     pipewire pipewire-bin wireplumber pipewire-audio \
     pipewire-pulse pulseaudio-utils
-# pipewire-pulse and pulseaudio-utils carry `pactl`, which the network stream
-# uses to find the output to encode (and which the audio diagnostic reports
-# with). `pactl` answers where `pw-dump` cannot - notably inside a container -
-# so having both is what keeps the stream findable everywhere.
-# pico2wave is the nicer French voice and not in every Debian (trixie dropped
-# it): src/speech.py tries it first and then uses espeak-ng, so its absence is
-# not a reason to stop the installation.
+# `pactl` reaches PipeWire where `pw-dump` cannot (inside a container). Trixie
+# dropped pico2wave: its absence is not a failure, speech.py falls back.
 apt-get install -y libttspico-utils \
     || echo ">> pico2wave (libttspico-utils) is not in this release: announcements will use espeak-ng."
 # WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
@@ -286,9 +260,8 @@ case "$action" in
     *)             echo ">> /etc/rukebox/rukebox.yaml already present, left untouched." ;;
 esac
 
-# The seeded announcement types name the template's audio root (the Pi's own): a
-# container keeps its tree elsewhere, and a folder outside those roots is one the
-# interface may not write to, and one the radio would play from an empty folder.
+# The seeded announcement folders name the template's audio root: moved to this
+# machine's.
 moved="$(python3 "$PROJECT_ROOT/src/config_file.py" retarget_audio /home/pi/audio "$AUDIO_ROOT")"
 [ "$moved" = "moved 0" ] || echo ">> $moved announcement folder(s) moved to $AUDIO_ROOT."
 
@@ -307,10 +280,7 @@ if [ "$PROFILE" = "lxc" ]; then
         "AP_CONNECT_SOUND=" \
         "BATTERY_LOW_SOUND=" > /dev/null
     echo ">> Audio folders moved to $AUDIO_ROOT (the template documents the Pi's)."
-    # A first start on a container gets the same two answers the Docker image
-    # writes: its own virtual output instead of a speaker it has not got, and the
-    # network stream, which is the only way a container is heard. An existing file
-    # is left alone - the choice is the reader's from then on.
+    # A first start only, like the Docker image: an existing file keeps its choice.
     case "$action" in
         "created "*)
             python3 "$PROJECT_ROOT/src/config_file.py" set \
@@ -430,10 +400,8 @@ if [ "$PROFILE" = "lxc" ]; then
     echo "   LED, GPIO, hardware clock, personal Wi-Fi, the Flic button)."
 
     echo "== The container's own sound server =="
-    # A container has no card of its own, so the radio plays into a virtual
-    # output and the network stream is what you hear. The same pieces as the
-    # Docker image: the null sink, PipeWire, WirePlumber, and the Pulse layer
-    # that gives the sink its monitor.
+    # No sound card: the same null sink, PipeWire, WirePlumber and Pulse layer as
+    # the Docker image.
     install -D -m 644 -o root -g root "$PROJECT_ROOT/docker/pipewire-container.conf" \
         /etc/pipewire/pipewire.conf.d/rukebox-container.conf
     install -D -m 600 -o "$RUN_USER" -g "$RUN_USER" "$PROJECT_ROOT/config/container-runtime.env" \
@@ -443,9 +411,7 @@ if [ "$PROFILE" = "lxc" ]; then
     echo "   The radio now plays to a virtual output; you hear it over the network."
 
     echo "== Timezone of this container =="
-    # A container is on UTC unless someone says otherwise, and Proxmox does not
-    # inherit the host's zone: every schedule, and the time the radio says out
-    # loud, is then off by the difference.
+    # A Proxmox container does not inherit the host's zone: schedules would be off.
     ZONE="${RUKEBOX_TIMEZONE:-}"
     current="$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
     if [ -z "$ZONE" ] && [ -t 0 ]; then

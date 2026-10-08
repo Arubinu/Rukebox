@@ -1,9 +1,4 @@
-"""The DJ's introduction, read from a prepared file when there is one.
-
-Beside the music, in one folder: a file named after the song, or one named
-`_any` beside it - which then covers its album, its artist or everything, the
-way up. Nothing is generated here: a file that is not there is simply not
-there, and the radio falls back on its own voice (see DJ_ANNOUNCE_MODE)."""
+"""The DJ's introduction, read from a prepared file when there is one."""
 
 import os
 
@@ -79,12 +74,8 @@ def levels(track, folder, music_dir, listings=None):
 
 
 def candidates(track, folder, music_dir, listings=None, extensions=None):
-    """Every prepared file that could speak for `track`, most precise first:
-    its own file, then `_any` beside it, beside its artist, and in the folder
-    itself. A generator, so a caller can skip a file it cannot read.
-
-    `extensions` is what counts as prepared: the audio ones by default, which
-    is what makes the covers folder a mirror of the music one too."""
+    """Every prepared file that could speak for `track`, most precise first, as a generator so
+    a caller can skip one it cannot read."""
     folder = str(folder or "").strip()
     music_dir = str(music_dir or "").strip()
     if not folder or not music_dir or not track:
@@ -101,20 +92,12 @@ def candidates(track, folder, music_dir, listings=None, extensions=None):
 
 
 def find(track, folder, music_dir, listings=None, extensions=None):
-    """The prepared file for `track`, or None.
-
-    The song's own file first, then `_any` beside it, then `_any` beside its
-    artist, then `_any` in the folder itself."""
+    """The prepared file for `track`, or None."""
     return next(candidates(track, folder, music_dir, listings, extensions), None)
 
 
 def scan(tracks, folder, music_dir, extensions=None):
-    """(how many prepared files there are, how many of these songs have one).
-
-    One pass over the library: the folders are listed once each, not once per
-    song, because thousands of listings are slow on a Pi's card. What an
-    operating system leaves behind (a leading dot, `.DS_Store`, macOS'
-    `._name` twins) is not one of them."""
+    """(how many prepared files there are, how many of these songs have one)."""
     wanted = EXTENSIONS if extensions is None else extensions
     folder = str(folder or "").strip()
     files = 0

@@ -1,10 +1,4 @@
-"""The music lists: what the radio plays instead of the whole library.
-
-A list is either "manual" (tracks picked one by one from the web interface,
-in the order they were added) or "genre" (kept up to date from the genres
-read in the library's tags). Plain JSON, like announcements.json: a growable
-list with its own form, not a scalar setting. The daemon reads it to build
-its queue, the web server writes it."""
+"""The music lists: what the radio plays instead of the whole library."""
 
 import logging
 import os

@@ -1,8 +1,4 @@
-"""The liked tracks: a heart on the song playing, and the list it builds.
-
-Plain JSON like music_lists.json - a growable list with its own dates, not a
-scalar setting. The web server is the only writer; the file survives a rescan
-because a track is remembered by its library key, not by its file name."""
+"""The liked tracks: a heart on the song playing, and the list it builds."""
 
 import calendar
 import datetime

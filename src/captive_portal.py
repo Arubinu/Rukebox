@@ -48,17 +48,8 @@ def is_probe_path(path):
 
 
 def probe_response(path):
-    """(status, content_type, body) telling the OS the network is fine.
-
-    Apple's page is deliberately the tiniest one that carries the word its
-    operating system reads, with nothing else on it: a richer page was tried
-    on 2026-10-01 (the address of the interface under the word, for the case
-    where a portal window lands there anyway) and reverted the same day, once
-    the real problem turned out to be that window never being sent to this
-    address at all - see the nudge in web/app.js. Do not decorate it again
-    without an iPhone to prove iOS still settles on it. Android's 204 must
-    stay empty (any body reads as interception), and Windows' two files are
-    compared word for word."""
+    """(status, content_type, body) telling the OS the network is fine."""
+    # Apple's page stays bare and Android's 204 empty: anything more reads as interception.
     return PROBE_RESPONSES[path.lower()]
 
 

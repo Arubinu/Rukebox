@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Bridge from a USB RFID reader (or a barcode scanner) to the daemon.
-
-Such a reader is a keyboard: it types the card's number (or the barcode) and Enter. The device
-is grabbed, so those keys never reach anything else."""
+"""Bridge from a USB RFID reader (or a barcode scanner) to the daemon."""
 
 import logging
 import os

@@ -1,15 +1,4 @@
-"""Tracks the library holds more than once.
-
-Nothing is read from disk: the scan already probed every file once, so the
-grouping runs on library.db alone (title, artist, album, size, duration) and is
-instant. Two tracks belong to the same song when their folded artist and title
-match, once the bracketed parts, the leading track number and a trailing
-"feat." clause are off - "05 - La Seine (Extrait de la BOF)" and "13 - La
-Seine" are one song. A pair whose size AND duration are the same is flagged as
-the very same file copied twice, which is the only thing here that needs
-neither an ear nor a hash: nothing else can make two files weigh the same
-second for second.
-"""
+"""Tracks the library holds more than once."""
 
 import os
 import re

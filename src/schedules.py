@@ -1,9 +1,5 @@
-"""Schedules: start the music, stop it, or both, on chosen days or one date,
-with settings that only hold while the schedule runs.
-
-Plain JSON, like announcements.json and music_lists.json: a growable list
-with its own form. The daemon reads it every scheduler tick and decides by
-the clock alone, so a restart in the middle of a schedule finds it running."""
+"""Schedules: start the music, stop it, or both, on chosen days or one date, with settings that
+only hold while the schedule runs."""
 
 import logging
 import re

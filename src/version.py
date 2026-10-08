@@ -112,11 +112,8 @@ def tag_parts(text):
 
 
 def is_newer(candidate, installed):
-    """Whether a published release is one the installed version should move to.
-
-    A tree pushed from a repository records `git describe` - "v1.2.0-5-g5622dcf"
-    is five commits AFTER v1.2.0 - so it must not be offered v1.2.0 as an
-    update, which is exactly what a plain string comparison did."""
+    """Whether a published release is one the installed version should move to."""
+    # "v1.2.0-5-g..." is AFTER v1.2.0, which a string comparison gets wrong.
     candidate = str(candidate or "").strip()
     installed = str(installed or "").strip()
     if not candidate or candidate == installed:

@@ -182,9 +182,8 @@ if [ "$ASSUME_YES" != "1" ]; then
     [[ "$confirm" =~ ^[nN] ]] && { echo "Cancelled."; exit 0; }
 fi
 
-# USB Bluetooth audio desensitises the Pi's own Wi-Fi: pause the music or the upload crawls.
-# Wait for a small probe upload rather than guessing: the rate takes a minute to come back.
-# Every ssh here is retried: a lost answer would leave the music paused for good.
+# Bluetooth audio starves the Wi-Fi receiver: the music pauses for the upload.
+# Every ssh is retried: a lost answer would leave the music paused.
 radio_quiet() {
     local attempt
     attempt=1
@@ -292,11 +291,8 @@ cat > "$APPLY_LOCAL" <<APPLY
 set -e
 STAGING="\$(mktemp -d /tmp/rukebox-staging-XXXXXX)"
 cleanup() {
-    # update.sh just ran under sudo and may have left root-owned files
-    # in here (e.g. __pycache__/*.pyc from importing the staged Python
-    # source) that this script, running as the plain SSH user, cannot
-    # remove - that must never be mistaken for the update itself
-    # failing, which is why every branch below ends in "|| true".
+    # Root-owned __pycache__ may be left here: a failed cleanup must never fail
+    # the update, hence "|| true".
     sudo rm -rf "\$STAGING" 2>/dev/null || rm -rf "\$STAGING" 2>/dev/null || true
     rm -f "$REMOTE_ARCHIVE" "$REMOTE_APPLY"
 }

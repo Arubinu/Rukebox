@@ -1,8 +1,5 @@
-"""One snapshot of the personal Wi-Fi: the link, what it loses, and every time
-it dropped since the Pi started - against what the Bluetooth radio was doing.
-
-English on purpose, like audio_diag: a technical report made to be pasted.
-"""
+"""One snapshot of the personal Wi-Fi: the link, what it loses, and every time it dropped since
+the Pi started - against what the Bluetooth radio was doing."""
 
 import os
 import re

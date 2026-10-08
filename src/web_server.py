@@ -123,11 +123,8 @@ def control(cmd, **kwargs):
 
 
 def _effective_music_dir():
-    """Where the library is right now: the USB key being played from, or the
-    folder the settings name.
-
-    The daemon is what mounts a key, so it is the one asked - and the answer is
-    remembered for a moment, since the page asks for the library often."""
+    """Where the library is right now: the USB key being played from, or the folder the
+    settings name."""
     planned = cfg().get("MUSIC_DIR") or ""
 
     def from_daemon():
@@ -169,14 +166,7 @@ def _ensure_session_secret(initial_cfg):
 
 
 def _ensure_upnp_identity(values=None):
-    """This radio's name on the network, and what a player remembers it by.
-
-    Both are drawn once and kept in the file: the name with its four digits, so
-    that two radios on one network are told apart without anyone having to think
-    about it, and the identity - never shown - so that renaming the radio
-    relabels the device a player already has instead of adding a second one.
-    Generated here rather than at install, so a radio installed before this
-    existed gets both too."""
+    """This radio's name on the network, and what a player remembers it by."""
     values = cfg() if values is None else values
     name = str(values.get("UPNP_NAME") or "").strip()
     uid = str(values.get("UPNP_UID") or "").strip()
@@ -304,11 +294,8 @@ def api_stream():
 @app.route("/stream")
 @app.route("/stream.<ext>")
 def stream_audio(ext=None):
-    """The encoded audio itself: one response per listener, never buffered.
-
-    `direct_passthrough` is what keeps Flask from collecting the stream in
-    memory - there is no end to it, and the reader has to start hearing the
-    first second before the next one is encoded."""
+    """The encoded audio itself: one response per listener, never buffered."""
+    # direct_passthrough keeps Flask from buffering an endless stream.
     server = stream_server()
     if server is None or not server.source:
         # VLC gets a code rather than silence, and the page says the same thing
@@ -331,10 +318,6 @@ def stream_audio(ext=None):
 _PRE_LOGIN_PATHS = frozenset({"/api/portal/status"})
 
 
-# --------------------------------------------------------------------------
-# UPnP: the same stream, offered to a player that looks for itself
-# --------------------------------------------------------------------------
-
 UPNP_SERVICES = {name: upnp.service_of(name) for name, _type, _id in upnp.SERVICES}
 # The two modes in which nothing plays by itself: an announcement can still be
 # heard in them, which is why the item's own name looks at that too.
@@ -347,12 +330,7 @@ def _stream_available():
 
 
 def _daemon_playing(data):
-    """True when something should be coming out of the radio.
-
-    What puts sound in the stream is a loaded track in a playing mode, or an
-    announcement - nothing else. A Pi whose speaker is away reports "music" and
-    not paused with no track at all, which is the state the owner heard nothing
-    in."""
+    """True when something should be coming out of the radio."""
     if data.get("paused"):
         return False
     if data.get("sound"):
@@ -396,25 +374,15 @@ def _upnp_items():
 
 _upnp_lock = threading.Lock()
 UPNP_WATCH_SEC = 5.0
-# An encoder that has produced nothing for this long, while the radio is
-# playing, is reconnected: its capture attached while the sink was silent and
-# never came back to life (measured on a Pi, see docs/guide.md). Short, because
-# the listeners are kept over the reconnect: a player waiting on it hears the
-# music that much sooner.
+# A capture attached to a silent sink never wakes up: it is reconnected, and the
+# listeners are kept over it.
 STREAM_STALL_SEC = 4.0
 STREAM_STALL_ATTEMPTS = 5
 _stream_stalls = {"tries": 0}
 
 
 def _upnp_follow_stream():
-    """Announces this radio exactly while there is a stream to offer.
-
-    There is no switch of its own: the announcement and the stream are the same
-    thing seen from two sides, so this follows the stream's switch. A player
-    handed an empty folder keeps it until it is restarted, and one asking for
-    the folder before the stream is on is exactly what the owner reported: the
-    device comes and goes with the stream instead, which is also what makes the
-    entry appear without restarting anything."""
+    """Announces this radio exactly while there is a stream to offer."""
     wanted = _stream_available()
     with _upnp_lock:
         if wanted:
@@ -424,10 +392,7 @@ def _upnp_follow_stream():
 
 
 def _apply_stream_tuning():
-    """Hands the running encoder the stream's own volume and title.
-
-    The file has just been written; the listeners are kept, since they are
-    listening right now and the two are only worth changing live."""
+    """Hands the running encoder the stream's own volume and title."""
     server = stream_server()
     if server is None or not server.source:
         return False
@@ -443,9 +408,8 @@ def _reconnect_a_silent_stream():
         _stream_stalls["tries"] = 0
         return False
     if server.stalled_for() < STREAM_STALL_SEC:
-        # A young encoder has written nothing yet, and that is not a stall: it
-        # is given its time, or every player joining would have its stream ended
-        # under it (that is what a reconnect does - the response stops).
+        # A young encoder has not written yet: reconnecting it would end the stream
+        # of the player that just joined.
         _stream_stalls["tries"] = 0
         return False
     if not _daemon_playing(_daemon_status()):
@@ -1002,15 +966,8 @@ ACTION_TOGGLES = {"/api/action/toggle_pause", "/api/action/start_music", "/api/a
 _repeats = {}
 _repeats_lock = threading.Lock()
 
-# What a route needs from the machine before it means anything, per HTTP
-# method: nothing here is about the network or about who is asking, it is what
-# a GPIO pin or a clock needs, and a container has none of it. The method
-# matters - /api/time/timezone is readable everywhere and only writable where
+# Per method: /api/time/timezone is readable everywhere, writable only where
 # there is a clock to set.
-#
-# The access point is NOT here: /api/setup/pending reports what a first install
-# still has to pair and /api/wifi/ap reads a connection profile, both of which
-# answer fine anywhere. It is the page's own cards that are hidden.
 _ROUTE_CAPABILITIES = {
     "/api/gpio/detect": {"gpio": ("POST",)},
     "/api/gpio/pinout": {"gpio": ("GET",)},
@@ -1123,8 +1080,6 @@ def _remember_action_reply(response):
         if state["busy"] == 0:
             state["done"].set()
     return response
-
-
 
 
 @app.before_request
@@ -2400,12 +2355,8 @@ def api_audio_fallback():
 
 @app.route("/api/usb_music", methods=["POST"])
 def api_usb_music():
-    """Reads the library from a plugged USB key, gives it back to the internal
-    folder, or forgets the key the radio would take again. `switch: "now"` also
-    changes the song that is playing; without it the setting says.
-
-    The daemon does the work - it is the one that mounts the key read-only and
-    switches the library - so this only carries the request over."""
+    """Uses a plugged USB key for the library, gives it back, or forgets it; `switch: "now"`
+    also changes the song playing."""
     body = request.get_json(silent=True) or {}
     if body.get("forget"):
         answer = control("usb_music", forget=True)
@@ -3427,10 +3378,7 @@ SYSTEM_SOUND_MAX_BYTES = 20 * 1024 * 1024
 
 
 def _system_sound_custom_dir(key, values=None):
-    """Where a replacement sound is uploaded.
-
-    The folder of the sound in use, not the template's: a container keeps its
-    audio under /srv/rukebox/audio, and the template still names the Pi's."""
+    """Where a replacement sound is uploaded."""
     values = cfg() if values is None else values
     current = str(values.get(key) or "").strip() or DEFAULTS[key]
     return os.path.join(os.path.dirname(current), "custom")
@@ -4458,11 +4406,8 @@ def _bt_wait_flag(mac, flag, timeout=4):
 
 
 def _bt_await(commands, verdicts, timeout=30, agent=False):
-    """Runs bluetoothctl with its stdin left open and waits for the answer.
-
-    A number in `commands` is a pause, in seconds, before the next one:
-    bluetoothctl has no wait of its own, and a scan needs a moment before the
-    device it is looking for exists again."""
+    """Runs bluetoothctl with its stdin left open and waits for the answer."""
+    # A number in `commands` is a pause: bluetoothctl has no wait of its own.
     command = ["bluetoothctl"]
     if agent:
         command += ["--agent", "NoInputNoOutput"]
@@ -4599,10 +4544,6 @@ def capabilities():
     there and the routes below answer `unsupported_here` for it."""
     return platform_mod.caps()
 
-
-# --------------------------------------------------------------------------
-# The network output: what the radio plays, encoded and served here
-# --------------------------------------------------------------------------
 
 _stream_lock = threading.Lock()
 _stream = {"server": None}
@@ -5038,13 +4979,8 @@ _audio_state = {"at": 0.0, "data": None}
 
 
 def _user_runtime_dir():
-    """Where the sound server's session lives, or None if there is none.
-
-    `XDG_RUNTIME_DIR` (or `PIPEWIRE_RUNTIME_DIR`) first when it is set and
-    real, then the per-user directory of a normal login - a container is run
-    as root with the socket somewhere of its own choosing (`/run/rukebox` in
-    the image), and looking only at /run/user/<uid> made the interface report
-    no sound server at all while the radio played perfectly well."""
+    """Where the sound server's session lives, or None if there is none."""
+    # XDG_RUNTIME_DIR first: a container's socket is not under /run/user.
     for name in ("PIPEWIRE_RUNTIME_DIR", "XDG_RUNTIME_DIR"):
         chosen = os.environ.get(name)
         if chosen and os.path.isdir(chosen):
@@ -5487,16 +5423,13 @@ def _storage_health(path, role):
             fs_errors = None
     io_errors = _io_errors(info.get("disk"))
     read_only = "ro" in options
-    # A share or a bind mount that is read-only is a decision - a container's
-    # music arrives with `:ro` - and so is the key the radio plays from, which
-    # is mounted read-only on purpose so it can be pulled out at any moment.
-    # A device remounted read-only after write errors is the failure case.
+    # A `:ro` share and the USB key are read-only on purpose; only a device the
+    # kernel remounted read-only is a failure.
     on_purpose = info.get("part") is None or mnt == usb_storage.mount_point()
     read_only_on_purpose = read_only and on_purpose
     status = "ok"
-    # "Almost full" is a share of the device: a fixed 500 MB floor is larger
-    # than a small key, which then says "almost full" for ever - a 240 MB key
-    # half empty did. On anything of 10 GB or more the two rules agree.
+    # A share of the device: a fixed 500 MB floor would call a small key full for
+    # ever.
     if usage["free"] < usage["total"] * 0.05 or io_errors:
         status = "warn"
     if (read_only and not read_only_on_purpose) or fs_errors:
@@ -6232,15 +6165,8 @@ AUDIO_EXTENSIONS = (".mp3", ".opus", ".ogg", ".oga", ".wav", ".m4a", ".aac",
 
 
 def _allowed_roots():
-    """Every folder this installation keeps sounds in, whether it exists yet or
-    not: a sound uploaded into a folder the interface has not created is the
-    case that matters, so the write checks cannot ask the filesystem.
-
-    Nothing else on the machine is reachable from the interface - the picker
-    browses these and their subfolders, and every write is refused outside them.
-    The Pi's home used to be a root of its own, which opened /home/pi, and the
-    music folder beside it, to anyone reading the page (reported as: lock the
-    folder picker on the allowed path and its subfolders)."""
+    """Every folder this installation keeps sounds in, created or not, outside which nothing is
+    browsed or written."""
     roots = []
     values = cfg()
     for setting in config_schema.SETTINGS:

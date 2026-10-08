@@ -151,19 +151,8 @@ def _picture_in(folder, stems):
 
 
 def _picture_names(folder):
-    """What a picture may be called in a music folder, most standard first.
-
-    The list is the union of what the readers people come from look for:
-    miniDLNA's own default (`cover`, `folder`, `album`, `albumart`,
-    `albumartsmall`, `thumb`), Emby's and Jellyfin's primary art (`folder`,
-    `poster`, `cover`, `default`, `jacket`), the WMP/MusicBee/Kodi `front`,
-    and - last, as Kodi, Plex and Windows Media Player all read it - the
-    folder's own name (`2011 - Sorry For Rocking.jpg`, `LMFAO.jpg`).
-
-    Deliberately not here: `fanart`, `backdrop`, `banner`, `logo`, `clearart`,
-    `disc`, `cdart`, `landscape`. They are artwork of another KIND (a wide
-    background, a logo, a disc), and a 16:9 backdrop shown in the square cover
-    frame is worse than the grey note."""
+    """What a picture may be called in a music folder, most standard first."""
+    # Not fanart, backdrop, banner, logo or disc: another kind of artwork, wrong in a square frame.
     names = list(FOLDER_IMAGE_NAMES)
     own = os.path.basename(str(folder or "").rstrip(os.sep)).strip().lower()
     if own and own not in names:
@@ -172,10 +161,7 @@ def _picture_names(folder):
 
 
 def _named_pictures(path):
-    """The pictures named after `path` beside it, one per extension.
-
-    `03 - Mojo.cover.jpg` first, which is miniDLNA's own spelling, then
-    `03 - Mojo.jpg`."""
+    """The pictures named after `path` beside it, one per extension."""
     folder = os.path.dirname(path)
     stem = os.path.splitext(os.path.basename(path))[0].lower()
     names = _listing(folder)
@@ -233,14 +219,7 @@ def _priority(value):
 
 
 def _cover_sources(path, cover_dir, music_dir, priority):
-    """Where the cover is looked for, in order, as ("file", path) or
-    ("tag", None).
-
-    The prepared covers folder is the "files" side; it mirrors the music tree
-    and takes the same names, `_any` and the song's own name first.
-    Everything the music folders carry counts as the "id3" side: the picture
-    named after the track, the one embedded in the file, then the folders'
-    own names, from the album up through the artist to the library."""
+    """Where the cover is looked for, in order, as ("file", path) or ("tag", None)."""
     prepared = [("file", found) for found in _prepared_pictures(path, cover_dir, music_dir)]
     beside = [("file", found) for found in _named_pictures(path)]
     folders = []
@@ -291,12 +270,7 @@ def _find_cover(path, cover_dir=None, music_dir=None, priority=None):
 
 
 def cover(path, cover_dir=None, music_dir=None, priority=None):
-    """(bytes, mime) for the track's cover, or None.
-
-    `cover_dir` is the prepared covers folder and `music_dir` the library it
-    mirrors; `priority` says which of the two sides wins (see
-    COVER_PRIORITIES). Without them, only what the track's own folders and
-    tags carry is looked at."""
+    """(bytes, mime) for the track's cover, or None."""
     global _cover_cache_bytes
     key = _cover_key(path, cover_dir, music_dir, priority)
     if key is None:

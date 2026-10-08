@@ -1,8 +1,4 @@
-"""Spoken sentences (the time, the date, the coming cutoff), rendered offline.
-
-Piper sounds human and needs a model of its own; pico2wave is the better of the
-two lightweights but has no Dutch; espeak-ng covers every language, robotic but
-always there. Whatever is installed is used, in that order."""
+"""Spoken sentences (the time, the date, the coming cutoff), rendered offline."""
 
 import hashlib
 import logging
@@ -18,12 +14,10 @@ LANGUAGES = ("en", "fr", "de", "es", "it", "nl")
 KINDS = ("none", "time", "time_date")
 PICO_VOICES = {"en": "en-GB", "fr": "fr-FR", "de": "de-DE", "es": "es-ES", "it": "it-IT"}
 RENDER_TIMEOUT_SEC = 20
-# Piper is a neural network: it is slower than real time on a Pi Zero 2 W
-# (measured: 5.7s of work for 3.2s of speech, plus 3.5-4.4s to load the model).
+# Piper runs slower than real time on a small board, model load included.
 PIPER_TIMEOUT_SEC = 120
-# The natural voice each language gets. All of them are the "medium" quality:
-# the small ones are barely faster on a Pi (the model load dominates) and they
-# are missing phonemes French needs.
+# "medium" everywhere: the small models are barely faster (the load dominates)
+# and lack phonemes French needs.
 PIPER_VOICES = {
     "en": "en_US-lessac-medium",
     "fr": "fr_FR-siwis-medium",
@@ -32,14 +26,11 @@ PIPER_VOICES = {
     "it": "it_IT-paola-medium",
     "nl": "nl_NL-alex-medium",
 }
-# Where the program and its models live: the state root, not the install root,
-# because an update replaces the latter and a 63 MB model is not a file to
-# download again.
+# Under the state root, which an update does not replace.
 PIPER_DIR_NAME = "piper"
 PIPER_BINARY = "piper"
-# Loading a model costs seconds, and the same sentence comes back every day
-# ("Il est 7 heures."): what has been said once is kept, keyed by engine, so a
-# machine that gains a better voice does not replay the old one.
+# Keyed by engine, so a machine that gains a better voice does not replay the
+# old one.
 CACHE_DIR_NAME = "speech-cache"
 CACHE_KEEP = 200
 
@@ -281,10 +272,7 @@ def _remember(text, lang, choice, path):
 
 
 def render(text, lang, path, choice=None):
-    """Writes `text` spoken to the WAV `path`; True when it was.
-
-    `choice` is the Piper voice asked for in the settings, empty for the
-    language's own - and a machine without Piper just says it another way."""
+    """Writes `text` spoken to the WAV `path`; True when it was."""
     lang = language(lang)
     if not text:
         return False

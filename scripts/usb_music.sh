@@ -1,9 +1,6 @@
 #!/bin/sh
-# Mounts a USB key where the radio reads its music from, and takes it away.
-#
-# Everything that needs root happens here: the interface only ever passes a
-# device path, and this script is what checks it, mounts read-only and refuses
-# anything that is not a partition of a removable disk.
+# Mounts a USB key read-only for the music, and unmounts it. The device path is
+# checked here: the caller only passes it.
 set -eu
 
 MOUNT_POINT="${RUKEBOX_USB_MOUNT:-/media/rukebox-usb}"

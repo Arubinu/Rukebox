@@ -559,13 +559,8 @@ class StatsRecorder:
     }
 
     def _events_filter(self, event_type=None, query=None, labels=None):
-        """(where, params) for the event log's filters, shared by the page, the
-        count and the deletion, so what is shown and what is counted agree.
-
-        `labels` are event types the interface recognised in the search text -
-        the names it shows are translated, so "interface" has to become
-        `web_session` somewhere, and that somewhere is the page. An explicit
-        type filter wins over them: it is a choice, the search is a hint."""
+        """(where, params) for the event log's filters, shared by the page, the count and the
+        deletion, so what is shown and what is counted agree."""
         clauses, params = [], []
         if event_type:
             clauses.append("type = ?")

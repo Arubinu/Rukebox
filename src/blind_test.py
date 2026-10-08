@@ -1,8 +1,5 @@
-"""A blind test: an extract plays, everyone with the page open picks the song
-among four, and the right answers score - the fastest one scores twice.
-
-Pure state, no Flask and no daemon: the web server drives it (see
-web_server._game_run) and asks it what each player may see."""
+"""A blind test: an extract plays, everyone with the page open picks the song among four, and
+the right answers score - the fastest one scores twice."""
 
 import random
 import threading

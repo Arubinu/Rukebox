@@ -11,7 +11,7 @@ import time
 
 log = logging.getLogger("mpv")
 
-# acompressor, then a fixed gain, then alimiter: quiet music audible, loud music not clipping.
+# The limiter comes last so the gain before it can never clip.
 COMPRESSION_FILTERS = {
     "soft": ("acompressor=threshold=0.125:ratio=2.5:attack=20:release=400:makeup=1"
              ":knee=6:link=average,volume=5dB,alimiter=limit=0.95:level=false"),

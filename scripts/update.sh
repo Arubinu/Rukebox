@@ -11,10 +11,8 @@ if [ "${RUKEBOX_UPDATE_REEXEC:-}" != "1" ]; then
 fi
 trap 'rm -f "$0"' EXIT
 
-# The Pi's own account and folders are not every machine's: a container runs the
-# units as its own account, and keeps its audio elsewhere. What is running here
-# is what systemd says: LXC creates no /dev/lxc and leaves `container=lxc` in
-# PID 1's environment alone, so a shell sees neither.
+# Same signs as install.sh: LXC creates no /dev/lxc and keeps `container=lxc` in
+# PID 1's environment only.
 CONTAINER_KIND=""
 if [ -r /run/systemd/container ]; then
     CONTAINER_KIND="$(tr -d '[:space:]' < /run/systemd/container)"
@@ -414,10 +412,7 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import config_file
 action, count = config_file.ensure_file(sys.argv[2], sys.argv[3])
-# The announcement folders were seeded from the template's audio root (the Pi's):
-# this installation keeps its own, and a folder outside it is one the interface
-# may not write to - and one the radio would play from an empty folder. The same
-# goes for the folder settings a new version added.
+# Folders seeded from the template's audio root are moved to this machine's.
 values = dict(config_file.DEFAULTS)
 values.update(config_file.read_values(sys.argv[2], sys.argv[3]))
 audio_root = os.path.dirname(str(values.get("MEME_DIR") or "").strip())
@@ -429,10 +424,8 @@ if folders:
     # The file moved under us: what follows reads it back, or it would create a
     # folder at the path it has just left.
     values.update(config_file.read_values(sys.argv[2], sys.argv[3]))
-# The prepared introductions folder, and the prepared covers one, are folders
-# this version introduced: an installation that was updated has never created
-# them, and they are where the files go. Owned like the music beside them, or
-# the interface could not write there.
+# Folders a new version introduced, owned like the music or the interface
+# could not write there.
 music = str(values.get("MUSIC_DIR") or "").strip()
 owner = os.stat(music) if os.path.isdir(music) else None
 for key in ("DJ_ANNOUNCE_DIR", "COVER_DIR"):
@@ -565,9 +558,7 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         apt-get install -y libttspico-utils espeak-ng >/dev/null 2>&1 \
             || echo "WARNING: no speech program (libttspico-utils, espeak-ng): the radio cannot say the time."
     fi
-    # `pactl` is how the network stream finds the output to encode, and how the
-    # audio diagnostic reports it. An installation from before this release has
-    # neither pipewire-pulse nor pulseaudio-utils.
+    # `pactl` is how the network stream finds the output to encode.
     if ! command -v pactl >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
         apt-get install -y pipewire-pulse pulseaudio-utils >/dev/null 2>&1 \
             || echo "WARNING: pactl is missing (pipewire-pulse, pulseaudio-utils): the network stream may find no output to encode."

@@ -1,31 +1,20 @@
-"""The folders you prepare yourself - cover pictures and prepared
-introductions - which mirror the music folder: what the interface browses,
-uploads into and deletes from.
-
-Nothing here is about HTTP: the routes in web_server.py hand it a kind, the
-configuration and a relative path, and it answers what may be touched. Every
-path is checked against the root it belongs to, resolved through symlinks, so
-a `..` or a link pointing outside is refused rather than followed."""
+"""The folders you prepare yourself - cover pictures and prepared introductions - which mirror
+the music folder: what the interface browses, uploads into and deletes from."""
 
 import os
 
 import dj_intro
 import track_media
 
-# One entry per card. `setting` names the configured folder, `extensions` what
-# may be put there - the pictures the cover lookup reads, and the formats the
-# prepared introductions are looked for in (the two must agree, or a file the
-# interface accepts would never be used).
+# `extensions` must be what the lookup reads, or the card would accept a file
+# that is never used.
 KINDS = {
     "covers": {"setting": "COVER_DIR", "extensions": track_media.IMAGE_EXTENSIONS},
     "intros": {"setting": "DJ_ANNOUNCE_DIR", "extensions": dj_intro.EXTENSIONS},
 }
 
-# What every system leaves in a folder that travelled: Windows' desktop.ini and
-# thumbnail caches, macOS' own bookkeeping, a NAS' indexes, a lost+found. Never
-# something the radio prepared, and nothing anyone wants to see in a list of
-# covers - compared without case, as the filesystems that write them do not
-# agree on one. A name starting with a dot is already ignored.
+# What operating systems and NAS leave in a folder; compared without case, as the
+# filesystems that write them do not agree on one.
 SYSTEM_NAMES = frozenset((
     "desktop.ini", "thumbs.db", "ehthumbs.db", "ehthumbs_vista.db",
     "$recycle.bin", "system volume information", "lost+found", "found.000",
@@ -125,12 +114,8 @@ def folder_name(raw):
 
 
 def listing(kind, cfg, relative=""):
-    """What a folder of that kind holds, or None when the path is not one of
-    its own: its subfolders, and every file, each saying whether that kind
-    would use it. What an operating system leaves behind is not listed at all.
-
-    A root that does not exist yet answers an empty listing rather than an
-    error: it is what a first upload creates."""
+    """What a folder of that kind holds, or None when the path is not one of its own, system
+    leftovers excluded."""
     entry = spec(kind)
     if not entry:
         return None

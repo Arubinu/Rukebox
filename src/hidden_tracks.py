@@ -1,10 +1,4 @@
-"""The tracks the radio must not choose by itself.
-
-The file stays where it is, in the library and in the lists, and can still be
-played by hand: it is only out of what the radio picks on its own. Plain JSON
-like likes.json, remembered by the library key so it survives a rescan, and
-carrying the path as well so the daemon can filter without a stat() per track.
-"""
+"""The tracks the radio must not choose by itself."""
 
 import os
 import threading

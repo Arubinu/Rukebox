@@ -1,18 +1,6 @@
 #!/usr/bin/env python3
-"""What a container changes from the template on its very first start.
-
-`config_file.py ensure` renders every setting from the Raspberry Pi's own
-defaults - Bluetooth speaker, stream off. None of that is wrong, it is simply
-not this machine: a container has no sound card, so its output is the virtual
-sink the stream encodes, and the stream is the only way to hear anything.
-
-Left in the environment instead (`RUKEBOX_AUDIO_OUTPUT`), it would be worse
-than useless: `load_config()` lets the environment win over the file, so the
-Audio output card would read "Bluetooth speaker" while the radio played
-elsewhere, and any other output chosen from that card would be silently undone
-at the next restart. Written into the file once, the file is the single source
-of truth from then on - the entrypoint only calls this when it has just
-created it."""
+"""What a container changes from the template on its very first start."""
+# Written into the file, not the environment, which load_config() would let win for ever.
 
 import sys
 

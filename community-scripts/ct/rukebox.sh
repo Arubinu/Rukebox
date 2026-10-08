@@ -3,10 +3,6 @@
 # Copyright (c) 2021-2026 community-scripts ORG
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 # Source: https://github.com/Arubinu/Rukebox
-#
-# Kept in the Rukebox repository, written to these rules on purpose: the day
-# this is proposed upstream the files are copied, not rewritten. See
-# community-scripts/README.md for what that means and what is not here yet.
 
 APP="Rukebox"
 var_tags="${var_tags:-media;music}"

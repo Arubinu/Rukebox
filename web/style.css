@@ -675,9 +675,7 @@ body[data-access="guest"] #searchBtn { display: none !important; }
 .tab-btn.active .tab-icon { background: var(--accent-soft); }
 
 .card[data-tab].tab-hidden { display: none; }
-/* A card that needs what this machine has not got: body[data-caps] is the
-   list of capabilities /api/status reported, written by applyCapabilities()
-   in app.js, which drops the card from the menus with the same data-needs. */
+/* body[data-caps] is written by applyCapabilities() in app.js. */
 body:not([data-caps~="access_point"]) .card[data-needs~="access_point"],
 body:not([data-caps~="captive_portal"]) .card[data-needs~="captive_portal"],
 body:not([data-caps~="gpio"]) .card[data-needs~="gpio"],
@@ -1688,9 +1686,7 @@ body.lyrics-fullscreen { overflow: hidden; }
 .service-list .btn { grid-area: btn; }
 .setup-hidden-line { margin-top: 14px; }
 
-/* A small frame of its own, stuck on top of the volume one: same colours, no
-   bottom edge and no bottom corners, so the two read as one shape. The wrapper
-   is what keeps them touching - .player-controls' own gap would push them apart. */
+/* The wrapper keeps the tab touching the volume frame: a flex gap is not a margin. */
 .volume-block {
   display: flex;
   flex-direction: column;
@@ -1988,15 +1984,9 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
   padding: 6px 0;
 }
 .field-row + .field-row { border-top: 1px solid var(--border); }
-/* A hint between two options is not a row, so the line that separates rows
-   would be missing: the row after a HIDDEN one keeps it (the loop hint sits
-   there, hidden until the card's "?" is asked). A message that is shown
-   separates on its own, and after the last option of a card the line would be
-   one too many. */
+/* The separator survives a hidden hint between two rows. */
 .field-row + .hint[hidden] + .field-row { border-top: 1px solid var(--border); }
-/* A start mode that cannot act with the output in use - struck through, not
-   removed: the setting keeps its value and means "at startup" until the output
-   is the speaker again. */
+/* Struck through, not removed: the setting keeps its value. */
 select option.option-inert { text-decoration: line-through; opacity: 0.55; }
 
 .field-row > label,
@@ -2822,9 +2812,7 @@ select {
   gap: 6px;
 }
 .device-list .device-actions.btn-split { flex: 1 1 100%; gap: 6px 20px; }
-/* On a phone the action line takes the width, and a button is never squeezed
-   into two lines of text: one that does not fit beside the other goes on a
-   line of its own, where it takes the whole width. */
+/* No shrink and no wrap: a button that does not fit takes a line of its own. */
 @media (max-width: 639.98px) {
   #usbCard .device-actions { width: 100%; }
   #usbCard .device-actions > .btn { flex: 1 0 auto; white-space: nowrap; }
@@ -2884,9 +2872,8 @@ select {
 .device-list li.row-locked { cursor: pointer; }
 .device-list li.row-locked:hover { border-color: var(--accent); }
 
-/* The two prepared folders (covers, introductions): the app's list rows with a
-   picture in front. The selectors keep `.device-list li > span:first-child`,
-   declared above, from stretching the thumbnail. */
+/* Specific enough to beat `.device-list li > span:first-child`, which would
+   stretch the thumbnail. */
 .prepared-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2954,9 +2941,7 @@ select {
   color: var(--text-muted);
   overflow: hidden;
 }
-/* Over the drawing, never beside it: the glyph is only the placeholder a
-   picture that cannot be read leaves behind (broken file, or one whose
-   extension this kind does not use). */
+/* Over the glyph, which stays as the placeholder for a picture that fails. */
 .prepared-art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
 .prepared-play { width: 100%; height: 100%; border: 0; background: none; }
 .prepared-play.is-on { color: var(--accent); }

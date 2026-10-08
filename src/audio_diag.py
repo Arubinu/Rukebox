@@ -1,9 +1,5 @@
-"""One snapshot of the audio path: what the radio plays into, through which
-link, and what that link is really carrying.
-
-English on purpose - it is a technical report made to be pasted into a message,
-like the journal. The page shows it behind a translated button.
-"""
+"""One snapshot of the audio path: what the radio plays into, through which link, and what that
+link is really carrying."""
 
 import json
 import logging
@@ -19,7 +15,7 @@ import control_client
 
 log = logging.getLogger("audio_diag")
 
-# The bitpool the encoder agreed on is exposed nowhere: read it back from the measured bitrate.
+# The bitpool the encoder agreed on is exposed nowhere: it is read back from the bitrate.
 SBC_KBPS_BY_BITPOOL = ((452, 76), (328, 53), (229, 35))
 
 MEASURE_SECONDS = 6
@@ -233,13 +229,9 @@ def sink_indexes(env=None):
 
 
 def move_streams_to(sink_name, apps=("mpv",), env=None):
-    """Puts back on `sink_name` the streams those applications play elsewhere,
-    and answers how many had to be moved.
-
-    PipeWire hands a stream to the default output as soon as another device
-    appears - a Bluetooth speaker takes the music off the wired card the
-    settings chose, whatever device mpv asked for (its target.object is not
-    enough to hold it)."""
+    """Puts back on `sink_name` the streams those applications play elsewhere, and answers how
+    many had to be moved."""
+    # PipeWire moves streams to a newly connected default device; mpv's target does not hold them.
     wanted = sink_indexes(env=env).get(sink_name)
     if wanted is None:
         return 0

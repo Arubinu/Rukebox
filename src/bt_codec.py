@@ -1,13 +1,5 @@
-"""Which Bluetooth codecs the Pi offers the speaker.
-
-PipeWire offers every codec listed here and the speaker picks the one it wants.
-Offering one it cannot do is not harmless: measured on the owner's Pi, with
-SBC-XQ offered alone the soundcore Select 4 Go answered on the headset profile
-instead (mSBC, telephone quality) rather than falling back to SBC.
-
-The list becomes a WirePlumber drop-in of its own, generated from the settings,
-so the updater never overwrites it and a hand-edited YAML still wins at the
-next boot."""
+"""Which Bluetooth codecs the Pi offers the speaker."""
+# Offering a codec the speaker cannot do may drop it to the headset profile.
 
 import logging
 import os

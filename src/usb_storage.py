@@ -1,11 +1,4 @@
-"""Music on a USB key: what is plugged in, what is mounted, and how much of a
-library it holds.
-
-Nothing here needs a privilege: the listing comes from `lsblk`, whether the key
-is mounted is a `stat` on the mount point, and the mount itself is asked of
-system_actions, which runs the small helper `install.sh` puts in
-/usr/local/sbin. The key is mounted read-only by design, so it can be pulled
-out at any moment."""
+"""Music on a USB key: what is plugged in, what is mounted, and how much of a library it holds."""
 
 import json
 import logging
@@ -63,9 +56,7 @@ def _entry(raw, hotplug, model=""):
     return {
         "device": raw.get("path") or ("/dev/" + str(raw.get("name") or "")),
         "label": raw.get("label") or "",
-        # The disk's own name, which a partition does not carry: what a device
-        # with no volume label (the name Windows writes when you rename a disk)
-        # is called instead of `/dev/sdb1`.
+        # A partition has no model of its own: it takes the disk's.
         "model": (raw.get("model") or model or "").strip(),
         "fstype": (raw.get("fstype") or "").lower(),
         "size": raw.get("size") or "",

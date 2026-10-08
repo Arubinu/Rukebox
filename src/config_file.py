@@ -14,11 +14,8 @@ import paths  # noqa: E402
 
 log = logging.getLogger("config")
 
-# The root every path setting is resolved against, so the YAML is looked for
-# under RUKEBOX_CONFIG_DIR (/etc/rukebox by default). Recomputed at every
-# entry point rather than captured once, and never as a default argument: the
-# test suite moves the root after the import, and a value captured at import
-# would ignore it.
+# Recomputed at every call, never a default argument: the tests move the root
+# after the import.
 YAML_FILE_CANDIDATES = []
 ENV_FILE = ""
 # The environment the two globals above are a snapshot of; None forces the
@@ -33,11 +30,8 @@ def _path_env():
 
 
 def _refresh_paths(force=False):
-    """Recomputes the two paths when the root moved.
-
-    Only when it actually moved: the tests point the root at their own
-    sandbox by rebinding the globals below, and recomputing on every call
-    would throw that away."""
+    """Recomputes the two paths when the root moved."""
+    # Only when it moved: the tests rebind the globals below.
     global ENV_FILE, YAML_FILE_CANDIDATES, _resolved_env
     current = _path_env()
     if not force and current == _resolved_env:
@@ -109,12 +103,7 @@ def _render_setting(setting, values, blank_line=False):
     return out
 
 def render_template(values=None):
-    """The full, commented YAML document.
-
-    With no `values`, the documented defaults are written - the Pi's own, which
-    is what the checkout's config/rukebox.yaml holds. A first start passes
-    DEFAULTS instead, so the file a machine writes for itself carries the paths
-    that machine actually uses (RUKEBOX_CONFIG_DIR and the other three roots)."""
+    """The full, commented YAML document."""
     values = values if values is not None else {}
     out = [HEADER]
     for name, description, settings in sections_with_settings():
@@ -347,9 +336,8 @@ def merge_missing(path=None, env_path=None):
         lines = f.readlines()
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"
-    # `merged_values`, not the documented defaults: a setting added to an
-    # existing file is added to a machine, and that machine's own roots are in
-    # DEFAULTS. The template stays the Pi's - this is not the template.
+    # DEFAULTS, not the template's values: a setting added to a file takes this
+    # machine's own roots.
     _insert_settings(lines, [BY_ENV[k] for k in missing], merged_values)
     _atomic_write(path, "".join(lines))
     write_env_file(path, env_path, values=merged_values)
@@ -434,9 +422,8 @@ def seed_announcements(yaml_path=None, env_path=None):
     yaml_path = find_yaml_file(yaml_path)
     env_path = env_path or ENV_FILE
     ann_path, _, _ = _announcement_paths(yaml_path, env_path)
-    # The audio root this machine actually uses, not the template's: a container
-    # keeps its tree elsewhere, and the folders seeded here are the ones the
-    # interface must be allowed to write to.
+    # This machine's audio root, not the template's: a container keeps its tree
+    # elsewhere, and the interface may only write inside it.
     values = dict(DEFAULTS)
     values.update(read_values(yaml_path, env_path))
     audio_root = os.path.dirname(str(values.get("MEME_DIR") or "").strip()) \
@@ -457,13 +444,8 @@ def retarget_announcements(old_root, new_root, yaml_path=None, env_path=None):
 
 
 def retarget_folders(old_root, new_root, yaml_path=None, env_path=None):
-    """Moves the `folders` settings that name a path under `old_root` to
-    `new_root`, and answers the keys that changed.
-
-    A setting a version adds arrives with the template's path - the Pi's own.
-    A container keeps its sounds elsewhere (and the interface only writes in
-    the folders the settings name), so a folder left at the Pi's path points at
-    nothing and lets the interface write outside the tree it belongs in."""
+    """Moves the `folders` settings that name a path under `old_root` to `new_root`, and
+    answers the keys that changed."""
     import config_schema  # noqa: E402
 
     old_root = str(old_root or "").strip().rstrip("/")

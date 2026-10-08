@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS tracks_artist ON tracks(artist);
 
 PROBE_TIMEOUT_SEC = 20
 LOUDNESS_TIMEOUT_SEC = 300
-# How a search lists its rows: the same order however many are asked for.
+# A stable order, so pages of a search never overlap.
 SEARCH_ORDER = (" ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track,"
                 " title COLLATE NOCASE")
 _LOUDNESS_RE = re.compile(r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", re.MULTILINE)

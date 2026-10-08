@@ -23,11 +23,8 @@ def _is_absolute_path(folder):
 
 
 def _read_doc(path, strict=False):
-    """The whole file: {"items": [...], "volumes": {...}}.
-
-    `strict` raises instead of answering "empty" for a file that exists but
-    cannot be read: a writer must never replace a document it did not
-    understand with an empty one."""
+    """The whole file: {"items": [...], "volumes": {...}}."""
+    # `strict`: a writer must never replace a file it could not read with an empty one.
     data = json_file.read(path)
     if data is None:
         if strict:
@@ -67,11 +64,8 @@ def _mutate(path, change):
 
 
 def save_all(path, items):
-    """Replaces the whole list, validating nothing.
-
-    Unlike the others this one may write over a file it cannot read: replacing
-    everything is exactly what it is asked to do (a config restore brings its
-    own announcements, and must be able to repair a broken file)."""
+    """Replaces the whole list, validating nothing."""
+    # May write over an unreadable file: a config restore has to repair one.
     with json_file.lock(path):
         doc = json_file.read(path)
         if not isinstance(doc, dict):
@@ -98,10 +92,7 @@ def clean_volume(data):
 
 
 def volumes(path):
-    """The per-source volume: {"<source id>": {"on": bool, "volume": 0..100}}.
-
-    A source id is "meme"/"cutoff", "custom:<id>", or the name of a System
-    sound setting (KEEPALIVE_SOUND, ...)."""
+    """The per-source volume: {"<source id>": {"on": bool, "volume": 0..100}}."""
     out = {}
     for key, entry in _read_doc(path)["volumes"].items():
         if not isinstance(entry, dict):
@@ -351,12 +342,8 @@ def seed_defaults(path, audio_root=DEFAULT_AUDIO_ROOT):
 
 
 def retarget(path, old_root, new_root):
-    """Moves the announcements' folders from one audio root to another, and says
-    how many moved.
-
-    A seeded list names the Pi's own folders; a container keeps its audio
-    elsewhere, and a folder outside those roots is one the interface may not
-    write to - and one the radio would play from an empty directory."""
+    """Moves the announcements' folders from one audio root to another, and says how many
+    moved."""
     if not path or not old_root or not new_root:
         return 0
     old_root = old_root.rstrip("/\\").replace("\\", "/")

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive check of what only a real speaker can prove, run over SSH.
-
-Every setting and runtime state it touches is saved first and put back at the
-end, on Ctrl-C and on a dropped connection; `--restore FILE` puts back a
-snapshot by hand if the script itself was killed."""
+"""Interactive check of what only a real speaker can prove, run over SSH."""
 import argparse
 import json
 import os

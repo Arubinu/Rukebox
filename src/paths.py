@@ -1,13 +1,5 @@
-"""Where Rukebox keeps its files, one root per kind of content.
-
-The four roots default to the Raspberry Pi's own layout and are moved by
-RUKEBOX_CONFIG_DIR, RUKEBOX_STATE_DIR, RUKEBOX_MUSIC_DIR and
-RUKEBOX_INSTALL_DIR - which is how the container image puts them under
-/config, /data and /music without touching a single setting.
-
-Read at every call, never captured in a default argument: the test suite and
-the setup page both move a root while the process is already running, and a
-value frozen at import would silently ignore them."""
+"""Where Rukebox keeps its files, one root per kind of content."""
+# Read at every call: the tests move a root while the process runs.
 
 import os
 import posixpath
@@ -41,22 +33,13 @@ def install_dir():
 
 
 def resolve(env, fallback):
-    """The value of one config key: RUKEBOX_<KEY> wins, then the fallback.
-
-    This is what lets the container image move every path with three
-    environment variables instead of a rewritten YAML file. A name that is
-    not one of the four documented roots still gets its own override for
-    free - RUKEBOX_ANNOUNCEMENTS_FILE points that file anywhere."""
+    """The value of one config key: RUKEBOX_<KEY> wins, then the fallback."""
     return os.environ.get("RUKEBOX_" + env) or fallback
 
 
 def under(root, *parts):
-    """Joins onto a root, so a default path reads as the root plus its name.
-
-    POSIX separators whatever the machine doing the joining: these are the
-    paths a Raspberry Pi will use, and they end up in the generated YAML and
-    in the env file. `os.path.join` would write C:\\... into the template when
-    it is rendered on a development machine."""
+    """Joins onto a root, so a default path reads as the root plus its name."""
+    # posixpath: these paths reach a Linux YAML even when rendered on Windows.
     return posixpath.join(root, *parts)
 
 

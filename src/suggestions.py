@@ -144,15 +144,8 @@ def _text_key(text):
 
 
 def _locked(method):
-    """Runs a method that touches the connection under the box's lock.
-
-    One connection is shared by every thread (check_same_thread=False), which
-    sqlite3 does not make safe by itself: two threads at once raise
-    InterfaceError("bad parameter or other API misuse") - measured, 24 of 240
-    concurrent reads. The helpers here are reached both from a caller that
-    already holds the lock and straight from a route, so the lock is
-    re-entrant and every way in takes it.
-    """
+    """Runs a method that touches the connection under the box's lock."""
+    # sqlite3 does not make a shared connection thread-safe; re-entrant because helpers nest.
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         with self._lock:

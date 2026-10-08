@@ -1,16 +1,4 @@
-"""The network output: what the radio plays, encoded and served over HTTP.
-
-This is the only way to hear a Rukebox in a container - there is no sound card
-to give it - and it is the fallback of any server without one. The radio keeps
-playing into a virtual sink of its own; this module encodes that sink's monitor
-with ffmpeg and serves the result on the web port, so the same page that
-controls the radio can listen to it, and so can VLC.
-
-One encoder only, however many listeners: ffmpeg is started on the first
-listener and kept running afterwards, its output going nowhere when nobody is
-connected. That is what keeps a second listener from waiting for one, and it
-costs a process that a Pi Zero can afford because the feature is off by
-default there."""
+"""The network output: what the radio plays, encoded and served over HTTP."""
 
 import logging
 import os
@@ -50,11 +38,8 @@ ENCODERS = {
 
 PREFERENCE = ("opus", "mp3", "aac", "vorbis")
 
-# A listener that falls this far behind is following the past: the bytes it
-# missed are dropped, which is what keeps the stream live rather than a slow
-# playback. Generous on purpose - an Ogg page cannot be cut in half, so a
-# listener only loses its place when it is really gone (a phone that went to
-# sleep, say), and it then reconnects.
+# Generous: an Ogg page cannot be cut in half, so a listener this far behind is
+# let go and reconnects.
 QUEUE_CHUNKS = 256
 CHUNK_BYTES = 4096
 # The headers of an Ogg stream, kept for a listener that arrives late, and the
@@ -62,14 +47,11 @@ CHUNK_BYTES = 4096
 HEADER_MAX_BYTES = 16384
 # How long a listener waits before checking the encoder is still there.
 CHUNK_WAIT_SEC = 5.0
-# An ffmpeg that dies at once - no PipeWire, no such sink - must not be
-# restarted for ever: after this many tries in a row the stream gives up and
-# says why.
+# An encoder that dies at once (no PipeWire, no sink) is not restarted for ever.
 MAX_RESTARTS = 5
 RESTART_DELAY_SEC = 1.0
-# An encoder that has been writing for longer than this hands the first
-# listener a timeline that starts that far in, which is what makes a player
-# wait before it plays (see restart()).
+# Older than this, an encoder hands the first listener a timeline that starts
+# late, and the player waits (see restart()).
 FRESH_START_SEC = 2.0
 # How long the listeners kept over a replacement wait for its first bytes
 # before they are let go on without them.
@@ -84,17 +66,8 @@ DEFAULT_TITLE = "Rukebox"
 
 
 def probe_source(env=None, timeout=6, kind=None):
-    """The monitor to encode, or "" when this machine has no sound server.
-
-    `pactl` first - it is the compatibility layer of PipeWire, and it has been
-    the one that answers everywhere this was tried, including inside the
-    container where `pw-dump` cannot reach the daemon at all. `pw-dump` second,
-    for a machine running bare PipeWire with no Pulse layer at all (a Pi
-    without pipewire-pulse, where pw-dump works and pactl is not installed).
-
-    The output the radio plays to first: for a wired output mpv is pointed at
-    that sink by name, so the default sink's monitor would carry silence. Then
-    the default output's own monitor, then any monitor there is."""
+    """The monitor to encode, or "" when this machine has no sound server."""
+    # pactl first: inside a container pw-dump cannot reach the daemon.
     chosen = _chosen_monitor(kind, env, timeout)
     if chosen:
         return chosen
@@ -105,10 +78,8 @@ def probe_source(env=None, timeout=6, kind=None):
 
 
 def _chosen_monitor(kind, env, timeout):
-    """The monitor of the sink this output kind names, or "".
-
-    Bluetooth is left out on purpose: mpv follows the default sink there, so
-    the default monitor is the right one and this would only guess."""
+    """The monitor of the sink this output kind names, or ""."""
+    # Not Bluetooth: mpv follows the default sink there.
     if not kind or kind == "bluetooth":
         return ""
     monitors = _monitors_from_pactl(env, timeout)
@@ -123,13 +94,7 @@ def _chosen_monitor(kind, env, timeout):
 
 
 def why_unavailable(env=None):
-    """A code saying why there is no monitor, for the interface to show.
-
-    "Nothing plays over the network" has several very different causes, and
-    they are not diagnosable from a browser: the stream can be off, the sound
-    server can be absent, or it can have no source to encode (a container
-    without its virtual sink). Each gets its own code, so the page can say
-    which one it is instead of leaving a silent button."""
+    """A code saying why there is no monitor, for the interface to show."""
     if not _has_program("pw-dump") and not _has_program("pactl"):
         return "no_tools"
     if not _has_program("ffmpeg"):
@@ -150,13 +115,8 @@ def _has_program(name):
 
 
 def _all_sources(env=None):
-    """What can be encoded, or None when the sound server cannot be asked.
-
-    A monitor source when PipeWire advertises one, and the default sink's name
-    plus `.monitor` otherwise: PipeWire lets a capture client attach that way
-    even when the monitor node is not listed, which is what makes this work on
-    a machine where nothing has listed the sources yet (a Pi whose pactl was
-    just installed, before anything has asked)."""
+    """What can be encoded, or None when the sound server cannot be asked."""
+    # `<sink>.monitor` works even when no monitor node is listed.
     from_pactl = _monitors_from_pactl(env, 6)
     if from_pactl is not None:
         return from_pactl or _sinks_from_pactl(env, 6)
@@ -283,12 +243,7 @@ def encoders_available(ffmpeg="ffmpeg", timeout=10):
 
 
 def _ogg_header_length(data):
-    """How many bytes of an Ogg stream are its headers.
-
-    None while they are not all there yet, and 0 for a stream that is not Ogg
-    at all (MP3, AAC): those have nothing a late listener needs first. The
-    headers are the leading pages whose granule position is 0, which is the
-    identification and comment pages of every Ogg codec ffmpeg writes here."""
+    """How many bytes of an Ogg stream are its headers."""
     if len(data) < 4:
         return None
     if not data.startswith(b"OggS"):
@@ -324,11 +279,7 @@ def _stderr_of(process):
 
 
 class StreamServer:
-    """Encodes one audio source and hands the bytes to every listener.
-
-    `source` is an empty string when nothing could be found: the stream then
-    stays "unavailable" and the interface says so rather than offering a
-    button that plays silence."""
+    """Encodes one audio source and hands the bytes to every listener."""
 
     def __init__(self, source, encoder, ffmpeg="ffmpeg", env=None,
                  queue_chunks=QUEUE_CHUNKS, on_stop=None,
@@ -434,14 +385,8 @@ class StreamServer:
         return True
 
     def restart(self):
-        """Replaces the encoder without dropping the listeners.
-
-        A listener that joins a stream which has been running for a while is
-        handed headers whose granule is 0 followed by live pages whose granule
-        is the encoder's uptime, so its player sees a hole minutes wide and
-        waits for it to fill before it plays anything (VLC asks for a cache as
-        long as that hole, and shows the uptime as its position). Starting the
-        encoder for the first listener makes the stream begin at zero."""
+        """Replaces the encoder without dropping the listeners."""
+        # A late listener would get granule-0 headers then the encoder's uptime, and its player waits.
         with self._lock:
             process, self._process = self._process, None
             # Whatever the process before still has buffered is stale from here
@@ -461,14 +406,9 @@ class StreamServer:
         return self.start()
 
     def worth_restarting(self):
-        """True when a listener would be handed a stream that does not begin at
-        zero, and starting the encoder again is what fixes that.
-
-        Only while it is producing: on a quiet radio there is no timeline to
-        fix, and a brand-new encoder would write nothing at all until the radio
-        plays again (its headers sit in ffmpeg's own buffer), so the listener
-        would be answered with silence instead of the headers the running
-        encoder already has."""
+        """True when a listener would be handed a stream that does not begin at zero, and
+        starting the encoder again is what fixes that."""
+        # Never on a quiet radio: a new encoder writes nothing until there is sound.
         with self._lock:
             started = self._started_at
             last = self._last_chunk_at
@@ -477,13 +417,8 @@ class StreamServer:
         return bool(last) and (time.monotonic() - last) < FRESH_START_SEC
 
     def stalled_for(self):
-        """Seconds since the encoder last produced anything.
-
-        A capture that attached while the radio was silent can stay silent for
-        ever afterwards: measured on a Pi, ffmpeg wrote its Ogg headers and not
-        one audio page while a second, later capture of the SAME monitor
-        received four seconds of audio. Nothing to do with the sink - the
-        encoder has to be reconnected when there is sound again."""
+        """Seconds since the encoder last produced anything."""
+        # A capture attached to a silent sink can stay silent for ever.
         with self._lock:
             started = self._started_at
             last = self._last_chunk_at
@@ -529,10 +464,8 @@ class StreamServer:
                 break
             with self._lock:
                 if self._process is not process:
-                    # This encoder was replaced. What it still had buffered
-                    # belongs to the stream before: mixed into the new one it
-                    # would corrupt it, and captured as its beginning it would
-                    # leave the stream with no headers at all.
+                    # A replaced encoder's leftovers would be taken for the new
+                    # stream's headers.
                     break
             self._broadcast(chunk, generation)
         with self._lock:
@@ -570,9 +503,7 @@ class StreamServer:
         with self._lock:
             generation = self._generation if generation is None else generation
             if generation == self._awaiting_gen:
-                # The replacement's own beginning: from this byte on it is an
-                # ordinary stream for them - it IS the stream's first byte, so
-                # there is nothing to replay and nothing to realign.
+                # This IS the new stream's first byte: nothing to replay.
                 self._awaiting, self._awaiting_gen = set(), None
             # Read before the hand-off above would matter: a listener given the
             # new stream by this very chunk keeps it whole.
@@ -594,10 +525,8 @@ class StreamServer:
             try:
                 box.put_nowait(data)
             except queue.Full:
-                # Dropping bytes cuts an Ogg page in half - the player reports
-                # "CRC mismatch" and gives up - so a listener this far behind is
-                # let go instead: the response ends and it reconnects, which
-                # brings the headers again.
+                # Dropping bytes would cut an Ogg page (CRC mismatch): the listener
+                # is let go and reconnects, headers included.
                 try:
                     while True:
                         box.get_nowait()
@@ -609,12 +538,7 @@ class StreamServer:
                     pass
 
     def _remember_header(self, chunk):
-        """Keeps the stream's own beginning for whoever arrives later.
-
-        An Ogg stream without its headers cannot be decoded at all, so a
-        listener that joins a minute in would hear nothing (that is what VLC
-        reports as "couldn't find any ogg logical stream"); the headers are
-        replayed to it before the live bytes."""
+        """Keeps the stream's own beginning for whoever arrives later."""
         if self._header_read:
             return
         self._unparsed += chunk
@@ -654,13 +578,8 @@ class StreamServer:
             self._awaiting.discard(box)
 
     def _align(self, box, chunk):
-        """The bytes from the next page start, or None while there is none.
-
-        A listener that joins a live Ogg stream mid-page must not be handed the
-        second half of that page: ffmpeg says "CRC mismatch!" and VLC decodes
-        nothing at all - measured, and the reason a player could sit at 00:00
-        for ever while the stream was flowing. The header pages are replayed and
-        the live stream resumes a few bytes later, at the next page."""
+        """The bytes from the next page start, or None while there is none."""
+        # Half a page is a CRC mismatch, and the player decodes nothing.
         carry = self._unaligned.get(box, b"") + chunk
         index = carry.find(b"OggS")
         if index < 0:
@@ -670,11 +589,7 @@ class StreamServer:
         return carry[index:]
 
     def chunks(self, wait=CHUNK_WAIT_SEC):
-        """The bytes for one listener, as a generator an HTTP response writes.
-
-        The wait is bounded: an encoder that dies without closing its pipe
-        must end the response rather than leave a thread parked on an empty
-        queue for ever."""
+        """The bytes for one listener, as a generator an HTTP response writes."""
         box = self.listen()
         try:
             while True:
@@ -709,11 +624,7 @@ class StreamServer:
 
 
 def build(cfg, probe=True):
-    """The stream this configuration asks for, or None when it is off.
-
-    Returns a StreamServer whether or not the machine can encode: `source` is
-    empty when it cannot, and the interface reports that instead of offering
-    silence."""
+    """The stream this configuration asks for, or None when it is off."""
     if not cfg.get("STREAM_ENABLED"):
         return None
     source = cfg.get("STREAM_SOURCE") or ""
@@ -748,12 +659,7 @@ def clamp_volume(volume):
 
 
 def stream_title(cfg):
-    """What the stream calls itself: the radio's own name on the network.
-
-    A player that reads the stream's metadata - rather than the name the
-    announcement gave it - has to find something there, and finding nothing it
-    invents one (VLC fell back to the product name, "Rukebox", which is how a
-    radio named "Rukebox 3074" appeared to rename itself when it was played)."""
+    """What the stream calls itself: the radio's own name on the network."""
     return str(cfg.get("UPNP_NAME") or "").strip() or DEFAULT_TITLE
 
 
@@ -773,11 +679,7 @@ def uid():
 
 
 def status(server, url=""):
-    """What /api/stream answers: enough for the page to offer or refuse.
-
-    `why` is the code saying what is missing, and it is only filled when
-    something IS missing: an interface that offers a button leading nowhere
-    has to say which of the causes it is."""
+    """What /api/stream answers: enough for the page to offer or refuse."""
     if server is None:
         return {"enabled": False, "available": False, "url": "", "encoder": "",
                 "content_type": "", "listeners": 0, "source": "",

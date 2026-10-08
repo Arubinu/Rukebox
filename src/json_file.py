@@ -1,11 +1,4 @@
-"""JSON files that several threads write: one at a time, and never half-written.
-
-Measured on the Pi: with a temporary name shared by every writer, two saves
-filling it at once publish a file that is two JSON documents glued together
-(`Extra data: line 33 column 1`), and the reader then sees nothing at all -
-which is how an announcement came to answer "that announcement no longer
-exists" while it was still there. One lock per file, and a temporary name of
-its own for every write, is the whole answer."""
+"""JSON files that several threads write: one at a time, and never half-written."""
 
 import json
 import logging

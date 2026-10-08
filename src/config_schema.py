@@ -1284,18 +1284,7 @@ BY_PATH = {s.path: s for s in SETTINGS}
 
 
 def _environment_paths():
-    """{ENV_KEY: path} for the roots this machine actually runs with.
-
-    The defaults written in SETTINGS above are the Raspberry Pi's own, so the
-    checkout's rukebox.yaml and the documentation around it read as the Pi's
-    layout. This is what moves them for a machine that set RUKEBOX_CONFIG_DIR,
-    RUKEBOX_STATE_DIR, RUKEBOX_MUSIC_DIR or RUKEBOX_INSTALL_DIR - the
-    container image puts them under /config, /data and /music - without
-    rewriting a single line of YAML.
-
-    `paths` is imported here, not at the top: it imports nothing of ours, but
-    keeping it out of the module's own imports says that nothing above this
-    point depends on a root."""
+    """{ENV_KEY: path} for the roots this machine actually runs with."""
     import paths
 
     return {
@@ -1386,15 +1375,12 @@ RESTART_REQUIRED = frozenset({
     "FLIC_HCI_DEVICE", "WEB_PORT",
 })
 
-# A save rebuilds the encoder instead of asking for a restart: it is built on
-# the next status read, which is a second away. The stream's own volume is not
-# here: it is handed to the encoder that is running, which keeps its listeners.
+# A save rebuilds the encoder at the next status read. The stream's volume is not
+# here: it is handed to the running encoder, which keeps its listeners.
 STREAM_SETTINGS = frozenset({"STREAM_ENABLED", "STREAM_ENCODER", "STREAM_SOURCE"})
 
-# What a player sees. There is no switch of its own: the announcement exists
-# exactly while the stream does (see web_server._upnp_follow_stream), so a save
-# only ever has a name to hand over. The identity is not here either - it is
-# drawn once and never changes, so a save never has to re-announce the device.
+# Only the name: the announcement follows the stream (web_server._upnp_follow_stream)
+# and the identity never changes.
 UPNP_SETTINGS = frozenset({"UPNP_NAME"})
 
 GPIO_BUTTON_SETTINGS = frozenset({

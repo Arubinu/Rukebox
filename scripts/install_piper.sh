@@ -1,10 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# The natural voice: Piper's own build for this machine, and the model of one
-# voice. Both live under the state root, which an update does not replace - a
-# 63 MB model is not a file to download again every time.
-#
+# Installs Piper and one voice under the state root, which an update keeps.
 #   rukebox-piper              the voice of the spoken language (see speech.py)
 #   rukebox-piper fr_FR-tom-medium   one named voice
 STATE_DIR="${RUKEBOX_STATE_DIR:-/var/lib/rukebox}"
