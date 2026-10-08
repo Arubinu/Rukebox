@@ -264,6 +264,31 @@ class UsbMusicTest(unittest.TestCase):
         self.assertFalse(self.daemon._usb_music_status()["playing_from_other"],
                          "a song of the key is not from the previous folder")
 
+    def test_the_setting_decides_when_no_switch_is_asked_for(self):
+        """USB_MUSIC_SWITCH is the choice made once for every take, the card's
+        button being the one-off."""
+        self.plugged([KEY])
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.daemon.mode = "music"
+        self.daemon._current_track = os.path.join(self.music, "a.mp3")
+        self.daemon._play_next_track = mock.Mock()
+        self.daemon.cfg["USB_MUSIC_SWITCH"] = "now"
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        self.daemon._play_next_track.assert_called_once_with(user=True)
+
+    def test_the_setting_is_read_when_the_daemon_takes_the_device_itself(self):
+        """A remembered device taken on the next plug follows the same choice."""
+        self.plugged([KEY])
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        self.daemon._release_usb_music("test")
+        self.daemon.cfg["USB_MUSIC_SWITCH"] = "now"
+        self.daemon.mode = "music"
+        self.daemon._current_track = os.path.join(self.music, "a.mp3")
+        self.daemon._play_next_track = mock.Mock()
+        self.daemon._check_usb_music()
+        self.daemon._play_next_track.assert_called_once_with(user=True)
+
     def test_the_switch_never_takes_the_command_lock_twice(self):
         """The control socket holds `_command_lock` for every command that is
         not a read, so a non-reentrant lock taken again inside (the USB switch

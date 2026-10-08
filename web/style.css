@@ -2820,6 +2820,12 @@ select {
   gap: 6px;
 }
 .device-list .device-actions.btn-split { flex: 1 1 100%; gap: 6px 20px; }
+/* On a phone the action line wraps anyway: the buttons take the whole width
+   instead of the width of their own words. */
+@media (max-width: 639.98px) {
+  #usbCard .device-actions { width: 100%; }
+  #usbCard .device-actions > .btn { flex: 1 1 0; }
+}
 
 .device-list.library-list li, .device-list.upnext-list li { flex-wrap: nowrap; }
 .device-list.library-list li > .recent-main,

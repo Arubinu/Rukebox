@@ -1055,6 +1055,16 @@ SETTINGS = [
         "Applied by rukebox-usb-gadget.service; takes full effect after a reboot.",
         "USB port",
     ),
+    Setting(
+        "USB_MUSIC_SWITCH", "hardware", "usb_music_switch", "str", "after",
+        "What happens to the song playing when the music starts coming from a\n"
+        "storage device (a key or a disk the radio reads its music from):\n"
+        "  after -> it finishes, and the device takes over on the next one\n"
+        "  now   -> it is replaced straight away by one of the device's own\n"
+        "The card's \"Play from it now\" does the same thing once, whatever this\n"
+        "says.",
+        "Changing to a storage device",
+    ),
     Setting("AP_WATCH_INTERVAL_SEC", "statistics", "ap_watch_sec", "float", "60",
             "How often to look at who is connected to the access point.\n"
             "0 = disabled.", "Access point check interval (sec)"),

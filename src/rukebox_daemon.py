@@ -1038,7 +1038,13 @@ class RadioDaemon:
             return self._adopt_usb_music(entry, source="remembered")
         return False
 
-    def _adopt_usb_music(self, entry, source="usb", change="after"):
+    def _usb_switch_mode(self):
+        """What the settings say to do with the song playing when a storage
+        device becomes the library: "after" leaves it, "now" replaces it."""
+        mode = str(self.cfg.get("USB_MUSIC_SWITCH") or "").strip().lower()
+        return "now" if mode == "now" else "after"
+
+    def _adopt_usb_music(self, entry, source="usb", change=None):
         """Mounts a key read-only and reads the library from it."""
         ok, said = system_actions.usb_mount(entry["device"])
         if not ok:
@@ -1064,7 +1070,7 @@ class RadioDaemon:
                           label=self._usb_music["label"] or self._usb_music["model"]
                           or self._usb_music["device"],
                           detail={"tracks": self._usb_tracks, "source": source})
-        self._switch_music_source("usb_in", change=change)
+        self._switch_music_source("usb_in", change=change or self._usb_switch_mode())
         return True
 
     def _release_usb_music(self, reason="", forget=False):
@@ -1127,8 +1133,10 @@ class RadioDaemon:
     def _usb_music_command(self, msg, source="web"):
         """Reads the library from a plugged key, or gives it back to the
         internal folder. `forget` also drops the key the daemon remembers, and
-        `switch: "now"` also changes the song that is playing."""
-        change = "now" if str(msg.get("switch") or "") == "now" else "after"
+        `switch` says what to do with the song playing; without it, the setting
+        USB_MUSIC_SWITCH does."""
+        asked = str(msg.get("switch") or "").strip().lower()
+        change = asked if asked in ("after", "now") else self._usb_switch_mode()
         if "key" not in msg and "device" not in msg and not msg.get("forget"):
             # A plain refresh: the interface wants the list of devices now.
             self._check_usb_music()

@@ -559,7 +559,7 @@ class WebTest(unittest.TestCase):
         self.assertTrue(taken.get_json()["ok"], taken.get_json())
         self.assertTrue(now.get_json()["ok"])
         self.assertTrue(forgotten.get_json()["ok"])
-        self.assertEqual(sent, [("usb_music", {"key": "uuid:1A2B", "switch": "after"}),
+        self.assertEqual(sent, [("usb_music", {"key": "uuid:1A2B"}),
                                 ("usb_music", {"key": "uuid:1A2B", "switch": "now"}),
                                 ("usb_music", {"forget": True})])
 

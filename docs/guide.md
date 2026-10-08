@@ -1650,6 +1650,14 @@ and the card says so; **Play from it now** replaces it straight away, with the
 same short fade as the Next button. Doing nothing is the other answer: the
 current song finishes and the device takes over on the following one.
 
+That second answer is a **setting**, at the bottom of the same card:
+**Changing to a storage device** - **At the end of the song** (the default) or
+**Right away**. It is what happens *every* time a device becomes the music
+folder, whether you pressed **Use this storage** or the radio took a remembered
+one by itself on the next plug; it is saved as soon as you pick it, and **Play
+from it now** stays the one-off choice. The exact setting is
+`usb_music_switch` under `hardware:`, the same `after` / `now`.
+
 Under that line, a bar shows **how full the storage being played is**, with the
 numbers: used, total and what is left free. It turns red under 500 MB or 5% of
 free space left - the same rule the System health card uses, so the two never

@@ -2401,7 +2401,7 @@ def api_audio_fallback():
 def api_usb_music():
     """Reads the library from a plugged USB key, gives it back to the internal
     folder, or forgets the key the radio would take again. `switch: "now"` also
-    changes the song that is playing.
+    changes the song that is playing; without it the setting says.
 
     The daemon does the work - it is the one that mounts the key read-only and
     switches the library - so this only carries the request over."""
@@ -2410,9 +2410,10 @@ def api_usb_music():
         answer = control("usb_music", forget=True)
     else:
         wanted = str(body.get("key") or body.get("device") or "").strip()
-        changing = "now" if str(body.get("switch") or "") == "now" else "after"
-        answer = (control("usb_music", key=wanted, switch=changing) if wanted
-                  else control("usb_music"))
+        options = {"key": wanted} if wanted else {}
+        if str(body.get("switch") or "").strip().lower() == "now":
+            options["switch"] = "now"
+        answer = control("usb_music", **options)
     if not answer.get("ok"):
         return jsonify({"ok": False, "error": answer.get("error", "daemon_unreachable"),
                         "detail": answer.get("detail")}), 409

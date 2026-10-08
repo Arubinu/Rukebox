@@ -1941,6 +1941,16 @@
           </div>
           <ul class="device-list" id="usbList"></ul>
           <p class="hint" id="usbHint"></p>
+          <div class="field-row" id="usbSwitchRow">
+            <div class="field-text">
+              <label for="usbSwitch" data-i18n="usb.switch_label">Changing to a storage device</label>
+              <p class="field-desc" id="usbSwitchDesc" data-i18n="usb.switch_desc">What happens to the song playing, every time a device becomes the music folder.</p>
+            </div>
+            <select id="usbSwitch" data-key="USB_MUSIC_SWITCH" aria-describedby="usbSwitchDesc">
+              <option value="after" data-i18n="usb.switch_after">The song finishes, the storage takes over after</option>
+              <option value="now" data-i18n="usb.switch_now">The song is replaced right away</option>
+            </select>
+          </div>
         </section>
 
         <section class="card" id="healthCard" data-page="health" data-tab="system" aria-labelledby="healthTitle">

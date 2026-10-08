@@ -3094,6 +3094,20 @@ document.getElementById("usbPortMode").addEventListener("change", async (e) => {
   offerReboot(t(value === "host" ? "system.usb_host_done" : "system.usb_gadget_done"));
 });
 
+document.getElementById("usbSwitch").addEventListener("change", async (e) => {
+  const select = e.target;
+  const value = select.value;
+  const previous = settingsBaseline.USB_MUSIC_SWITCH || "after";
+  const r = await apiPost("/api/settings", { USB_MUSIC_SWITCH: value });
+  if (!r.ok) {
+    select.value = previous;
+    showError(r.error);
+    return;
+  }
+  settingsBaseline.USB_MUSIC_SWITCH = value;
+  showToast(t("alert.settings_saved"));
+});
+
 document.getElementById("actLedToggle").addEventListener("change", async (e) => {
   const value = e.target.checked ? "default" : "off";
   const r = await apiPost("/api/settings", { ACT_LED: value });

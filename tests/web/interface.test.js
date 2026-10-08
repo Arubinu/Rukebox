@@ -1185,6 +1185,21 @@ test("a USB key is offered, taken and given back", async (t) => {
   assert.deepEqual(page.errors, []);
 });
 
+test("the storage card carries the change-on-take setting", async (t) => {
+  const page = open(t, { hash: "#system/usb", routes: {
+    "GET /api/settings": { USB_MUSIC_SWITCH: "after" },
+    "POST /api/settings": {},
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  await until(() => page.$("usbSwitch").value === "after");
+  page.$("usbSwitch").value = "now";
+  page.$("usbSwitch").dispatchEvent(new page.window.Event("change"));
+  const saved = await until(() => page.sent("POST", "/api/settings")[0]);
+  assert.deepEqual(saved.body, { USB_MUSIC_SWITCH: "now" },
+                   "chosen once, applied to every take after that");
+  assert.deepEqual(page.errors, []);
+});
+
 test("the library marks an excluded track", async (t) => {
   const page = open(t, { hash: "#home/library", routes: {
     "GET /api/library": { items: [{ key: "k1", title: "One", artist: "Alpha", excluded: true }],
