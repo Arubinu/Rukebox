@@ -1341,7 +1341,11 @@ The same voice can do three more things.
   ogg, m4a, flac) - the **name** is what counts, and it is read without
   caring about capitals. A prepared file is not synthesized: no waiting, no
   model, nothing on the processor. Settings > Schedules shows how many files
-  there are and how many songs they cover. A dedication keeps its own voice: a
+  there are and how many songs they cover, and **the Prepared introductions
+  card** (Settings) fills the folder: it walks the mirrored tree exactly like
+  the covers card does, takes sound files into the folder you are looking at,
+  plays one to check it, makes an artist or album folder, and removes one. A
+  dedication keeps its own voice: a
   file prepared for the song cannot say "from Blue fox". **A backup does not
   take these files**: the *sounds* part of an export walks one folder deep, so
   a mirrored tree would come back flattened - keep your own copy of what you
@@ -1982,7 +1986,14 @@ looked up next to the track, most specific first.
     folder itself every song of the library. The usual names work there too
     (`cover.jpg`, `folder.jpg`, `front.jpg`...), and capitals do not matter -
     the **name** is what counts. Settings > Playback shows how many pictures
-    it holds and how many songs they cover.
+    it holds and how many songs they cover. **The Prepared covers card**
+    (Home) fills it: it walks the same tree as the music, shows the thumbnails
+    of what is already there, takes pictures into the folder you are looking
+    at, makes an artist or album folder that does not exist yet, and removes
+    what no longer belongs (a file whose name the lookup never uses is listed
+    as such). It is the owner's card: a guest never sees it, and the Pi has to
+    have the music folder writable - in a container that mounts it read-only,
+    the card is not shown.
   - *What the music folders and the tags carry*: the picture named after the
     track (`03 - Mojo.jpg`, or `03 - Mojo.cover.jpg` beside `03 - Mojo.opus`),
     then the picture embedded in the file itself (MP3, FLAC, Ogg/Opus,
@@ -2779,6 +2790,19 @@ echo '{"cmd":"rescan_music"}' | nc -U /tmp/rukebox_control.sock
 ```
 
 (The web interface's "Rescan music" button does the same thing.)
+
+Two of those folders are **filled from the interface** rather than over SSH,
+because both mirror the music tree and mirroring it by hand is tedious:
+**Prepared covers** (Home) and **Prepared introductions** (Settings). Each card
+shows the breadcrumb of where you are (`covers › LMFAO › 2011 - Sorry For
+Rocking`), the folders below, and the files already there - a cover with its
+thumbnail, a sound with a button to hear it. **Add pictures…** / **Add files…**
+puts what you choose in the folder being shown; **New folder…** creates an
+artist or album folder that does not exist yet; the bin on a row removes that
+file. A file whose name the lookup never uses (a stray `notes.txt`, a `.gif`, a
+scan) is listed with "not used", so it can be found and taken out. Nothing
+outside those two folders is reachable: every path a card sends is resolved
+inside them - symlinks included - exactly as the folder picker does.
 
 ### Putting music on the Pi
 

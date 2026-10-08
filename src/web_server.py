@@ -61,6 +61,7 @@ import cards  # noqa: E402
 import dj_intro  # noqa: E402
 import likes  # noqa: E402
 import music_lists  # noqa: E402
+import prepared_media  # noqa: E402
 import schedules  # noqa: E402
 from version import is_newer, read_version_file, set_release  # noqa: E402
 
@@ -994,6 +995,10 @@ _ROUTE_CAPABILITIES = {
     "/api/music/upload": {"media_upload": ("POST",)},
     "/api/announce_files/<path:source_id>": {"media_upload": ("POST", "DELETE")},
     "/api/system_sounds/<key>": {"media_upload": ("POST", "DELETE")},
+    # The prepared folders live under the same audio root as the music, so a
+    # container that mounts it read-only may read them and not write them.
+    "/api/prepared/<kind>/file": {"media_upload": ("POST", "DELETE")},
+    "/api/prepared/<kind>/folder": {"media_upload": ("POST",)},
     # The access point is the one feature whose routes ask nmcli with nothing
     # under them: everywhere else the missing binary answers an empty result.
     "/api/wifi/ap": {"access_point": ("GET", "POST")},
@@ -3668,6 +3673,123 @@ def api_covers():
                                    extensions=track_media.IMAGE_EXTENSIONS)
     return jsonify({"ok": True, "data": {"dir": folder, "files": files,
                                          "covered": covered, "tracks": len(tracks)}})
+
+
+def _prepared_folder(kind, relative):
+    """(root, folder, error): the folder a prepared card may write in, or the
+    code its answer needs."""
+    if not prepared_media.spec(kind):
+        return None, None, "unknown_kind"
+    top, folder = prepared_media.inside(kind, cfg(), relative)
+    if not top:
+        return None, None, "folder_unset"
+    if folder is None:
+        return None, None, "bad_path"
+    return top, folder, None
+
+
+@app.route("/api/prepared/<kind>")
+def api_prepared_listing(kind):
+    """What one prepared folder holds right now: its subfolders, and every file
+    with whether that kind would use it."""
+    data = prepared_media.listing(kind, cfg(), request.args.get("path") or "")
+    if data is None:
+        error = "unknown_kind" if not prepared_media.spec(kind) else "bad_path"
+        return jsonify({"ok": False, "error": error}), 400
+    return jsonify({"ok": True, "data": data})
+
+
+@app.route("/api/prepared/<kind>/file", methods=["POST"])
+def api_prepared_upload(kind):
+    """One file per request, into the folder the client names."""
+    top, folder, error = _prepared_folder(kind, request.form.get("path"))
+    if error:
+        return jsonify({"ok": False, "error": error}), 400
+    upload = request.files.get("file")
+    if upload is None:
+        return jsonify({"ok": False, "error": "no_file"}), 400
+    asked = request.form.get("name") or upload.filename or ""
+    name = prepared_media.file_name(kind, asked)
+    if name is None:
+        return jsonify({"ok": False, "error": "bad_file", "detail": str(asked)[:120]}), 400
+    size = request.content_length or 0
+    if size > MUSIC_UPLOAD_MAX_BYTES:
+        return jsonify({"ok": False, "error": "file_too_big", "detail": name}), 400
+    try:
+        os.makedirs(folder, exist_ok=True)
+    except OSError:
+        return jsonify({"ok": False, "error": "write_failed", "detail": name})
+    free = shutil.disk_usage(top).free
+    if size and size > free:
+        return jsonify({"ok": False, "error": "no_space", "detail": str(free)}), 400
+    dest = os.path.join(folder, name)
+    replaced = os.path.exists(dest)
+    error = _store_upload(upload, dest, request.form.get("mtime"))
+    if error:
+        return jsonify({"ok": False, "error": error, "detail": name})
+    stats.record("prepared_file_added", label="%s/%s" % (kind, name),
+                 detail={"size": os.path.getsize(dest), "replaced": replaced})
+    return jsonify({"ok": True, "data": {"name": name, "replaced": replaced}})
+
+
+@app.route("/api/prepared/<kind>/file", methods=["GET"])
+def api_prepared_file(kind):
+    """One prepared file, for a thumbnail or to listen to it here."""
+    relative = prepared_media.relative_path(request.args.get("path"))
+    if not relative:
+        return jsonify({"ok": False, "error": "bad_path"}), 400
+    folder, name = relative.rsplit("/", 1) if "/" in relative else ("", relative)
+    _top, path, error = _prepared_folder(kind, folder)
+    if error:
+        return jsonify({"ok": False, "error": error}), 400
+    if prepared_media.file_name(kind, name) is None:
+        return jsonify({"ok": False, "error": "bad_file"}), 400
+    if not os.path.isfile(os.path.join(path, name)):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return send_from_directory(path, name, conditional=True, max_age=0)
+
+
+@app.route("/api/prepared/<kind>/file", methods=["DELETE"])
+def api_prepared_delete(kind):
+    """Takes one file out, whatever it is: a file this kind does not use is
+    exactly the one to remove."""
+    relative = prepared_media.relative_path(request.args.get("path"))
+    if not relative:
+        return jsonify({"ok": False, "error": "bad_path"}), 400
+    folder, name = relative.rsplit("/", 1) if "/" in relative else ("", relative)
+    _top, path, error = _prepared_folder(kind, folder)
+    if error:
+        return jsonify({"ok": False, "error": error}), 400
+    if prepared_media.visible_name(name) is None:
+        return jsonify({"ok": False, "error": "bad_path"}), 400
+    target = os.path.join(path, name)
+    if not os.path.isfile(target):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    try:
+        os.remove(target)
+    except OSError:
+        return jsonify({"ok": False, "error": "write_failed", "detail": name})
+    return jsonify({"ok": True})
+
+
+@app.route("/api/prepared/<kind>/folder", methods=["POST"])
+def api_prepared_folder(kind):
+    """Makes one subfolder, so an artist or an album can be prepared before
+    anything is put in it."""
+    body = request.get_json(silent=True) or {}
+    _top, folder, error = _prepared_folder(kind, body.get("path"))
+    if error:
+        return jsonify({"ok": False, "error": error}), 400
+    name = prepared_media.folder_name(body.get("name"))
+    if name is None:
+        return jsonify({"ok": False, "error": "bad_name"}), 400
+    try:
+        os.makedirs(os.path.join(folder, name), exist_ok=True)
+    except OSError:
+        return jsonify({"ok": False, "error": "write_failed", "detail": name})
+    # The client asks with the same forward-slash form it reads back.
+    here = prepared_media.relative_path(body.get("path")) or ""
+    return jsonify({"ok": True, "data": {"path": "/".join(p for p in (here, name) if p)}})
 
 
 @app.route("/api/system/reboot", methods=["POST"])

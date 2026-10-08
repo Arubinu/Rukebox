@@ -435,6 +435,33 @@
           </p>
         </section>
 
+        <section class="card" id="coversCard" data-page="covers" data-tab="home" data-owner
+                 data-needs="media_upload" aria-labelledby="coversTitle">
+          <h2 data-icon="image" id="coversTitle"><span data-i18n="covers.title">Prepared covers</span></h2>
+          <p class="hint help-text" data-i18n="covers.help" hidden>
+            Cover pictures you prepare yourself, mirroring the music folder:
+            the song's name, or "_any" beside it for its album, its artist or
+            everything.
+          </p>
+          <p class="hint" id="coversCount" role="status"></p>
+          <div class="prepared-actions">
+            <button type="button" class="btn btn-primary" id="coversAdd" data-icon="upload"
+                    data-i18n="prepared.add_pictures">Add pictures…</button>
+            <button type="button" class="btn" id="coversNewFolder" data-icon="folder"
+                    data-i18n="prepared.new_folder">New folder…</button>
+            <button type="button" class="btn btn-icon" id="coversUp" data-icon="arrow-up"
+                    data-i18n-aria-label="prepared.up" aria-label="Up one level"
+                    data-i18n-title="prepared.up" title="Up one level" disabled></button>
+          </div>
+          <input type="file" id="coversInput" multiple hidden
+                 accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+          <p class="hint" id="coversProgress" role="status" hidden></p>
+          <nav class="prepared-path" id="coversPath" data-i18n-aria-label="prepared.here"
+               aria-label="You are here"></nav>
+          <ul class="device-list prepared-list" id="coversList"></ul>
+          <p class="hint" id="coversHint"></p>
+        </section>
+
         <section class="card" id="listsCard" data-page="lists" data-tab="home" aria-labelledby="listsTitle" hidden>
           <h2 data-icon="list" id="listsTitle"><span data-i18n="lists.title">Lists</span></h2>
 
@@ -1561,6 +1588,33 @@
             <button type="button" class="btn" id="btnTrackOrderSave" data-icon="check" data-i18n="trackorder.save">Save order</button>
             <button type="button" class="btn btn-warning-outline" id="btnTrackOrderReset" data-icon="restart" data-i18n="trackorder.reset">Reset to alphabetical</button>
           </div>
+        </section>
+
+        <section class="card" id="introsCard" data-page="djfiles" data-tab="settings" data-owner
+                 data-needs="media_upload" aria-labelledby="introsTitle">
+          <h2 data-icon="megaphone" id="introsTitle"><span data-i18n="intros.title">Prepared introductions</span></h2>
+          <p class="hint help-text" data-i18n="intros.help" hidden>
+            The files the radio host plays instead of speaking, mirroring the
+            music folder: the song's name, or "_any" beside it for its album,
+            its artist or everything.
+          </p>
+          <p class="hint" id="introsCount" role="status"></p>
+          <div class="prepared-actions">
+            <button type="button" class="btn btn-primary" id="introsAdd" data-icon="upload"
+                    data-i18n="prepared.add_files">Add files…</button>
+            <button type="button" class="btn" id="introsNewFolder" data-icon="folder"
+                    data-i18n="prepared.new_folder">New folder…</button>
+            <button type="button" class="btn btn-icon" id="introsUp" data-icon="arrow-up"
+                    data-i18n-aria-label="prepared.up" aria-label="Up one level"
+                    data-i18n-title="prepared.up" title="Up one level" disabled></button>
+          </div>
+          <input type="file" id="introsInput" multiple hidden
+                 accept="audio/*,.mp3,.opus,.ogg,.wav,.m4a,.flac">
+          <p class="hint" id="introsProgress" role="status" hidden></p>
+          <nav class="prepared-path" id="introsPath" data-i18n-aria-label="prepared.here"
+               aria-label="You are here"></nav>
+          <ul class="device-list prepared-list" id="introsList"></ul>
+          <p class="hint" id="introsHint"></p>
         </section>
 
         <section data-level="detail" class="card" id="systemSoundsCard" data-page="sounds" data-tab="settings" aria-labelledby="sysSoundsTitle">

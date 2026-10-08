@@ -1034,6 +1034,57 @@ test("a filter is excluded whole, and a row one track at a time", async (t) => {
   assert.deepEqual(page.errors, []);
 });
 
+test("the prepared covers are browsed, added to and cleaned", async (t) => {
+  const listing = (path) => ({
+    kind: "covers", root: "/home/pi/audio/covers", path: path, parent: path ? "" : null,
+    missing: false, extensions: [".jpg", ".png"],
+    dirs: path ? [] : [{ name: "LMFAO" }],
+    files: path ? [{ name: "cover.jpg", size: 2048, used: true },
+                   { name: "notes.txt", size: 12, used: false }] : [],
+  });
+  const page = open(t, { hash: "#home/covers", routes: {
+    "GET /api/covers": { dir: "/home/pi/audio/covers", files: 46, covered: 312, tracks: 1175 },
+    "GET /api/prepared/covers": (request) => listing(request.query.get("path") || ""),
+    "POST /api/prepared/covers/folder": { path: "LMFAO/Sorry" },
+    "DELETE /api/prepared/covers/file": {},
+  } });
+  await until(() => page.$("coversList").children.length);
+  assert.equal(page.document.body.dataset.page, "covers", "the address opened the card's page");
+  assert.match(page.$("coversCount").textContent, /46/);
+  assert.equal(page.$("coversUp").disabled, true, "nothing above the prepared root");
+  assert.match(page.$("coversPath").textContent, /covers/);
+  const row = page.$("coversList").children[0];
+  assert.equal(row.className.includes("is-dir"), true);
+
+  row.querySelector("button").click();
+  const asked = await until(() => page.sent("GET", "/api/prepared/covers")
+    .find((r) => r.query.get("path") === "LMFAO"));
+  assert.ok(asked);
+  await until(() => page.$("coversList").children.length === 2);
+  const [picture, other] = Array.from(page.$("coversList").children);
+  assert.equal(picture.querySelector("img").getAttribute("src"),
+               "/api/prepared/covers/file?path=LMFAO%2Fcover.jpg");
+  assert.equal(other.className.includes("is-unused"), true,
+               "a file this folder never uses says so");
+  assert.match(other.textContent, /not used/);
+  assert.equal(page.$("coversUp").disabled, false, "one level up is offered now");
+  assert.match(page.$("coversPath").textContent, /LMFAO/, "the breadcrumb follows");
+
+  page.$("coversNewFolder").click();
+  await until(() => !page.$("modalOverlay").hidden);
+  page.$("modalBody").querySelector("input").value = "Sorry";
+  page.$("modalOk").click();
+  const made = await until(() => page.sent("POST", "/api/prepared/covers/folder")[0]);
+  assert.deepEqual(made.body, { path: "LMFAO", name: "Sorry" });
+
+  picture.querySelector('button[data-icon="trash"]').click();
+  await until(() => !page.$("modalOverlay").hidden);
+  page.$("modalOk").click();
+  const gone = await until(() => page.sent("DELETE", "/api/prepared/covers/file")[0]);
+  assert.equal(gone.query.get("path"), "LMFAO/cover.jpg");
+  assert.deepEqual(page.errors, []);
+});
+
 test("the library marks an excluded track", async (t) => {
   const page = open(t, { hash: "#home/library", routes: {
     "GET /api/library": { items: [{ key: "k1", title: "One", artist: "Alpha", excluded: true }],

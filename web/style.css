@@ -2866,6 +2866,101 @@ select {
 .device-list li.row-locked { cursor: pointer; }
 .device-list li.row-locked:hover { border-color: var(--accent); }
 
+/* The two prepared folders (covers, introductions): the app's list rows with a
+   picture in front. The selectors keep `.device-list li > span:first-child`,
+   declared above, from stretching the thumbnail. */
+.prepared-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.prepared-actions .btn-icon { margin-left: auto; }
+
+.prepared-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin-top: 12px;
+}
+.prepared-crumb {
+  max-width: 14em;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.prepared-crumb:not(.is-here):hover { background: var(--surface-2); }
+.prepared-crumb.is-here { color: var(--text); font-weight: 600; cursor: default; }
+.prepared-sep { color: var(--text-muted); font-size: 14px; }
+
+.device-list li.prepared-row.is-dir { padding: 0; }
+.prepared-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.prepared-open:hover { background: var(--accent-soft); }
+
+.device-list li.prepared-row > .prepared-art {
+  flex: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  overflow: hidden;
+}
+.prepared-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.prepared-play { width: 100%; height: 100%; border: 0; background: none; }
+.prepared-play.is-on { color: var(--accent); }
+.device-list li.prepared-row.is-unused .prepared-art { opacity: 0.55; }
+
+.device-list li.prepared-row > .prepared-name {
+  flex: 1 1 8rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 550;
+}
+.prepared-tag {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.prepared-size { flex: none; font-size: 13px; color: var(--text-muted); }
+.prepared-dialog { display: flex; flex-direction: column; gap: 10px; }
+.prepared-dialog .text-input { width: 100%; }
+
 .breadcrumb {
   display: flex;
   flex-wrap: wrap;

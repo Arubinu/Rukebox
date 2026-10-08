@@ -7448,6 +7448,286 @@ document.getElementById("btnTrackOrderReset").addEventListener("click", async ()
 
 loadTrackOrder();
 
+/* The two folders you prepare yourself - cover pictures and the introductions
+   the radio host reads - both mirror the music folder, so both get the same
+   browser: one card each, one list of folders and files, one upload. */
+const PREPARED = {
+  covers: { list: "coversList", path: "coversPath", count: "coversCount", hint: "coversHint",
+            add: "coversAdd", input: "coversInput", up: "coversUp", folder: "coversNewFolder",
+            progress: "coversProgress", counts: "/api/covers", countKey: "settings.cover_count",
+            empty: "prepared.empty_pictures", picture: true, icon: "image" },
+  intros: { list: "introsList", path: "introsPath", count: "introsCount", hint: "introsHint",
+            add: "introsAdd", input: "introsInput", up: "introsUp", folder: "introsNewFolder",
+            progress: "introsProgress", counts: "/api/dj_announcements",
+            countKey: "settings.dj_files_count", empty: "prepared.empty_files",
+            picture: false, icon: "audio-lines" },
+};
+const preparedPath = { covers: "", intros: "" };
+const preparedParent = { covers: null, intros: null };
+const preparedLoaded = { covers: false, intros: false };
+
+function preparedFull(kind, name) {
+  return preparedPath[kind] ? preparedPath[kind] + "/" + name : name;
+}
+
+function preparedFileUrl(kind, path) {
+  return "/api/prepared/" + kind + "/file?path=" + encodeURIComponent(path);
+}
+
+function openPrepared(kind, path) {
+  preparedPath[kind] = path || "";
+  loadPrepared(kind);
+}
+
+async function loadPrepared(kind) {
+  const result = await apiGet("/api/prepared/" + kind + "?path=" +
+                              encodeURIComponent(preparedPath[kind]));
+  if (!result.ok || !result.data) return;
+  if (result.data.path !== preparedPath[kind]) return;
+  preparedLoaded[kind] = true;
+  paintPrepared(kind, result.data);
+  loadPreparedCount(kind);
+}
+
+async function loadPreparedCount(kind) {
+  const spec = PREPARED[kind];
+  const result = await apiGet(spec.counts);
+  if (!result.ok || !result.data) return;
+  const d = result.data;
+  document.getElementById(spec.count).textContent =
+    t(spec.countKey, { files: d.files, covered: d.covered, tracks: d.tracks });
+  document.getElementById(spec.add).disabled = !d.dir;
+}
+
+function paintPrepared(kind, data) {
+  const spec = PREPARED[kind];
+  preparedParent[kind] = data.parent;
+  document.getElementById(spec.up).disabled = data.parent === null;
+  paintPreparedPath(kind, data);
+  const list = document.getElementById(spec.list);
+  list.replaceChildren();
+  data.dirs.forEach((dir) => list.append(preparedDirRow(kind, dir.name)));
+  data.files.forEach((file) => list.append(preparedFileRow(kind, file)));
+  const empty = data.missing || (!data.dirs.length && !data.files.length);
+  document.getElementById(spec.hint).textContent = empty ? t(spec.empty) : "";
+}
+
+function paintPreparedPath(kind, data) {
+  const box = document.getElementById(PREPARED[kind].path);
+  box.replaceChildren();
+  const rootName = String(data.root || "").split("/").filter(Boolean).pop() || kind;
+  const parts = data.path ? data.path.split("/") : [];
+  const crumbs = [{ label: rootName, path: "" }];
+  parts.forEach((name, index) => crumbs.push({ label: name, path: parts.slice(0, index + 1).join("/") }));
+  crumbs.forEach((crumb, index) => {
+    if (index) {
+      const sep = document.createElement("span");
+      sep.className = "prepared-sep";
+      sep.textContent = "›";
+      box.append(sep);
+    }
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "prepared-crumb" + (index === crumbs.length - 1 ? " is-here" : "");
+    btn.textContent = crumb.label;
+    if (index === crumbs.length - 1) btn.disabled = true;
+    else btn.addEventListener("click", () => openPrepared(kind, crumb.path));
+    box.append(btn);
+  });
+}
+
+function preparedDirRow(kind, name) {
+  const row = document.createElement("li");
+  row.className = "prepared-row is-dir";
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "prepared-open";
+  open.dataset.icon = "folder";
+  const label = document.createElement("span");
+  label.textContent = name;
+  open.append(label);
+  open.addEventListener("click", () => openPrepared(kind, preparedFull(kind, name)));
+  row.append(open);
+  return row;
+}
+
+function preparedFileRow(kind, file) {
+  const spec = PREPARED[kind];
+  const path = preparedFull(kind, file.name);
+  const row = document.createElement("li");
+  row.className = "prepared-row" + (file.used ? "" : " is-unused");
+
+  const art = document.createElement("span");
+  art.className = "prepared-art";
+  if (!file.used) {
+    art.dataset.icon = "file";
+  } else if (spec.picture) {
+    art.dataset.icon = spec.icon;
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.alt = "";
+    img.src = preparedFileUrl(kind, path);
+    img.addEventListener("error", () => img.remove());
+    art.append(img);
+  } else {
+    const play = document.createElement("button");
+    play.type = "button";
+    play.className = "btn btn-icon prepared-play" + (preparedPreview.path === path ? " is-on" : "");
+    play.dataset.icon = preparedPreview.path === path ? "pause" : "play";
+    play.title = t("prepared.listen");
+    play.setAttribute("aria-label", t("prepared.listen"));
+    play.addEventListener("click", () => togglePreparedPreview(kind, path));
+    art.append(play);
+  }
+
+  const name = document.createElement("span");
+  name.className = "prepared-name";
+  name.textContent = file.name;
+  name.title = file.name;
+  if (!file.used) {
+    const tag = document.createElement("span");
+    tag.className = "prepared-tag";
+    tag.textContent = t("prepared.unused");
+    name.append(tag);
+  }
+
+  const size = document.createElement("span");
+  size.className = "prepared-size";
+  size.textContent = formatBytes(file.size);
+
+  const drop = document.createElement("button");
+  drop.type = "button";
+  drop.className = "btn btn-icon btn-danger-outline";
+  drop.dataset.icon = "trash";
+  drop.title = t("prepared.delete");
+  drop.setAttribute("aria-label", t("prepared.delete"));
+  drop.addEventListener("click", () => deletePrepared(kind, path, file.name));
+
+  row.append(art, name, size, drop);
+  return row;
+}
+
+const preparedPreview = { audio: new Audio(), path: null };
+preparedPreview.audio.addEventListener("ended", () => {
+  preparedPreview.path = null;
+  if (preparedLoaded.intros) loadPrepared("intros");
+});
+
+function togglePreparedPreview(kind, path) {
+  const audio = preparedPreview.audio;
+  if (preparedPreview.path === path && !audio.paused) {
+    audio.pause();
+    preparedPreview.path = null;
+  } else {
+    audio.src = preparedFileUrl(kind, path);
+    preparedPreview.path = path;
+    audio.play().catch(() => {
+      preparedPreview.path = null;
+      showError("preview_failed");
+    });
+  }
+  loadPrepared(kind);
+}
+
+async function uploadPrepared(kind, files) {
+  const spec = PREPARED[kind];
+  const btn = document.getElementById(spec.add);
+  const progress = document.getElementById(spec.progress);
+  btn.disabled = true;
+  progress.hidden = false;
+  let added = 0;
+  const failed = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    progress.textContent = t("prepared.sending", { n: i + 1, total: files.length, name: file.name });
+    navTransfer.show(kind, i, files.length, file.name);
+    const body = new FormData();
+    body.append("path", preparedPath[kind]);
+    body.append("name", file.name);
+    body.append("mtime", String(Math.round(file.lastModified / 1000)));
+    body.append("file", file, file.name);
+    const result = await apiFetch("/api/prepared/" + kind + "/file", { method: "POST", body });
+    if (result.ok) added += 1;
+    else failed.push({ name: file.name, error: result.error });
+  }
+  progress.hidden = true;
+  navTransfer.finish(kind, !failed.length,
+                     t(failed.length ? "transfer.failed" : "transfer.done",
+                       { sent: added, failed: failed.length }));
+  btn.disabled = false;
+  await loadPrepared(kind);
+  if (!failed.length) {
+    showToast(t("prepared.added", { count: added }));
+  } else {
+    showToast(t("prepared.some_failed", { count: failed.length, total: files.length }),
+              failed[0].name + " : " + errorLabel(failed[0].error), { error: true });
+  }
+}
+
+async function deletePrepared(kind, path, name) {
+  if (!(await showConfirm(t("prepared.delete_confirm", { name })))) return;
+  const result = await apiDelete(preparedFileUrl(kind, path));
+  if (!result.ok) {
+    showToast(t("common.failed"), errorLabel(result.error), { error: true });
+    return;
+  }
+  showToast(t("prepared.deleted", { name }));
+  if (preparedPreview.path === path) {
+    preparedPreview.audio.pause();
+    preparedPreview.path = null;
+  }
+  await loadPrepared(kind);
+}
+
+async function askPreparedFolderName(kind) {
+  const box = document.createElement("div");
+  box.className = "prepared-dialog";
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = t("prepared.new_folder_hint");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "text-input";
+  input.maxLength = 80;
+  input.placeholder = t("prepared.new_folder_placeholder");
+  input.setAttribute("aria-label", t("prepared.new_folder"));
+  box.append(hint, input);
+  const answer = openModal({ title: t("prepared.new_folder"), bodyNode: box, confirm: true });
+  input.focus();
+  if (!(await answer)) return;
+  const name = input.value.trim();
+  if (!name) return;
+  const result = await apiPost("/api/prepared/" + kind + "/folder",
+                               { path: preparedPath[kind], name: name });
+  if (!result.ok) {
+    showToast(t("common.failed"), errorLabel(result.error), { error: true });
+    return;
+  }
+  showToast(t("prepared.folder_created", { name: name }));
+  openPrepared(kind, result.data.path);
+}
+
+Object.keys(PREPARED).forEach((kind) => {
+  const spec = PREPARED[kind];
+  const input = document.getElementById(spec.input);
+  document.getElementById(spec.add).addEventListener("click", () => input.click());
+  input.addEventListener("change", (event) => {
+    const files = Array.prototype.slice.call(event.target.files || []);
+    event.target.value = "";
+    if (files.length) uploadPrepared(kind, files);
+  });
+  document.getElementById(spec.up).addEventListener("click", () => {
+    if (preparedParent[kind] !== null) openPrepared(kind, preparedParent[kind]);
+  });
+  document.getElementById(spec.folder).addEventListener("click", () => askPreparedFolderName(kind));
+});
+
+window.LANG_CHANGE_LISTENERS.push(() => {
+  Object.keys(PREPARED).forEach((kind) => {
+    if (preparedLoaded[kind]) loadPrepared(kind);
+  });
+});
+
 function deviceUtcString(now) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())} ` +
@@ -8237,7 +8517,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
   "list_selected", "list_added", "list_changed", "list_removed",
-  "announcement_volume_set"];
+  "announcement_volume_set", "prepared_file_added"];
 function eventLabel(type) {
   return EVENT_TYPE_KEYS.includes(type) ? t("event." + type) : type;
 }
@@ -9702,6 +9982,8 @@ document.addEventListener("page-shown", (event) => {
   if (page === "previous") refreshPrevious();
   if (page === "banned") refreshBanned();
   if (page === "suggest" && suggestNewCount) noteNewSuggestions();
+  if (page === "covers") loadPrepared("covers");
+  if (page === "djfiles") loadPrepared("intros");
 });
 
 refreshStats();
@@ -10117,6 +10399,8 @@ function musicProgress(done, total, label, bytes) {
 const NAV_TRANSFER_TARGETS = {
   music: { tab: "home", card: "musicCard", title: "transfer.music" },
   announce: { tab: "settings", card: "trackOrderCard", title: "transfer.announce" },
+  covers: { tab: "home", card: "coversCard", title: "transfer.covers" },
+  intros: { tab: "settings", card: "introsCard", title: "transfer.intros" },
 };
 const navTransfer = {
   kind: null,
