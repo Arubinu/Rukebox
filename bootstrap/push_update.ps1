@@ -117,15 +117,26 @@ if ($DryRun) {
 Write-Host ""
 Write-Host "== Connecting to ${Target} =="
 $OriginalTarget = $Target
-& ssh.exe @SshOpts $Target "true"
-$Reached = ($LASTEXITCODE -eq 0)
+
+# A refused address is the expected answer here, and ssh writes it to stderr:
+# under $ErrorActionPreference = "Stop" that is a terminating error, so the
+# fallback below never ran and a push with the cable out stopped on the spot.
+function Test-PiReachable([string]$Where) {
+    try {
+        & ssh.exe @SshOpts $Where "true" 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    }
+}
+
+$Reached = Test-PiReachable $Target
 
 if (-not $Reached -and -not $PiHostExplicit -and $PiHost -ne "rukebox.local") {
 
     $FallbackTarget = "${PiUser}@rukebox.local"
     Write-Host "   ${Target} not reachable, trying ${FallbackTarget} (mDNS) ..."
-    & ssh.exe @SshOpts $FallbackTarget "true"
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-PiReachable $FallbackTarget) {
         $PiHost = "rukebox.local"
         $Target = $FallbackTarget
         $Reached = $true
