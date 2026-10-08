@@ -21,6 +21,25 @@ KINDS = {
     "intros": {"setting": "DJ_ANNOUNCE_DIR", "extensions": dj_intro.EXTENSIONS},
 }
 
+# What every system leaves in a folder that travelled: Windows' desktop.ini and
+# thumbnail caches, macOS' own bookkeeping, a NAS' indexes, a lost+found. Never
+# something the radio prepared, and nothing anyone wants to see in a list of
+# covers - compared without case, as the filesystems that write them do not
+# agree on one. A name starting with a dot is already ignored.
+SYSTEM_NAMES = frozenset((
+    "desktop.ini", "thumbs.db", "ehthumbs.db", "ehthumbs_vista.db",
+    "$recycle.bin", "system volume information", "lost+found", "found.000",
+    "__macosx", "@eadir", "#recycle", "#snapshot", "#recycle.bin",
+    ".ds_store", ".spotlight-v100", ".trashes", ".fseventsd", ".temporaryitems",
+    ".documentrevisions-v100", ".apdisk", ".localized", ".volumeicon.icns",
+))
+
+
+def system_name(name):
+    """Whether that name is one an operating system leaves behind."""
+    text = str(name or "")
+    return text.startswith(".") or text.lower() in SYSTEM_NAMES
+
 
 def spec(kind):
     """That kind's entry, or None for a name the interface does not offer."""
@@ -108,7 +127,7 @@ def folder_name(raw):
 def listing(kind, cfg, relative=""):
     """What a folder of that kind holds, or None when the path is not one of
     its own: its subfolders, and every file, each saying whether that kind
-    would use it.
+    would use it. What an operating system leaves behind is not listed at all.
 
     A root that does not exist yet answers an empty listing rather than an
     error: it is what a first upload creates."""
@@ -130,7 +149,7 @@ def listing(kind, cfg, relative=""):
     except OSError:
         return None
     for name in names:
-        if name.startswith("."):
+        if system_name(name):
             continue
         full = os.path.join(folder, name)
         if os.path.isdir(full):

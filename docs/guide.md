@@ -2800,7 +2800,12 @@ thumbnail, a sound with a button to hear it. **Add pictures…** / **Add files�
 puts what you choose in the folder being shown; **New folder…** creates an
 artist or album folder that does not exist yet; the bin on a row removes that
 file. A file whose name the lookup never uses (a stray `notes.txt`, a `.gif`, a
-scan) is listed with "not used", so it can be found and taken out. Nothing
+scan) is listed with "not used", so it can be found and taken out. **What an
+operating system leaves in a folder is not listed at all** - `desktop.ini`,
+`Thumbs.db`, `@eaDir`, `$RECYCLE.BIN`, `System Volume Information`,
+`lost+found`, `__MACOSX`, and anything whose name starts with a dot - because
+none of it is a cover or an introduction, and a list you read should not carry
+it. Nothing
 outside those two folders is reachable: every path a card sends is resolved
 inside them - symlinks included - exactly as the folder picker does.
 

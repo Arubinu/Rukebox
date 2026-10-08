@@ -112,14 +112,17 @@ def scan(tracks, folder, music_dir, extensions=None):
     """(how many prepared files there are, how many of these songs have one).
 
     One pass over the library: the folders are listed once each, not once per
-    song, because thousands of listings are slow on a Pi's card."""
+    song, because thousands of listings are slow on a Pi's card. What an
+    operating system leaves behind (a leading dot, `.DS_Store`, macOS'
+    `._name` twins) is not one of them."""
     wanted = EXTENSIONS if extensions is None else extensions
     folder = str(folder or "").strip()
     files = 0
     if folder and os.path.isdir(folder):
         for _root, _dirs, names in os.walk(folder):
             files += sum(1 for name in names
-                         if os.path.splitext(name)[1].lower() in wanted)
+                         if not name.startswith(".")
+                         and os.path.splitext(name)[1].lower() in wanted)
     listings = {}
     covered = 0
     for track in tracks:

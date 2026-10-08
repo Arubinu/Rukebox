@@ -82,15 +82,13 @@ class PreparedTest(unittest.TestCase):
         self.write(self.covers, "LMFAO", "cover.jpg")
         self.write(self.covers, "LMFAO", "notes.txt")
         self.write(self.covers, "_any.png")
-        self.write(self.covers, "desktop.ini")
         os.makedirs(os.path.join(self.covers, "Zz Top"))
         data = prepared_media.listing("covers", self.cfg)
         self.assertEqual(data["path"], "")
         self.assertIsNone(data["parent"])
         self.assertFalse(data["missing"])
         self.assertEqual([d["name"] for d in data["dirs"]], ["LMFAO", "Zz Top"])
-        self.assertEqual([(f["name"], f["used"]) for f in data["files"]],
-                         [("_any.png", True), ("desktop.ini", False)])
+        self.assertEqual([(f["name"], f["used"]) for f in data["files"]], [("_any.png", True)])
 
         inside = prepared_media.listing("covers", self.cfg, "LMFAO")
         self.assertEqual(inside["path"], "LMFAO")
@@ -99,6 +97,32 @@ class PreparedTest(unittest.TestCase):
                          [("cover.jpg", True), ("notes.txt", False)],
                          "a file that is there but never used is shown as such")
         self.assertEqual([f["size"] for f in inside["files"]], [1, 1])
+
+    def test_what_an_operating_system_leaves_behind_is_not_listed(self):
+        """Windows' desktop.ini and thumbnail caches, macOS' bookkeeping, a
+        NAS' indexes: never something the radio prepared, and a list of covers
+        is no place to read about them."""
+        junk = ("desktop.ini", "Desktop.INI", "Thumbs.db", "ehthumbs_vista.db",
+                "$RECYCLE.BIN", "lost+found", "__MACOSX", "#recycle", ".DS_Store",
+                ".fseventsd", ".hidden.jpg")
+        for name in junk:
+            self.assertTrue(prepared_media.system_name(name), name)
+            self.write(self.covers, name)
+            self.write(self.covers, "LMFAO", name)
+        for name in ("System Volume Information", "@eaDir"):
+            # two of them are folders in the wild
+            self.assertTrue(prepared_media.system_name(name), name)
+            os.makedirs(os.path.join(self.covers, name))
+        self.write(self.covers, "cover.jpg")
+        for name in ("cover.jpg", "Cover.JPG", "notes.txt", "2011 - Sorry"):
+            self.assertFalse(prepared_media.system_name(name), name)
+
+        data = prepared_media.listing("covers", self.cfg)
+        self.assertEqual([d["name"] for d in data["dirs"]], ["LMFAO"])
+        self.assertEqual([f["name"] for f in data["files"]], ["cover.jpg"])
+        inside = prepared_media.listing("covers", self.cfg, "LMFAO")
+        self.assertEqual(inside["dirs"], [])
+        self.assertEqual(inside["files"], [], "and none of it inside a folder either")
 
     def test_a_folder_that_is_not_there(self):
         missing = prepared_media.listing("covers", self.cfg, "Nope")

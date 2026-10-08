@@ -2934,7 +2934,10 @@ select {
   color: var(--text-muted);
   overflow: hidden;
 }
-.prepared-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Over the drawing, never beside it: the glyph is only the placeholder a
+   picture that cannot be read leaves behind (broken file, or one whose
+   extension this kind does not use). */
+.prepared-art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
 .prepared-play { width: 100%; height: 100%; border: 0; background: none; }
 .prepared-play.is-on { color: var(--accent); }
 .device-list li.prepared-row.is-unused .prepared-art { opacity: 0.55; }

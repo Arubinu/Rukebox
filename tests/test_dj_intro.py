@@ -147,6 +147,15 @@ class CandidatesTest(unittest.TestCase):
         self.assertEqual(dj_intro.scan([self.track], self.covers, self.music,
                                        extensions=(".png",)), (1, 1))
 
+    def test_what_a_system_leaves_behind_is_not_counted(self):
+        """macOS copies a `._name` twin beside every file it writes; counting
+        those as pictures would make the line read twice what is really there."""
+        self.write(self.covers, "_any.png")
+        self.write(self.covers, "._any.png")
+        self.write(self.covers, ".DS_Store")
+        self.assertEqual(dj_intro.scan([self.track], self.covers, self.music,
+                                       extensions=(".png",)), (1, 1))
+
 
 class ScanTest(unittest.TestCase):
     def setUp(self):
