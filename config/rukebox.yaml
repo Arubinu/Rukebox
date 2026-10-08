@@ -864,8 +864,7 @@ hardware:
   # storage device (a key or a disk the radio reads its music from):
   #   after -> it finishes, and the device takes over on the next one
   #   now   -> it is replaced straight away by one of the device's own
-  # The card's "Play from it now" does the same thing once, whatever this
-  # says.
+  # The card's "Play now" does the same thing once, whatever this says.
   usb_music_switch: "after"
 
 # ---------------------------------------------------------------

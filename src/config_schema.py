@@ -1061,8 +1061,7 @@ SETTINGS = [
         "storage device (a key or a disk the radio reads its music from):\n"
         "  after -> it finishes, and the device takes over on the next one\n"
         "  now   -> it is replaced straight away by one of the device's own\n"
-        "The card's \"Play from it now\" does the same thing once, whatever this\n"
-        "says.",
+        "The card's \"Play now\" does the same thing once, whatever this says.",
         "Changing to a storage device",
     ),
     Setting("AP_WATCH_INTERVAL_SEC", "statistics", "ap_watch_sec", "float", "60",

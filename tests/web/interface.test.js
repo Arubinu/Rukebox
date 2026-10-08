@@ -1172,7 +1172,7 @@ test("a USB key is offered, taken and given back", async (t) => {
   assert.match(page.$("usbHint").textContent, /previous folder/);
   const actions = () => page.$("usbList").children[0].querySelectorAll("button");
   assert.equal(actions().length, 2, "change the song now, or give the folder back");
-  assert.equal(actions()[0].textContent, "Play from it now");
+  assert.equal(actions()[0].textContent, "Play now");
 
   actions()[0].click();
   const now = await until(() => page.sent("POST", "/api/usb_music")[1]);

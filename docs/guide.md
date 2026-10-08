@@ -1646,7 +1646,7 @@ the next insertion, and a reboot with it still in, resume it by themselves.
 Taking a device **does not cut the song that is playing**: the queue is rebuilt
 from it at once, so the next song - and all those after it, in *Up next* - are
 already its own. The song playing at that moment came from the folder before,
-and the card says so; **Play from it now** replaces it straight away, with the
+and the card says so; **Play now** replaces it straight away, with the
 same short fade as the Next button. Doing nothing is the other answer: the
 current song finishes and the device takes over on the following one.
 
@@ -1655,7 +1655,7 @@ That second answer is a **setting**, at the bottom of the same card:
 **Right away**. It is what happens *every* time a device becomes the music
 folder, whether you pressed **Use this storage** or the radio took a remembered
 one by itself on the next plug; it is saved as soon as you pick it, and **Play
-from it now** stays the one-off choice. The exact setting is
+now** stays the one-off choice. The exact setting is
 `usb_music_switch` under `hardware:`, the same `after` / `now`.
 
 Under that line, a bar shows **how full the storage being played is**, with the

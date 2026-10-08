@@ -2411,7 +2411,7 @@ select {
 .hint.warning { color: var(--danger); font-weight: 600; }
 
 #homeWifiHere { text-align: center; }
-#coverCount, #coversCount, #introsCount, #usbNow { text-align: center; }
+#coverCount, #coversCount, #introsCount, #usbNow, #usbHint { text-align: center; }
 
 .clock-status,
 .status-line {
@@ -2820,12 +2820,16 @@ select {
   gap: 6px;
 }
 .device-list .device-actions.btn-split { flex: 1 1 100%; gap: 6px 20px; }
-/* On a phone the action line wraps anyway: the buttons take the whole width
-   instead of the width of their own words. */
+/* On a phone the action line takes the width, and a button is never squeezed
+   into two lines of text: one that does not fit beside the other goes on a
+   line of its own, where it takes the whole width. */
 @media (max-width: 639.98px) {
   #usbCard .device-actions { width: 100%; }
-  #usbCard .device-actions > .btn { flex: 1 1 0; }
+  #usbCard .device-actions > .btn { flex: 1 0 auto; white-space: nowrap; }
 }
+/* The storage card's own option: the line above it separates it from the
+   devices, whether or not a message sits between. */
+#usbSwitchRow { border-top: 1px solid var(--border); }
 
 .device-list.library-list li, .device-list.upnext-list li { flex-wrap: nowrap; }
 .device-list.library-list li > .recent-main,
