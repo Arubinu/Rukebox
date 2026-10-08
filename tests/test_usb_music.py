@@ -136,7 +136,7 @@ class UsbMusicTest(unittest.TestCase):
         self.assertEqual(self.daemon._music_dir(), self.mount)
         with mock.patch.object(usb_storage, "devices", return_value=[]), \
                 mock.patch.object(usb_storage, "is_mounted", return_value=False), \
-                mock.patch.object(system_actions, "usb_umount", return_value=(True, "")) as unmount:
+                mock.patch.object(system_actions, "usb_umount", return_value=(True, "")):
             self.daemon._check_usb_music()
         self.assertEqual(self.daemon._music_dir(), self.music, "back to the internal folder")
         self.assertFalse(self.daemon._usb_music_status()["active"])

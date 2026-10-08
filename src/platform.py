@@ -14,7 +14,6 @@ imports that one, and the tests run with `src/` first on the path."""
 
 import glob
 import os
-import sys
 
 import paths  # noqa: F401 - the roots are read by system_actions
 

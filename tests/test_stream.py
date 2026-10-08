@@ -9,6 +9,7 @@ are faked: there is no PipeWire under this test."""
 import io
 import json
 import os
+import queue
 import time
 import unittest
 from unittest import mock

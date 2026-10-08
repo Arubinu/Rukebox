@@ -14,7 +14,6 @@ at the next restart. Written into the file once, the file is the single source
 of truth from then on - the entrypoint only calls this when it has just
 created it."""
 
-import os
 import sys
 
 sys.path.insert(0, "/opt/rukebox/src")
