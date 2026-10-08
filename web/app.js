@@ -3203,7 +3203,7 @@ async function restartDaemon() {
   if (result.ok) showToast(t("alert.service_restarted")); else showError(result.error);
 }
 
-const SETTINGS_FORMS = ["settingsForm", "playbackForm", "volumeForm", "fadesForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
+const SETTINGS_FORMS = ["settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
   .map((id) => document.getElementById(id))
   .filter(Boolean);
 
@@ -3238,6 +3238,133 @@ SETTINGS_FORMS.forEach((form) => {
   });
 });
 
+
+let wledPresets = [];
+
+function paintWledScenes() {
+  document.querySelectorAll("select.wled-scene").forEach((select) => {
+    const value = select.value || settingsBaseline[select.dataset.key] || "0";
+    select.innerHTML = "";
+    const add = (id, label) => {
+      const option = document.createElement("option");
+      option.value = String(id);
+      option.textContent = label;
+      select.appendChild(option);
+    };
+    add(0, t("lights.keep"));
+    add(-1, t("lights.off"));
+    wledPresets.forEach((preset) => add(preset.id, preset.id + " · " + preset.name));
+    setFieldValue(select, value);
+  });
+}
+
+function paintWledDevices(devices) {
+  const list = document.getElementById("wledDevices");
+  list.innerHTML = "";
+  devices.forEach((device) => {
+    const li = document.createElement("li");
+    const text = document.createElement("span");
+    const name = document.createElement("span");
+    name.className = "device-name";
+    name.textContent = device.missing ? device.host : (device.name || device.host);
+    const meta = document.createElement("span");
+    meta.className = "device-sub";
+    meta.textContent = device.missing ? t("lights.missing")
+      : [device.host, t("lights.leds", { n: device.leds || 0 }), "WLED " + (device.ver || "?"),
+         device.time ? t("lights.its_time", { time: device.time }) : ""].filter(Boolean).join(" · ");
+    text.append(name, meta);
+    li.appendChild(text);
+    li.classList.toggle("is-off", !!device.missing);
+    list.appendChild(li);
+  });
+  list.hidden = devices.length === 0;
+}
+
+function paintWledClock(data) {
+  const line = document.getElementById("wledClockState");
+  const devices = (data.devices || []).filter((device) => !device.missing);
+  const lights = data.lights || {};
+  if (!devices.length) {
+    line.textContent = "";
+  } else if (lights.clock_source === "wled") {
+    line.textContent = t("lights.clock_came");
+  } else if ((data.devices || []).some((device) => device.clock_known)) {
+    line.textContent = t("lights.clock_known");
+  } else {
+    line.textContent = t("lights.clock_unknown");
+  }
+}
+
+let wledLast = null;
+async function refreshWled() {
+  const result = await apiGet("/api/wled");
+  if (!result.ok) return;
+  wledLast = result.data || {};
+  wledPresets = Array.isArray(wledLast.presets) ? wledLast.presets : [];
+  paintWledScenes();
+  paintWledDevices(wledLast.devices || []);
+  paintWledClock(wledLast);
+  const status = document.getElementById("wledStatus");
+  const devices = wledLast.devices || [];
+  status.textContent = !devices.length ? t("lights.none")
+    : devices.every((device) => device.missing) ? t("lights.unreachable")
+      : !wledPresets.length ? t("lights.no_presets") : "";
+}
+paintWledScenes();
+refreshEvery(refreshWled, 20000, ["settings/lights"]);
+window.LANG_CHANGE_LISTENERS.push(() => {
+  paintWledScenes();
+  if (wledLast) {
+    paintWledDevices(wledLast.devices || []);
+    paintWledClock(wledLast);
+  }
+});
+
+document.getElementById("wledDiscover").addEventListener("click", async (e) => {
+  const button = e.currentTarget;
+  button.disabled = true;
+  const result = await apiPost("/api/wled/discover", {});
+  button.disabled = false;
+  if (!result.ok) {
+    showError(result.error);
+    return;
+  }
+  const found = (result.data && result.data.devices) || [];
+  if (!found.length) {
+    showToast(t("lights.found_none"), t("lights.found_none_hint"));
+    return;
+  }
+  const field = document.getElementById("wledHosts");
+  const hosts = field.value.split(/[\s,;]+/).filter(Boolean);
+  found.forEach((device) => { if (!hosts.includes(device.host)) hosts.push(device.host); });
+  field.value = hosts.join(", ");
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+  paintWledDevices(found);
+  showToast(t("lights.found", { n: found.length }), t("lights.found_save"));
+});
+
+document.querySelectorAll(".wled-test").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const select = document.getElementById(button.dataset.for);
+    const preset = Number(select.value);
+    if (!preset) {
+      showToast(t("lights.keep_nothing"));
+      return;
+    }
+    const result = await apiPost("/api/wled/test", { preset });
+    if (!result.ok) showError(result.error);
+  });
+});
+
+document.getElementById("wledRefresh").addEventListener("click", async () => {
+  const result = await apiPost("/api/wled/refresh", {});
+  if (!result.ok) {
+    showError(result.error);
+    return;
+  }
+  showToast(t("lights.clock_sent"));
+  setTimeout(refreshWled, 3000);
+});
 
 let folderPickerTarget = null;
 let folderPickerPath = "";
@@ -8697,7 +8824,7 @@ function eventLabel(type) {
   return EVENT_TYPE_KEYS.includes(type) ? t("event." + type) : type;
 }
 
-const CLOCK_SOURCE_KEYS = ["rtc", "bluetooth", "manual", "host", "none"];
+const CLOCK_SOURCE_KEYS = ["rtc", "bluetooth", "manual", "host", "wled", "none"];
 function clockSourceLabel(source) {
   return CLOCK_SOURCE_KEYS.includes(source) ? t("clocksrc." + source) : t("clocksrc.unknown");
 }
@@ -8832,9 +8959,9 @@ function renderKpis(summary) {
     kpiTile("wifi", t("kpi.access_point"), Math.round(c.ap_client_connections || 0),
       t("kpi.access_point_sub", { n: Math.round(c.web_sessions || 0) }), { keys: keysIf(["ap_client_connections", "web_sessions"]) }),
     kpiTile("clock", t("kpi.time_established"),
-      ["clock_rtc", "clock_bluetooth", "clock_manual", "clock_host"]
+      ["clock_rtc", "clock_bluetooth", "clock_manual", "clock_host", "clock_wled"]
         .reduce((total, key) => total + Math.round(c[key] || 0), 0),
-      t("kpi.time_established_sub", { host: Math.round(c.clock_host || 0), bt: Math.round(c.clock_bluetooth || 0), manual: Math.round(c.clock_manual || 0), failed: Math.round(c.clock_unreliable || 0) }), { keys: keysIf(["clock_rtc", "clock_bluetooth", "clock_manual", "clock_host", "clock_unreliable"]) }),
+      t("kpi.time_established_sub", { host: Math.round(c.clock_host || 0), bt: Math.round(c.clock_bluetooth || 0), wled: Math.round(c.clock_wled || 0), manual: Math.round(c.clock_manual || 0), failed: Math.round(c.clock_unreliable || 0) }), { keys: keysIf(["clock_rtc", "clock_bluetooth", "clock_manual", "clock_host", "clock_wled", "clock_unreliable"]) }),
   );
 
   if (placeholder) {

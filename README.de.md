@@ -38,6 +38,9 @@ Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
   Gäste, eine Abstimmung zum Überspringen und RFID-Karten oder Barcodes,
   die ein Album starten. Ein Monats- und Jahresrückblick zeigt, was du
   gehört hast.
+- **Licht, das der Musik folgt**: WLED-Lichtstreifen wechseln die Szene,
+  wenn die Musik startet, pausiert oder eine Ansage läuft, pulsieren im
+  Takt und teilen die Uhrzeit mit dem Radio.
 - **Läuft von allein**: hält den Lautsprecher verbunden, kennt die
   Uhrzeit ohne Internet, überspringt unlesbare Dateien, überwacht seine
   SD-Karte und zeigt an, wenn etwas deine Aufmerksamkeit braucht.

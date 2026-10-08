@@ -402,6 +402,72 @@ playback:
   replaygain_target_lufs: "-14"
 
 # ---------------------------------------------------------------
+# WLED light strips: scenes that follow the radio, its beat and the clock
+# ---------------------------------------------------------------
+lights:
+  # Drive WLED light strips: each moment of the radio (music, pause,
+  # an announcement, the cutoff...) picks one of the presets made in WLED.
+  enabled: false
+
+  # The address of each WLED, separated by commas (192.168.4.20 or
+  # wled-salon.local). A preset number means the same thing on each of them.
+  hosts: ""
+
+  # The preset while the music starts and fades in.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_start: 0
+
+  # The preset while a song plays.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_play: 0
+
+  # The preset while the music is paused.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_pause: 0
+
+  # The preset while the radio waits: before the start, in standby, after the list.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_idle: 0
+
+  # The preset while an announcement, a button sound or a sentence plays.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_announce: 0
+
+  # The preset of the cutoff: its warning, then its announcement.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_cutoff: 0
+
+  # The preset while a blind test is on.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_game: 0
+
+  # A preset shown for three seconds on each press of a button.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_button: 0
+
+  # A preset shown for three seconds when the speaker is lost or its battery is low.
+  # 0 leaves the light as it is, -1 switches it off.
+  scene_alert: 0
+
+  # Switch the light strips off when the radio switches itself off.
+  off_at_poweroff: true
+
+  # Send the beat of the music to WLED's audio reactive effects, the way its
+  # UDP sound sync does: in WLED, set the sound settings' sync to Receive.
+  # It costs an ffmpeg process and a little of the processor while music plays.
+  audio_sync: false
+
+  # How long the beat waits before it is sent, in milliseconds, so the light
+  # keeps time with what is heard: a Bluetooth speaker plays 150 to 250 ms
+  # late, a wired output barely at all (0 to 2000).
+  audio_delay_ms: 200
+
+  # Share the time with WLED: the more reliable of the two gives it to the
+  # other. A radio with no clock module gets the time back from a WLED that
+  # stayed powered, once it has given that WLED the time at least once.
+  clock: true
+
+# ---------------------------------------------------------------
 # Flic and/or GPIO button: what single and double click do
 # ---------------------------------------------------------------
 buttons:

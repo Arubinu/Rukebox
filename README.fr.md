@@ -38,6 +38,9 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
   invités, un vote pour passer le morceau, et des cartes RFID ou des
   codes-barres qui lancent un album. Un bilan du mois et de l'année te
   raconte ce que tu as écouté.
+- **Des lumières qui suivent la musique** : des rubans WLED changent de
+  scène au démarrage, à la pause ou pendant une annonce, battent au
+  rythme, et partagent l'heure avec la radio.
 - **Pensé pour tourner seul** : il garde l'enceinte connectée, connaît
   l'heure sans Internet, ignore les fichiers illisibles, surveille sa
   carte SD et te prévient à l'écran quand quelque chose demande ton

@@ -925,6 +925,48 @@ sound card - so another USB device's keys are never read, and no name has
 to be set. Many cards change their own volume on those two keys as well:
 set the actions to `off` to let the card alone.
 
+## Light strips (WLED)
+
+[WLED](https://kno.wled.ge) is the usual firmware for an ESP32 or ESP8266
+driving an addressable LED strip or ring. Rukebox drives it over the
+network, so the strip only has to be on the radio's own Wi-Fi or on the
+same network. **Settings > Light strips** holds everything.
+
+- **Addresses**: one or several, separated by commas. **Search** finds the
+  WLEDs that announce themselves (mDNS) and those the radio already talks
+  to, and adds them to the field; save to keep them.
+- **Scenes**: a scene is a *preset* made in WLED's own page (effect,
+  colours, brightness, segments). Each moment of the radio picks one:
+  while the music plays, when it starts (for the length of the fade-in,
+  three seconds at least), while paused, while waiting, during an
+  announcement, at the cutoff, and during the blind test. *Leave as it
+  is* sends nothing for that moment, *Switch off* turns the strip off.
+  A button press and an alert (the speaker lost, a low battery) are
+  **flashes**: their preset shows for three seconds, then the moment's
+  own scene comes back. ▶ beside each one shows the preset at once.
+  With several strips, a preset number means the same on each - create
+  them in the same order.
+- **Off with the radio**: the strips go dark before the radio powers
+  itself off.
+- **To the beat**: the radio listens to what it plays (the sound server's
+  monitor, like the network stream) and sends WLED's *audio sync* packets
+  (version 2, multicast `239.0.0.1:11988`), so any effect marked with a
+  note in WLED moves with the music. In WLED: *Config > Sound Settings*,
+  sync set to **Receive**. The delay keeps the light on time with what is
+  heard: about 200 ms for a Bluetooth speaker, 0 for a wire. Multicast
+  does not cross a router, so the strip must be on the same network.
+- **Time, both ways**: the more reliable of the two gives the time to the
+  other. While the radio's own clock is sure (a clock module, the
+  Internet, a phone, or a time set by hand), it gives it to every strip every ten
+  minutes, and learns each strip's timezone from the answer. A radio
+  with no clock module then asks that strip for the time when it starts,
+  before the Bluetooth phone; the answer is refused when it is older than
+  the last time the radio was running. A strip whose timezone has never
+  been learned is never asked.
+
+The strip is a light, not a part of the radio: if it does not answer, the
+radio plays on and logs it once an hour.
+
 ## Cards and barcodes (RFID reader, barcode scanner)
 
 A cheap USB RFID reader (125 kHz or 13.56 MHz, the kind sold as a "USB ID

@@ -37,6 +37,9 @@ della cassa o qualsiasi telefono collegato al Wi-Fi del Pi.
   ospiti, un voto per saltare il brano e schede RFID o codici a barre che
   avviano un album. Un bilancio del mese e dell'anno ti racconta cosa hai
   ascoltato.
+- **Luci che seguono la musica**: le strisce WLED cambiano scena
+  all'avvio della musica, in pausa o durante un annuncio, pulsano a ritmo
+  e condividono l'ora con la radio.
 - **Pensato per funzionare da solo**: tiene la cassa collegata, conosce
   l'ora senza Internet, salta i file illeggibili, sorveglia la sua scheda
   SD e segnala sullo schermo quando qualcosa richiede attenzione.

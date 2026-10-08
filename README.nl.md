@@ -37,6 +37,9 @@ speaker of elke telefoon op de wifi van de Pi is genoeg.
   gasten, een stemming om een nummer over te slaan en RFID-kaarten of
   barcodes die een album starten. Een maand- en jaaroverzicht vertelt wat
   je hebt beluisterd.
+- **Licht dat de muziek volgt**: WLED-ledstrips wisselen van scène als de
+  muziek begint, pauzeert of er een aankondiging speelt, pulseren op de
+  maat en delen de tijd met de radio.
 - **Gemaakt om zelfstandig te draaien**: houdt de speaker verbonden, weet
   hoe laat het is zonder internet, slaat onleesbare bestanden over, houdt
   de SD-kaart in de gaten en meldt op het scherm wanneer iets aandacht

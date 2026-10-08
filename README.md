@@ -34,6 +34,9 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
   stops, and turns into a party game - a blind test on your guests'
   phones, a vote to skip the song, and RFID cards or barcodes that start
   an album. A monthly and yearly recap tells you what you listened to.
+- **Lights that follow the music**: WLED light strips change scene when
+  the music starts, pauses or an announcement plays, pulse to the beat,
+  and share the time with the radio.
 - **Made to run unattended**: it keeps the speaker connected, knows the
   time without Internet, skips unreadable files, watches its SD card, and
   says on screen when something needs attention.

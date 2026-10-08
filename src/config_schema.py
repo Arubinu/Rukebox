@@ -25,6 +25,7 @@ SECTIONS = [
     ("bluetooth", "Bluetooth: speaker, and which controller does what"),
     ("folders", "Audio folders (subfolders are scanned recursively)"),
     ("playback", "Playback"),
+    ("lights", "WLED light strips: scenes that follow the radio, its beat and the clock"),
     ("buttons", "Flic and/or GPIO button: what single and double click do"),
     ("schedule", "Evening cutoff (the morning announcement is a custom one)"),
     ("fades", "Fade durations - every stop is progressive, never abrupt"),
@@ -1183,6 +1184,98 @@ SETTINGS = [
         "the radio stops choosing them on its own. Nothing is deleted, and the\n"
         "file is still there to be played by hand.",
         "Hidden tracks file",
+    ),
+    Setting(
+        "WLED_ENABLED", "lights", "enabled", "bool", "false",
+        "Drive WLED light strips: each moment of the radio (music, pause,\n"
+        "an announcement, the cutoff...) picks one of the presets made in WLED.",
+        "WLED light strips",
+    ),
+    Setting(
+        "WLED_HOSTS", "lights", "hosts", "str", "",
+        "The address of each WLED, separated by commas (192.168.4.20 or\n"
+        "wled-salon.local). A preset number means the same thing on each of them.",
+        "WLED addresses",
+    ),
+    Setting(
+        "WLED_SCENE_START", "lights", "scene_start", "int", "0",
+        "The preset while the music starts and fades in.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "When the music starts",
+    ),
+    Setting(
+        "WLED_SCENE_PLAY", "lights", "scene_play", "int", "0",
+        "The preset while a song plays.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "While the music plays",
+    ),
+    Setting(
+        "WLED_SCENE_PAUSE", "lights", "scene_pause", "int", "0",
+        "The preset while the music is paused.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "While paused",
+    ),
+    Setting(
+        "WLED_SCENE_IDLE", "lights", "scene_idle", "int", "0",
+        "The preset while the radio waits: before the start, in standby, after the list.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "While waiting",
+    ),
+    Setting(
+        "WLED_SCENE_ANNOUNCE", "lights", "scene_announce", "int", "0",
+        "The preset while an announcement, a button sound or a sentence plays.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "During an announcement",
+    ),
+    Setting(
+        "WLED_SCENE_CUTOFF", "lights", "scene_cutoff", "int", "0",
+        "The preset of the cutoff: its warning, then its announcement.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "At the cutoff",
+    ),
+    Setting(
+        "WLED_SCENE_GAME", "lights", "scene_game", "int", "0",
+        "The preset while a blind test is on.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "During the blind test",
+    ),
+    Setting(
+        "WLED_SCENE_BUTTON", "lights", "scene_button", "int", "0",
+        "A preset shown for three seconds on each press of a button.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "On a button press",
+    ),
+    Setting(
+        "WLED_SCENE_ALERT", "lights", "scene_alert", "int", "0",
+        "A preset shown for three seconds when the speaker is lost or its battery is low.\n"
+        "0 leaves the light as it is, -1 switches it off.",
+        "On an alert",
+    ),
+    Setting(
+        "WLED_OFF_AT_POWEROFF", "lights", "off_at_poweroff", "bool", "true",
+        "Switch the light strips off when the radio switches itself off.",
+        "Off with the radio",
+    ),
+    Setting(
+        "WLED_AUDIO_SYNC", "lights", "audio_sync", "bool", "false",
+        "Send the beat of the music to WLED's audio reactive effects, the way its\n"
+        "UDP sound sync does: in WLED, set the sound settings' sync to Receive.\n"
+        "It costs an ffmpeg process and a little of the processor while music plays.",
+        "Light to the beat",
+    ),
+    Setting(
+        "WLED_AUDIO_DELAY_MS", "lights", "audio_delay_ms", "int", "200",
+        "How long the beat waits before it is sent, in milliseconds, so the light\n"
+        "keeps time with what is heard: a Bluetooth speaker plays 150 to 250 ms\n"
+        "late, a wired output barely at all (0 to 2000).",
+        "Beat delay (ms)",
+    ),
+    Setting(
+        "WLED_CLOCK", "lights", "clock", "bool", "true",
+        "Share the time with WLED: the more reliable of the two gives it to the\n"
+        "other. A radio with no clock module gets the time back from a WLED that\n"
+        "stayed powered, once it has given that WLED the time at least once.",
+        "Share the time",
     ),
 ]
 

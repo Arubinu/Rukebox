@@ -37,6 +37,9 @@ cualquier móvil conectado al Wi-Fi de la Pi.
   tus invitados, una votación para saltar la canción y tarjetas RFID o
   códigos de barras que inician un álbum. Un resumen del mes y del año te
   cuenta lo que escuchaste.
+- **Luces que siguen la música**: las tiras WLED cambian de escena al
+  empezar la música, en pausa o durante un anuncio, laten al ritmo y
+  comparten la hora con la radio.
 - **Pensada para funcionar sola**: mantiene el altavoz conectado, sabe la
   hora sin Internet, salta los archivos ilegibles, vigila su tarjeta SD y
   avisa en pantalla cuando algo necesita tu atención.

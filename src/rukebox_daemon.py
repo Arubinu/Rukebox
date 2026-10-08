@@ -12,7 +12,7 @@ import sys
 import tempfile
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -37,7 +37,9 @@ from stats import StatsRecorder  # noqa: E402
 import system_actions  # noqa: E402
 import track_media  # noqa: E402
 import track_order  # noqa: E402
+import stream  # noqa: E402
 import usb_storage  # noqa: E402
+import wled  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -293,6 +295,14 @@ class RadioDaemon:
         self._tail_player_cls = TailPlayer
         self._xfade_in = 0.0
         self._dj_count = 0
+        self._time_source = None
+        self._clock_lock = threading.Lock()
+        self._lights = wled.Lights(lambda: self.cfg, self._light_scene, self._light_turn)
+        self._light_start_until = 0.0
+        self._light_audio = None
+        self._light_audio_key = None
+        self._light_audio_retry = 0.0
+        self._wled_clock_next = time.monotonic() + 20
         self._bt_start_done = False
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
@@ -530,23 +540,23 @@ class RadioDaemon:
             # A container's clock is its host's, kept by the host and not ours
             # to write: no RTC to read, nothing to recover, nothing to doubt.
             log.info("The clock is this machine's own, kept by the host")
-            self.stats.set_clock("host")
+            self._declare_clock("host")
             self._clock_ready.set()
             return
 
         if os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc"):
             log.info("Hardware RTC module detected, clock considered reliable")
-            self.stats.set_clock("rtc", offset_sec=0.0)
+            self._declare_clock("rtc", offset_sec=0.0)
             self._clock_ready.set()
             return
 
         log.warning("No hardware RTC detected, the clock is not guaranteed to be reliable")
 
-        if self.cfg["BT_CLOCK_ENABLED"] and self.cfg["BT_CLOCK_MAC"] not in ("", "XX:XX:XX:XX:XX:XX"):
-            threading.Thread(target=self._try_bt_clock_sync, daemon=True).start()
+        if self._bt_clock_wanted() or self._wled_clock_targets():
+            threading.Thread(target=self._recover_clock, daemon=True).start()
         else:
             log.warning("Bluetooth time recovery disabled or BT_CLOCK_MAC not configured")
-            self.stats.set_clock("none", trusted=False)
+            self._declare_clock("none", trusted=False)
             self._signal_clock_outcome(False)
 
         def grace_timeout():
@@ -558,11 +568,152 @@ class RadioDaemon:
                     "(risk of incorrect time)",
                     self.cfg["CLOCK_SYNC_GRACE_SEC"],
                 )
-                self.stats.set_clock("none", trusted=False)
+                self._declare_clock("none", trusted=False)
                 self._signal_clock_outcome(False)
                 self._clock_ready.set()
 
         threading.Thread(target=grace_timeout, daemon=True).start()
+
+    def _declare_clock(self, source, offset_sec=0.0, trusted=True):
+        self._time_source = source if trusted else None
+        self.stats.set_clock(source, offset_sec=offset_sec, trusted=trusted)
+
+    def _bt_clock_wanted(self):
+        return bool(self.cfg["BT_CLOCK_ENABLED"]) and self.cfg["BT_CLOCK_MAC"] not in ("", "XX:XX:XX:XX:XX:XX")
+
+    def _recover_clock(self):
+        """WLED first - it answers at once when it is there - then the Bluetooth phone."""
+        if self._try_wled_clock_sync():
+            return
+        if self._bt_clock_wanted():
+            self._try_bt_clock_sync()
+            return
+        self._declare_clock("none", trusted=False)
+        self._signal_clock_outcome(False)
+
+    WLED_CLOCK_WAIT_SEC = 25
+    WLED_CLOCK_EVERY_SEC = 600
+
+    def _wled_clock_targets(self):
+        """[(host, offset), ...]: the configured WLEDs whose timezone is known."""
+        if not wled.enabled(self.cfg) or not self.cfg.get("WLED_CLOCK", True):
+            return []
+        memory = self.state.value("wled_clock") or {}
+        found = []
+        for host in wled.hosts(self.cfg):
+            entry = memory.get(host)
+            if isinstance(entry, dict) and isinstance(entry.get("offset"), int):
+                found.append((host, entry["offset"]))
+        return found
+
+    def _last_known_time(self):
+        """The newest time this machine has written down: WLED must not be behind it."""
+        try:
+            return os.path.getmtime(self.state.state_path)
+        except OSError:
+            return 0.0
+
+    def _try_wled_clock_sync(self):
+        targets = self._wled_clock_targets()
+        if not targets:
+            return False
+        not_before = self._last_known_time()
+        wait = min(self.WLED_CLOCK_WAIT_SEC, float(self.cfg["CLOCK_SYNC_GRACE_SEC"]))
+        deadline = time.monotonic() + wait
+        log.info("Asking WLED for the time (%s)", ", ".join(host for host, _ in targets))
+        while time.monotonic() < deadline and not self._clock_ready.is_set():
+            for host, offset in targets:
+                try:
+                    utc = wled.read_time(host, offset, not_before)
+                except (OSError, ValueError):
+                    continue
+                if utc is not None:
+                    return self._take_time(utc, "wled", "WLED " + host)
+            time.sleep(3)
+        log.warning("No WLED gave a time it could vouch for")
+        return False
+
+    def _take_time(self, utc, source, origin):
+        """Sets the system clock from a UTC time another device gave."""
+        with self._clock_lock:
+            if self._clock_ready.is_set():
+                return True
+            offset = utc - time.time()
+            formatted = datetime.fromtimestamp(utc, timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            ok, detail = system_actions.set_clock(formatted, utc=True)
+            if not ok:
+                log.error("Failed to set system time from %s: %s", origin, detail)
+                return False
+            log.info("System time set from %s: %s UTC (offset %+.1fs)", origin, formatted, offset)
+            self._declare_clock(source, offset_sec=offset)
+            self._signal_clock_outcome(True)
+            self._clock_ready.set()
+            return True
+
+    def _clock_trusted(self):
+        if self._time_source not in (None, "none", "wled"):
+            return True
+        return system_actions.ntp_synchronized()
+
+    def _share_clock_with_wled(self, cfg):
+        """Gives each WLED the time while ours is the reliable one, and learns its timezone."""
+        if not cfg.get("WLED_CLOCK", True) or time.monotonic() < self._wled_clock_next:
+            return
+        self._wled_clock_next = time.monotonic() + self.WLED_CLOCK_EVERY_SEC
+        if not self._clock_trusted():
+            return
+        memory = dict(self.state.value("wled_clock") or {})
+        for host in wled.hosts(cfg):
+            try:
+                offset = wled.push_time(host)
+            except (OSError, ValueError) as e:
+                log.debug("WLED %s did not take the time: %s", host, e)
+                continue
+            if offset is not None:
+                memory[host] = {"offset": offset, "at": int(time.time())}
+        self.state.set_value("wled_clock", memory)
+
+    def _light_scene(self):
+        """The moment the radio is in, as the lights see it."""
+        mode = self.mode
+        if self._powering_off or mode in ("shutting_down", "restarting"):
+            return None
+        if mode == "game":
+            return "game"
+        if mode == "cutoff_announce":
+            return "cutoff"
+        if self._duck_proc is not None or mode == "meme" or mode.startswith(("custom:", "button_announce:")):
+            return "announce"
+        if mode == "music":
+            if self._paused:
+                return "pause"
+            return "start" if time.monotonic() < self._light_start_until else "play"
+        return "idle"
+
+    def _light_turn(self, cfg):
+        self._follow_light_audio(cfg)
+        if wled.enabled(cfg):
+            self._share_clock_with_wled(cfg)
+
+    def _follow_light_audio(self, cfg):
+        """Runs the beat sender exactly while music is heard and it is wanted."""
+        want = (wled.enabled(cfg) and bool(cfg.get("WLED_AUDIO_SYNC")) and self.mode == "music"
+                and not self._paused and not self._muted)
+        key = (tuple(wled.hosts(cfg)), int(cfg.get("WLED_AUDIO_DELAY_MS") or 0)) if want else None
+        sync = self._light_audio
+        if sync is not None and (key != self._light_audio_key or not sync.alive()):
+            sync.stop()
+            self._light_audio = sync = None
+        if not want or sync is not None or time.monotonic() < self._light_audio_retry:
+            return
+        env = audio_env()
+        source = stream.probe_source(env, kind=self._output_kind())
+        self._light_audio_retry = time.monotonic() + (10 if source else 30)
+        if not source:
+            return
+        self._light_audio = wled.AudioSync(source, env, key[0], key[1])
+        self._light_audio_key = key
+        self._light_audio.start()
 
     def _try_bt_clock_sync(self):
         from bt_clock import fetch_time_from_bt
@@ -572,7 +723,7 @@ class RadioDaemon:
         dt = fetch_time_from_bt(mac, timeout_sec=self.cfg["CLOCK_SYNC_GRACE_SEC"])
         if dt is None:
             log.warning("Failed to recover the time via Bluetooth")
-            self.stats.set_clock("none", trusted=False)
+            self._declare_clock("none", trusted=False)
             self._signal_clock_outcome(False)
             self._clock_ready.set()
             return
@@ -583,12 +734,12 @@ class RadioDaemon:
         ok, detail = system_actions.set_clock(formatted)
         if ok:
             log.info("System time set via Bluetooth: %s (offset %+.1fs)", formatted, offset)
-            self.stats.set_clock("bluetooth", offset_sec=offset)
+            self._declare_clock("bluetooth", offset_sec=offset)
             self._signal_clock_outcome(True)
             self._clock_ready.set()
         else:
             log.error("Failed to set system time: %s", detail)
-            self.stats.set_clock("none", trusted=False)
+            self._declare_clock("none", trusted=False)
             self._signal_clock_outcome(False)
             self._clock_ready.set()
 
@@ -614,6 +765,7 @@ class RadioDaemon:
 
         self._start_control_socket()
         self._start_watchdogs()
+        self._lights.start()
 
         self.state.ensure_queue(
             self._playable_tracks(), self.cfg["MUSIC_ORDER_MODE"], self._music_dir(),
@@ -1818,6 +1970,7 @@ class RadioDaemon:
         except (TypeError, ValueError):
             fade = 0.0
         fade = min(max(fade, 0.0), 120.0)
+        self._light_start_until = time.monotonic() + max(3.0, fade)
         # A volume handed to an idle Bluetooth link never reaches the speaker.
         self._sink_resync = self.SINK_RESYNC_TURNS
         self._open_quick_steps()
@@ -2436,6 +2589,9 @@ class RadioDaemon:
         if mac and mac != "XX:XX:XX:XX:XX:XX":
             log.info("Disconnecting Bluetooth from %s", mac)
             self._bluetoothctl("disconnect", mac, timeout=10)
+        if self._light_audio is not None:
+            self._light_audio.stop()
+        self._lights.switch_off()
         system_actions.power_off()
 
     def _cutoff_standby(self):
@@ -2467,6 +2623,8 @@ class RadioDaemon:
             detail={"source": source, "action": action, "target": target},
             counters=counters, daily={"clicks_%s" % kind: 1},
         )
+        if action != "ignored":
+            self._lights.flash("button")
 
     def _click_source_folder(self, source):
         return announcements.resolve_source_folder(self.cfg, self._custom_announcements, source)
@@ -2910,6 +3068,7 @@ class RadioDaemon:
         if left != minutes or self.state.already_triggered_today("cutoff_warning"):
             return
         self.state.mark_triggered_today("cutoff_warning")
+        self._lights.flash("cutoff")
         self._speak("cutoff", "scheduler", minutes=minutes)
 
     def _perform_direct_action(self, action, source):
@@ -3330,6 +3489,7 @@ class RadioDaemon:
             self._battery_warned = True
             log.warning("Speaker battery low: %d%%", level)
             self.stats.record("speaker_battery_low", label="%d %%" % level, detail={"level": level})
+            self._lights.flash("alert")
             sound = self.cfg.get("BATTERY_LOW_SOUND") or ""
             if sound:
                 self._play_cue_sound(sound, "BATTERY_LOW_SOUND")
@@ -3343,6 +3503,7 @@ class RadioDaemon:
         else:
             log.warning("Speaker disconnected while running (%s)", mac)
         self._speaker_lost_at = time.monotonic()
+        self._lights.flash("alert")
         self.stats.record(
             "speaker_silent" if reason == "silent" else "speaker_disconnected", label=mac,
             detail={
@@ -3891,6 +4052,8 @@ class RadioDaemon:
             "cutoff_minute": self.cfg["CUTOFF_MINUTE"],
             "stats_enabled": self.stats.enabled,
             "clock_source": self.stats.clock_source,
+            "lights": {"scene": self._light_scene(),
+                       "beat": self._light_audio is not None and self._light_audio.alive()},
             "consecutive_play_errors": self._consecutive_play_errors,
         }
 
@@ -4151,12 +4314,17 @@ class RadioDaemon:
                     offset = float(msg.get("offset", 0.0))
                 except (TypeError, ValueError):
                     offset = 0.0
-                self.stats.set_clock(
+                self._declare_clock(
                     msg.get("clock_source", "manual"), offset_sec=offset, trusted=True,
                 )
                 ready = getattr(self, "_clock_ready", None)
                 if ready is not None:
                     ready.set()
+                self._wled_clock_next = 0.0
+                return {"ok": True}
+            if cmd == "wled_refresh":
+                self._wled_clock_next = 0.0
+                self._lights.refresh()
                 return {"ok": True}
             if cmd == "card":
                 card_id = str(msg.get("id") or "").strip()

@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     boot_at      REAL,            -- epoch, system boot, derived from /proc/uptime
     ended_at     REAL,
     end_reason   TEXT,            -- cutoff | long_press | service_stop | unclean | ...
-    clock_source TEXT,            -- rtc | bluetooth | manual | none
+    clock_source TEXT,            -- rtc | bluetooth | manual | host | wled | none
     clock_ok     INTEGER NOT NULL DEFAULT 0,
     used         INTEGER NOT NULL DEFAULT 0   -- 1 as soon as something actually played
 );
@@ -85,7 +85,7 @@ KNOWN_COUNTERS = [
     "playback_errors", "playback_stalls",
     "speaker_drops", "speaker_recoveries",
     "ap_client_connections", "web_sessions",
-    "clock_rtc", "clock_bluetooth", "clock_manual", "clock_host", "clock_unreliable",
+    "clock_rtc", "clock_bluetooth", "clock_manual", "clock_host", "clock_wled", "clock_unreliable",
     "cutoff_triggers", "custom_announces",
     "shutdowns_cutoff", "shutdowns_longpress", "shutdowns_service",
     "shutdowns_speaker",
@@ -374,6 +374,7 @@ class StatsRecorder:
             "rtc": "clock_rtc",
             "bluetooth": "clock_bluetooth",
             "manual": "clock_manual",
+            "wled": "clock_wled",
             # A container's clock is its host's: not ours to set, and not a doubt.
             "host": "clock_host",
         }.get(source, "clock_unreliable")

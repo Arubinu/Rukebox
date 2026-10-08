@@ -1076,6 +1076,101 @@
           </form>
         </section>
 
+        <section class="card" data-page="lights" data-tab="settings" aria-labelledby="lightsTitle">
+          <h2 data-icon="lightbulb" id="lightsTitle"><span data-i18n="lights.title">Light strips (WLED)</span></h2>
+          <p class="hint help-text" data-i18n="lights.help" hidden>A WLED light strip follows the radio: each moment of the radio shows one of the presets made in WLED's own page. Several strips can be driven at once; a preset number means the same thing on each.</p>
+          <form id="lightsForm" class="settings-form">
+            <div class="field-row">
+              <label for="wledEnabled" data-i18n="lights.enabled">Drive the light strips</label>
+              <input type="checkbox" id="wledEnabled" data-key="WLED_ENABLED" class="switch-input" role="switch">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="wledHosts" data-i18n="lights.hosts">Addresses</label>
+                <p class="field-desc" id="wledHostsDesc" data-i18n="lights.hosts_desc">Separated by commas, or found with Search.</p>
+              </div>
+              <div class="input-with-action">
+                <input type="text" id="wledHosts" data-key="WLED_HOSTS" class="text-input" placeholder="192.168.4.20"
+                       aria-describedby="wledHostsDesc" spellcheck="false" autocapitalize="off" autocomplete="off">
+                <button type="button" class="btn btn-icon" id="wledDiscover" data-icon="search"
+                        data-i18n-aria-label="lights.discover" aria-label="Search" data-i18n-title="lights.discover" title="Search"></button>
+              </div>
+            </div>
+            <ul class="device-list" id="wledDevices" hidden></ul>
+            <p class="hint" id="wledStatus"></p>
+
+            <details class="subsection" id="wledScenes">
+              <summary><span data-i18n="lights.scenes">Scenes</span></summary>
+              <p class="hint help-text" data-i18n="lights.scenes_help" hidden>For each moment, the preset to show. "Leave as it is" sends nothing; ▶ shows the preset now, to choose one.</p>
+              <div class="field-row"><label for="wledScenePlay" data-i18n="lights.scene_play">While the music plays</label>
+                <div class="input-with-action"><select id="wledScenePlay" data-key="WLED_SCENE_PLAY" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledScenePlay" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row"><label for="wledSceneStart" data-i18n="lights.scene_start">When the music starts</label>
+                <div class="input-with-action"><select id="wledSceneStart" data-key="WLED_SCENE_START" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneStart" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row"><label for="wledScenePause" data-i18n="lights.scene_pause">While paused</label>
+                <div class="input-with-action"><select id="wledScenePause" data-key="WLED_SCENE_PAUSE" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledScenePause" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row"><label for="wledSceneIdle" data-i18n="lights.scene_idle">While waiting</label>
+                <div class="input-with-action"><select id="wledSceneIdle" data-key="WLED_SCENE_IDLE" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneIdle" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row"><label for="wledSceneAnnounce" data-i18n="lights.scene_announce">During an announcement</label>
+                <div class="input-with-action"><select id="wledSceneAnnounce" data-key="WLED_SCENE_ANNOUNCE" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneAnnounce" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row"><label for="wledSceneCutoff" data-i18n="lights.scene_cutoff">At the cutoff</label>
+                <div class="input-with-action"><select id="wledSceneCutoff" data-key="WLED_SCENE_CUTOFF" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneCutoff" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row"><label for="wledSceneButton" data-i18n="lights.scene_button">On a button press</label>
+                <div class="input-with-action"><select id="wledSceneButton" data-key="WLED_SCENE_BUTTON" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneButton" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row"><label for="wledSceneAlert" data-i18n="lights.scene_alert">On an alert</label>
+                <div class="input-with-action"><select id="wledSceneAlert" data-key="WLED_SCENE_ALERT" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneAlert" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row" data-level="detail"><label for="wledSceneGame" data-i18n="lights.scene_game">During the blind test</label>
+                <div class="input-with-action"><select id="wledSceneGame" data-key="WLED_SCENE_GAME" class="wled-scene"></select>
+                  <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneGame" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row">
+                <label for="wledOff" data-i18n="lights.off_at_poweroff">Off with the radio</label>
+                <input type="checkbox" id="wledOff" data-key="WLED_OFF_AT_POWEROFF" class="switch-input" role="switch">
+              </div>
+            </details>
+
+            <details class="subsection" id="wledBeat">
+              <summary><span data-i18n="lights.beat">To the beat</span></summary>
+              <p class="hint help-text" data-i18n="lights.beat_help" hidden>The radio listens to what it plays and sends the beat to WLED's audio reactive effects. In WLED: Config, then Sound Settings, set the sync to Receive, and pick an effect marked with a note.</p>
+              <div class="field-row">
+                <label for="wledBeatOn" data-i18n="lights.beat_on">Send the beat</label>
+                <input type="checkbox" id="wledBeatOn" data-key="WLED_AUDIO_SYNC" class="switch-input" role="switch">
+              </div>
+              <div class="field-row" data-level="detail">
+                <div class="field-text">
+                  <label for="wledDelay" data-i18n="lights.delay">Beat delay (ms)</label>
+                  <p class="field-desc" id="wledDelayDesc" data-i18n="lights.delay_desc">Keeps the light on time with what is heard: about 200 for a Bluetooth speaker, 0 for a wire.</p>
+                </div>
+                <input type="number" id="wledDelay" min="0" max="2000" step="10" data-key="WLED_AUDIO_DELAY_MS"
+                       class="num-input" inputmode="numeric" aria-describedby="wledDelayDesc">
+              </div>
+            </details>
+
+            <details class="subsection" id="wledClockSection">
+              <summary><span data-i18n="lights.clock">Time</span></summary>
+              <p class="hint help-text" data-i18n="lights.clock_help" hidden>The more reliable of the two gives the time to the other. Once the radio has given a WLED the time, it learns its timezone, and a radio with no clock module asks that WLED for the time when it starts.</p>
+              <div class="field-row">
+                <label for="wledClockOn" data-i18n="lights.clock_on">Share the time</label>
+                <input type="checkbox" id="wledClockOn" data-key="WLED_CLOCK" class="switch-input" role="switch">
+              </div>
+              <p class="hint" id="wledClockState"></p>
+              <div class="form-actions">
+                <button type="button" class="btn" id="wledRefresh" data-icon="clock" data-i18n="lights.clock_now">Give the time now</button>
+              </div>
+            </details>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
+        </section>
+
         <section class="card" data-page="buttons" data-tab="settings" aria-labelledby="buttonsTitle">
           <h2 data-icon="pointer" id="buttonsTitle"><span data-i18n="settings.buttons_title">Button actions</span></h2>
           <form id="buttonsForm" class="settings-form">

@@ -1233,3 +1233,26 @@ test("a list, up next and recently played mark an excluded track", async (t) => 
   assert.equal(page.$("recentList").querySelectorAll(".excluded-badge").length, 1);
   assert.deepEqual(page.errors, []);
 });
+
+test("the light strips page offers the strip's presets and tries one", async (t) => {
+  const page = open(t, { hash: "#settings/lights", routes: {
+    "GET /api/wled": { enabled: true, devices: [
+      { host: "192.168.4.20", name: "Salon", leds: 60, ver: "0.15.0", clock_known: true },
+      { host: "192.168.4.21", missing: true }],
+      presets: [{ id: 1, name: "Calme" }, { id: 2, name: "Fête" }], lights: { scene: "play" } },
+    "POST /api/wled/test": { failed: [] },
+  } });
+  const select = await until(() => {
+    const s = page.$("wledScenePlay");
+    return s && s.options.length === 4 && s;
+  });
+  assert.deepEqual([...select.options].map((o) => o.value), ["0", "-1", "1", "2"]);
+  assert.equal(page.$("wledDevices").children.length, 2);
+  assert.ok(page.$("wledDevices").children[1].classList.contains("is-off"), "a strip that does not answer says so");
+  assert.notEqual(page.$("wledClockState").textContent, "");
+  select.value = "2";
+  page.document.querySelector('.wled-test[data-for="wledScenePlay"]').click();
+  const sent = await until(() => page.sent("POST", "/api/wled/test")[0]);
+  assert.deepEqual(sent.body, { preset: 2 });
+  assert.deepEqual(page.errors, []);
+});

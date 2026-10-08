@@ -297,6 +297,12 @@ def set_clock(value, utc=False):
     return result.returncode == 0, result.stderr.strip()
 
 
+def ntp_synchronized():
+    """Whether systemd keeps the clock from the network right now."""
+    result = _run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"], timeout=5)
+    return result is not None and result.returncode == 0 and result.stdout.strip() == "yes"
+
+
 def has_rtc():
     return platform_mod.has("rtc")
 

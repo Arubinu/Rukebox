@@ -54,6 +54,7 @@ from control_client import send_control_command  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
 import suggestions  # noqa: E402
 import usb_storage  # noqa: E402
+import wled  # noqa: E402
 import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 import library  # noqa: E402
@@ -3688,12 +3689,98 @@ def api_set_settings():
         _ensure_upnp_identity(cfg())
     if (config_schema.STREAM_SETTINGS | config_schema.UPNP_SETTINGS) & set(body):
         _upnp_follow_stream()
+    if any(key.startswith("WLED_") for key in body):
+        try:
+            control("wled_refresh")
+        except Exception:  # noqa: BLE001
+            pass
     return jsonify({"ok": True, "data": {
         "applied_live": bool(reload.get("ok")),
         "restart_needed": restart_needed,
         "reboot_needed": reboot_needed,
         "audio_reloaded": audio_reloaded,
     }})
+
+
+def _wled_memory(c):
+    """What the daemon learned of each WLED's timezone, keyed by address."""
+    try:
+        with open(os.path.join(c["STATE_DIR"], "state.json"), encoding="utf-8") as f:
+            memory = json.load(f).get("wled_clock") or {}
+    except (OSError, ValueError):
+        return {}
+    return memory if isinstance(memory, dict) else {}
+
+
+@app.route("/api/wled")
+def api_wled():
+    """The light strips this radio drives: what each says about itself, its presets, and the clock."""
+    c = cfg()
+    hosts = wled.hosts(c)
+    devices = _status_probe("wled:" + ",".join(hosts), lambda: [
+        wled.describe(host, timeout=1.5) or {"host": host, "missing": True} for host in hosts])
+    presets = []
+    reachable = next((d for d in devices if not d.get("missing")), None)
+    if reachable:
+        try:
+            presets = [{"id": i, "name": n} for i, n in wled.presets(reachable["host"], timeout=2)]
+        except (OSError, ValueError):
+            presets = []
+    memory = _wled_memory(c)
+    devices = [dict(d, clock_known=d["host"] in memory) for d in devices]
+    lights = None
+    try:
+        status = control("get_status")
+        if status.get("ok"):
+            data = status.get("data") or {}
+            lights = dict(data.get("lights") or {}, clock_source=data.get("clock_source"))
+    except Exception:  # noqa: BLE001
+        lights = None
+    return jsonify({"ok": True, "data": {
+        "enabled": bool(c.get("WLED_ENABLED")), "devices": devices, "presets": presets,
+        "lights": lights}})
+
+
+@app.route("/api/wled/discover", methods=["POST"])
+def api_wled_discover():
+    """Every WLED on the networks this radio is on."""
+    return jsonify({"ok": True, "data": {"devices": wled.discover(extra=wled.hosts(cfg()))}})
+
+
+@app.route("/api/wled/test", methods=["POST"])
+def api_wled_test():
+    """Shows a preset on every strip at once, to choose one."""
+    body = request.get_json(silent=True) or {}
+    try:
+        state = wled.state_for(int(body.get("preset")))
+    except (TypeError, ValueError):
+        state = None
+    if state is None:
+        return jsonify({"ok": False, "error": "bad_preset"}), 400
+    hosts = wled.hosts(cfg())
+    if not hosts:
+        return jsonify({"ok": False, "error": "wled_no_device"}), 400
+    failed = []
+    for host in hosts:
+        try:
+            wled.set_state(host, state)
+        except (OSError, ValueError):
+            failed.append(host)
+    if len(failed) == len(hosts):
+        return jsonify({"ok": False, "error": "wled_unreachable", "detail": ", ".join(failed)}), 502
+    return jsonify({"ok": True, "data": {"failed": failed}})
+
+
+@app.route("/api/wled/refresh", methods=["POST"])
+def api_wled_refresh():
+    """Sends the scene again and shares the time now, rather than at the next turn."""
+    try:
+        result = control("wled_refresh")
+    except Exception:  # noqa: BLE001
+        result = {"ok": False}
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": "daemon_unreachable"}), 503
+    return jsonify({"ok": True})
 
 
 @app.route("/api/dj_announcements")
@@ -5833,7 +5920,9 @@ def api_setup_pending():
     has_rtc = os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc")
     bt_mac = str(c.get("BT_CLOCK_MAC") or "")
     bt_clock = bool(c.get("BT_CLOCK_ENABLED")) and re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", bt_mac)
-    if platform_mod.has("set_clock") and not has_rtc and not bt_clock:
+    wled_clock = (wled.enabled(c) and bool(c.get("WLED_CLOCK"))
+                  and any(host in _wled_memory(c) for host in wled.hosts(c)))
+    if platform_mod.has("set_clock") and not has_rtc and not bt_clock and not wled_clock:
         # A container cannot set its clock and does not need to: it is the
         # host's, and the host keeps it. Nothing to finish there.
         pending.append("clock")
