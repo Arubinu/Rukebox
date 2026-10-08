@@ -2408,7 +2408,7 @@ select {
 .hint.warning { color: var(--danger); font-weight: 600; }
 
 #homeWifiHere { text-align: center; }
-#coverCount { text-align: center; }
+#coverCount, #coversCount, #introsCount { text-align: center; }
 
 .clock-status,
 .status-line {
