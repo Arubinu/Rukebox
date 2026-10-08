@@ -213,10 +213,12 @@ SETTINGS = [
         "Cover art you prepared, mirroring the music folder the way the\n"
         "prepared introductions do: a picture named after the song, or one\n"
         "named \"_any\" beside it - which then covers its album, its artist,\n"
-        "or the whole library. This folder is the \"files\" side of\n"
-        "cover_priority; anything found in the music folders themselves\n"
-        "counts as the \"id3\" side. Empty disables it: the pictures beside\n"
-        "the music are then the only ones looked at.",
+        "or the whole library. The names the readers usually look for\n"
+        "(cover, folder, front, albumart, thumb, poster...), and the\n"
+        "folder's own name, work there too. This folder is the \"files\"\n"
+        "side of cover_priority; anything found in the music folders\n"
+        "themselves counts as the \"id3\" side. Empty disables it: the\n"
+        "pictures beside the music are then the only ones looked at.",
         "Prepared covers",
     ),
     Setting("CUTOFF_ANNOUNCE_DIR", "folders", "cutoff_announcements", "str",
@@ -284,17 +286,20 @@ SETTINGS = [
     Setting(
         "COVER_PRIORITY", "playback", "cover_priority", "str", "files",
         "Which cover the page shows when both sides have one:\n"
-        "  files -> cover_dir first (a picture you prepared there, named\n"
-        "           after the song or \"_any\" beside it), then what the\n"
-        "           music folders and the tags carry.\n"
+        "  files -> cover_dir first (a picture named after the song or\n"
+        "           \"_any\" beside it, or one of the usual names), then\n"
+        "           what the music folders and the tags carry.\n"
         "  id3   -> what the music folders and the tags carry first: the\n"
-        "           picture named after the track, the one embedded in the\n"
-        "           file itself, then the folder's own cover / folder /\n"
-        "           front / album / albumart, from the album folder up to\n"
+        "           picture named after the track (or <track>.cover.jpg),\n"
+        "           the one embedded in the file itself, then the folders'\n"
+        "           own pictures (cover, folder, front, albumart,\n"
+        "           albumartsmall, thumb, poster, default, jacket, artist,\n"
+        "           or the folder's own name), from the album folder up to\n"
         "           the artist folder and the library.\n"
         "Either way a picture that cannot be read is skipped and the search\n"
         "goes on; when nothing is found anywhere, the page shows the grey\n"
-        "music note.",
+        "music note. A wide backdrop, a banner, a logo or a disc picture is\n"
+        "never taken for the cover.",
         "Which cover wins",
     ),
     Setting(

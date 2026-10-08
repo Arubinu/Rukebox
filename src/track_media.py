@@ -15,9 +15,10 @@ import dj_intro
 log = logging.getLogger("track_media")
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
-# The names a cover goes by in a music folder, tried in this order whatever the
-# disk lists first; "artist" only ever matches in the folder above the album.
-FOLDER_IMAGE_NAMES = ("cover", "folder", "front", "album", "albumart", "albumartsmall", "artist")
+# The names a cover goes by in a music folder, the standard ones first: see
+# _picture_names() for where each comes from and what is deliberately left out.
+FOLDER_IMAGE_NAMES = ("cover", "folder", "front", "album", "albumart", "albumartsmall",
+                      "thumb", "poster", "default", "jacket", "artist")
 LYRICS_EXTENSIONS = (".lrc", ".srt", ".vtt", ".txt")
 
 # Which side wins when both have a cover: the prepared folder, or what the
@@ -149,15 +150,61 @@ def _picture_in(folder, stems):
     return None
 
 
+def _picture_names(folder):
+    """What a picture may be called in a music folder, most standard first.
+
+    The list is the union of what the readers people come from look for:
+    miniDLNA's own default (`cover`, `folder`, `album`, `albumart`,
+    `albumartsmall`, `thumb`), Emby's and Jellyfin's primary art (`folder`,
+    `poster`, `cover`, `default`, `jacket`), the WMP/MusicBee/Kodi `front`,
+    and - last, as Kodi, Plex and Windows Media Player all read it - the
+    folder's own name (`2011 - Sorry For Rocking.jpg`, `LMFAO.jpg`).
+
+    Deliberately not here: `fanart`, `backdrop`, `banner`, `logo`, `clearart`,
+    `disc`, `cdart`, `landscape`. They are artwork of another KIND (a wide
+    background, a logo, a disc), and a 16:9 backdrop shown in the square cover
+    frame is worse than the grey note."""
+    names = list(FOLDER_IMAGE_NAMES)
+    own = os.path.basename(str(folder or "").rstrip(os.sep)).strip().lower()
+    if own and own not in names:
+        names.append(own)
+    return names
+
+
 def _named_pictures(path):
-    """The pictures named after `path` beside it, one per extension."""
+    """The pictures named after `path` beside it, one per extension.
+
+    `03 - Mojo.cover.jpg` first, which is miniDLNA's own spelling, then
+    `03 - Mojo.jpg`."""
     folder = os.path.dirname(path)
     stem = os.path.splitext(os.path.basename(path))[0].lower()
     names = _listing(folder)
     for ext in IMAGE_EXTENSIONS:
+        name = names.get(stem + ".cover" + ext)
+        if name:
+            yield os.path.join(folder, name)
+    for ext in IMAGE_EXTENSIONS:
         name = names.get(stem + ext)
         if name:
             yield os.path.join(folder, name)
+
+
+def _prepared_pictures(path, cover_dir, music_dir):
+    """The prepared covers folder, most precise first, as the introductions
+    read it: the picture named after the song, then - level by level, album,
+    artist, the folder itself - `_any` (our own convention) and the usual
+    names of `_picture_names()`."""
+    own, above = dj_intro.levels(path, cover_dir, music_dir)
+    if own:
+        found = dj_intro.named(own, os.path.splitext(os.path.basename(path))[0],
+                               extensions=IMAGE_EXTENSIONS)
+        if found:
+            yield found
+    for folder in above:
+        for stem in (dj_intro.ANY,) + tuple(_picture_names(folder)):
+            found = dj_intro.named(folder, stem, extensions=IMAGE_EXTENSIONS)
+            if found:
+                yield found
 
 
 def _under(path, root):
@@ -189,17 +236,16 @@ def _cover_sources(path, cover_dir, music_dir, priority):
     """Where the cover is looked for, in order, as ("file", path) or
     ("tag", None).
 
-    The prepared covers folder - a picture named after the song, or `_any`
-    beside it, beside its artist, or in the folder itself - is the "files"
-    side. Everything the music folders carry counts as the "id3" side: the
-    picture named after the track, the one embedded in the file, then the
-    folder's own cover / folder / front, from the album up to the library."""
-    prepared = [("file", found) for found in
-                dj_intro.candidates(path, cover_dir, music_dir, extensions=IMAGE_EXTENSIONS)]
+    The prepared covers folder is the "files" side; it mirrors the music tree
+    and takes the same names, `_any` and the song's own name first.
+    Everything the music folders carry counts as the "id3" side: the picture
+    named after the track, the one embedded in the file, then the folders'
+    own names, from the album up through the artist to the library."""
+    prepared = [("file", found) for found in _prepared_pictures(path, cover_dir, music_dir)]
     beside = [("file", found) for found in _named_pictures(path)]
     folders = []
     for folder in _music_levels(path, music_dir):
-        found = _picture_in(folder, FOLDER_IMAGE_NAMES)
+        found = _picture_in(folder, _picture_names(folder))
         if found:
             folders.append(("file", found))
     if _priority(priority) == "id3":

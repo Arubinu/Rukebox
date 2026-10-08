@@ -102,6 +102,70 @@ class CoverTest(unittest.TestCase):
         with mock.patch.object(track_media, "_embedded_picture", return_value=None):
             self.assertEqual(self.cover("id3"), (JPEG, "image/jpeg"))
 
+    def test_every_usual_name_of_a_music_folder(self):
+        """The names the other readers look for: miniDLNA's own default,
+        Emby's and Jellyfin's primary art, Kodi's and WMP's folder picture."""
+        for name in ("cover", "folder", "front", "album", "albumart", "albumartsmall",
+                     "thumb", "poster", "default", "jacket", "artist"):
+            with self.subTest(name=name):
+                self.assertEqual(track_media.FOLDER_IMAGE_NAMES.count(name), 1, name)
+        for name in ("Thumb", "POSTER", "Cover"):
+            with self.subTest(name=name):
+                picture = self.song("LMFAO", "Sorry For Party Rocking", name + ".jpg", data=JPEG)
+                with mock.patch.object(track_media, "_embedded_picture", return_value=None):
+                    self.assertEqual(self.cover("id3"), (JPEG, "image/jpeg"), name)
+                os.remove(picture)
+
+    def test_the_folders_own_name_is_a_cover_too(self):
+        """Kodi, Plex and Windows Media Player all read it that way."""
+        album = self.song("LMFAO", "Sorry For Party Rocking",
+                          "Sorry For Party Rocking.jpg", data=JPEG)
+        artist = self.song("LMFAO", "LMFAO.jpg", data=PNG)
+        with mock.patch.object(track_media, "_embedded_picture", return_value=None):
+            self.assertEqual(self.cover("id3")[0], JPEG, "the album folder's own name")
+            os.remove(album)
+            self.assertEqual(self.cover("id3")[0], PNG, "then the artist folder's")
+            os.remove(artist)
+            self.assertIsNone(self.cover("id3"))
+
+    def test_the_usual_name_comes_after_the_track_name(self):
+        self.song("LMFAO", "Sorry For Party Rocking", "cover.jpg", data=JPEG)
+        named = self.song("LMFAO", "Sorry For Party Rocking", "03 - Party Rock Anthem.png")
+        with mock.patch.object(track_media, "_embedded_picture", return_value=None):
+            self.assertEqual(self.cover("id3")[0], PNG, "the track's own picture")
+            os.remove(named)
+            self.assertEqual(self.cover("id3")[0], JPEG, "then the folder's cover.jpg")
+
+    def test_a_cover_named_after_the_track_with_cover_in_it(self):
+        """miniDLNA's own spelling: 03 - Party Rock Anthem.cover.jpg."""
+        self.song("LMFAO", "Sorry For Party Rocking", "03 - Party Rock Anthem.cover.jpg",
+                  data=JPEG)
+        self.song("LMFAO", "Sorry For Party Rocking", "03 - Party Rock Anthem.png")
+        with mock.patch.object(track_media, "_embedded_picture", return_value=None):
+            self.assertEqual(self.cover("id3"), (JPEG, "image/jpeg"))
+
+    def test_other_artwork_types_are_not_the_cover(self):
+        """A wide backdrop, a banner, a logo or a disc picture is artwork of
+        another kind: in the square cover frame it is worse than nothing."""
+        for name in ("fanart", "backdrop", "banner", "logo", "clearart", "disc",
+                     "cdart", "landscape"):
+            self.song("LMFAO", "Sorry For Party Rocking", name + ".jpg", data=JPEG)
+        with mock.patch.object(track_media, "_embedded_picture", return_value=None):
+            self.assertIsNone(self.cover("id3"))
+
+    def test_the_prepared_folder_takes_the_usual_names_as_well(self):
+        album = self.write(self.covers, "LMFAO", "Sorry For Party Rocking", "cover.jpg",
+                           data=JPEG)
+        artist = self.write(self.covers, "LMFAO", "folder.png")
+        own = self.write(self.covers, "LMFAO", "LMFAO.webp", data=WEBP)
+        self.assertEqual(self.cover(), (JPEG, "image/jpeg"), "the album folder's cover.jpg")
+        os.remove(album)
+        self.assertEqual(self.cover(), (PNG, "image/png"), "then the artist folder's folder.png")
+        os.remove(artist)
+        self.assertEqual(self.cover(), (WEBP, "image/webp"), "then the artist's own name")
+        os.remove(own)
+        self.assertIsNone(self.cover())
+
     def test_a_picture_that_cannot_be_read_gives_way_to_the_next_one(self):
         self.write(self.covers, "LMFAO", "Sorry For Party Rocking", "_any.png", data=b"nope")
         self.song("LMFAO", "Sorry For Party Rocking", "03 - Party Rock Anthem.png", data=b"nope")

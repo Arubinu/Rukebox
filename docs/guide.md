@@ -1979,15 +1979,23 @@ looked up next to the track, most specific first.
     prepared introductions do**: `LMFAO/2011 - Sorry For Rocking/03 - Party
     Rock Anthem.jpg` is that one song's cover, `_any.jpg` beside it covers the
     whole album, `LMFAO/_any.jpg` every LMFAO song, and `_any.jpg` in the
-    folder itself every song of the library. `.jpg`, `.jpeg`, `.png` or
-    `.webp`, capitals included - the **name** is what counts. Settings >
-    Playback shows how many pictures it holds and how many songs they cover.
+    folder itself every song of the library. The usual names work there too
+    (`cover.jpg`, `folder.jpg`, `front.jpg`...), and capitals do not matter -
+    the **name** is what counts. Settings > Playback shows how many pictures
+    it holds and how many songs they cover.
   - *What the music folders and the tags carry*: the picture named after the
-    track (`03 - Mojo.jpg` beside `03 - Mojo.opus`), then the picture embedded
-    in the file itself (MP3, FLAC, Ogg/Opus, M4A...), then the folder's own
-    `cover.jpg` / `folder.jpg` / `front.jpg` / `album.jpg` /
-    `albumart.jpg` - in the track's folder first, then in the artist folder
-    above it, then in the music folder itself.
+    track (`03 - Mojo.jpg`, or `03 - Mojo.cover.jpg` beside `03 - Mojo.opus`),
+    then the picture embedded in the file itself (MP3, FLAC, Ogg/Opus,
+    M4A...), then the folder's own pictures - in the track's folder (the
+    album) first, then in the artist folder above it, then in the music folder
+    itself, where they may be called: `cover`, `folder`, `front`, `album`,
+    `albumart`, `albumartsmall`, `thumb`, `poster`, `default`, `jacket`,
+    `artist`, **or the folder's own name** (`2011 - Sorry For Rocking.jpg`,
+    `LMFAO.jpg`) - with `.jpg`, `.jpeg`, `.png` or `.webp`. That list is what
+    the other readers look for: miniDLNA's own default, Emby's and Jellyfin's
+    primary art, Kodi's and Windows Media Player's folder picture. A wide
+    backdrop (`fanart`, `backdrop`), a `banner`, a `logo` or a `disc` picture
+    is deliberately **not** taken for the cover.
   - **Which wins**: `files` (the default) takes the prepared folder first,
     `id3` takes the music folders and the tags first - both fall back on the
     other. A picture that cannot be read is skipped and the search goes on;

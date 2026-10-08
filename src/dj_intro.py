@@ -38,7 +38,7 @@ def _child(directory, name, listings=None):
     return None
 
 
-def _file(directory, stem, listings=None, extensions=None):
+def named(directory, stem, listings=None, extensions=None):
     """The prepared file of that name in that folder, whatever its case."""
     wanted = stem.strip().lower()
     found = {}
@@ -91,11 +91,11 @@ def candidates(track, folder, music_dir, listings=None, extensions=None):
         return
     own, above = levels(track, folder, music_dir, listings)
     if own:
-        found = _file(own, os.path.splitext(os.path.basename(track))[0], listings, extensions)
+        found = named(own, os.path.splitext(os.path.basename(track))[0], listings, extensions)
         if found:
             yield found
     for directory in above:
-        found = _file(directory, ANY, listings, extensions)
+        found = named(directory, ANY, listings, extensions)
         if found:
             yield found
 
