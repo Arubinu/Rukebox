@@ -1667,6 +1667,15 @@ class StorageHealthTest(unittest.TestCase):
         health = self.health("rw", total=32_000_000_000, free=1_000_000)
         self.assertEqual(health["status"], "warn")
 
+    def test_a_small_key_half_empty_is_not_almost_full(self):
+        """"Almost full" is a share of the device: the 500 MB floor used to be
+        larger than a small key, which then warned for ever."""
+        small = self.health("ro", total=251_133_952, free=122_892_288)
+        self.assertEqual(small["status"], "ok", "49% free on a 240 MB key")
+        self.assertTrue(small["read_only_on_purpose"])
+        self.assertEqual(self.health("ro", total=251_133_952, free=5_000_000)["status"],
+                         "warn", "under 5% left is another matter")
+
 
 @unittest.skipUnless(flask, "Flask is not installed")
 class RepairAfterRestoreTest(unittest.TestCase):

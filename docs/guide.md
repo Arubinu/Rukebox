@@ -2431,9 +2431,11 @@ same file from the interface once the Rukebox runs.
 or a USB key / disk holding the music - with its kind, free room,
 read-only state (the kernel stops writing to a failing card), file system
 errors and read/write errors since the start. A problem also shows in
-"To finish". **A key the radio plays from is read-only on purpose** (see
-"Music on a storage device"), so it is reported as read-only, never as a
-fault: only a device the kernel remounted read-only by itself is one.
+"To finish", and "almost full" means **under 5% of the storage left** -
+which is what the card can actually act on. **A key the radio plays from
+is read-only on purpose** (see "Music on a storage device"), so it is
+reported as read-only, never as a fault: only a device the kernel
+remounted read-only by itself is one.
 
 ## Updating the Pi
 

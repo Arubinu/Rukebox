@@ -5403,7 +5403,10 @@ def _storage_health(path, role):
     on_purpose = info.get("part") is None or mnt == usb_storage.mount_point()
     read_only_on_purpose = read_only and on_purpose
     status = "ok"
-    if usage["free"] < max(500e6, usage["total"] * 0.05) or io_errors:
+    # "Almost full" is a share of the device: a fixed 500 MB floor is larger
+    # than a small key, which then says "almost full" for ever - a 240 MB key
+    # half empty did. On anything of 10 GB or more the two rules agree.
+    if usage["free"] < usage["total"] * 0.05 or io_errors:
         status = "warn"
     if (read_only and not read_only_on_purpose) or fs_errors:
         status = "error"
