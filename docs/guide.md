@@ -1643,6 +1643,13 @@ remembered**, by its filesystem UUID (or its name, for one that has none), so
 the next insertion, and a reboot with it still in, resume it by themselves.
 **Forget** drops that memory and returns to the radio's own folder.
 
+Taking a device **does not cut the song that is playing**: the queue is rebuilt
+from it at once, so the next song - and all those after it, in *Up next* - are
+already its own. The song playing at that moment came from the folder before,
+and the card says so; **Play from it now** replaces it straight away, with the
+same short fade as the Next button. Doing nothing is the other answer: the
+current song finishes and the device takes over on the following one.
+
 Under that line, a bar shows **how full the storage being played is**, with the
 numbers: used, total and what is left free. It turns red under 500 MB or 5% of
 free space left - the same rule the System health card uses, so the two never

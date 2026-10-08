@@ -554,10 +554,13 @@ class WebTest(unittest.TestCase):
         with unittest.mock.patch.object(ws, "control", side_effect=fake):
             owner = self.owner()
             taken = owner.post("/api/usb_music", json={"key": "uuid:1A2B"})
+            now = owner.post("/api/usb_music", json={"key": "uuid:1A2B", "switch": "now"})
             forgotten = owner.post("/api/usb_music", json={"forget": True})
         self.assertTrue(taken.get_json()["ok"], taken.get_json())
+        self.assertTrue(now.get_json()["ok"])
         self.assertTrue(forgotten.get_json()["ok"])
-        self.assertEqual(sent, [("usb_music", {"key": "uuid:1A2B"}),
+        self.assertEqual(sent, [("usb_music", {"key": "uuid:1A2B", "switch": "after"}),
+                                ("usb_music", {"key": "uuid:1A2B", "switch": "now"}),
                                 ("usb_music", {"forget": True})])
 
     def test_the_usb_key_switch_says_when_it_failed(self):

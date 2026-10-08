@@ -1136,6 +1136,9 @@ test("a USB key is offered, taken and given back", async (t) => {
   const taken = Object.assign({}, idle, {
     active: true, dir: "/media/rukebox-usb", device: "/dev/sda1", label: "MUSIQUE", tracks: 312,
     space: { total: 30 * GiB, used: 29 * GiB, free: 1 * GiB, percent: 97 },
+    // The song playing is still the one from the folder before: the card says
+    // so, and offers to change it now.
+    playing_from_other: true,
     remembered: { key: "uuid:1A2B", label: "MUSIQUE" },
     devices: [Object.assign({}, idle.devices[0], { active: true })],
   });
@@ -1166,8 +1169,18 @@ test("a USB key is offered, taken and given back", async (t) => {
   assert.equal(page.$("usbSpaceFill").style.width, "97%");
   assert.equal(page.$("usbSpaceBar").classList.contains("warn"), true, "nearly full");
 
-  page.$("usbList").children[0].querySelector("button").click();
-  const forgotten = await until(() => page.sent("POST", "/api/usb_music")[1]);
+  assert.match(page.$("usbHint").textContent, /previous folder/);
+  const actions = () => page.$("usbList").children[0].querySelectorAll("button");
+  assert.equal(actions().length, 2, "change the song now, or give the folder back");
+  assert.equal(actions()[0].textContent, "Play from it now");
+
+  actions()[0].click();
+  const now = await until(() => page.sent("POST", "/api/usb_music")[1]);
+  assert.deepEqual(now.body, { key: "uuid:1A2B", switch: "now" },
+                   "and it is the same key, taken again with the change asked for");
+
+  actions()[1].click();
+  const forgotten = await until(() => page.sent("POST", "/api/usb_music")[2]);
   assert.deepEqual(forgotten.body, { forget: true }, "the way back to the radio's folder");
   assert.deepEqual(page.errors, []);
 });

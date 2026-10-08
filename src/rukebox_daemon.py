@@ -1038,7 +1038,7 @@ class RadioDaemon:
             return self._adopt_usb_music(entry, source="remembered")
         return False
 
-    def _adopt_usb_music(self, entry, source="usb"):
+    def _adopt_usb_music(self, entry, source="usb", change="after"):
         """Mounts a key read-only and reads the library from it."""
         ok, said = system_actions.usb_mount(entry["device"])
         if not ok:
@@ -1064,7 +1064,7 @@ class RadioDaemon:
                           label=self._usb_music["label"] or self._usb_music["model"]
                           or self._usb_music["device"],
                           detail={"tracks": self._usb_tracks, "source": source})
-        self._switch_music_source("usb_in")
+        self._switch_music_source("usb_in", change=change)
         return True
 
     def _release_usb_music(self, reason="", forget=False):
@@ -1090,9 +1090,13 @@ class RadioDaemon:
             self._switch_music_source("usb_out")
         return was is not None
 
-    def _switch_music_source(self, source):
+    def _switch_music_source(self, source, change="after"):
         """The library reads somewhere else now: read it again, and go on with
-        the next track of the new folder rather than the one that just left."""
+        the next track of the new folder rather than the one that just left.
+
+        `change` says what happens to the song that is playing: "after" leaves
+        it alone (the next one comes from the new folder, which is what the
+        queue now holds), "now" replaces it with one of the new folder."""
         was_on_the_key = bool(
             self._current_track and self._usb_left_behind
             and os.path.realpath(self._current_track).startswith(
@@ -1101,14 +1105,30 @@ class RadioDaemon:
         self._rescan_music(source)
         with self._command_lock:
             self._rebuild_queue()
-            if was_on_the_key and self.mode in ("music", "idle", "stopped"):
-                log.info("The track was on the folder that just left: moving on")
-                self._play_next_track()
+            if self.mode in ("music", "idle", "stopped"):
+                if was_on_the_key:
+                    log.info("The track was on the folder that just left: moving on")
+                    self._play_next_track()
+                elif change == "now":
+                    self._play_from_the_new_folder()
         self._bump_state()
+
+    def _play_from_the_new_folder(self):
+        """Plays a track of the folder the library reads now, straight away."""
+        log.info("Playing from the folder that was just taken, now")
+        if self.mode in ("idle", "stopped"):
+            self._start_or_restart_playback(log_label="usb")
+        else:
+            # The same road the Next button takes: the new song replaces this one.
+            self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
+            self._restore_base_volume()
+            self._play_next_track(user=True)
 
     def _usb_music_command(self, msg, source="web"):
         """Reads the library from a plugged key, or gives it back to the
-        internal folder. `forget` also drops the key the daemon remembers."""
+        internal folder. `forget` also drops the key the daemon remembers, and
+        `switch: "now"` also changes the song that is playing."""
+        change = "now" if str(msg.get("switch") or "") == "now" else "after"
         if "key" not in msg and "device" not in msg and not msg.get("forget"):
             # A plain refresh: the interface wants the list of devices now.
             self._check_usb_music()
@@ -1130,8 +1150,13 @@ class RadioDaemon:
             return {"ok": False, "error": "no_such_device"}
         if self._usb_music is not None and self._usb_music.get("key") != usb_storage.key_of(entry):
             self._release_usb_music("switched")
-        if self._usb_music is None and not self._adopt_usb_music(entry, source=source):
-            return {"ok": False, "error": "mount_failed", "detail": self._usb_error}
+        if self._usb_music is None:
+            if not self._adopt_usb_music(entry, source=source, change=change):
+                return {"ok": False, "error": "mount_failed", "detail": self._usb_error}
+        elif change == "now":
+            # The key is the library already: this only changes the song.
+            with self._command_lock:
+                self._play_from_the_new_folder()
         self._bump_state()
         return {"ok": True, "data": self._usb_music_status()}
 
@@ -1141,6 +1166,11 @@ class RadioDaemon:
         the storage that is playing is."""
         remembered = self.state.value("usb_music") or None
         active_key = (self._usb_music or {}).get("key")
+        # The song playing was read from the folder that was in use before: the
+        # card offers to change it now rather than at the end of the song.
+        track = self._current_track
+        on_this_folder = bool(track and os.path.realpath(track).startswith(
+            os.path.realpath(self._music_dir()) + os.sep))
         devices = []
         for entry in self._usb_devices:
             key = usb_storage.key_of(entry)
@@ -1161,6 +1191,7 @@ class RadioDaemon:
             "tracks": self._usb_tracks,
             "bytes": self._usb_bytes,
             "space": usb_storage.space(self._music_dir()),
+            "playing_from_other": bool(self._usb_music and track and not on_this_folder),
             "remembered": remembered,
             "error": self._usb_error,
             "devices": devices,

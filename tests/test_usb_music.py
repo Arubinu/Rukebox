@@ -82,6 +82,12 @@ class UsbMusicTest(unittest.TestCase):
         self.daemon.mpv = FakeMpv()
         self.daemon._clock_ready = threading.Event()
 
+    def write(self, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(b"x" * 10)
+        return path
+
     def plugged(self, devices, mounted=True):
         """What the machine reports: these keys, and a key mounted or not."""
         patchers = [
@@ -195,6 +201,68 @@ class UsbMusicTest(unittest.TestCase):
         self.assertEqual(answer["data"]["model"], "Elements 25A2")
         self.assertEqual(answer["data"]["remembered"]["model"], "Elements 25A2")
         self.assertEqual(answer["data"]["devices"][0]["model"], "Elements 25A2")
+
+    def test_the_queue_follows_the_key(self):
+        """Checked because the owner asked: once a key is taken, the next songs
+        are the key's, not the folder that was playing before."""
+        self.plugged([KEY])
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.write(os.path.join(self.mount, "Artiste", "b2.mp3"))
+        self.daemon.mode = "music"
+        self.daemon._current_track = os.path.join(self.music, "a.mp3")
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        queue = self.daemon.state.data.get("play_queue") or []
+        self.assertEqual(len(queue), 2, queue)
+        self.assertTrue(all(path.startswith(self.mount) for path in queue), queue)
+
+    def test_the_song_playing_is_left_alone_unless_it_is_asked_for(self):
+        """The switch happens at the end of the song by itself: `switch: "now"`
+        is what replaces it."""
+        self.plugged([KEY])
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.daemon.mode = "music"
+        self.daemon._current_track = os.path.join(self.music, "a.mp3")
+        self.daemon._play_next_track = mock.Mock()
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        self.daemon._play_next_track.assert_not_called()
+        self.assertEqual(self.daemon._current_track, os.path.join(self.music, "a.mp3"))
+
+    def test_switch_now_replaces_the_song_playing(self):
+        self.plugged([KEY])
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.daemon.mode = "music"
+        self.daemon._current_track = os.path.join(self.music, "a.mp3")
+        self.daemon._fade_out_and_pause = mock.Mock()
+        self.daemon._play_next_track = mock.Mock()
+        answer = self.daemon._usb_music_command({"device": "/dev/sda1", "switch": "now"},
+                                                source="web")
+        self.assertTrue(answer["ok"], answer)
+        self.daemon._play_next_track.assert_called_once_with(user=True)
+
+    def test_switch_now_on_the_key_already_in_use(self):
+        """The button is offered while the song comes from the old folder: the
+        key is the library already, so only the song changes."""
+        self.plugged([KEY])
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        self.daemon.mode = "music"
+        self.daemon._fade_out_and_pause = mock.Mock()
+        self.daemon._play_next_track = mock.Mock()
+        answer = self.daemon._usb_music_command({"key": usb_storage.key_of(KEY), "switch": "now"},
+                                                source="web")
+        self.assertTrue(answer["ok"], answer)
+        self.daemon._play_next_track.assert_called_once_with(user=True)
+
+    def test_the_card_knows_the_song_comes_from_the_folder_before(self):
+        self.plugged([KEY])
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.daemon.mode = "music"
+        self.daemon._current_track = os.path.join(self.music, "a.mp3")
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        self.assertTrue(self.daemon._usb_music_status()["playing_from_other"])
+        self.daemon._current_track = os.path.join(self.mount, "Artiste", "b1.mp3")
+        self.assertFalse(self.daemon._usb_music_status()["playing_from_other"],
+                         "a song of the key is not from the previous folder")
 
     def test_the_switch_never_takes_the_command_lock_twice(self):
         """The control socket holds `_command_lock` for every command that is

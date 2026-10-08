@@ -1641,7 +1641,7 @@ function paintUsbMusic(state) {
   if (state.error) hint.textContent = errorLabel(state.error);
   else if (state.port_mode && state.port_mode !== "host") {
     hint.textContent = t("usb.port_mode", { mode: t("system.usb_" + state.port_mode) });
-  }
+  } else if (state.playing_from_other) hint.textContent = t("usb.other_playing");
 
   paintUsbSpace(state);
   (state.devices || []).forEach((entry) => list.append(usbRow(state, entry)));
@@ -1698,6 +1698,17 @@ function usbRow(state, entry) {
   const actions = document.createElement("span");
   actions.className = "device-actions";
   if (entry.active) {
+    // The song playing comes from the folder that was in use before: the
+    // switch left it alone, and this is how it is changed now instead.
+    if (state.playing_from_other) {
+      const now = document.createElement("button");
+      now.type = "button";
+      now.className = "btn btn-small btn-primary";
+      now.dataset.icon = "play";
+      now.textContent = t("usb.now");
+      now.addEventListener("click", () => usbMusicPost({ key: entry.key, switch: "now" }));
+      actions.append(now);
+    }
     const stop = document.createElement("button");
     stop.type = "button";
     stop.className = "btn btn-small";
