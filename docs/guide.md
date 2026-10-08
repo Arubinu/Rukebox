@@ -1973,10 +1973,25 @@ The Home card shows the cover of the track being played, and a
 **Lyrics** button when it has lyrics. Nothing to configure: they are
 looked up next to the track, most specific first.
 
-- **Cover**: a picture with the same name as the track
-  (`03 - Mojo.jpg` beside `03 - Mojo.opus`), then the picture embedded in
-  the file itself (MP3, FLAC, Ogg/Opus, M4A...), then the folder's
-  `cover.jpg` / `folder.jpg` / `front.jpg`.
+- **Cover**: two sides, and `playback.cover_priority` says which one wins.
+  - *The prepared covers folder* (`folders.cover_dir`,
+    `/home/pi/audio/covers`), which **mirrors the music folder the way the
+    prepared introductions do**: `LMFAO/2011 - Sorry For Rocking/03 - Party
+    Rock Anthem.jpg` is that one song's cover, `_any.jpg` beside it covers the
+    whole album, `LMFAO/_any.jpg` every LMFAO song, and `_any.jpg` in the
+    folder itself every song of the library. `.jpg`, `.jpeg`, `.png` or
+    `.webp`, capitals included - the **name** is what counts. Settings >
+    Playback shows how many pictures it holds and how many songs they cover.
+  - *What the music folders and the tags carry*: the picture named after the
+    track (`03 - Mojo.jpg` beside `03 - Mojo.opus`), then the picture embedded
+    in the file itself (MP3, FLAC, Ogg/Opus, M4A...), then the folder's own
+    `cover.jpg` / `folder.jpg` / `front.jpg` / `album.jpg` /
+    `albumart.jpg` - in the track's folder first, then in the artist folder
+    above it, then in the music folder itself.
+  - **Which wins**: `files` (the default) takes the prepared folder first,
+    `id3` takes the music folders and the tags first - both fall back on the
+    other. A picture that cannot be read is skipped and the search goes on;
+    with a cover on neither side, the page shows the grey music note.
 - **Lyrics**: a file with the same name as the track - `.lrc`
   (synchronised; "enhanced" per-word timings are accepted), `.srt` or
   `.vtt` (subtitles, synchronised too), `.txt` (plain text) - then the
@@ -2742,6 +2757,7 @@ what the folder picker and the uploads are allowed to reach:
 | --- | --- | --- |
 | Music | `/home/pi/audio/music` | `music` (`folders:`) |
 | Prepared introductions (radio host) | `/home/pi/audio/dj_announcements` | `dj_announcements` (`folders:`) |
+| Prepared covers | `/home/pi/audio/covers` | `covers` (`folders:`) |
 | Button sounds (single click) | `/home/pi/audio/memes` | `memes` (`folders:`) |
 | Cutoff announcement | `/home/pi/audio/cutoff_announcements` | `cutoff_announcements` (`folders:`) |
 | Morning / double-click announcements | `/home/pi/audio/morning_announcements`, `/home/pi/audio/doubleclick_announcements` | the announcement's own folder (Custom Announcements card) |

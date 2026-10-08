@@ -152,6 +152,15 @@ folders:
   # Sounds played by a single click on the Flic button.
   memes: "/home/pi/audio/memes"
 
+  # Cover art you prepared, mirroring the music folder the way the
+  # prepared introductions do: a picture named after the song, or one
+  # named "_any" beside it - which then covers its album, its artist,
+  # or the whole library. This folder is the "files" side of
+  # cover_priority; anything found in the music folders themselves
+  # counts as the "id3" side. Empty disables it: the pictures beside
+  # the music are then the only ones looked at.
+  covers: "/home/pi/audio/covers"
+
   cutoff_announcements: "/home/pi/audio/cutoff_announcements"
 
   # Looped very quietly when autostart is off, while waiting for the first
@@ -199,6 +208,20 @@ playback:
   #         stops. A single click (or "Start music" in the web
   #         interface) restarts the list.
   loop: true
+
+  # Which cover the page shows when both sides have one:
+  #   files -> cover_dir first (a picture you prepared there, named
+  #            after the song or "_any" beside it), then what the
+  #            music folders and the tags carry.
+  #   id3   -> what the music folders and the tags carry first: the
+  #            picture named after the track, the one embedded in the
+  #            file itself, then the folder's own cover / folder /
+  #            front / album / albumart, from the album folder up to
+  #            the artist folder and the library.
+  # Either way a picture that cannot be read is skipped and the search
+  # goes on; when nothing is found anywhere, the page shows the grey
+  # music note.
+  cover_priority: "files"
 
   # How many of the next tracks the Home section lists (the "Up next"
   # card, guests included). 0 hides it.

@@ -10,15 +10,25 @@ import subprocess
 import threading
 from collections import OrderedDict
 
+import dj_intro
+
 log = logging.getLogger("track_media")
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
-FOLDER_IMAGE_NAMES = ("cover", "folder", "front", "album", "albumart", "albumartsmall")
+# The names a cover goes by in a music folder, tried in this order whatever the
+# disk lists first; "artist" only ever matches in the folder above the album.
+FOLDER_IMAGE_NAMES = ("cover", "folder", "front", "album", "albumart", "albumartsmall", "artist")
 LYRICS_EXTENSIONS = (".lrc", ".srt", ".vtt", ".txt")
+
+# Which side wins when both have a cover: the prepared folder, or what the
+# track's own folders and tags carry (see config_schema.COVER_PRIORITY).
+COVER_PRIORITIES = ("files", "id3")
+DEFAULT_COVER_PRIORITY = "files"
 
 COVER_MAX_BYTES = 350 * 1024
 COVER_MAX_SIDE = 640
 COVER_CACHE_BYTES = 6 * 1024 * 1024
+PICTURE_MAX_BYTES = 32 * 1024 * 1024
 LYRICS_MAX_BYTES = 512 * 1024
 TOOL_TIMEOUT_SEC = 15
 
@@ -110,19 +120,12 @@ def _embedded_picture(path):
     ]) or None
 
 
-def _folder_picture(path):
-    folder = os.path.dirname(path)
+def _listing(folder):
+    """{name.lower(): real name} for a folder, or nothing when it is not there."""
     try:
-        names = os.listdir(folder)
+        return {name.lower(): name for name in os.listdir(folder)}
     except OSError:
-        return None
-    by_lower = {name.lower(): name for name in names}
-    for stem in FOLDER_IMAGE_NAMES:
-        for ext in IMAGE_EXTENSIONS:
-            name = by_lower.get(stem + ext)
-            if name:
-                return os.path.join(folder, name)
-    return None
+        return {}
 
 
 def _read_file(path, limit):
@@ -133,25 +136,123 @@ def _read_file(path, limit):
         return None
 
 
-def _find_cover(path):
-    sidecar = _sidecar(path, IMAGE_EXTENSIONS)
-    data = _read_file(sidecar, 32 * 1024 * 1024) if sidecar else None
-    if not data:
-        data = _embedded_picture(path)
-    if not data:
-        folder_image = _folder_picture(path)
-        data = _read_file(folder_image, 32 * 1024 * 1024) if folder_image else None
-    if not data or not _image_mime(data):
+def _picture_in(folder, stems):
+    """The first of these names that sits in `folder`, whatever its case."""
+    names = _listing(folder)
+    for stem in stems:
+        for ext in IMAGE_EXTENSIONS:
+            name = names.get(stem + ext)
+            if name:
+                path = os.path.join(folder, name)
+                if os.path.isfile(path):
+                    return path
+    return None
+
+
+def _named_pictures(path):
+    """The pictures named after `path` beside it, one per extension."""
+    folder = os.path.dirname(path)
+    stem = os.path.splitext(os.path.basename(path))[0].lower()
+    names = _listing(folder)
+    for ext in IMAGE_EXTENSIONS:
+        name = names.get(stem + ext)
+        if name:
+            yield os.path.join(folder, name)
+
+
+def _under(path, root):
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def _music_levels(path, music_dir):
+    """The folders a track's own pictures are looked for in, most precise
+    first: its own folder - the album - then each folder above it, the artist
+    and the library itself, up to the music folder."""
+    folder = os.path.dirname(path)
+    levels = [folder]
+    root = os.path.abspath(str(music_dir or "").strip()) if music_dir else ""
+    if not root:
+        return levels
+    current = os.path.abspath(folder)
+    while current != root and _under(current, root):
+        current = os.path.dirname(current)
+        levels.append(current)
+    return levels
+
+
+def _priority(value):
+    text = str(value or "").strip().lower()
+    return text if text in COVER_PRIORITIES else DEFAULT_COVER_PRIORITY
+
+
+def _cover_sources(path, cover_dir, music_dir, priority):
+    """Where the cover is looked for, in order, as ("file", path) or
+    ("tag", None).
+
+    The prepared covers folder - a picture named after the song, or `_any`
+    beside it, beside its artist, or in the folder itself - is the "files"
+    side. Everything the music folders carry counts as the "id3" side: the
+    picture named after the track, the one embedded in the file, then the
+    folder's own cover / folder / front, from the album up to the library."""
+    prepared = [("file", found) for found in
+                dj_intro.candidates(path, cover_dir, music_dir, extensions=IMAGE_EXTENSIONS)]
+    beside = [("file", found) for found in _named_pictures(path)]
+    folders = []
+    for folder in _music_levels(path, music_dir):
+        found = _picture_in(folder, FOLDER_IMAGE_NAMES)
+        if found:
+            folders.append(("file", found))
+    if _priority(priority) == "id3":
+        return beside + [("tag", None)] + folders + prepared
+    return prepared + beside + [("tag", None)] + folders
+
+
+def _cover_stamps(path, cover_dir, music_dir):
+    """(folder, mtime) for every folder the lookup lists, so a picture dropped
+    beside the music, or in the covers folder, is seen without a restart."""
+    folders = list(_music_levels(path, music_dir))
+    if cover_dir and music_dir:
+        _own, above = dj_intro.levels(path, cover_dir, music_dir)
+        folders += above
+    stamps = []
+    for folder in folders:
+        try:
+            stamps.append((folder, os.stat(folder).st_mtime_ns))
+        except OSError:
+            stamps.append((folder, None))
+    return tuple(stamps)
+
+
+def _cover_key(path, cover_dir, music_dir, priority):
+    key = _file_key(path)
+    if key is None:
         return None
-    if len(data) > COVER_MAX_BYTES:
-        data = _shrink(data)
-    return data, _image_mime(data)
+    return (key, _priority(priority), str(cover_dir or ""), str(music_dir or ""),
+            _cover_stamps(path, cover_dir, music_dir))
 
 
-def cover(path):
-    """(bytes, mime) for the track's cover, or None."""
+def _find_cover(path, cover_dir=None, music_dir=None, priority=None):
+    for kind, source in _cover_sources(path, cover_dir, music_dir, priority):
+        data = _embedded_picture(path) if kind == "tag" else _read_file(source, PICTURE_MAX_BYTES)
+        if not data or not _image_mime(data):
+            continue
+        if len(data) > COVER_MAX_BYTES:
+            data = _shrink(data)
+        mime = _image_mime(data)
+        if mime:
+            return data, mime
+    return None
+
+
+def cover(path, cover_dir=None, music_dir=None, priority=None):
+    """(bytes, mime) for the track's cover, or None.
+
+    `cover_dir` is the prepared covers folder and `music_dir` the library it
+    mirrors; `priority` says which of the two sides wins (see
+    COVER_PRIORITIES). Without them, only what the track's own folders and
+    tags carry is looked at."""
     global _cover_cache_bytes
-    key = _file_key(path) if path else None
+    key = _cover_key(path, cover_dir, music_dir, priority)
     if key is None:
         return None
     with _lock:
@@ -159,7 +260,7 @@ def cover(path):
             _cover_cache.move_to_end(key)
             return _cover_cache[key]
     try:
-        result = _find_cover(path)
+        result = _find_cover(path, cover_dir, music_dir, priority)
     except Exception:
         log.exception("Cover lookup failed for %s", path)
         result = None
@@ -395,8 +496,14 @@ def is_companion_file(name):
 
 if __name__ == "__main__":
     import sys
+    try:
+        from config_and_scan import load_config
+        settings = load_config()
+    except Exception:  # noqa: BLE001 - a hand check on the Pi, without a config
+        settings = {}
     for arg in sys.argv[1:]:
-        c = cover(arg)
+        c = cover(arg, settings.get("COVER_DIR"), settings.get("MUSIC_DIR"),
+                  settings.get("COVER_PRIORITY"))
         lyr = lyrics(arg)
         print(arg)
         print("  key   :", track_key(arg))

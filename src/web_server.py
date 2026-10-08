@@ -1744,16 +1744,25 @@ def _now_playing_checked():
     return path, None
 
 
+def _cover_of(path):
+    """The cover of a track, looked up the way the settings ask for it."""
+    c = cfg()
+    return track_media.cover(path, c.get("COVER_DIR"), c.get("MUSIC_DIR"),
+                             c.get("COVER_PRIORITY"))
+
+
 @app.route("/api/now/cover")
 def api_now_cover():
     path, error = _now_playing_checked()
-    art = track_media.cover(path) if path else None
+    art = _cover_of(path) if path else None
     if not art:
         response = jsonify({"ok": False, "error": error or "no_cover"})
         response.headers["Cache-Control"] = "no-store"
         return response, 404
     data, mime = art
-    return Response(data, mimetype=mime, headers={"Cache-Control": "private, max-age=86400"})
+    # Short-lived on purpose: a picture dropped in the covers folder, or the
+    # priority changed, is then seen on the next reload instead of tomorrow.
+    return Response(data, mimetype=mime, headers={"Cache-Control": "private, max-age=300"})
 
 
 @app.route("/api/now/lyrics")
@@ -1800,7 +1809,7 @@ def _warm_loop():
             while not _warm_queue:
                 _warm_cond.wait()
             path, full = _warm_queue.pop(0)
-        steps = (track_media.tags, track_media.cover, track_media.lyrics) if full else (track_media.tags,)
+        steps = (track_media.tags, _cover_of, track_media.lyrics) if full else (track_media.tags,)
         for fn in steps:
             try:
                 fn(path)
@@ -3643,6 +3652,20 @@ def api_dj_announcements():
     tracks = get_music_list(c["MUSIC_DIR"], c["MUSIC_CACHE_FILE"])
     folder = c.get("DJ_ANNOUNCE_DIR") or ""
     files, covered = dj_intro.scan(tracks, folder, c["MUSIC_DIR"])
+    return jsonify({"ok": True, "data": {"dir": folder, "files": files,
+                                         "covered": covered, "tracks": len(tracks)}})
+
+
+@app.route("/api/covers")
+def api_covers():
+    """What the prepared covers folder holds, and how many songs it covers.
+    Read when the settings are shown, never in the status: it walks the
+    library."""
+    c = cfg()
+    tracks = get_music_list(c["MUSIC_DIR"], c["MUSIC_CACHE_FILE"])
+    folder = c.get("COVER_DIR") or ""
+    files, covered = dj_intro.scan(tracks, folder, c["MUSIC_DIR"],
+                                   extensions=track_media.IMAGE_EXTENSIONS)
     return jsonify({"ok": True, "data": {"dir": folder, "files": files,
                                          "covered": covered, "tracks": len(tracks)}})
 
@@ -5954,8 +5977,10 @@ def _allowed_roots():
     folder picker on the allowed path and its subfolders)."""
     roots = []
     values = cfg()
-    for key in ("MUSIC_DIR", "DJ_ANNOUNCE_DIR", "MEME_DIR", "CUTOFF_ANNOUNCE_DIR"):
-        folder = str(values.get(key) or "").strip()
+    for setting in config_schema.SETTINGS:
+        if setting.section != "folders" or not setting.env.endswith("_DIR"):
+            continue
+        folder = str(values.get(setting.env) or "").strip()
         if folder:
             roots.append(folder)
     try:

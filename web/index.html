@@ -825,6 +825,20 @@
               keeps the speaker awake until a click or a scheduled
               announcement starts it again.
             </p>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="coverPriority" data-i18n="settings.cover_priority">Which cover wins</label>
+                <p class="field-desc" id="coverPriorityDesc" data-i18n="settings.cover_priority_desc">A song can carry several pictures; this says which one the player shows.</p>
+              </div>
+              <select id="coverPriority" data-key="COVER_PRIORITY" aria-describedby="coverPriorityDesc">
+                <option value="files" data-i18n="settings.cover_priority_files">The covers folder first</option>
+                <option value="id3" data-i18n="settings.cover_priority_id3">The music folders and the tags first</option>
+              </select>
+            </div>
+            <p class="hint" id="coverFolder" data-i18n="settings.cover_folder_hint"
+               data-i18n-var-folder="covers">Prepared covers are read from {folder}.</p>
+            <p class="hint" id="coverCount" data-i18n="settings.cover_count" hidden
+               data-i18n-var-files="0" data-i18n-var-covered="0" data-i18n-var-tracks="0">Pictures: {files} · Songs covered: {covered} of {tracks}.</p>
             <details data-level="detail" class="subsection" id="resumeSection">
               <summary><span data-i18n="settings.group_resume">Picking up again</span></summary>
               <div class="field-row">

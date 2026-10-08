@@ -100,6 +100,54 @@ class PreparedTest(unittest.TestCase):
         self.assertIsNone(dj_intro.find(track, self.intros, ""))
 
 
+class CandidatesTest(unittest.TestCase):
+    """The same lookup, listed instead of stopped at the first file: this is
+    what lets the covers folder skip a picture it cannot read."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.music = os.path.join(self.dir, "music")
+        self.covers = os.path.join(self.dir, "covers")
+        self.track = self.song("LMFAO", "Sorry For Party Rocking", "03 - Party Rock Anthem.opus")
+
+    def write(self, *parts):
+        path = os.path.join(*parts)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(b"x")
+        return path
+
+    def song(self, *parts):
+        return self.write(self.music, *parts)
+
+    def test_the_candidates_are_listed_most_precise_first(self):
+        own = self.write(self.covers, "LMFAO", "Sorry For Party Rocking",
+                         "03 - Party Rock Anthem.wav")
+        album = self.write(self.covers, "LMFAO", "Sorry For Party Rocking", "_any.wav")
+        artist = self.write(self.covers, "LMFAO", "_any.wav")
+        everything = self.write(self.covers, "_any.wav")
+        self.assertEqual(list(dj_intro.candidates(self.track, self.covers, self.music)),
+                         [own, album, artist, everything])
+        self.assertEqual(dj_intro.find(self.track, self.covers, self.music), own,
+                         "find() is the first of them")
+
+    def test_another_extension_is_what_the_covers_folder_asks_for(self):
+        self.write(self.covers, "_any.wav")
+        picture = self.write(self.covers, "_any.png")
+        self.assertEqual(list(dj_intro.candidates(self.track, self.covers, self.music,
+                                                  extensions=(".jpg", ".png"))), [picture])
+        self.assertIsNone(dj_intro.find(self.track, self.covers, self.music,
+                                        extensions=(".jpg",)))
+
+    def test_only_those_extensions_are_counted(self):
+        self.write(self.covers, "a.wav")
+        self.write(self.covers, "_any.png")
+        self.write(self.covers, "Album", "notes.txt")
+        self.assertEqual(dj_intro.scan([self.track], self.covers, self.music,
+                                       extensions=(".png",)), (1, 1))
+
+
 class ScanTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()

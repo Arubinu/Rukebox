@@ -208,6 +208,17 @@ SETTINGS = [
     ),
     Setting("MEME_DIR", "folders", "memes", "str", "/home/pi/audio/memes",
             "Sounds played by a single click on the Flic button.", "Button sounds"),
+    Setting(
+        "COVER_DIR", "folders", "covers", "str", "/home/pi/audio/covers",
+        "Cover art you prepared, mirroring the music folder the way the\n"
+        "prepared introductions do: a picture named after the song, or one\n"
+        "named \"_any\" beside it - which then covers its album, its artist,\n"
+        "or the whole library. This folder is the \"files\" side of\n"
+        "cover_priority; anything found in the music folders themselves\n"
+        "counts as the \"id3\" side. Empty disables it: the pictures beside\n"
+        "the music are then the only ones looked at.",
+        "Prepared covers",
+    ),
     Setting("CUTOFF_ANNOUNCE_DIR", "folders", "cutoff_announcements", "str",
             "/home/pi/audio/cutoff_announcements", "", "Cutoff announcements"),
     Setting(
@@ -269,6 +280,22 @@ SETTINGS = [
         "        stops. A single click (or \"Start music\" in the web\n"
         "        interface) restarts the list.",
         "Loop the music list",
+    ),
+    Setting(
+        "COVER_PRIORITY", "playback", "cover_priority", "str", "files",
+        "Which cover the page shows when both sides have one:\n"
+        "  files -> cover_dir first (a picture you prepared there, named\n"
+        "           after the song or \"_any\" beside it), then what the\n"
+        "           music folders and the tags carry.\n"
+        "  id3   -> what the music folders and the tags carry first: the\n"
+        "           picture named after the track, the one embedded in the\n"
+        "           file itself, then the folder's own cover / folder /\n"
+        "           front / album / albumart, from the album folder up to\n"
+        "           the artist folder and the library.\n"
+        "Either way a picture that cannot be read is skipped and the search\n"
+        "goes on; when nothing is found anywhere, the page shows the grey\n"
+        "music note.",
+        "Which cover wins",
     ),
     Setting(
         "UPCOMING_TRACKS_COUNT", "playback", "upcoming_tracks", "int", "10",
@@ -1172,6 +1199,7 @@ def _environment_paths():
         "CLOCK_FALLBACK_SOUND": paths.resolve(
             "CLOCK_FALLBACK_SOUND", paths.music("system", "clock_fallback.wav")),
         "CLOCK_OK_SOUND": paths.resolve("CLOCK_OK_SOUND", paths.music("system", "clock_ok.wav")),
+        "COVER_DIR": paths.resolve("COVER_DIR", paths.music("covers")),
         "CUTOFF_ANNOUNCE_DIR": paths.resolve(
             "CUTOFF_ANNOUNCE_DIR", paths.music("cutoff_announcements")),
         "DJ_ANNOUNCE_DIR": paths.resolve("DJ_ANNOUNCE_DIR", paths.music("dj_announcements")),

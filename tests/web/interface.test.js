@@ -266,6 +266,23 @@ test("the settings that belong together are folded together", async (t) => {
                    ["BASE_VOLUME", "AUDIO_EQUALIZER", "AUDIO_COMPRESSION"]);
 });
 
+test("the covers folder is named with what it holds", async (t) => {
+  const page = open(t, { routes: { "GET /api/settings": { COVER_PRIORITY: "files" },
+                                   "GET /api/covers": { dir: "/home/pi/audio/covers", files: 46,
+                                                        covered: 312, tracks: 1175 } } });
+  await until(() => page.$("bootOverlay").hidden);
+  await until(() => !page.$("coverCount").hidden);
+  assert.match(page.$("coverFolder").textContent, /\/home\/pi\/audio\/covers/);
+  assert.match(page.$("coverCount").textContent, /46/);
+  assert.match(page.$("coverCount").textContent, /312/);
+  assert.equal(page.$("coverPriority").value, "files", "the setting is read into its own row");
+
+  const none = open(t, { routes: { "GET /api/covers": { dir: "", files: 0, covered: 0, tracks: 0 } } });
+  await until(() => none.$("bootOverlay").hidden);
+  await until(() => /no covers folder/i.test(none.$("coverFolder").textContent));
+  assert.equal(none.$("coverCount").hidden, true, "nothing to count, nothing shown");
+});
+
 test("the update card asks for permission first, then gathers its sources", async (t) => {
   const page = open(t);
   await until(() => page.$("bootOverlay").hidden);

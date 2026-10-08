@@ -1984,17 +1984,16 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
 }
 .field-row + .field-row { border-top: 1px solid var(--border); }
 /* A hint between two options is not a row, so the line that separates rows
-   would be missing under the option above it. Only when a row follows the
-   hint: after the last option of a card the line would be one too many. */
+   would be missing: the row after a HIDDEN one keeps it (the loop hint sits
+   there, hidden until the card's "?" is asked). A message that is shown
+   separates on its own, and after the last option of a card the line would be
+   one too many. */
+.field-row + .hint[hidden] + .field-row { border-top: 1px solid var(--border); }
 /* A start mode that cannot act with the output in use - struck through, not
    removed: the setting keeps its value and means "at startup" until the output
    is the speaker again. */
 select option.option-inert { text-decoration: line-through; opacity: 0.55; }
 
-/* No rule for a `.hint` between two rows any more: a message is placed BEFORE
-   the row it belongs to (see the audio output card), so the next row's own
-   border is the separation. The old `.field-row:has(+ .hint + .field-row)` used
-   to add a second one exactly when the USB detection message appeared. */
 .field-row > label,
 .field-row > .field-label {
   flex: 1 1 10rem;
@@ -2409,6 +2408,7 @@ select {
 .hint.warning { color: var(--danger); font-weight: 600; }
 
 #homeWifiHere { text-align: center; }
+#coverCount { text-align: center; }
 
 .clock-status,
 .status-line {

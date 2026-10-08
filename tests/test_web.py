@@ -333,6 +333,7 @@ class WebTest(unittest.TestCase):
         self.assertEqual(guest.get("/api/settings").status_code, 401)
         self.assertEqual(guest.get("/api/dj_announcements").status_code, 401,
                          "what is prepared on the Pi is not a guest's business")
+        self.assertEqual(guest.get("/api/covers").status_code, 401)
         self.assertEqual(guest.get("/api/today").status_code, 200)
         self.assertEqual(guest.get("/api/queue").status_code, 200)
 
@@ -410,6 +411,28 @@ class WebTest(unittest.TestCase):
         self.assertEqual((data["files"], data["covered"], data["tracks"]), (2, 2, 2),
                          "two files: one song of its own, one jingle covering both")
         self.assertEqual(data["dir"], intros)
+
+    def test_the_prepared_covers_are_counted(self):
+        music = tempfile.mkdtemp()
+        covers = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, music, True)
+        self.addCleanup(shutil.rmtree, covers, True)
+        for name in ("a.mp3", "b.mp3"):
+            open(os.path.join(music, name), "wb").close()
+        open(os.path.join(covers, "a.png"), "wb").close()
+        open(os.path.join(covers, "_any.png"), "wb").close()
+        open(os.path.join(covers, "notes.txt"), "wb").close()
+        was = dict(type(self).extra)
+        type(self).extra.update({"MUSIC_DIR": music, "COVER_DIR": covers,
+                                 "MUSIC_CACHE_FILE": os.path.join(self.dir, "cover-cache.json")})
+        try:
+            data = self.owner().get("/api/covers").get_json()["data"]
+        finally:
+            type(self).extra.clear()
+            type(self).extra.update(was)
+        self.assertEqual((data["files"], data["covered"], data["tracks"]), (2, 2, 2),
+                         "two pictures: one song of its own, one covering both, no text file")
+        self.assertEqual(data["dir"], covers)
 
     def test_an_update_that_died_halfway_is_not_still_running(self):
         # The shell appends the end marker after the updater returns, so a killed run leaves none.

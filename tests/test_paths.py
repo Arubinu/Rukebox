@@ -97,6 +97,7 @@ class MovedRootTest(unittest.TestCase):
         self.assertEqual(defaults["CARDS_FILE"], "/config/cards.json")
         self.assertEqual(defaults["MUSIC_DIR"], "/music/music")
         self.assertEqual(defaults["DJ_ANNOUNCE_DIR"], "/music/dj_announcements")
+        self.assertEqual(defaults["COVER_DIR"], "/music/covers")
         self.assertEqual(defaults["MEME_DIR"], "/music/memes")
         self.assertEqual(defaults["CUTOFF_ANNOUNCE_DIR"], "/music/cutoff_announcements")
         self.assertEqual(defaults["KEEPALIVE_SOUND"], "/music/system/keepalive.wav")

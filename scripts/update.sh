@@ -429,17 +429,20 @@ if folders:
     # The file moved under us: what follows reads it back, or it would create a
     # folder at the path it has just left.
     values.update(config_file.read_values(sys.argv[2], sys.argv[3]))
-# The prepared introductions are a folder this version introduced: an
-# installation that was updated has never created it, and it is where the files
-# go. Owned like the music beside it, or the interface could not write there.
-prepared = str(values.get("DJ_ANNOUNCE_DIR") or "").strip()
-if prepared and not os.path.isdir(prepared):
+# The prepared introductions folder, and the prepared covers one, are folders
+# this version introduced: an installation that was updated has never created
+# them, and they are where the files go. Owned like the music beside them, or
+# the interface could not write there.
+music = str(values.get("MUSIC_DIR") or "").strip()
+owner = os.stat(music) if os.path.isdir(music) else None
+for key in ("DJ_ANNOUNCE_DIR", "COVER_DIR"):
+    folder = str(values.get(key) or "").strip()
+    if not folder or os.path.isdir(folder):
+        continue
     try:
-        os.makedirs(prepared, exist_ok=True)
-        music = str(values.get("MUSIC_DIR") or "").strip()
-        if os.path.isdir(music):
-            owner = os.stat(music)
-            os.chown(prepared, owner.st_uid, owner.st_gid)
+        os.makedirs(folder, exist_ok=True)
+        if owner:
+            os.chown(folder, owner.st_uid, owner.st_gid)
     except OSError:
         pass
 print(action, count, moved, audio_root, len(folders))
