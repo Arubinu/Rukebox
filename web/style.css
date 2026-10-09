@@ -465,6 +465,7 @@ code {
   line-height: 1.15;
 }
 .brand-name { white-space: nowrap; }
+.brand-title { display: block; width: auto; height: 23px; }
 .brand-clock {
   display: grid;
   font-size: 12px;
@@ -3480,6 +3481,7 @@ select {
   0%, 100% { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--boot-color) 35%, transparent)); }
   50% { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--boot-color) 75%, transparent)); }
 }
+.boot-title { display: block; width: 180px; height: auto; margin: 18px auto 0; }
 .boot-name {
   margin-top: 20px;
   font-size: 26px;
@@ -3610,6 +3612,7 @@ select {
   background: url("/logo.webp") center / contain no-repeat;
 }
 .login-box h1 { font-size: 22px; font-weight: 750; }
+.login-title { display: block; width: 170px; height: auto; margin: 0 auto; }
 .login-box .text-input { text-align: center; }
 .login-box .btn { width: 100%; }
 .login-error { color: var(--danger); font-weight: 600; }
@@ -4128,7 +4131,7 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
     font-weight: 750;
     letter-spacing: -0.01em;
   }
-  .nav-brand img { width: 40px; height: 40px; }
+  .nav-brand > img { width: 40px; height: 40px; }
   .tab-btn {
     flex-direction: row;
     justify-content: flex-start;

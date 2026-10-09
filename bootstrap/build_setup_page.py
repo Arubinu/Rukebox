@@ -111,6 +111,8 @@ def build(out, release=""):
     style = read("web", "style.css") + "\n" + read("bootstrap", "setup", "setup.css")
     with open(os.path.join(ROOT, "web", "logo.webp"), "rb") as f:
         logo = "data:image/webp;base64," + base64.b64encode(f.read()).decode()
+    with open(os.path.join(ROOT, "web", "title.svg"), "rb") as f:
+        title = "data:image/svg+xml;base64," + base64.b64encode(f.read()).decode()
     archive = project_archive(release)
     payload = {
         "version": version(),
@@ -120,6 +122,7 @@ def build(out, release=""):
     as_script = lambda text: text.replace("</", "<\\/")
     page = (page.replace("/*STYLE*/", style)
                 .replace("{{LOGO}}", logo)
+                .replace("{{TITLE}}", title)
                 .replace("/*I18N*/", as_script(read("web", "i18n.js")))
                 .replace("/*PAYLOAD*/", as_script(json.dumps(payload)))
                 .replace("/*SETUP_JS*/", as_script(read("bootstrap", "setup", "setup.js"))))

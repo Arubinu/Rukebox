@@ -2098,7 +2098,6 @@ const I18N = {
 
     "footer.pi_time": "Radio time: {time}",
 
-    "login.title": "Rukebox",
     "login.subtitle": "This interface is password-protected.",
     "login.password_placeholder": "Password",
     "login.wrong_password": "Incorrect password.",
@@ -4234,7 +4233,6 @@ const I18N = {
 
     "footer.pi_time": "Heure de la radio : {time}",
 
-    "login.title": "Rukebox",
     "login.subtitle": "Cette interface est protégée par un mot de passe.",
     "login.password_placeholder": "Mot de passe",
     "login.wrong_password": "Mot de passe incorrect.",
@@ -6370,7 +6368,6 @@ const I18N = {
 
     "footer.pi_time": "Radiozeit: {time}",
 
-    "login.title": "Rukebox",
     "login.subtitle": "Diese Oberfläche ist passwortgeschützt.",
     "login.password_placeholder": "Passwort",
     "login.wrong_password": "Falsches Passwort.",
@@ -8506,7 +8503,6 @@ const I18N = {
 
     "footer.pi_time": "Hora de la radio: {time}",
 
-    "login.title": "Rukebox",
     "login.subtitle": "Esta interfaz está protegida por contraseña.",
     "login.password_placeholder": "Contraseña",
     "login.wrong_password": "Contraseña incorrecta.",
@@ -10642,7 +10638,6 @@ const I18N = {
 
     "footer.pi_time": "Ora della radio: {time}",
 
-    "login.title": "Rukebox",
     "login.subtitle": "Questa interfaccia è protetta da password.",
     "login.password_placeholder": "Password",
     "login.wrong_password": "Password errata.",
@@ -12778,7 +12773,6 @@ const I18N = {
 
     "footer.pi_time": "Radiotijd: {time}",
 
-    "login.title": "Rukebox",
     "login.subtitle": "Deze interface is beveiligd met een wachtwoord.",
     "login.password_placeholder": "Wachtwoord",
     "login.wrong_password": "Onjuist wachtwoord.",
