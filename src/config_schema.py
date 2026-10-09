@@ -862,7 +862,11 @@ SETTINGS = [
         "Guest credits",
     ),
     Setting("GUEST_QUOTA_MAX", "security", "guest_quota_max", "int", "10",
-            "Credits a guest holds at most (and starts with).", "Credits at most"),
+            "Credits a guest holds at most.", "Credits at most"),
+    Setting("GUEST_QUOTA_START", "security", "guest_quota_start", "int", "3",
+            "Credits a guest seen for the first time starts with (never more than\n"
+            "guest_quota_max): a new browser is not a way to a full counter.",
+            "Credits at the start"),
     Setting("GUEST_QUOTA_REFILL_SEC", "security", "guest_quota_refill_sec", "int", "120",
             "One credit comes back every this many seconds.", "One credit back every (sec)"),
     Setting("GUEST_QUOTA_REPEAT_MIN", "security", "guest_quota_repeat_min", "int", "10",

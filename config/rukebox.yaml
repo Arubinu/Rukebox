@@ -799,8 +799,12 @@ security:
   # occasional press never does. Nothing for whoever is past the password.
   guest_quota: true
 
-  # Credits a guest holds at most (and starts with).
+  # Credits a guest holds at most.
   guest_quota_max: 10
+
+  # Credits a guest seen for the first time starts with (never more than
+  # guest_quota_max): a new browser is not a way to a full counter.
+  guest_quota_start: 3
 
   # One credit comes back every this many seconds.
   guest_quota_refill_sec: 120

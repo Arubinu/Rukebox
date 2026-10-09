@@ -37,6 +37,7 @@ import bt_codec  # noqa: E402
 import config_bundle  # noqa: E402
 import duplicates  # noqa: E402
 import hidden_tracks  # noqa: E402
+import json_file  # noqa: E402
 import playlist  # noqa: E402
 import track_order  # noqa: E402
 import track_media  # noqa: E402
@@ -911,8 +912,45 @@ GUEST_QUOTA_ACTIONS = {
     "/api/audio/fallback": "output",
 }
 QUOTA_VOLUME_BURST_SEC = 10
+# Counters are kept on disk, so a restart does not refill everyone; one idle this long is forgotten.
+QUOTA_KEEP_SEC = 30 * 86400
 _quota = {}
 _quota_lock = threading.Lock()
+_quota_loaded = False
+
+
+def _quota_file():
+    return os.path.join(cfg()["STATE_DIR"], "guest_credits.json")
+
+
+def _quota_load(now):
+    """Caller holds _quota_lock. Counters already in memory win over the file's."""
+    global _quota_loaded
+    if _quota_loaded:
+        return
+    _quota_loaded = True
+    doc = json_file.read(_quota_file()) or {}
+    for person, entry in (doc.get("people") or {}).items():
+        try:
+            kept = {"tokens": float(entry["tokens"]), "at": float(entry["at"]),
+                    "history": {str(k): [float(t) for t in v] for k, v in (entry.get("history") or {}).items()},
+                    "volume_at": float(entry.get("volume_at") or 0.0)}
+        except (KeyError, TypeError, ValueError, AttributeError):
+            continue
+        if now - kept["at"] < QUOTA_KEEP_SEC:
+            _quota.setdefault(str(person), kept)
+
+
+def _quota_save():
+    """Caller holds _quota_lock."""
+    now = time.time()
+    people = {person: entry for person, entry in _quota.items() if now - entry["at"] < QUOTA_KEEP_SEC}
+    path = _quota_file()
+    try:
+        with json_file.lock(path):
+            json_file.write(path, {"people": people})
+    except OSError:
+        log.exception("Could not keep the guest credits")
 
 
 def _quota_settings():
@@ -926,15 +964,25 @@ def _quota_settings():
     return {
         "enabled": bool(c.get("GUEST_QUOTA_ENABLED")),
         "max": max(1.0, float(c.get("GUEST_QUOTA_MAX") or 10)),
+        "start": _quota_start(c),
         "refill": max(1.0, float(c.get("GUEST_QUOTA_REFILL_SEC") or 120)),
         "window": max(0.0, float(c.get("GUEST_QUOTA_REPEAT_MIN") or 0)) * 60,
         "costs": costs,
     }
 
 
+def _quota_start(c):
+    try:
+        start = float(c.get("GUEST_QUOTA_START", 3))
+    except (TypeError, ValueError):
+        start = 3.0
+    return min(max(1.0, float(c.get("GUEST_QUOTA_MAX") or 10)), max(0.0, start))
+
+
 def _quota_entry(device_id, s, now):
     """Caller holds _quota_lock."""
-    entry = _quota.setdefault(device_id, {"tokens": s["max"], "at": now, "history": {}, "volume_at": 0.0})
+    _quota_load(now)
+    entry = _quota.setdefault(device_id, {"tokens": s["start"], "at": now, "history": {}, "volume_at": 0.0})
     entry["tokens"] = min(s["max"], entry["tokens"] + (now - entry["at"]) / s["refill"])
     entry["at"] = now
     for action, times in list(entry["history"].items()):
@@ -1143,6 +1191,7 @@ def _charge_quota(response):
             entry["history"].setdefault(action, []).append(now)
             if action == "volume":
                 entry["volume_at"] = now
+            _quota_save()
     return response
 
 
@@ -2749,7 +2798,9 @@ def _devices_linked(box, device_id, to_id, by):
     was = box.person_id(device_id)
     person = box.link(device_id, to_id)
     with _quota_lock:
-        _quota.pop(was, None)
+        _quota_load(time.time())
+        if _quota.pop(was, None) is not None:
+            _quota_save()
     named = box.device_by_id(person) or {}
     stats.record("devices_linked", label=named.get("name") or person, detail={"by": by})
     return person
@@ -2848,10 +2899,12 @@ def _unlink_device(box, device, by):
     was = box.person_id(device["id"])
     box.unlink(device["id"])
     with _quota_lock:
+        _quota_load(time.time())
         entry = _quota.get(was)
         if entry is not None:
             for person in {device["id"], box.person_id(others[0])}:
                 _quota[person] = dict(entry, history={k: list(v) for k, v in entry["history"].items()})
+            _quota_save()
     stats.record("device_unlinked", label=device.get("name") or device["id"], detail={"by": by})
 
 

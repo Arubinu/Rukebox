@@ -884,7 +884,11 @@ be set aside.
 
 **Guests** (guest mode on, password set) spend credits: each action has a
 price (Network > Guest access), doubled every time the same guest
-repeats it within a few minutes, and credits come back over time. Anyone
+repeats it within a few minutes, and credits come back over time. A guest
+seen for the first time starts with a few (**Credits at the start**, 3 by
+default), not the most a guest may hold, so a fresh browser or a private
+window is not a way to a full counter; counters are kept on disk
+(`guest_credits.json` in the state folder) and survive a restart. Anyone
 can put a song of **Recently played** or the **Library** up next, then
 start one of **Up next** at once (two prices, which add up), and when the planned audio
 output is gone (speaker off, card unplugged) anyone may send the sound to

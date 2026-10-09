@@ -690,6 +690,30 @@ class WebTest(unittest.TestCase):
         self.assertFalse(ws.update_in_progress(state))
         self.assertFalse(os.path.exists(flag), "the stale flag is cleared while we are there")
 
+    def test_a_new_guest_starts_with_a_few_credits_kept_across_a_restart(self):
+        self.extra.update(GUEST_QUOTA_MAX=10, GUEST_QUOTA_START=2)
+        self.addCleanup(self.extra.update, GUEST_QUOTA_MAX=3, GUEST_QUOTA_START=3)
+        ws.ACTION_REPEAT_SEC = 0
+        guest = ws.app.test_client()
+        token = guest.get("/api/device").get_json()["data"]["token"]
+        person = ws._suggestion_box().resolve_device(token, None, "127.0.0.1")[0]["person"]
+
+        def tokens():
+            with ws._quota_lock:
+                return int(ws._quota_entry(person, ws._quota_settings(), time.time())["tokens"] + 1e-9)
+
+        with ws.app.test_request_context():
+            self.assertEqual(tokens(), 2, "a few, not the most a guest may hold")
+        self.assertEqual(guest.post("/api/action/next_track").status_code, 200)
+        with ws.app.test_request_context():
+            self.assertEqual(tokens(), 1)
+            with ws._quota_lock:
+                ws._quota.clear()
+                ws._quota_loaded = False
+            self.assertEqual(tokens(), 1, "a restart does not refill anyone")
+        with open(os.path.join(self.dir, "guest_credits.json"), encoding="utf-8") as f:
+            self.assertIn(person, json.load(f)["people"])
+
     def test_the_same_action_within_a_second_runs_once_and_costs_once(self):
         ws.ACTION_REPEAT_SEC = 1.0
         first, second = ws.app.test_client(), ws.app.test_client()
