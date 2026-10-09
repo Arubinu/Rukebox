@@ -2078,6 +2078,17 @@ class GameRouteTest(unittest.TestCase):
         self.client.post("/api/game/stop")
         self.assertTrue(ws._game.stopped)
 
+    def test_the_hall_of_fame_never_takes_the_page_down(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        path = os.path.join(folder, "game_wins.json")
+        ws.blind_test.record_wins(path, [{"person": "p1", "name": "Fox"}])
+        with unittest.mock.patch.object(ws, "_game_wins_file", return_value=path),                 unittest.mock.patch.object(ws, "_suggestion_box", side_effect=PermissionError("no database")):
+            answer = self.client.get("/api/game")
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(answer.get_json()["data"]["hall"], [{"name": "Fox", "wins": 1}],
+                         "named as when they won")
+
     def test_a_library_too_small_is_refused(self):
         ws._get_library.return_value = unittest.mock.Mock(quiz_tracks=lambda: [])
         r = self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20})

@@ -3334,11 +3334,16 @@ GAME_HALL_SIZE = 10
 
 
 def _game_hall(won):
-    """The most wins first, named as their device is now."""
-    box = _suggestion_box()
+    """The most wins first, named as their device is now (or as they were when they won)."""
+    box = None
+    if won:
+        try:
+            box = _suggestion_box()
+        except Exception:  # noqa: BLE001 - the hall must never take the game page down
+            log.warning("No device names for the hall of fame", exc_info=True)
     hall = []
     for person, entry in won.items():
-        device = box.device_by_id(person) or {}
+        device = (box.device_by_id(person) if box else None) or {}
         if entry.get("wins"):
             hall.append({"name": device.get("name") or entry.get("name") or "?", "wins": int(entry["wins"])})
     hall.sort(key=lambda h: (-h["wins"], h["name"].casefold()))
