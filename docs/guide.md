@@ -2005,7 +2005,8 @@ artist, are asked about; a library with fewer than the rounds asked for
 cannot start a game. The extracts never count in the statistics; the event
 log keeps "Blind test started" and who won it.
 
-Once started, the game waits up to 45 seconds for people to come: everyone
+Once started, the game waits for people to come (45 seconds by default,
+`schedule.game_join_sec`, set from the game page): everyone
 with the page open chooses **I play** or **I watch**. It begins as soon as
 everyone looking has chosen with at least one player, or when the wait runs
 out; the owner may **Start now**. Nobody playing at the end of the wait
@@ -2023,7 +2024,10 @@ game plays, the player's frame is blurred (the cover and the title could give
 the answer away) under a **Join the blind test** button, and the radio refuses
 what would take it away from the game - previous, pause, next, the click
 actions, a card, the speaker's own buttons - with "A blind test is on"; the
-volume, mute, standby and switching off still work.
+volume, mute, standby and switching off still work. A game is never cut
+short by the clock either: an announcement or a schedule start due during
+it is skipped, and the cutoff or a schedule's end only puts the radio on
+standby once the game is over. The game settings hide while a game plays.
 
 Two switches on the game page (the owner's only) make the radio speak, in the
 spoken language (`schedule.speech_language`): **Say the start and the end**

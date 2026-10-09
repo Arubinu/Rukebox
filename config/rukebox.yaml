@@ -630,6 +630,11 @@ schedule:
   # recorded by its owner is played instead of the synthetic voice.
   game_voice_winners: false
 
+  # Before its first round, how long the blind test waits for people to
+  # choose to play or watch (it begins sooner once everyone looking has
+  # chosen). 10 to 300.
+  game_join_sec: 45
+
 # ---------------------------------------------------------------
 # Fade durations - every stop is progressive, never abrupt
 # ---------------------------------------------------------------

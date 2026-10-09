@@ -2089,6 +2089,12 @@ class GameRouteTest(unittest.TestCase):
         self.client.post("/api/game/stop")
         self.assertTrue(ws._game.stopped)
 
+    def test_the_wait_for_players_comes_from_the_settings(self):
+        values = dict(ws.cfg(), GAME_JOIN_SEC=20)
+        with unittest.mock.patch.object(ws, "cfg", return_value=values):
+            self.assertTrue(self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20}).get_json()["ok"])
+        self.assertAlmostEqual(ws._game.join_until - time.monotonic(), 20, delta=2)
+
     def test_the_hall_of_fame_never_takes_the_page_down(self):
         folder = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, folder, True)

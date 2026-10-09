@@ -693,6 +693,10 @@ SETTINGS = [
             "After each round, the blind test says who found the song. A name\n"
             "recorded by its owner is played instead of the synthetic voice.",
             "Blind test: say who found it"),
+    Setting("GAME_JOIN_SEC", "schedule", "game_join_sec", "int", "45",
+            "Before its first round, how long the blind test waits for people to\n"
+            "choose to play or watch (it begins sooner once everyone looking has\n"
+            "chosen). 10 to 300.", "Blind test: wait for players (sec)"),
     Setting("ANNOUNCE_MUSIC_UNDER", "fades", "music_under_announcements", "int", "0",
             "Keep the music playing under an announcement (the spoken time\n"
             "included), at this percentage of its volume. 0 = the music pauses\n"

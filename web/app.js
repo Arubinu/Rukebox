@@ -4955,7 +4955,8 @@ function paintGame(g) {
   const lobby = g.state === "none" || g.state === "over";
   document.getElementById("gameLobby").hidden = !lobby;
   document.getElementById("gameStartForm").hidden = !g.owner;
-  document.getElementById("gameVoiceForm").hidden = !g.owner;
+  // The game's settings wait for the game to be over.
+  document.getElementById("gameVoiceForm").hidden = !g.owner || !lobby;
   const hall = g.hall || [];
   document.getElementById("gameHallBox").hidden = !lobby || !hall.length;
   document.getElementById("gameHallResetRow").hidden = !g.owner;

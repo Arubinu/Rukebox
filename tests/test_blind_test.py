@@ -252,6 +252,32 @@ class DaemonGameTest(DaemonCase):
         self.assertTrue(control_client.send_control_command(path, "set_volume", value=40).get("ok"),
                         "the volume stays the listeners'")
 
+    def test_the_cutoff_during_a_game_waits_for_its_end_then_stands_by(self):
+        self.daemon.mode = "music"
+        self.daemon._last_music_track = "/m/song.mp3"
+        self.daemon._game_clip(self.track, 0, 20)
+        with mock.patch.object(self.daemon, "_cutoff_due", return_value=True), \
+                mock.patch.object(self.daemon, "_check_usb_music"), \
+                mock.patch.object(self.daemon, "_do_shutdown_sequence") as shutdown:
+            self.daemon._scheduler_tick()
+        self.assertEqual(self.daemon.mode, "game", "the game is never cut short")
+        shutdown.assert_not_called()
+        self.assertTrue(self.daemon.state.already_triggered_today("last_cutoff_trigger"))
+        with mock.patch.object(self.daemon, "_resume_after_announce") as resume:
+            self.daemon._game_end()
+        resume.assert_not_called()
+        self.assertEqual(self.daemon.mode, "stopped", "standby, not the music, and not switched off")
+
+    def test_a_schedule_ending_during_a_game_waits_for_it_too(self):
+        self.daemon.mode = "idle"
+        self.daemon._game_clip(self.track, 0, 20)
+        with mock.patch.object(self.daemon, "_power_off_now") as off:
+            self.daemon._schedule_stop({"id": "s", "name": "Evening", "stop_action": "poweroff"})
+        off.assert_not_called()
+        self.assertEqual(self.daemon.mode, "game")
+        self.daemon._game_end()
+        self.assertEqual(self.daemon.mode, "stopped")
+
     def test_only_library_files_and_never_over_an_announcement(self):
         self.daemon.mode = "music"
         self.assertEqual(self.daemon._game_clip("/etc/passwd", 0, 20), "not_found")

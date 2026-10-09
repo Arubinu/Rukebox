@@ -291,7 +291,15 @@
             </div>
           </div>
           <form id="gameVoiceForm" class="settings-form" hidden>
-            <h3 class="game-voice-title" data-i18n="game.voice_title">Voice</h3>
+            <h3 class="game-voice-title" data-i18n="game.settings_title">Game settings</h3>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="gameJoinSec" data-i18n="game.join_sec">Wait for players (sec)</label>
+                <p class="field-desc" id="gameJoinSecDesc" data-i18n="game.join_sec_desc">Before the first round. The game begins sooner once everyone has chosen.</p>
+              </div>
+              <input type="number" id="gameJoinSec" min="10" max="300" step="1" data-key="GAME_JOIN_SEC" class="num-input"
+                     inputmode="numeric" aria-describedby="gameJoinSecDesc">
+            </div>
             <div class="field-row">
               <div class="field-text">
                 <label for="gameVoiceStartStop" data-i18n="game.voice_start_stop">Say the start and the end</label>

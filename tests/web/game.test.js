@@ -54,6 +54,7 @@ test("before the first round everyone chooses to play or watch, the host may sta
   assert.equal(page.$("gameRound").textContent, "The game starts in 30 s");
   assert.match(page.$("gameRoleCount").textContent, /Players: 1 .* Still choosing: 2/);
   assert.equal(page.$("gameGoRow").hidden, false, "the host may start without waiting");
+  assert.equal(page.$("gameVoiceForm").hidden, true, "the game's settings wait for it to be over");
   page.$("gamePlayBtn").click();
   await until(() => page.sent("POST", "/api/game/join").length);
   assert.deepEqual(page.sent("POST", "/api/game/join")[0].body, { play: true });

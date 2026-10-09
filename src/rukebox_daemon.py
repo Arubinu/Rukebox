@@ -273,6 +273,8 @@ class RadioDaemon:
         self._battery_warned = False
         self._game_return = None
         self._last_card = None
+        # The cutoff or a schedule's end came during a blind test: standby once it is over.
+        self._standby_after_game = False
         self._quick_until = 0.0
         self._duck_factor = 1.0
         self._duck_proc = None
@@ -2517,7 +2519,10 @@ class RadioDaemon:
         action = item.get("stop_action") or "pause"
         log.info("Schedule '%s': stop (%s)", item["name"], action)
         self.stats.record("schedule_stop", label=item["name"], detail={"id": item["id"], "action": action})
-        if action == "poweroff":
+        if self.mode == "game":
+            # A game is never cut short: the radio goes to standby when it ends.
+            self._standby_after_game = True
+        elif action == "poweroff":
             self._power_off_now(reason="schedule")
         elif action == "standby":
             self._go_standby("schedule")
@@ -2935,6 +2940,9 @@ class RadioDaemon:
         self._end_play("stop")
         mode, back = getattr(self, "_game_return", None) or ("idle", None)
         self._game_return = None
+        if self._standby_after_game:
+            self._standby_after_game = False
+            mode, back = "stopped", None
         log.info("Blind test over: back to %s", mode)
         self._restore_base_volume()
         if mode == "music":
@@ -3965,7 +3973,12 @@ class RadioDaemon:
             self._check_reminders()
 
         if self._cutoff_due(now) and not self.state.already_triggered_today("last_cutoff_trigger"):
-            if self.mode in ("idle", "stopped") or (self.mode == "music" and not self._current_track):
+            if self.mode == "game":
+                log.info("Cutoff during a blind test: standby once it is over")
+                self._record_cutoff_trigger("after_game")
+                self.state.mark_triggered_today("last_cutoff_trigger")
+                self._standby_after_game = True
+            elif self.mode in ("idle", "stopped") or (self.mode == "music" and not self._current_track):
                 self._trigger_cutoff_from_idle()
             elif self.cfg["CUTOFF_MODE"] == "exact":
                 self._trigger_cutoff_event_exact()

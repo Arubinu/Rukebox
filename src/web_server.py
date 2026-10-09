@@ -3392,7 +3392,11 @@ def api_game_start():
         if _game is not None and _game.state != "over":
             return jsonify({"ok": False, "error": "game_running"}), 409
         tracks = blind_test.Game.playable(_get_library().quiz_tracks(), seconds)
-        game = blind_test.Game(tracks, rounds, seconds)
+        try:
+            join_sec = min(max(int(cfg().get("GAME_JOIN_SEC") or blind_test.JOIN_SEC), 10), 300)
+        except (TypeError, ValueError):
+            join_sec = blind_test.JOIN_SEC
+        game = blind_test.Game(tracks, rounds, seconds, join_sec=join_sec)
         if not game.enough():
             return jsonify({"ok": False, "error": "game_not_enough_tracks"}), 409
         _game = game
