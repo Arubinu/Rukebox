@@ -3525,6 +3525,10 @@ class RadioDaemon:
     def _speaker_watch_turn(self):
         """One turn of the watch; the seconds to wait before the next."""
         self._watch_flic()
+        # Another output chosen: the speaker is nobody's concern, and calling it costs the Wi-Fi.
+        if (self.cfg.get("AUDIO_OUTPUT") or "bluetooth") != "bluetooth":
+            self._sink_missing_checks = 0
+            return 30.0
         interval = self._speaker_watch_interval()
         wait = interval if interval > 0 else 30.0
         if interval <= 0:

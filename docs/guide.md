@@ -2126,9 +2126,11 @@ folder, and follows its person when devices are linked.
   state folder) and a PipeWire sink that writes into the pipe it reads;
   choosing another output stops both. Nothing plays on the radio's own
   speaker meanwhile, and losing the Bluetooth speaker no longer pauses
-  the music; the speaker's supervisor stops calling an absent speaker,
-  whose pages would hold up the Wi-Fi the clients listen through on a
-  board where both share one radio chip. **Devices listening > Manage** sets each client's volume,
+  the music. As with every output other than the Bluetooth speaker, the
+  radio leaves the speaker alone: no call, no repair, no watch (pages
+  would hold up the Wi-Fi the clients listen through, on a board where
+  both share one radio chip). The Flic button, the Bluetooth remotes, the
+  phone's clock and a scan asked for still work. **Devices listening > Manage** sets each client's volume,
   mutes it, or forgets one gone for good. `SNAPCAST_CODEC`
   (`snapcast_codec`): Opus by default, light on a Wi-Fi network; FLAC is
   lossless and heavier. Clients find the radio by themselves on the same

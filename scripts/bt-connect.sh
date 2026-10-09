@@ -242,10 +242,11 @@ while :; do
         continue
     fi
 
-    # The multiroom output needs the Wi-Fi: paging an absent speaker would hold it up for seconds.
-    if [ "${AUDIO_OUTPUT:-bluetooth}" = "snapcast" ] && ! is_connected; then
+    # Another output chosen: no call, repair or watch for the speaker. Pages would also hold up
+    # the Wi-Fi on a chip that carries both.
+    if [ "${AUDIO_OUTPUT:-bluetooth}" != "bluetooth" ]; then
         if [ "$warned_network" -eq 0 ]; then
-            echo "The sound goes to the multiroom output: no attempt to reach $SPEAKER_MAC meanwhile."
+            echo "The sound goes to the '${AUDIO_OUTPUT}' output: the speaker is left alone meanwhile."
             warned_network=1
         fi
         connected=0

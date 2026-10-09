@@ -87,6 +87,22 @@ class OutputFollowsTheChoiceTest(DaemonCase):
             unload.assert_called_once()
 
 
+class SpeakerLeftAloneTest(DaemonCase):
+    def test_another_output_never_calls_or_waits_for_the_speaker(self):
+        self.daemon.cfg.update(AUDIO_OUTPUT="snapcast", SPEAKER_MAC="F4:2B:7D:11:99:23",
+                               SPEAKER_ABSENT_SHUTDOWN_MIN=1, SPEAKER_WATCH_INTERVAL_SEC=10)
+        self.daemon._started_monotonic -= 3600
+        absent = {"mac": "F4:2B:7D:11:99:23", "connected": False, "controller": None, "expected": None,
+                  "unknown": False, "paired_here": True}
+        with mock.patch.object(self.daemon, "_watch_flic"),                 mock.patch.object(self.daemon, "_speaker_link", return_value=absent) as link,                 mock.patch.object(self.daemon, "_power_off_for_speaker") as off:
+            self.assertEqual(self.daemon._speaker_watch_turn(), 30.0)
+            link.assert_not_called()
+            off.assert_not_called()
+            self.daemon.cfg["AUDIO_OUTPUT"] = "bluetooth"
+            self.daemon._speaker_watch_turn()
+            link.assert_called()
+
+
 class SnapcastRouteTest(unittest.TestCase):
     def setUp(self):
         self.addCleanup(mock.patch.stopall)
