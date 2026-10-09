@@ -11754,4 +11754,17 @@ document.addEventListener("keydown", (e) => {
 });
 
 document.getElementById("dedicationsVoiceHttps").hidden = window.isSecureContext;
+// A field the browser refuses inside a closed fold would block the save in silence.
+let invalidToastAt = 0;
+document.addEventListener("invalid", (event) => {
+  const field = event.target;
+  for (let el = field.parentElement; el; el = el.parentElement) {
+    if (el.tagName === "DETAILS") el.open = true;
+  }
+  if (Date.now() - invalidToastAt < 1000) return;
+  invalidToastAt = Date.now();
+  const label = field.id ? document.querySelector('label[for="' + field.id + '"]') : null;
+  showToast(t("alert.invalid_field"), (label ? label.textContent.trim() + " - " : "") + field.validationMessage,
+            { error: true });
+}, true);
 } // end of initApp()

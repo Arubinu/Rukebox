@@ -163,6 +163,28 @@ class IconsTest(unittest.TestCase):
         self.assertEqual(clashes, [])
 
 
+class NumberFieldsTest(unittest.TestCase):
+    def test_every_default_is_a_value_its_field_accepts(self):
+        """A default the browser calls invalid blocks the whole form's save."""
+        import config_schema
+        html = _path.read("web", "index.html")
+        bad = []
+        for tag in re.findall(r'<input[^>]*type="number"[^>]*>', html):
+            key = re.search(r'data-key="([^"]+)"', tag)
+            if not key or key.group(1) not in config_schema.DEFAULTS:
+                continue
+            attr = lambda name: (re.search(r'\b%s="([^"]+)"' % name, tag) or [None, None])[1]
+            low, high, step = attr("min"), attr("max"), attr("step")
+            value = float(config_schema.DEFAULTS[key.group(1)])
+            if low is not None and value < float(low) or high is not None and value > float(high):
+                bad.append(key.group(1))
+            elif step not in (None, "any"):
+                steps = (value - float(low or 0)) / float(step)
+                if abs(steps - round(steps)) > 1e-6:
+                    bad.append(key.group(1))
+        self.assertEqual(bad, [])
+
+
 class FilesTest(unittest.TestCase):
     def test_every_text_file_is_utf8(self):
         """A heredoc on a Windows shell can write an accent as one Latin-1 byte."""
