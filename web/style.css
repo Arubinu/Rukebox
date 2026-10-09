@@ -1617,6 +1617,7 @@ body.lyrics-fullscreen { overflow: hidden; }
 }
 .game-cover-text { margin: 0; font-weight: 600; max-width: 30ch; }
 .name-voice-box { display: flex; flex-direction: column; gap: 10px; }
+#audioOutputDetected { white-space: pre-line; }
 .snapcast-box { display: flex; flex-direction: column; gap: 12px; }
 .snapcast-box > .hint { margin: 0; }
 .snapcast-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
