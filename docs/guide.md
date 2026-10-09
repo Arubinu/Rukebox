@@ -1412,7 +1412,7 @@ The same voice can do three more things.
   ogg, m4a, flac) - the **name** is what counts, and it is read without
   caring about capitals. A prepared file is not synthesized: no waiting, no
   model, nothing on the processor. Settings > Schedules shows how many files
-  there are and how many songs they cover, and **the Prepared introductions
+  there are and how many songs they cover, and **the Radio host's voice
   card** (Settings) fills the folder: it walks the mirrored tree exactly like
   the covers card does, takes sound files into the folder you are looking at,
   plays one to check it, makes an artist or album folder, and removes one. A
@@ -1755,7 +1755,7 @@ disagree. It follows the folder on the Pi too when no device is in use.
   itself. Nothing is ever written to it, and uploading music is refused
   while one is in use.
 - **The whole device is the music folder** while it is in use: the library, the
-  statistics, the queues and the lists all follow it. Prepared covers and
+  statistics, the queues and the lists all follow it. Covers and
   announcement files do not - they stay on the Pi, which is also where they are
   written from the interface.
 - **Formats**: whatever the kernel can mount - `vfat`, `exfat`, an NTFS device
@@ -2125,7 +2125,7 @@ looked up next to the track, most specific first.
     folder itself every song of the library. The usual names work there too
     (`cover.jpg`, `folder.jpg`, `front.jpg`...), and capitals do not matter -
     the **name** is what counts. Settings > Playback shows how many pictures
-    it holds and how many songs they cover. **The Prepared covers card**
+    it holds and how many songs they cover. **The Covers card**
     (Home) fills it: it walks the same tree as the music, shows the thumbnails
     of what is already there, takes pictures into the folder you are looking
     at, makes an artist or album folder that does not exist yet, and removes
@@ -2918,8 +2918,8 @@ what the folder picker and the uploads are allowed to reach:
 | Folder | Default path | Setting |
 | --- | --- | --- |
 | Music | `/home/pi/audio/music` | `music` (`folders:`) |
-| Prepared introductions (radio host) | `/home/pi/audio/dj_announcements` | `dj_announcements` (`folders:`) |
-| Prepared covers | `/home/pi/audio/covers` | `covers` (`folders:`) |
+| Radio host's voice | `/home/pi/audio/dj_announcements` | `dj_announcements` (`folders:`) |
+| Covers | `/home/pi/audio/covers` | `covers` (`folders:`) |
 | Button sounds (single click) | `/home/pi/audio/memes` | `memes` (`folders:`) |
 | Cutoff announcement | `/home/pi/audio/cutoff_announcements` | `cutoff_announcements` (`folders:`) |
 | Morning / double-click announcements | `/home/pi/audio/morning_announcements`, `/home/pi/audio/doubleclick_announcements` | the announcement's own folder (Custom Announcements card) |
@@ -2936,7 +2936,7 @@ echo '{"cmd":"rescan_music"}' | nc -U /tmp/rukebox_control.sock
 
 Two of those folders are **filled from the interface** rather than over SSH,
 because both mirror the music tree and mirroring it by hand is tedious:
-**Prepared covers** (Home) and **Prepared introductions** (Settings). Each card
+**Covers** (Home, beside *Add music*) and **Radio host's voice** (Settings, beside the announcement files). Each card
 shows where you are and the folders below, and the files already there - a
 cover with its thumbnail, a sound with a button to hear it. **The breadcrumb
 starts at the first sub-folder**: the prepared folder's own name is not shown

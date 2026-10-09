@@ -205,7 +205,7 @@ SETTINGS = [
         "mirroring the music folder: a file named after the song, or one named\n"
         "\"_any\" beside it - which then covers its album, its artist, or the\n"
         "whole library. Any format mpv reads; the name is what counts.",
-        "Prepared introductions",
+        "Radio host's voice",
     ),
     Setting("MEME_DIR", "folders", "memes", "str", "/home/pi/audio/memes",
             "Sounds played by a single click on the Flic button.", "Button sounds"),
@@ -220,7 +220,7 @@ SETTINGS = [
         "side of cover_priority; anything found in the music folders\n"
         "themselves counts as the \"id3\" side. Empty disables it: the\n"
         "pictures beside the music are then the only ones looked at.",
-        "Prepared covers",
+        "Covers",
     ),
     Setting("CUTOFF_ANNOUNCE_DIR", "folders", "cutoff_announcements", "str",
             "/home/pi/audio/cutoff_announcements", "", "Cutoff announcements"),
