@@ -91,3 +91,16 @@ test("a finished game shows its podium: second, first, third", async () => {
   assert.deepEqual(places, [["1", "Fox", "12 pts"], ["2", "Cat, Wolf", "7 pts"], ["3", "Owl", "1 pt"]]);
   await page.close();
 });
+
+test("with the suggestion box off, the page is only about one's name", async () => {
+  const page = load({ hash: "#home/suggest", routes: {
+    "GET /api/status": STATUS,
+    "GET /api/suggestions": { enabled: false, owner: false, text_max: 200, items: [],
+                              me: { name: "Fox", rename_wait: 0, locked: false, linked: 0 } },
+  } });
+  await until(() => page.document.querySelector("#suggestTitle [data-i18n]").textContent === "My name");
+  assert.equal(page.$("suggestForm").hidden, true, "nothing to suggest");
+  assert.equal(page.$("suggestEmpty").hidden, true);
+  assert.equal(page.$("suggestMeLine").hidden, false, "the name and its links stay");
+  await page.close();
+});

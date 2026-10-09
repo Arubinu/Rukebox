@@ -2188,8 +2188,11 @@ folder, and follows its person when devices are linked.
   when their credits do not cover it. Buttons **vibrate** under the finger
   on phones that allow it (not iPhones); a switch in System turns it off
   for that browser.
-- **Suggestions** (Home): anyone who can open the interface - guests
-  included - suggests music or an announcement to add, under a name no
+- **Name & suggestions** (Home; **My name** when the suggestion box is
+  off, where the name, linked devices and recorded voice stay, since the
+  blind test and the dedications use them): anyone who can open the
+  interface - guests included - suggests music or an announcement to add,
+  under a name no
   other device can take, and votes the others for or against (one vote
   per suggestion and per device, recognised by a browser cookie and by
   its MAC address; the vote can be changed or taken back). A music idea

@@ -690,6 +690,17 @@ class WebTest(unittest.TestCase):
         self.assertFalse(ws.update_in_progress(state))
         self.assertFalse(os.path.exists(flag), "the stale flag is cleared while we are there")
 
+    def test_with_the_suggestion_box_off_a_name_can_still_be_chosen(self):
+        self.extra["SUGGESTIONS_ENABLED"] = False
+        self.addCleanup(self.extra.update, SUGGESTIONS_ENABLED=True)
+        guest = ws.app.test_client()
+        page = guest.get("/api/suggestions").get_json()
+        self.assertEqual((page["ok"], page["data"]["enabled"], page["data"]["items"]), (True, False, []))
+        self.assertTrue(guest.post("/api/suggestions/name", json={"name": "Lynx roux"}).get_json()["ok"])
+        self.assertEqual(guest.get("/api/suggestions").get_json()["data"]["me"]["name"], "Lynx roux")
+        refused = guest.post("/api/suggestions", json={"kind": "music", "text": "Africa - Toto"})
+        self.assertEqual(refused.get_json()["error"], "suggestions_disabled", "the box itself stays off")
+
     def test_a_new_guest_starts_with_a_few_credits_kept_across_a_restart(self):
         self.extra.update(GUEST_QUOTA_MAX=10, GUEST_QUOTA_START=2)
         self.addCleanup(self.extra.update, GUEST_QUOTA_MAX=3, GUEST_QUOTA_START=3)

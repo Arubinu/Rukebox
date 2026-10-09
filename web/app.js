@@ -670,6 +670,8 @@ function refreshPageMenus() {
       const card = cardOfPage(tab, tile.dataset.page);
       const key = card ? titleKeyOf(card) : null;
       tile.querySelector(".page-tile-title").textContent = key ? t(key) : "";
+      const icon = card && card.querySelector("h2[data-icon]");
+      if (icon) tile.querySelector(".page-tile-icon").dataset.icon = icon.dataset.icon;
       tile.hidden = !pageIsAvailable(card);
       tile.classList.toggle("is-attention",
                             !!card && card.dataset.page === DEFAULT_VIEW.page);
@@ -6901,6 +6903,7 @@ async function refreshSuggestions() {
   }
   card.hidden = false;
   suggestState = result.data;
+  paintSuggestTitle(suggestState.enabled !== false);
   if (suggestState.me && !suggestState.me.name && !nameGenerating) {
     nameGenerating = true;
     const r = await giveGeneratedName();
@@ -6997,6 +7000,25 @@ document.getElementById("suggestVoiceBtn").addEventListener("click", async () =>
   }
 });
 
+/* With the suggestion box off, the page is only where one's name is chosen, and is named so. */
+function paintSuggestTitle(enabled) {
+  const title = document.querySelector("#suggestTitle [data-i18n]");
+  const help = document.querySelector("#suggestCard > .help-text");
+  const key = enabled ? "suggest.title" : "suggest.title_name";
+  document.getElementById("suggestTitle").dataset.icon = enabled ? "bulb" : "user";
+  help.dataset.i18n = enabled ? "suggest.help" : "suggest.help_name";
+  help.textContent = t(help.dataset.i18n);
+  if (title.dataset.i18n === key) return;
+  title.dataset.i18n = key;
+  title.textContent = t(key);
+  if (document.body.dataset.page === "suggest") {
+    const heading = document.getElementById("pageTitle");
+    heading.dataset.i18n = key;
+    heading.textContent = t(key);
+  }
+  refreshPageMenus();
+}
+
 function renderSuggestMe() {
   const name = suggestState.me && suggestState.me.name;
   const locked = !!(suggestState.me && suggestState.me.locked);
@@ -7010,7 +7032,7 @@ function renderSuggestMe() {
   document.getElementById("suggestNameForm").hidden = !editing;
   document.getElementById("suggestNameCancel").hidden = !name;
 
-  document.getElementById("suggestForm").hidden = !name;
+  document.getElementById("suggestForm").hidden = !name || suggestState.enabled === false;
 }
 
 function suggestKindLabel(kind) {
@@ -7100,7 +7122,7 @@ function suggestionRow(item) {
 function renderSuggestions() {
   const list = document.getElementById("suggestList");
   list.replaceChildren(...suggestState.items.map(suggestionRow));
-  document.getElementById("suggestEmpty").hidden = suggestState.items.length > 0;
+  document.getElementById("suggestEmpty").hidden = suggestState.items.length > 0 || suggestState.enabled === false;
 }
 
 async function voteSuggestion(item, value) {

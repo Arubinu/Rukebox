@@ -1228,9 +1228,10 @@ def _set_device_cookie(response):
     return response
 
 
-def _suggestion_call(fn, owner_only=False):
-    """Runs fn(box, device) and turns its refusals into error codes."""
-    if not cfg().get("SUGGESTIONS_ENABLED"):
+def _suggestion_call(fn, owner_only=False, names=False):
+    """Runs fn(box, device) and turns its refusals into error codes. `names`: a call about
+    people's names, which the blind test and the dedications need even with the box off."""
+    if not names and not cfg().get("SUGGESTIONS_ENABLED"):
         return jsonify({"ok": False, "error": "suggestions_disabled"}), 404
     if owner_only and not _is_owner():
         return jsonify({"ok": False, "error": "auth_required"}), 401
@@ -1256,14 +1257,16 @@ def api_suggestions():
         return _suggestion_call(lambda box, dev: {"id": box.add(dev, body.get("kind"), body.get("text"))})
     owner = _is_owner()
     interval = _rename_interval_sec()
+    enabled = bool(cfg().get("SUGGESTIONS_ENABLED"))
     return _suggestion_call(lambda box, dev: {
+        "enabled": enabled,
         "me": {"name": dev["name"], "rename_wait": box.rename_wait(dev, interval),
                "locked": box.name_locked(dev["id"]), "linked": len(box.linked_devices(dev["id"])),
                "name_voice": bool(name_voice.existing(cfg()["STATE_DIR"], dev.get("person") or dev["id"]))},
         "owner": owner,
         "text_max": suggestions.TEXT_MAX,
-        "items": _with_library_matches(box.list(dev, admin=owner)),
-    })
+        "items": _with_library_matches(box.list(dev, admin=owner)) if enabled else [],
+    }, names=True)
 
 
 def _with_library_matches(items):
@@ -1310,7 +1313,7 @@ def api_suggestions_name():
     interval = _rename_interval_sec()
     generated = bool(body.get("generated"))
     return _suggestion_call(lambda box, dev: {"name": box.set_name(dev, body.get("name"), interval,
-                                                                   generated=generated)})
+                                                                   generated=generated)}, names=True)
 
 
 @app.route("/api/suggestions/status", methods=["POST"])
@@ -1321,13 +1324,14 @@ def api_suggestions_status():
 
 @app.route("/api/suggestions/names", methods=["GET"])
 def api_suggestions_names():
-    return _suggestion_call(lambda box, dev: {"people": box.people()}, owner_only=True)
+    return _suggestion_call(lambda box, dev: {"people": box.people()}, owner_only=True, names=True)
 
 
 @app.route("/api/suggestions/release_name", methods=["POST"])
 def api_suggestions_release_name():
     body = request.get_json(silent=True) or {}
-    return _suggestion_call(lambda box, dev: box.release_name(str(body.get("key", ""))), owner_only=True)
+    return _suggestion_call(lambda box, dev: box.release_name(str(body.get("key", ""))), owner_only=True,
+                            names=True)
 
 
 WEB_SESSION_WINDOW_SEC = 900
