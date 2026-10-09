@@ -350,6 +350,14 @@ class WebTest(unittest.TestCase):
         self.assertEqual(ws._check_extra_hosts({"WEB_EXTRA_HOSTS": "bad_name!"}), "bad_host_name")
         self.assertIsNone(ws._check_extra_hosts({"WEB_EXTRA_HOSTS": ""}))
 
+    def test_a_refused_name_can_be_taken_off_the_list(self):
+        owner = self.owner()
+        ws._refused_hosts.clear()
+        owner.get("/api/auth/status", headers={"Host": "old.example.org"})
+        self.assertEqual(owner.delete("/api/security/hosts", json={"host": "old.example.org"}).status_code, 200)
+        self.assertEqual(owner.get("/api/security/hosts").get_json()["data"]["refused"], [])
+        self.assertEqual(owner.delete("/api/security/hosts", json={"host": "old.example.org"}).status_code, 404)
+
     def test_a_json_body_is_bounded(self):
         owner_body = "x" * (1024 * 1024 + 10)
         answer = self.owner().post("/api/mute", data=owner_body, content_type="application/json")

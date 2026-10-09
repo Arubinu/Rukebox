@@ -602,6 +602,12 @@ labels:
   - traefik.http.services.rukebox.loadbalancer.server.port=80
 ```
 
+**A "Bad Gateway" on one request out of two** means the proxy has two targets
+for the radio and takes turns between them - typically the radio's old
+address left beside its new one (Pangolin and Traefik balance between every
+target of a resource). Keep only the one that answers. A refused name the
+radio keeps listing under **Refused recently** can be taken off with its bin.
+
 **Nginx Proxy Manager**: a proxy host to the radio's address and port 80,
 **Websockets support** not needed, an SSL certificate, and in the
 *Advanced* tab `proxy_buffering off; client_max_body_size 512m;`.

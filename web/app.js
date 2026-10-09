@@ -11655,7 +11655,26 @@ async function refreshDomains() {
       showToast(t("domain.allowed", { host: one.host }), t("domain.allowed_hint"));
       refreshDomains();
     });
-    li.append(name, allow);
+    const forget = document.createElement("button");
+    forget.type = "button";
+    forget.className = "btn btn-icon btn-small btn-danger-outline";
+    forget.dataset.icon = "trash";
+    forget.setAttribute("aria-label", t("domain.forget"));
+    forget.title = t("domain.forget");
+    forget.addEventListener("click", async () => {
+      forget.disabled = true;
+      const r = await apiDelete("/api/security/hosts", { host: one.host });
+      if (!r.ok) {
+        forget.disabled = false;
+        showError(r.error);
+        return;
+      }
+      refreshDomains();
+    });
+    const actions = document.createElement("span");
+    actions.className = "device-actions";
+    actions.append(allow, forget);
+    li.append(name, actions);
     return li;
   }));
 }

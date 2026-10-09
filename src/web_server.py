@@ -7020,6 +7020,15 @@ def _check_extra_hosts(updates):
     return None
 
 
+@app.route("/api/security/hosts", methods=["DELETE"])
+def api_security_hosts_forget():
+    """{host}: a refused name taken off the list, without allowing it."""
+    name = str((request.get_json(silent=True) or {}).get("host") or "").strip().lower()
+    if _refused_hosts.pop(name, None) is None:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return jsonify({"ok": True})
+
+
 @app.route("/api/security/hosts")
 def api_security_hosts():
     """The names the interface may be opened under, and the ones it refused lately."""
