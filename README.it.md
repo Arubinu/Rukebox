@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/icons/banner.jpg" alt="Rukebox" width="100%"></p>
+<p align="center"><img src="assets/icons/banner.png" alt="Rukebox" width="100%"></p>
 
 <p align="center"><a href="README.md">English</a> · <a href="README.fr.md">Français</a> · <a href="README.de.md">Deutsch</a> · <a href="README.es.md">Español</a> · <b>Italiano</b> · <a href="README.nl.md">Nederlands</a></p>
 
