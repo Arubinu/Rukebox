@@ -5753,7 +5753,7 @@ async function askDedication() {
   const recorder = dedicationsVoice ? voiceRecorder() : null;
   if (recorder) box.append(recorder.node);
   const choice = await openModal({
-    title: t("dedication.title"), bodyNode: box,
+    title: t("dedication.title"), bodyNode: box, modalClass: "modal-dedication",
     choices: [{ label: t("dedication.with"), value: "with" }, { label: t("dedication.without"), value: "without" }],
   });
   if (recorder) recorder.state.cleanup();

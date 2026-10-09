@@ -3741,6 +3741,8 @@ select {
   gap: 8px;
 }
 .modal-choices .btn { justify-content: flex-start; text-align: left; }
+.modal-dedication .modal-choices .btn { justify-content: center; text-align: center; }
+.dedication-box > .hint { text-align: center; }
 
 .pin-header {
   display: grid;
