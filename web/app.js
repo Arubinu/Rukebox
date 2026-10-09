@@ -5009,6 +5009,28 @@ function paintGame(g) {
     round.textContent = t("game.over");
   }
 
+  const podium = document.getElementById("gamePodium");
+  const places = g.state === "over" ? (g.podium || []) : [];
+  podium.hidden = !places.length;
+  podium.replaceChildren(...places.map((place, i) => {
+    const li = document.createElement("li");
+    li.className = "podium-place";
+    li.dataset.place = String(i + 1);
+    li.setAttribute("aria-label", t("game.place", { n: i + 1 }));
+    const names = document.createElement("span");
+    names.className = "podium-names";
+    names.textContent = place.names.join(", ");
+    const points = document.createElement("span");
+    points.className = "podium-points";
+    points.textContent = t(place.points === 1 ? "game.points_one" : "game.points", { n: place.points });
+    const step = document.createElement("span");
+    step.className = "podium-step";
+    step.setAttribute("aria-hidden", "true");
+    step.textContent = String(i + 1);
+    li.append(names, points, step);
+    return li;
+  }));
+
   const box = document.getElementById("gameChoices");
   const signature = JSON.stringify(g.choices || []);
   if (signature !== gameChoicesSignature) {

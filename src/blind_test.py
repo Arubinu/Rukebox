@@ -220,6 +220,9 @@ class Game:
             }
             if self.state == "playing" and self.question:
                 out["remaining"] = max(0, round(self.clip_sec - (now - self.question["started"])))
+            if self.state == "over":
+                out["podium"] = [{"points": place["points"], "names": [one["name"] or "?" for one in place["people"]]}
+                                 for place in self.podium()]
             if self.state in ("reveal", "over") and self.reveal:
                 out["answer"] = self.reveal["answer"]
                 out["gain"] = self.reveal["gains"].get(person)

@@ -164,6 +164,9 @@ class WinsTest(unittest.TestCase):
         podium = game.podium()
         self.assertEqual([(p["points"], [x["name"] for x in p["people"]]) for p in podium],
                          [(5, ["A", "B"]), (3, ["C"]), (2, ["D"])])
+        self.assertNotIn("podium", game.view("a"), "the podium waits for the end")
+        game.finish()
+        self.assertEqual(game.view("a")["podium"][0], {"points": 5, "names": ["A", "B"]})
 
     def test_wins_are_kept_and_follow_linked_devices(self):
         blind_test.record_wins(self.path, [{"person": "a", "name": "Ana"}])

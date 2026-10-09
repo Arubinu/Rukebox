@@ -80,3 +80,14 @@ test("the hall of fame counts the wins, and a player's wins show by their score"
   assert.equal(game.$("gameHallBox").hidden, true, "the hall waits for the lobby");
   await game.close();
 });
+
+test("a finished game shows its podium: second, first, third", async () => {
+  const over = Object.assign({}, PLAYING, { state: "over", owner: true, choices: [], role: "player",
+    podium: [{ points: 12, names: ["Fox"] }, { points: 7, names: ["Cat", "Wolf"] }, { points: 1, names: ["Owl"] }] });
+  const page = load({ hash: "#home/game", routes: { "GET /api/status": STATUS, "GET /api/game": over } });
+  await until(() => !page.$("gamePodium").hidden);
+  const places = [...page.document.querySelectorAll("#gamePodium .podium-place")]
+    .map((li) => [li.dataset.place, li.querySelector(".podium-names").textContent, li.querySelector(".podium-points").textContent]);
+  assert.deepEqual(places, [["1", "Fox", "12 pts"], ["2", "Cat, Wolf", "7 pts"], ["3", "Owl", "1 pt"]]);
+  await page.close();
+});
