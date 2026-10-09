@@ -2270,5 +2270,37 @@ class ExcludedTracksTest(unittest.TestCase):
         self.assertEqual([item["origin"] for item in items], ["duplicate"])
 
 
+class StatsLibraryLinkTest(unittest.TestCase):
+    """The statistics say which songs the library holds, so the page can lead to them."""
+
+    def setUp(self):
+        self.addCleanup(unittest.mock.patch.stopall)
+        patch = unittest.mock.patch.object
+        patch(ws, "_require_auth", return_value=None).start()
+        held = {"In.opus": {"title": "In", "artist": "A"}}
+        patch(ws, "_get_library", return_value=unittest.mock.Mock(item_for_basename=held.get)).start()
+        self.stats = patch(ws, "stats").start()
+        self.client = ws.app.test_client()
+
+    def test_the_most_played_and_the_errors_say_whether_the_library_holds_them(self):
+        self.stats.summary.return_value = {"enabled": True, "top": {
+            "music": [{"name": "In.opus", "count": 3}, {"name": "Out.opus", "count": 1}],
+            "meme": [{"name": "In.opus", "count": 1}], "error": [{"name": "Out.opus", "count": 2}]}}
+        top = self.client.get("/api/journal/summary").get_json()["data"]["top"]
+        self.assertEqual([row["in_library"] for row in top["music"]], [True, False])
+        self.assertFalse(top["error"][0]["in_library"])
+        self.assertNotIn("in_library", top["meme"][0], "a sound is never in the library")
+
+    def test_the_recap_songs_keep_their_file_name(self):
+        self.stats.recap.return_value = {"tracks": [{"name": "In.opus", "count": 3, "seconds": 600},
+                                                    {"name": "Out.opus", "count": 1, "seconds": 200}],
+                                         "top_limit": 5, "morning": {"name": "Out.opus", "count": 1}}
+        with unittest.mock.patch.object(ws.likes, "load", return_value=[]):
+            data = self.client.get("/api/journal/recap").get_json()["data"]
+        self.assertEqual([(t["name"], t["in_library"]) for t in data["top_tracks"]],
+                         [("In.opus", True), ("Out.opus", False)])
+        self.assertEqual((data["morning"]["title"], data["morning"]["in_library"]), ("Out", False))
+
+
 if __name__ == "__main__":
     unittest.main()

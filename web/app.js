@@ -479,7 +479,31 @@ function switchThemeFrom(btn, next) {
   });
 }
 
-/* Under 390px the header's three buttons live in a menu (style.css); outside it is always closed. */
+/* When the header's buttons do not fit beside the title, they live in a menu (.compact). */
+function fitTopbar() {
+  const bar = document.querySelector(".topbar");
+  const pill = document.getElementById("connPill");
+  const controls = document.getElementById("topbarControls");
+  if (!bar || !pill || !controls) return;
+  const was = bar.classList.contains("compact");
+  bar.classList.remove("compact");
+  const gap = parseFloat(getComputedStyle(bar).columnGap) || 0;
+  const brand = bar.querySelector(".brand");
+  const tight = controls.getBoundingClientRect().left < pill.getBoundingClientRect().right + gap - 0.5
+    || bar.scrollWidth > bar.clientWidth
+    || (brand && brand.scrollWidth > brand.clientWidth + 0.5);
+  bar.classList.toggle("compact", tight);
+  if (was && !tight) setTopbarMenu(false);
+}
+if (typeof ResizeObserver === "function") {
+  // The pill's label, the language and the logout button change the width as much as the window.
+  const fit = new ResizeObserver(() => fitTopbar());
+  [".topbar", ".brand", "#connPill", "#topbarControls"].forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (el) fit.observe(el);
+  });
+}
+
 function setTopbarMenu(open) {
   const bar = document.querySelector(".topbar");
   const more = document.getElementById("topbarMoreBtn");
@@ -4212,10 +4236,12 @@ function overrideSource(key) {
   return el && ["INPUT", "SELECT"].includes(el.tagName) ? el : null;
 }
 
-function overrideLabel(key) {
-  const el = overrideSource(key);
+/* A setting's name as its page shows it; the key itself when no field carries it. */
+function settingName(key) {
+  const el = document.querySelector('#main [data-key="' + key + '"], #main [data-key-minute="' + key + '"]');
   const label = el && el.id ? document.querySelector('label[for="' + el.id + '"]') : null;
-  return label ? label.textContent.trim() : key;
+  const text = label ? label.textContent : el && el.getAttribute("aria-label");
+  return text && text.trim() ? text.trim().replace(/\s+/g, " ") : key;
 }
 
 function overrideRow(key, values) {
@@ -4225,7 +4251,7 @@ function overrideRow(key, values) {
   row.className = "field-row override-row";
   const label = document.createElement("span");
   label.className = "field-label";
-  label.textContent = overrideLabel(key);
+  label.textContent = settingName(key);
   const control = source.cloneNode(true);
   ["id", "data-key", "data-key-minute", "aria-describedby", "hidden", "disabled"]
     .forEach((name) => control.removeAttribute(name));
@@ -4272,7 +4298,7 @@ function fillScheduleSettingChoices() {
     .map((el) => el.dataset.override));
   const choices = schedulesAllowed
     .filter((key) => key !== "BASE_VOLUME" && !used.has(key) && overrideSource(key))
-    .map((key) => [key, overrideLabel(key)])
+    .map((key) => [key, settingName(key)])
     .sort((a, b) => a[1].localeCompare(b[1]));
   schedAddSetting.replaceChildren();
   [["", t("schedules.add_setting")]].concat(choices).forEach(([value, label]) => {
@@ -5032,13 +5058,14 @@ async function refreshRecap() {
     kpiTile("users", t("recap.artists"), String(d.artists || 0)),
     kpiTile("heart", t("recap.liked"), String(d.likes || 0)),
   );
-  const list = (id, rows, text, count) => {
+  const list = (id, rows, text, count, link) => {
     const box = document.getElementById(id);
     box.innerHTML = "";
     rows.forEach((row) => {
       const li = document.createElement("li");
-      const name = document.createElement("span");
-      name.textContent = text(row);
+      const filter = link ? link(row) : null;
+      const name = filter ? libraryLink(text(row), filter) : document.createElement("span");
+      if (!filter) name.textContent = text(row);
       const n = document.createElement("span");
       n.className = "recap-count";
       const plays = Math.round(row.count);
@@ -5051,10 +5078,11 @@ async function refreshRecap() {
   const dayName = (day) => new Date(day + "T12:00:00").toLocaleDateString(currentLang,
     { weekday: "long", day: "numeric", month: "long" });
   list("recapBestDay", d.best_day ? [d.best_day] : [], (b) => dayName(b.day), (b) => formatDuration(b.seconds));
+  const song = (s) => (s.in_library && s.name ? { q: s.name } : null);
   list("recapMorning", d.morning ? [d.morning] : [], (m) => (m.artist ? m.title + " - " + m.artist : m.title),
-       (m) => t(Math.round(m.count) === 1 ? "recap.times_one" : "recap.times", { n: Math.round(m.count) }));
-  list("recapArtists", d.top_artists || [], (a) => a.artist);
-  list("recapTracks", d.top_tracks || [], (s) => s.artist ? s.title + " - " + s.artist : s.title);
+       (m) => t(Math.round(m.count) === 1 ? "recap.times_one" : "recap.times", { n: Math.round(m.count) }), song);
+  list("recapArtists", d.top_artists || [], (a) => a.artist, null, (a) => ({ artist: a.artist }));
+  list("recapTracks", d.top_tracks || [], (s) => s.artist ? s.title + " - " + s.artist : s.title, null, song);
   document.getElementById("recapEmpty").hidden = (d.tracks_played || 0) > 0;
 }
 document.getElementById("recapPeriod").addEventListener("change", refreshRecap);
@@ -6014,7 +6042,7 @@ async function refreshLibrary(more) {
 
   const reading = status.total && status.read < status.total
     ? " " + t("library.reading", { n: status.read, total: status.total }) : "";
-  count.textContent = (asked ? t("library.found", { n: d.total })
+  count.textContent = (asked ? t(d.total === 1 ? "library.found_one" : "library.found", { n: d.total })
     : t("library.size", { n: status.total || 0 })) + reading;
   const signature = status.total + "/" + status.read;
   if (signature !== libraryCatalogue) {
@@ -6060,6 +6088,33 @@ libraryGenre.addEventListener("change", () => {
 });
 document.getElementById("libraryMore").addEventListener("click", () => refreshLibrary(true));
 refreshLibrary(false);
+
+/* Opens the library already filtered: {q} searches (a file name finds its song), {artist} picks the artist. */
+async function showInLibrary(filter) {
+  librarySearch.value = filter.q || "";
+  libraryArtist.value = "";
+  libraryAlbum.value = "";
+  libraryGenre.value = "";
+  if (filter.artist) {
+    await refreshLibraryFacets();
+    libraryArtist.value = filter.artist;
+    if (libraryArtist.value === filter.artist) await refreshLibraryFacets();
+    else librarySearch.value = filter.artist;
+  }
+  paintGenrePlay();
+  setActiveView("home", "library");
+  refreshLibrary(false);
+}
+
+function libraryLink(text, filter, className) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn-link library-link" + (className ? " " + className : "");
+  b.textContent = text;
+  b.title = t("library.show_in");
+  b.addEventListener("click", () => showInLibrary(filter));
+  return b;
+}
 
 refreshEvery(() => {
   if (!libraryAsked()) refreshLibrary(false);
@@ -9297,9 +9352,14 @@ function renderTopList(container, title, items, opts) {
       ? "custom:" + item.kind
       : options.kind;
     li.append(selectionBox("items", JSON.stringify([kind, item.name])));
-    const name = document.createElement("span");
-    name.className = "top-name";
-    name.textContent = item.name;
+    let name;
+    if (item.in_library) {
+      name = libraryLink(item.name, { q: item.name }, "top-name");
+    } else {
+      name = document.createElement("span");
+      name.className = "top-name";
+      name.textContent = item.name;
+    }
     const value = document.createElement("span");
     value.className = "top-value";
     value.textContent = options.showSeconds
@@ -9458,6 +9518,13 @@ function describeEvent(event) {
       return t("evt.update_applied_desc", {
         from: d.from || "?", to: d.to || "?", source: event.label || "?",
       });
+    case "settings_changed":
+    case "config_reloaded": {
+      const keys = d.keys || d.applied || String(event.label || "").split(", ").filter(Boolean);
+      const names = keys.map(settingName).join(", ");
+      const label = event.who ? event.who + (names ? " (" + names + ")" : "") : names;
+      return label ? t("evt.default_with_label", { base: eventLabel(event.type), label }) : eventLabel(event.type);
+    }
     case "update_rolled_back":
       return t("evt.update_rolled_back_desc", { backup: event.label || "?" });
     case "session_end":

@@ -6232,7 +6232,12 @@ def api_ssh_toggle():
 
 @app.route("/api/journal/summary")
 def api_stats_summary():
-    return jsonify({"ok": True, "data": stats.summary()})
+    data = stats.summary()
+    lib = _get_library()
+    for kind in ("music", "error"):
+        for row in (data.get("top") or {}).get(kind) or []:
+            row["in_library"] = bool(row.get("name")) and lib.item_for_basename(row["name"]) is not None
+    return jsonify({"ok": True, "data": data})
 
 
 @app.route("/api/journal/daily")
@@ -6279,7 +6284,8 @@ def api_journal_recap():
         item = lib.item_for_basename(track["name"]) or {}
         title = item.get("title") or os.path.splitext(track["name"])[0]
         artist = item.get("artist") or ""
-        named.append({"title": title, "artist": artist, "count": track["count"]})
+        named.append({"title": title, "artist": artist, "count": track["count"],
+                      "name": track["name"], "in_library": bool(item)})
         if artist:
             entry = artists.setdefault(library.fold(artist), {"artist": artist, "count": 0, "seconds": 0.0})
             entry["count"] += track["count"]
@@ -6291,7 +6297,7 @@ def api_journal_recap():
     if data.get("morning"):
         item = lib.item_for_basename(data["morning"]["name"]) or {}
         data["morning"].update(title=item.get("title") or os.path.splitext(data["morning"]["name"])[0],
-                               artist=item.get("artist") or "")
+                               artist=item.get("artist") or "", in_library=bool(item))
     start = datetime.combine(first, datetime.min.time()).timestamp()
     end = datetime.combine(last + timedelta(days=1), datetime.min.time()).timestamp()
     data["likes"] = sum(1 for item in likes.load(cfg()["LIKES_FILE"])
