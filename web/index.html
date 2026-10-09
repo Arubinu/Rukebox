@@ -431,7 +431,7 @@
           </div>
 
           <p class="hint help-text" data-i18n="music.help" hidden>
-            A file already on the Pi with the same size and date is left alone.
+            A file already on the radio with the same size and date is left alone.
           </p>
           <p class="hint help-text" data-i18n="music.companions" hidden>
             Lyrics and covers travel with the tracks.
@@ -597,7 +597,7 @@
           <summary data-icon="user"><span data-i18n="guest.banner_title">Restricted access</span></summary>
           <p class="hint" data-i18n="guest.intro">
             You can use the radio's buttons from here. Settings and shutting
-            the Pi down need the interface password.
+            the radio down need the interface password.
           </p>
           <div class="form-actions">
             <button type="button" class="btn install-btn" data-icon="download" data-i18n="share.install">Add to home screen</button>
@@ -654,7 +654,7 @@
                 <select id="schedAction">
                   <option value="pause" data-i18n="schedules.action_pause">Pause the music</option>
                   <option value="standby" data-i18n="schedules.action_standby">Standby</option>
-                  <option value="poweroff" data-i18n="schedules.action_poweroff">Switch the Pi off</option>
+                  <option value="poweroff" data-i18n="schedules.action_poweroff">Switch the radio off</option>
                 </select>
               </div>
               <div class="field-row">
@@ -757,8 +757,8 @@
               <div class="field-row">
                 <label for="afterCutoff" data-i18n="settings.after_cutoff">After the cutoff</label>
                 <select id="afterCutoff" data-key="SHUTDOWN_AFTER_CUTOFF">
-                  <option value="true" data-i18n="settings.after_cutoff_off">Switch the Pi off</option>
-                  <option value="false" data-i18n="settings.after_cutoff_standby">Standby: the Pi stays on</option>
+                  <option value="true" data-i18n="settings.after_cutoff_off">Switch the radio off</option>
+                  <option value="false" data-i18n="settings.after_cutoff_standby">Standby: the radio stays on</option>
                 </select>
               </div>
             </details>
@@ -1061,7 +1061,7 @@
             <div class="field-row">
               <div class="field-text">
                 <label for="fadeLongpress" data-i18n="settings.fade_longpress">Fade before switching off (sec)</label>
-                <p class="field-desc" id="fadeLongpressDesc" data-i18n="settings.fade_longpress_desc">Before stopping the music and switching the Pi off. 0 = an instant cut.</p>
+                <p class="field-desc" id="fadeLongpressDesc" data-i18n="settings.fade_longpress_desc">Before stopping the music and switching the radio off. 0 = an instant cut.</p>
               </div>
               <input type="number" id="fadeLongpress" min="0" max="20" step="0.5" data-key="LONGPRESS_FADE_DURATION_SEC" class="num-input" inputmode="decimal" aria-describedby="fadeLongpressDesc">
             </div>
@@ -1196,7 +1196,7 @@
                   <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
                   <option value="mute" data-i18n="click.mute">Mute / unmute</option>
                   <option value="standby" data-i18n="click.standby">Standby</option>
-                  <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                  <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                   <option value="off" data-i18n="click.off">Do nothing</option>
                 </select>
                 <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="single"
@@ -1230,7 +1230,7 @@
                   <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
                   <option value="mute" data-i18n="click.mute">Mute / unmute</option>
                   <option value="standby" data-i18n="click.standby">Standby</option>
-                  <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                  <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                   <option value="off" data-i18n="click.off">Do nothing</option>
                 </select>
                 <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="double"
@@ -1248,7 +1248,7 @@
             <div class="field-row">
               <label for="longPressAction" data-i18n="settings.long_press">Long press</label>
               <select id="longPressAction" data-key="LONG_PRESS_ACTION">
-                <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                 <option value="standby" data-i18n="click.standby">Standby</option>
               </select>
             </div>
@@ -1258,7 +1258,7 @@
             </p>
             <p class="hint help-text" data-i18n="settings.flic_hint" hidden>
               From idle, a single click always starts the music first. Long
-              press always stops the music and shuts the Pi down.
+              press always stops the music and shuts the radio down.
             </p>
             <details data-level="detail" class="subsection">
               <summary><span data-i18n="speakerbtn.section">Speaker buttons</span></summary>
@@ -1281,7 +1281,7 @@
                     <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
                     <option value="mute" data-i18n="click.mute">Mute / unmute</option>
                     <option value="standby" data-i18n="click.standby">Standby</option>
-                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                     <option value="off" data-i18n="click.off">Do nothing</option>
                   </select>
                   <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkPlaypause" data-kind="speaker_playpause"
@@ -1315,7 +1315,7 @@
                     <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
                     <option value="mute" data-i18n="click.mute">Mute / unmute</option>
                     <option value="standby" data-i18n="click.standby">Standby</option>
-                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                     <option value="off" data-i18n="click.off">Do nothing</option>
                   </select>
                   <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkNext" data-kind="speaker_next"
@@ -1349,7 +1349,7 @@
                     <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
                     <option value="mute" data-i18n="click.mute">Mute / unmute</option>
                     <option value="standby" data-i18n="click.standby">Standby</option>
-                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                     <option value="off" data-i18n="click.off">Do nothing</option>
                   </select>
                   <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkPrevious" data-kind="speaker_previous"
@@ -1383,7 +1383,7 @@
                     <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
                     <option value="mute" data-i18n="click.mute">Mute / unmute</option>
                     <option value="standby" data-i18n="click.standby">Standby</option>
-                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                     <option value="off" data-i18n="click.off">Do nothing</option>
                   </select>
                   <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkVolumeup" data-kind="speaker_volumeup"
@@ -1417,7 +1417,7 @@
                     <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
                     <option value="mute" data-i18n="click.mute">Mute / unmute</option>
                     <option value="standby" data-i18n="click.standby">Standby</option>
-                    <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                    <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                     <option value="off" data-i18n="click.off">Do nothing</option>
                   </select>
                   <button type="button" class="btn btn-icon click-test-btn" data-icon="play" data-click="spkVolumedown" data-kind="speaker_volumedown"
@@ -1576,7 +1576,7 @@
                 <select id="annTrigger" class="select-wide">
                   <option value="time" data-i18n="trigger.time">Every day at a fixed time</option>
                   <option value="after_music" data-i18n="trigger.after_music">After the music starts</option>
-                  <option value="after_boot" data-i18n="trigger.after_boot">After the Pi starts</option>
+                  <option value="after_boot" data-i18n="trigger.after_boot">After the radio starts</option>
                   <option value="manual" data-i18n="trigger.manual">Only by hand</option>
                 </select>
               </div>
@@ -1634,7 +1634,7 @@
                   <option value="volume_down" data-i18n="click.volume_down">Volume −</option>
                   <option value="sleep" data-i18n="click.sleep">Sleep timer</option>
                   <option value="standby" data-i18n="click.standby">Standby</option>
-                  <option value="poweroff" data-i18n="click.poweroff">Switch the Pi off</option>
+                  <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                 </select>
               </div>
               <div data-level="detail" class="field-row">
@@ -1787,7 +1787,7 @@
               <div data-level="detail" class="field-row">
                 <div class="field-text">
                   <label for="streamEncoder" data-i18n="stream.codec">Stream codec</label>
-                  <p class="field-desc" id="streamEncoderDesc" data-i18n="stream.codec_desc">What the stream is encoded with. Opus is what every browser plays and what the little bandwidth of a Pi Zero carries comfortably.</p>
+                  <p class="field-desc" id="streamEncoderDesc" data-i18n="stream.codec_desc">What the stream is encoded with. Opus is what every browser plays and what the radio's little bandwidth carries comfortably.</p>
                 </div>
                 <select id="streamEncoder" data-key="STREAM_ENCODER" aria-describedby="streamEncoderDesc">
                   <option value="" data-i18n="stream.codec_auto">Best available</option>
@@ -1858,7 +1858,7 @@
               </div>
             </details>
             <p class="hint help-text" data-i18n="audioout.help" hidden>
-              The headphone jack exists on a Raspberry Pi 3 or 4, not on a Zero. A wired output is found again whenever it is plugged in; while it is missing, the sound goes to the default output. With a wired output, a Bluetooth speaker that drops no longer pauses the music nor powers the Pi off.
+              The headphone jack exists on a Raspberry Pi 3 or 4, not on a Zero. A wired output is found again whenever it is plugged in; while it is missing, the sound goes to the default output. With a wired output, a Bluetooth speaker that drops no longer pauses the music nor powers the radio off.
             </p>
             <div class="form-actions btn-split">
               <div class="btn-group">
@@ -2097,7 +2097,7 @@
           </p>
           <p class="hint help-text" data-i18n="diag.net_hint" hidden>
             Reads the personal Wi-Fi's link, what it loses, and every time it dropped since
-            the Pi started. Copy the answer into a message if the page stops answering.
+            the radio started. Copy the answer into a message if the page stops answering.
           </p>
         </section>
 
@@ -2133,7 +2133,7 @@
               <button type="button" class="btn btn-primary" id="btnSaveTz" data-icon="check" data-i18n="common.save">Save</button>
             </div>
             <p class="hint help-text" data-i18n="clock.timezone_hint" hidden>
-              Applies to every time the Pi reports.
+              Applies to every time the radio reports.
             </p>
           </details>
 
@@ -2210,7 +2210,7 @@
           <details data-level="detail" class="subsection">
             <summary><span data-i18n="security.gpio_section">Forgot the password? (GPIO reset)</span></summary>
             <p class="hint help-text" data-i18n="security.gpio_hint" hidden>
-              Grounding the pin below while the Pi boots clears the password.
+              Grounding the pin below while the radio boots clears the password.
             </p>
             <form id="gpioResetForm" class="settings-form">
               <div class="field-row">
@@ -2550,7 +2550,7 @@
           <details class="subsection" data-needs="self_update">
             <summary><span data-i18n="update.how_section">How to update</span></summary>
             <p class="hint help-text" data-i18n="update.how_hint1" hidden>
-              From the computer holding the project, with the Pi connected by USB:
+              From the computer holding the project, with the radio connected by USB:
             </p>
             <div class="cmd-list">
               <div class="cmd-row">
@@ -2860,7 +2860,7 @@
         <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="gpioTitle">
           <h3 class="modal-title" id="gpioTitle" data-i18n="gpio.title">Choose a pin</h3>
           <p class="modal-body" id="gpioSubtitle" data-i18n="gpio.subtitle">
-            The connector as seen with the Pi's USB ports towards you. Greyed
+            The connector as seen with the radio's USB ports towards you. Greyed
             pins cannot be used.
           </p>
           <div class="pin-header" id="pinHeader"></div>
