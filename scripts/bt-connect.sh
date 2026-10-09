@@ -209,6 +209,7 @@ failures=0
 next_attempt=0
 connected=0
 warned_unconfigured=0
+warned_network=0
 warned_calm=0
 connect_reported=0
 shared=0
@@ -240,6 +241,18 @@ while :; do
         sleep "$CHECK_SECONDS"
         continue
     fi
+
+    # The multiroom output needs the Wi-Fi: paging an absent speaker would hold it up for seconds.
+    if [ "${AUDIO_OUTPUT:-bluetooth}" = "snapcast" ] && ! is_connected; then
+        if [ "$warned_network" -eq 0 ]; then
+            echo "The sound goes to the multiroom output: no attempt to reach $SPEAKER_MAC meanwhile."
+            warned_network=1
+        fi
+        connected=0
+        sleep "$CHECK_SECONDS"
+        continue
+    fi
+    warned_network=0
 
     if is_connected; then
         if [ "$connected" -eq 0 ]; then
