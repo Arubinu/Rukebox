@@ -40,6 +40,7 @@ import hidden_tracks  # noqa: E402
 import json_file  # noqa: E402
 import name_voice  # noqa: E402
 import speech  # noqa: E402
+import snapcast  # noqa: E402
 import playlist  # noqa: E402
 import track_order  # noqa: E402
 import track_media  # noqa: E402
@@ -5534,6 +5535,47 @@ def api_audio_outputs():
         "outputs": [{"kind": s["kind"], "description": s["description"]}
                     for s in sinks if s["kind"] in audio_output.KINDS],
     }})
+
+
+@app.route("/api/snapcast/clients")
+def api_snapcast_clients():
+    """The devices listening to the multiroom output, with their volume."""
+    data = {"available": snapcast.available(), "running": False, "clients": [],
+            "web": os.path.isdir(snapcast.SNAPWEB), "port": snapcast.HTTP_PORT}
+    if data["available"]:
+        try:
+            data["clients"] = snapcast.clients(snapcast.rpc("Server.GetStatus"))
+            data["running"] = True
+        except OSError:
+            pass
+    return jsonify({"ok": True, "data": data})
+
+
+@app.route("/api/snapcast/client", methods=["POST", "DELETE"])
+def api_snapcast_client():
+    """{id, volume?, muted?}: one device's volume; DELETE {id} forgets a device gone for good."""
+    body = request.get_json(silent=True) or {}
+    client = str(body.get("id") or "")
+    if not client:
+        return jsonify({"ok": False, "error": "bad_request"}), 400
+    try:
+        if request.method == "DELETE":
+            snapcast.rpc("Server.DeleteClient", {"id": client})
+            return jsonify({"ok": True})
+        volume = {}
+        if "volume" in body:
+            try:
+                volume["percent"] = min(max(int(body["volume"]), 0), 100)
+            except (TypeError, ValueError):
+                return jsonify({"ok": False, "error": "invalid_value"}), 400
+        if "muted" in body:
+            volume["muted"] = bool(body["muted"])
+        if not volume:
+            return jsonify({"ok": False, "error": "bad_request"}), 400
+        snapcast.rpc("Client.SetVolume", {"id": client, "volume": volume})
+    except OSError:
+        return jsonify({"ok": False, "error": "snapcast_unreachable"}), 503
+    return jsonify({"ok": True})
 
 
 @app.route("/api/audio/test", methods=["POST"])

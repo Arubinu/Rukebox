@@ -25,11 +25,19 @@ audio:
   #                container's own output, where there is no sound card
   #                at all, and it only makes a sound once the network
   #                audio stream is on and something is listening to it
+  #   snapcast  -> multiroom: every Snapcast client on the network (the
+  #                Snapcast app, snapclient, a browser) plays in step with
+  #                the others, about one second behind (needs snapserver)
   # A wired output is found again whenever it comes and goes; while it
   # is missing, the sound goes to the default output instead. With a
   # wired output, losing the Bluetooth speaker no longer pauses the
   # music nor powers the Pi off.
   output: "bluetooth"
+
+  # How the multiroom output is sent to the Snapcast clients: opus is
+  # light on a Wi-Fi network, flac is lossless and heavier, pcm is raw
+  # and heaviest.
+  snapcast_codec: "opus"
 
   # Where the sound goes while the Bluetooth speaker is away: empty for
   # nowhere (the music pauses, see pause_on_speaker_loss), or jack / usb /

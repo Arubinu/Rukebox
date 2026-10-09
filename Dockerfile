@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pulseaudio-utils \
         libasound2-plugins \
         espeak-ng \
+        snapserver \
         alsa-utils \
         bluez \
         dbus \
@@ -73,7 +74,8 @@ RUN mkdir -p /config /data /music /run/rukebox && chmod 777 /config /data /run/r
     && chmod +x /opt/rukebox/docker/entrypoint.sh
 
 VOLUME ["/config", "/data", "/music"]
-EXPOSE 80
+# 1704 carries the multiroom sound to the Snapcast clients, 1780 their volumes and the browser player.
+EXPOSE 80 1704 1780
 
 ENTRYPOINT ["/opt/rukebox/docker/entrypoint.sh"]
 CMD ["python3", "/opt/rukebox/docker/supervisor.py"]

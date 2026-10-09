@@ -37,6 +37,12 @@ services:
       TZ: ${TZ:-Europe/Paris}
     ports:
       - "8080:80"
+      # The multiroom output (Audio > Output > Multiroom): the sound, then the
+      # volumes and the browser player. Snapcast clients find the radio by
+      # themselves only on the host's network; through these ports, give them
+      # its address.
+      - "1704:1704"
+      - "1780:1780"
     volumes:
       - ./config:/config
       - ./data:/data

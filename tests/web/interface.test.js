@@ -160,7 +160,7 @@ test("the network stream is a switch of the audio card", async (t) => {
   const held = { AUDIO_OUTPUT: "bluetooth", AUDIO_FALLBACK_OUTPUT: "", BT_AUDIO_CODECS: "",
                  TRANSFER_LIMIT_MODE: "auto", TRANSFER_LIMIT_KBPS: "64", TRANSFER_LIMIT_USB: "false",
                  STREAM_ENABLED: "false", STREAM_ENCODER: "", STREAM_SOURCE: "", STREAM_VOLUME: "100",
-                 UPNP_NAME: "Rukebox 4821" };
+                 UPNP_NAME: "Rukebox 4821", SNAPCAST_CODEC: "opus" };
   const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
   await until(() => page.$("bootOverlay").hidden);
   assert.equal(page.$("streamEnabled").checked, false, "the stream is off on a Pi");

@@ -2115,6 +2115,23 @@ folder, and follows its person when devices are linked.
   listening; 100% follows the radio's own volume, and it multiplies what
   the radio plays, so a radio turned down cannot be made loud again through
   it.
+- **Multiroom (Snapcast)** (*Audio output* card, offered where `snapserver`
+  is installed - the installer, the updater and the Docker image add it):
+  an **output** this time, not a stream. Every Snapcast client on the
+  network plays the radio in step with the others, about one second
+  behind it: the Snapcast app on a phone, `snapclient` on a computer or
+  another Raspberry Pi, or a browser (**Listen in this browser**, Snapweb,
+  on port 1780). While it is chosen, the radio runs its own `snapserver`
+  (the packaged service stays off; its files are in `snapcast/` in the
+  state folder) and a PipeWire sink that writes into the pipe it reads;
+  choosing another output stops both. Nothing plays on the radio's own
+  speaker meanwhile, and losing the Bluetooth speaker no longer pauses
+  the music. **Devices listening > Manage** sets each client's volume,
+  mutes it, or forgets one gone for good. `SNAPCAST_CODEC`
+  (`snapcast_codec`): Opus by default, light on a Wi-Fi network; FLAC is
+  lossless and heavier. Clients find the radio by themselves on the same
+  network (mDNS); a Docker container on a bridge needs ports 1704 and 1780
+  published and its address given to them.
 - **Announcing the stream (UPnP)** (*Audio output* card): the radio answers
   UPnP discovery and offers the stream
   as a media server, so a player finds it by itself - VLC lists it under

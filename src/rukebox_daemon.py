@@ -31,6 +31,7 @@ import music_lists  # noqa: E402
 import playlist  # noqa: E402
 import platform as platform_mod  # noqa: E402
 import schedules  # noqa: E402
+import snapcast  # noqa: E402
 import speech  # noqa: E402
 from state import RadioState  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
@@ -261,6 +262,8 @@ class RadioDaemon:
         self._speech_busy = 0
         self._audio_device = None
         self._audio_output_checked = NEVER
+        self._snapcast = snapcast.Server()
+        self._snapcast_sink = False
         self._audio_output_missing = None
         self._powering_off = False
         self._music_started_mono = None
@@ -373,7 +376,7 @@ class RadioDaemon:
     def _wired_output(self):
         """True when the sound goes to a wired output of the Pi, not the
         Bluetooth speaker."""
-        return self._output_kind() in ("jack", "usb", "hdmi")
+        return self._output_kind() in ("jack", "usb", "hdmi", "snapcast")
 
     def _output_kind(self):
         return self._output_override or self.cfg.get("AUDIO_OUTPUT", "bluetooth")
@@ -393,6 +396,7 @@ class RadioDaemon:
                 self._output_override = None
                 self._bump_state()
         kind = self._output_kind()
+        self._follow_snapcast(kind)
         # Read even for an unknown kind: that is how a container's virtual sink is
         # found.
         sinks = audio_output.list_sinks(env=audio_env())
@@ -413,6 +417,17 @@ class RadioDaemon:
             except Exception:  # noqa: BLE001
                 log.exception("Could not switch the audio output")
         self._hold_the_output(kind, device, sinks)
+
+    def _follow_snapcast(self, kind):
+        """The multiroom output exists only while it is the one chosen: its server and its sink."""
+        state_dir = self.cfg.get("STATE_DIR") or "/tmp"
+        if kind == "snapcast" and snapcast.available():
+            self._snapcast.ensure(state_dir, self.cfg.get("SNAPCAST_CODEC") or "opus")
+            self._snapcast_sink = snapcast.load_sink(state_dir, audio_env()) or self._snapcast_sink
+        elif self._snapcast_sink or self._snapcast.alive():
+            self._snapcast.stop()
+            snapcast.unload_sink(audio_env())
+            self._snapcast_sink = False
 
     def _hold_the_output(self, kind, device, sinks):
         """A chosen output keeps the sound, even when another device appears."""
@@ -771,6 +786,7 @@ class RadioDaemon:
         def _on_term(signum, _frame):
             log.info("Signal %s received, shutting down cleanly", signum)
             self._stop_event.set()
+            self._snapcast.stop()
             self._end_play("service_stop")
             self.stats.end_session("service_stop")
             self.stats.close()
@@ -813,7 +829,7 @@ class RadioDaemon:
             applied.append(key)
         if "ANNOUNCE_ORDER_MODE" in applied:
             self.state.reset_click_bag()
-        if "AUDIO_OUTPUT" in applied:
+        if "AUDIO_OUTPUT" in applied or "SNAPCAST_CODEC" in applied:
             self._apply_audio_output(force=True)
         if "REPLAYGAIN_MODE" in applied:
             try:

@@ -193,6 +193,10 @@ apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit util-
 # dropped pico2wave: its absence is not a failure, speech.py falls back.
 apt-get install -y libttspico-utils \
     || echo ">> pico2wave (libttspico-utils) is not in this release: announcements will use espeak-ng."
+# The multiroom output: the radio runs its own snapserver, so the packaged service stays off.
+apt-get install -y snapserver \
+    || echo ">> snapserver is not in this release: the multiroom output will not be offered."
+systemctl disable --now snapserver.service 2>/dev/null || true
 # WirePlumber's Bluetooth monitor waits for an "active" seat a headless Pi never has.
 install -D -m 644 -o root -g root "$PROJECT_ROOT/config/wireplumber-bluez.conf" \
     /etc/wireplumber/wireplumber.conf.d/10-rukebox-bluez.conf

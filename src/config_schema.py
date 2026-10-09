@@ -53,12 +53,19 @@ SETTINGS = [
         "               container's own output, where there is no sound card\n"
         "               at all, and it only makes a sound once the network\n"
         "               audio stream is on and something is listening to it\n"
+        "  snapcast  -> multiroom: every Snapcast client on the network (the\n"
+        "               Snapcast app, snapclient, a browser) plays in step with\n"
+        "               the others, about one second behind (needs snapserver)\n"
         "A wired output is found again whenever it comes and goes; while it\n"
         "is missing, the sound goes to the default output instead. With a\n"
         "wired output, losing the Bluetooth speaker no longer pauses the\n"
         "music nor powers the Pi off.",
         "Audio output",
     ),
+    Setting("SNAPCAST_CODEC", "audio", "snapcast_codec", "str", "opus",
+            "How the multiroom output is sent to the Snapcast clients: opus is\n"
+            "light on a Wi-Fi network, flac is lossless and heavier, pcm is raw\n"
+            "and heaviest.", "Multiroom codec"),
     Setting(
         "AUDIO_FALLBACK_OUTPUT", "audio", "fallback_output", "str", "",
         "Where the sound goes while the Bluetooth speaker is away: empty for\n"

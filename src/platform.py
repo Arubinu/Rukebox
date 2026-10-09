@@ -3,6 +3,7 @@
 
 import glob
 import os
+import shutil
 
 import paths  # noqa: F401 - the roots are read by system_actions
 
@@ -30,7 +31,7 @@ PLATFORM_ONLY = frozenset(
 
 CAPABILITY_NAMES = (
     "access_point", "bluetooth", "captive_portal", "gpio", "local_audio",
-    "media_upload", "power", "rtc", "self_update", "set_clock", "usb_gadget",
+    "media_upload", "power", "rtc", "self_update", "set_clock", "snapcast", "usb_gadget",
     "usb_storage", "wireless",
 )
 
@@ -190,6 +191,11 @@ def _has_usb_storage():
     return name() in (PI, HOST)
 
 
+def _has_snapcast():
+    """snapserver installed: the multiroom output can be offered."""
+    return shutil.which("snapserver") is not None
+
+
 def _has_access_point():
     """A wireless card AND NetworkManager, which is what creates and shares
     `rukebox-ap`."""
@@ -211,6 +217,7 @@ HARDWARE = {
     "rtc": _has_rtc,
     "self_update": _has_self_update,
     "set_clock": _has_set_clock,
+    "snapcast": _has_snapcast,
     "usb_gadget": _has_usb_gadget,
     "usb_storage": _has_usb_storage,
     "wireless": _has_wireless,

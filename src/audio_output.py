@@ -6,11 +6,13 @@ import subprocess
 
 log = logging.getLogger("audio_output")
 
-KINDS = ("bluetooth", "jack", "usb", "hdmi", "docker")
+KINDS = ("bluetooth", "jack", "usb", "hdmi", "docker", "snapcast")
 
 # The null sink docker/pipewire-container.conf creates: only a container has it,
 # elsewhere the network stream encodes the output that is already there.
 VIRTUAL_SINK = "rukebox_output"
+# The pipe sink src/snapcast.py loads while the multiroom output is chosen.
+SNAPCAST_SINK = "rukebox_snapcast"
 
 
 def classify(props):
@@ -20,6 +22,8 @@ def classify(props):
            + str(props.get("node.description") or "")).lower()
     if name == VIRTUAL_SINK:
         return "docker"
+    if name == SNAPCAST_SINK:
+        return "snapcast"
     if props.get("device.api") == "bluez5" or name.startswith("bluez_"):
         return "bluetooth"
     if props.get("device.bus") == "usb" or name.startswith("alsa_output.usb-"):
