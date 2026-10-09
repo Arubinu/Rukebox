@@ -56,6 +56,7 @@ test("with a password and no guest access, only the login is shown", async (t) =
                                 guest_mode: false, auth_required: true, authenticated: false },
   } });
   await until(() => !page.$("loginOverlay").hidden);
+  assert.equal(page.$("loginClose").hidden, true, "nothing behind it to go back to");
   assert.equal(page.sent("GET", "/api/status").length, 0, "nothing is asked before the login");
   assert.equal(page.sent("GET", "/api/settings").length, 0);
 });
@@ -1326,5 +1327,25 @@ test("the Bluetooth list offers each device only the roles it can take", async (
   assert.ok(has("Shutter", remote) && !has("Shutter", speaker) && !has("Shutter", clock));
   assert.ok(has("Phone", clock) && !has("Phone", remote));
   assert.ok(has("Mystery", remote) && has("Mystery", speaker));
+  assert.deepEqual(page.errors, []);
+});
+
+test("a guest can close the login dialog, the login at the door cannot be closed", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
+                                guest_mode: true, auth_required: true, authenticated: false },
+    "POST /api/auth/login": { __raw: { ok: false, error: "wrong_password" } },
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  page.$("guestLoginBtn").click();
+  await until(() => !page.$("loginOverlay").hidden);
+  assert.equal(page.$("loginClose").hidden, false, "opened by the guest: it can be closed");
+  page.$("loginPassword").value = "nope";
+  page.$("loginForm").dispatchEvent(new page.window.Event("submit", { cancelable: true, bubbles: true }));
+  await until(() => page.sent("POST", "/api/auth/login").length === 1);
+  await until(() => !page.$("loginError").hidden);
+  assert.equal(page.$("loginClose").hidden, false, "a wrong password keeps the way out");
+  page.$("loginClose").click();
+  assert.equal(page.$("loginOverlay").hidden, true);
   assert.deepEqual(page.errors, []);
 });

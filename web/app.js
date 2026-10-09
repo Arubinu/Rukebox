@@ -84,10 +84,12 @@ function installHowTo() {
   return "share.install_desktop";
 }
 
-function showLoginOverlay(errorMessage) {
+// `closable`: opened from the guest page, which stays usable behind it.
+function showLoginOverlay(errorMessage, closable) {
   offerPortalReleaseOnLogin();
   const overlay = document.getElementById("loginOverlay");
   overlay.hidden = false;
+  if (closable !== undefined) document.getElementById("loginClose").hidden = !closable;
   const errorBox = document.getElementById("loginError");
   errorBox.textContent = errorMessage || "";
   errorBox.hidden = !errorMessage;
@@ -97,6 +99,12 @@ function showLoginOverlay(errorMessage) {
 function hideLoginOverlay() {
   document.getElementById("loginOverlay").hidden = true;
 }
+
+document.getElementById("loginClose").addEventListener("click", hideLoginOverlay);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !document.getElementById("loginClose").hidden
+      && !document.getElementById("loginOverlay").hidden) hideLoginOverlay();
+});
 
 let loginLockTimer = null;
 
@@ -11585,7 +11593,7 @@ document.getElementById("portalReleaseBtn").addEventListener("click", async (e) 
 });
 
 document.getElementById("guestLoginBtn").addEventListener("click", () => {
-  showLoginOverlay();
+  showLoginOverlay("", true);
 });
 
 const SCROLL_FADE_SELECTOR = ".device-list, .folder-list, .session-list, .event-list, .nav-scroll";
