@@ -1239,7 +1239,7 @@ test("the light strips page offers the strip's presets and tries one", async (t)
     "GET /api/wled": { enabled: true, devices: [
       { host: "192.168.4.20", name: "Salon", leds: 60, ver: "0.15.0", clock_known: true },
       { host: "192.168.4.21", missing: true }],
-      presets: [{ id: 1, name: "Calme" }, { id: 2, name: "Fête" }], lights: { scene: "play" } },
+      presets: [{ id: 1, name: "Calme" }, { id: 2, name: "FÃªte" }], lights: { scene: "play" } },
     "POST /api/wled/test": { failed: [] },
   } });
   const select = await until(() => {
@@ -1269,5 +1269,34 @@ test("the buttons page lists the Bluetooth remotes and removes one", async (t) =
   row.querySelector("button").click();
   const sent = await until(() => page.sent("POST", "/api/bluetooth/remote")[0]);
   assert.deepEqual(sent.body, { mac: "2A:07:98:10:34:FF", on: false });
+  assert.deepEqual(page.errors, []);
+});
+
+test("the Bluetooth list offers each device only the roles it can take", async (t) => {
+  const devices = [
+    { mac: "7C:E9:13:69:66:55", name: "Speaker", paired: true, connected: true, kind: "audio", named: true },
+    { mac: "2A:07:98:10:34:FF", name: "Shutter", paired: true, connected: false, kind: "input", named: true },
+    { mac: "11:22:33:44:55:66", name: "Phone", paired: false, connected: false, kind: "other", named: true },
+    { mac: "AA:BB:CC:DD:EE:01", name: "Mystery", paired: false, connected: false, kind: "unknown", named: true },
+  ];
+  const page = open(t, { hash: "#audio/bluetooth", routes: {
+    "POST /api/bluetooth/scan/start": {},
+    "GET /api/bluetooth/scan/status": { running: false, devices },
+    "GET /api/bluetooth/remotes": { remotes: [] },
+  } });
+  await until(() => page.document.body.dataset.page === "bluetooth");
+  page.$("btnBtScan").click();
+  await until(() => page.$("deviceList").querySelectorAll("li").length === 4);
+  const roles = {};
+  for (const li of page.$("deviceList").querySelectorAll("li")) {
+    const name = li.querySelector(".device-name").textContent;
+    roles[name] = [...li.querySelectorAll("button")].map((b) => b.textContent);
+  }
+  const has = (name, label) => roles[name].some((text) => text === label);
+  const speaker = "Use as speaker", clock = "Use for clock", remote = "Use as a remote";
+  assert.ok(has("Speaker", speaker) && !has("Speaker", remote));
+  assert.ok(has("Shutter", remote) && !has("Shutter", speaker) && !has("Shutter", clock));
+  assert.ok(has("Phone", clock) && !has("Phone", remote));
+  assert.ok(has("Mystery", remote) && has("Mystery", speaker));
   assert.deepEqual(page.errors, []);
 });

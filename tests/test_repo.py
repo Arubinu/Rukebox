@@ -164,6 +164,24 @@ class IconsTest(unittest.TestCase):
 
 
 class FilesTest(unittest.TestCase):
+    def test_every_text_file_is_utf8(self):
+        """A heredoc on a Windows shell can write an accent as one Latin-1 byte."""
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        bad = []
+        for folder in ("src", "web", "tests", "scripts", "bootstrap", "docs", "config", "systemd", "docker"):
+            for base, dirs, files in os.walk(os.path.join(root, folder)):
+                dirs[:] = [d for d in dirs if d not in ("node_modules", "__pycache__", "graphify-out")]
+                for name in files:
+                    if name.endswith((".py", ".js", ".html", ".css", ".md", ".sh", ".yaml", ".yml",
+                                      ".json", ".service", ".conf", ".ps1", ".cmd", ".txt")):
+                        path = os.path.join(base, name)
+                        try:
+                            with open(path, "rb") as handle:
+                                handle.read().decode("utf-8")
+                        except UnicodeDecodeError:
+                            bad.append(os.path.relpath(path, root))
+        self.assertEqual(bad, [])
+
     def test_sudoers_is_lf(self):
         self.assertNotIn("\r", _path.read("config", "sudoers-rukebox"))
 

@@ -564,7 +564,7 @@ const clientNameDrafts = new Map();
 
 const RAIL_GROUP_STARTS = {
   home: ["player", "likes", "library", "suggest"],
-  settings: ["settings", "buttons", "announcements"],
+  settings: ["settings", "lights", "announcements"],
   network: ["accesspoint", "clients", "guest"],
   system: ["system", "security", "update"],
   stats: ["overview", "sessions"],
@@ -8384,18 +8384,21 @@ function deviceRow(dev, running) {
   const remoteBtn = document.createElement("button");
   remoteBtn.className = "btn";
   remoteBtn.textContent = t(isRemote ? "remotes.stop_using" : "remotes.use");
-  remoteBtn.disabled = dev.kind === "audio";
+  remoteBtn.disabled = !dev.paired;
   remoteBtn.addEventListener("click", async () => {
     remoteBtn.disabled = true;
     const result = await apiPost("/api/bluetooth/remote", { mac: dev.mac, on: !isRemote });
-    remoteBtn.disabled = false;
+    remoteBtn.disabled = !dev.paired;
     if (!result.ok) showError(result.error);
     else showToast(t(isRemote ? "remotes.removed" : "remotes.added"), isRemote ? "" : t("remotes.added_hint"));
     await refreshRemotes();
     refreshScanList();
   });
 
-  const roles = dev.kind === "input" ? [remoteBtn, clockBtn] : [speakerBtn, clockBtn, remoteBtn];
+  // A remote is only offered where it can be one: an input device, or one BlueZ cannot classify.
+  const roles = dev.kind === "input" ? [remoteBtn]
+    : (dev.kind === "audio" || dev.kind === "other") && !isRemote ? [speakerBtn, clockBtn]
+      : [speakerBtn, clockBtn, remoteBtn];
   splitActions(actions, [pairBtn], roles);
   li.appendChild(actions);
   return li;
