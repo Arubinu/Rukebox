@@ -161,6 +161,7 @@ let guestPagesOff = [];
 
 // Guest-allowed paths: keep in step with web_server.py's _GUEST_PATHS (a test compares them).
 const GUEST_API_PATHS = [
+  "/api/dedications/voice",
   "/api/status",
   "/api/status/wait",
   "/api/vote/skip",
@@ -1754,6 +1755,7 @@ function applyGuestCredits(d) {
   guestQuota = q || null;
   guestLocked = Array.isArray(d.guest_locked) ? d.guest_locked : [];
   dedicationsOn = !!d.dedications;
+  dedicationsVoice = !!d.dedications_voice;
   const pagesOff = Array.isArray(d.guest_pages_off) ? d.guest_pages_off : [];
   if (pagesOff.join() !== guestPagesOff.join()) {
     guestPagesOff = pagesOff;
@@ -1769,6 +1771,7 @@ function applyGuestCredits(d) {
 
 let guestLocked = [];
 let dedicationsOn = false;
+let dedicationsVoice = false;
 
 function applyCapabilities(d) {
   const caps = d.capabilities || null;
@@ -5598,12 +5601,25 @@ function libraryButton(item, next) {
   paintCost(b);
   b.addEventListener("click", async () => {
     const body = { key: item.key };
+    let voice = null;
     if (next && dedicationsOn) {
-      const message = await askDedication();
-      if (message === null) return;
-      if (message) body.message = message;
+      const dedication = await askDedication();
+      if (dedication === null) return;
+      if (dedication.message) body.message = dedication.message;
+      voice = dedication.voice;
     }
     b.disabled = true;
+    if (voice) {
+      const sent = await apiFetch("/api/dedications/voice", {
+        method: "POST", headers: { "Content-Type": voice.type || "audio/webm" }, body: voice,
+      });
+      if (!sent.ok) {
+        b.disabled = false;
+        showToolError(t("dedication.voice_failed"), sent);
+        return;
+      }
+      body.voice = sent.data.id;
+    }
     const r = await apiPost(next ? "/api/library/queue" : "/api/library/play", body);
     b.disabled = false;
     if (!r.ok) {
@@ -5622,7 +5638,96 @@ function libraryButton(item, next) {
   return b;
 }
 
-// null: the reader closed the dialog, nothing is queued.
+// The browser only opens the microphone on a secure page (HTTPS, or localhost).
+const VOICE_LIMIT_SEC = 25;
+
+function voiceRecorder() {
+  const wrap = document.createElement("div");
+  wrap.className = "voice-rec";
+  const state = { blob: null, cleanup: () => {} };
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn";
+  button.dataset.icon = "mic";
+  button.textContent = t("dedication.voice_record");
+  const blocked = !window.isSecureContext ? "dedication.voice_https"
+    : !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== "undefined")
+      ? "dedication.voice_unsupported" : "";
+  if (blocked) {
+    button.disabled = true;
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = t(blocked);
+    wrap.append(button, note);
+    return { node: wrap, state };
+  }
+  const player = document.createElement("audio");
+  player.controls = true;
+  player.hidden = true;
+  const drop = document.createElement("button");
+  drop.type = "button";
+  drop.className = "btn-link";
+  drop.textContent = t("dedication.voice_remove");
+  drop.hidden = true;
+  let recorder = null;
+  let stream = null;
+  let timer = null;
+  let started = 0;
+  const finish = () => { if (recorder && recorder.state !== "inactive") recorder.stop(); };
+  const tick = () => {
+    const left = VOICE_LIMIT_SEC - Math.floor((Date.now() - started) / 1000);
+    button.textContent = t("dedication.voice_stop", { s: Math.max(0, left) });
+    if (left <= 0) finish();
+  };
+  state.cleanup = () => {
+    finish();
+    if (stream) stream.getTracks().forEach((track) => track.stop());
+  };
+  drop.addEventListener("click", () => {
+    state.blob = null;
+    player.hidden = true;
+    drop.hidden = true;
+    player.removeAttribute("src");
+    button.textContent = t("dedication.voice_record");
+  });
+  button.addEventListener("click", async () => {
+    if (recorder && recorder.state === "recording") {
+      finish();
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      showToast(t("dedication.voice_denied"), t("dedication.voice_denied_hint"), { error: true });
+      return;
+    }
+    const chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (event) => { if (event.data && event.data.size) chunks.push(event.data); };
+    recorder.onstop = () => {
+      clearInterval(timer);
+      stream.getTracks().forEach((track) => track.stop());
+      button.classList.remove("is-recording");
+      const type = (recorder.mimeType || "audio/webm").split(";")[0];
+      state.blob = chunks.length ? new Blob(chunks, { type }) : null;
+      button.textContent = t(state.blob ? "dedication.voice_again" : "dedication.voice_record");
+      if (state.blob) {
+        player.src = URL.createObjectURL(state.blob);
+        player.hidden = false;
+        drop.hidden = false;
+      }
+    };
+    recorder.start();
+    started = Date.now();
+    button.classList.add("is-recording");
+    tick();
+    timer = setInterval(tick, 250);
+  });
+  wrap.append(button, player, drop);
+  return { node: wrap, state };
+}
+
+// null: the reader closed the dialog, nothing is queued; otherwise {message, voice}.
 async function askDedication() {
   const box = document.createElement("div");
   box.className = "dedication-box";
@@ -5636,19 +5741,46 @@ async function askDedication() {
   area.placeholder = t("dedication.placeholder");
   area.setAttribute("aria-label", t("dedication.title"));
   box.append(hint, area);
+  const recorder = dedicationsVoice ? voiceRecorder() : null;
+  if (recorder) box.append(recorder.node);
   const choice = await openModal({
     title: t("dedication.title"), bodyNode: box,
     choices: [{ label: t("dedication.with"), value: "with" }, { label: t("dedication.without"), value: "without" }],
   });
+  if (recorder) recorder.state.cleanup();
   if (!choice) return null;
-  return choice === "with" ? area.value.trim() : "";
+  if (choice !== "with") return { message: "", voice: null };
+  return { message: area.value.trim(), voice: recorder ? recorder.state.blob : null };
 }
+
+let dedicationPreview = null;
 
 function dedicationLine(item) {
   const d = item.dedication;
   const p = document.createElement("span");
   p.className = "upnext-dedication";
-  p.textContent = "\u201c" + d.text + "\u201d" + (d.from ? " - " + t("dedication.from", { name: d.from }) : "");
+  const from = d.from ? " - " + t("dedication.from", { name: d.from }) : "";
+  if (d.text) p.textContent = "\u201c" + d.text + "\u201d" + (d.voice ? "" : from);
+  if (d.voice) {
+    const voice = document.createElement("span");
+    voice.className = "upnext-voice";
+    voice.dataset.icon = "mic";
+    voice.textContent = t("dedication.voice_line") + from;
+    if (d.text) p.append(document.createElement("br"));
+    p.append(voice);
+    if (document.body.dataset.access !== "guest") {
+      const listen = document.createElement("button");
+      listen.type = "button";
+      listen.className = "btn-link";
+      listen.textContent = t("dedication.voice_listen");
+      listen.addEventListener("click", () => {
+        if (dedicationPreview) dedicationPreview.pause();
+        dedicationPreview = new Audio("/api/dedications/listen?key=" + encodeURIComponent(item.key));
+        dedicationPreview.play().catch(() => showToast(t("common.failed")));
+      });
+      p.append(listen);
+    }
+  }
   if (document.body.dataset.access !== "guest") {
     const drop = document.createElement("button");
     drop.type = "button";
@@ -5684,7 +5816,7 @@ async function refreshUpnext() {
     rank.className = "upnext-rank";
     rank.textContent = String(i + 1);
     const main = trackMain(item);
-    if (item.dedication && item.dedication.text) main.append(dedicationLine(item));
+    if (item.dedication && (item.dedication.text || item.dedication.voice)) main.append(dedicationLine(item));
     li.append(rank, main);
     const mark = excludedMark(item);
     if (mark) li.append(mark);
@@ -11612,4 +11744,5 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+document.getElementById("dedicationsVoiceHttps").hidden = window.isSecureContext;
 } // end of initApp()

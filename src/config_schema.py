@@ -887,6 +887,12 @@ SETTINGS = [
             "loud just before the song (\"For Marie, from Blue fox: ...\").\n"
             "The owner can remove a message from Up next before it is said.",
             "Dedications"),
+    Setting("DEDICATIONS_VOICE", "security", "dedications_voice", "bool", "false",
+            "A dedication may also be recorded with the microphone of the phone\n"
+            "or computer, and played just before the song. Browsers only open the\n"
+            "microphone over HTTPS (a domain with a certificate), so this is for a\n"
+            "Rukebox reached that way; the owner can listen to it in Up next.",
+            "Voice dedications"),
     Setting("QUEUE_FAIR", "security", "queue_fair", "bool", "true",
             "Songs asked for take turns between people - one each, then the\n"
             "next round - instead of first come, first served, so one person\n"

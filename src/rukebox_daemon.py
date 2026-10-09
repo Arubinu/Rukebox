@@ -345,6 +345,7 @@ class RadioDaemon:
         self._usb_music = None
         self._usb_devices = []
         self._usb_seen = set()
+        self._voice_pending = None
         self._usb_error = None
         self._usb_tracks = 0
         self._usb_bytes = 0
@@ -1077,14 +1078,69 @@ class RadioDaemon:
         every = self._dj_every()
         return every > 0 and self._dj_count + 1 >= every
 
+    def _voice_dir(self):
+        return os.path.join(self.cfg.get("STATE_DIR") or "/tmp", "voice-dedications")
+
+    def _voice_file(self, path):
+        """`path` when it is a recording in the voice dedications folder, else None."""
+        if not path:
+            return None
+        folder = os.path.realpath(self._voice_dir())
+        real = os.path.realpath(str(path))
+        if os.path.dirname(real) != folder or not os.path.isfile(real):
+            return None
+        return real
+
+    def _forget_voice(self, dedication):
+        voice = self._voice_file((dedication or {}).get("voice"))
+        if voice:
+            try:
+                os.remove(voice)
+            except OSError:
+                pass
+
+    def _voice_intro(self, track, dedication):
+        """The spoken lead and the recording, as one file; None when it cannot be played."""
+        voice = self._voice_file(dedication.get("voice"))
+        if not voice or not self.cfg.get("DEDICATIONS_VOICE"):
+            self._forget_voice(dedication)
+            return None
+        lead = self._speech_text_file(speech.voice_dedication_sentence(
+            dedication.get("from"), self.cfg.get("SPEECH_LANGUAGE")))
+        out = os.path.join(self._speech_dir(), "voice-" + os.path.splitext(os.path.basename(voice))[0] + ".wav")
+        inputs = (["-i", lead] if lead else []) + ["-i", voice]
+        # The recording is levelled: a phone held close and one held far apart sound alike.
+        chain = "[%d:a]loudnorm=I=-16:TP=-1.5,aresample=44100,aformat=channel_layouts=mono[v]" % (1 if lead else 0)
+        if lead:
+            chain = "[0:a]aresample=44100,aformat=channel_layouts=mono[l];" + chain + ";[l][v]concat=n=2:v=0:a=1[v]"
+        try:
+            done = subprocess.run(["ffmpeg", "-y", "-loglevel", "error"] + inputs
+                                  + ["-filter_complex", chain, "-map", "[v]", out],
+                                  capture_output=True, timeout=60)
+            ok = done.returncode == 0 and os.path.isfile(out)
+        except (OSError, subprocess.SubprocessError):
+            ok = False
+        if not ok:
+            log.warning("Could not prepare the recorded dedication: playing it as it is")
+            return voice
+        self._forget_voice(dedication)
+        return out
+
     def _intro_text(self, track, introduce, natural):
-        """(what to say before `track`, and which of the two it is: "dedication"
-        or "dj"), or ("", "") when nothing is said."""
+        """(what to say before `track`, and which of the two it is: "dedication",
+        "voice" or "dj"), or ("", "") when nothing is said."""
         dedication = self.state.pop_dedication(track)
         if not introduce:
+            self._forget_voice(dedication)
             return "", ""
         lang = self.cfg.get("SPEECH_LANGUAGE")
         info = self._track_info(track)
+        if dedication and self.cfg.get("DEDICATIONS_ENABLED") and dedication.get("voice"):
+            self._voice_pending = dedication
+            self.stats.record("dedication_played", label=os.path.basename(track),
+                              detail={"from": dedication.get("from"), "voice": True})
+            return "", "voice"
+        self._forget_voice(dedication)
         if dedication and self.cfg.get("DEDICATIONS_ENABLED"):
             text = speech.dedication_sentence(info["title"], dedication.get("from"),
                                               dedication.get("text"), lang)
@@ -1103,6 +1159,9 @@ class RadioDaemon:
     def _intro_audio(self, track, text, kind):
         """What is played before `track`: a prepared file when the settings say
         so, the radio's own voice otherwise. None when nothing is said."""
+        if kind == "voice":
+            dedication, self._voice_pending = self._voice_pending, None
+            return self._voice_intro(track, dedication or {})
         if kind == "dj":
             mode = self.cfg.get("DJ_ANNOUNCE_MODE") or "spoken"
             if mode in ("files", "files_first"):
@@ -4143,10 +4202,16 @@ class RadioDaemon:
                     return {"ok": False, "error": "not_found"}
                 dedication = msg.get("dedication") if isinstance(msg.get("dedication"), dict) else None
                 text = speech.clean_text((dedication or {}).get("text"))
+                voice = self._voice_file((dedication or {}).get("voice")) \
+                    if self.cfg.get("DEDICATIONS_VOICE") else None
+                if voice:
+                    text = text or "(voice)"
                 if text and self.cfg.get("DEDICATIONS_ENABLED"):
-                    self.state.set_dedication(path, {
-                        "from": speech.clean_text((dedication or {}).get("from"), 40) or None,
-                        "text": text})
+                    entry = {"from": speech.clean_text((dedication or {}).get("from"), 40) or None,
+                             "text": None if voice and text == "(voice)" else text}
+                    if voice:
+                        entry["voice"] = voice
+                    self.state.set_dedication(path, entry)
                 if self.mode in ("idle", "stopped"):
                     self._forced_next = path
                     if text and self.cfg.get("DEDICATIONS_ENABLED"):
@@ -4176,8 +4241,10 @@ class RadioDaemon:
                                              "requested": self.state.requested_paths(),
                                              "dedications": self.state.dedications()}}
             if cmd == "drop_dedication":
-                if self.state.pop_dedication(str(msg.get("path") or "")) is None:
+                dropped = self.state.pop_dedication(str(msg.get("path") or ""))
+                if dropped is None:
                     return {"ok": False, "error": "not_found"}
+                self._forget_voice(dropped)
                 self._bump_state()
                 return {"ok": True}
             if cmd == "get_reminders":

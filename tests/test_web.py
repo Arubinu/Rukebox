@@ -1801,6 +1801,36 @@ class DedicationAndReminderTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.control.call_args.kwargs["dedication"], {"from": "Renard", "text": "for you"})
 
+    def test_a_recorded_dedication_needs_its_option_and_goes_with_the_song(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        self.values.update({"STATE_DIR": folder, "DEDICATIONS_ENABLED": True, "DEDICATIONS_VOICE": False})
+        unittest.mock.patch.object(ws, "_voice_seconds", return_value=4.0).start()
+        send = lambda body, kind="audio/webm": self.client.post(
+            "/api/dedications/voice", data=body, headers={"Content-Type": kind})
+        self.assertEqual(send(b"voice").get_json()["error"], "voice_dedications_off")
+        self.values["DEDICATIONS_VOICE"] = True
+        self.assertEqual(send(b"voice", "text/html").get_json()["error"], "voice_bad_type")
+        self.assertEqual(send(b"").get_json()["error"], "voice_empty")
+        voice_id = send(b"voice", "audio/webm;codecs=opus").get_json()["data"]["id"]
+        self.assertTrue(voice_id.endswith(".webm"))
+        r = self.client.post("/api/library/queue", json={"key": "k", "voice": voice_id})
+        self.assertEqual(r.status_code, 200)
+        dedication = self.control.call_args.kwargs["dedication"]
+        self.assertEqual(dedication["from"], "Renard")
+        self.assertEqual(os.path.basename(dedication["voice"]), voice_id)
+        r = self.client.post("/api/library/queue", json={"key": "k", "voice": "../../etc/passwd"})
+        self.assertEqual(r.status_code, 404)
+
+    def test_a_recording_too_long_is_refused(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        self.values.update({"STATE_DIR": folder, "DEDICATIONS_ENABLED": True, "DEDICATIONS_VOICE": True})
+        unittest.mock.patch.object(ws, "_voice_seconds", return_value=45.0).start()
+        r = self.client.post("/api/dedications/voice", data=b"voice", headers={"Content-Type": "audio/webm"})
+        self.assertEqual((r.status_code, r.get_json()["error"]), (413, "voice_too_long"))
+        self.assertEqual(os.listdir(os.path.join(folder, "voice-dedications")), [])
+
     def test_a_reminder_in_minutes_or_at_a_time(self):
         before = time.time()
         self.client.post("/api/reminders", json={"text": "cake", "minutes": 20})

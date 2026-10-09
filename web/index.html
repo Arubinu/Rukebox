@@ -2335,6 +2335,15 @@
               </div>
               <div class="field-row">
                 <div class="field-text">
+                  <label for="dedicationsVoiceToggle" data-i18n="guest.dedications_voice">Voice dedications</label>
+                  <p class="field-desc" id="dedicationsVoiceDesc" data-i18n="guest.dedications_voice_desc">The message can also be recorded with the microphone. Browsers only allow it over HTTPS.</p>
+                </div>
+                <input type="checkbox" id="dedicationsVoiceToggle" data-key="DEDICATIONS_VOICE" class="switch-input" role="switch"
+                       aria-describedby="dedicationsVoiceDesc">
+              </div>
+              <p class="hint voice-https-note" id="dedicationsVoiceHttps" data-icon="lock" data-i18n="guest.dedications_voice_https" hidden>This page is not served over HTTPS: the microphone is blocked here, for you as for your guests.</p>
+              <div class="field-row">
+                <div class="field-text">
                   <label for="queueFairToggle" data-i18n="guest.queue_fair">Take turns between people</label>
                   <p class="field-desc" id="queueFairDesc" data-i18n="guest.queue_fair_desc">Songs asked for alternate, one per person, instead of first come, first served.</p>
                 </div>

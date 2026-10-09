@@ -831,6 +831,12 @@ security:
   # The owner can remove a message from Up next before it is said.
   dedications: false
 
+  # A dedication may also be recorded with the microphone of the phone
+  # or computer, and played just before the song. Browsers only open the
+  # microphone over HTTPS (a domain with a certificate), so this is for a
+  # Rukebox reached that way; the owner can listen to it in Up next.
+  dedications_voice: false
+
   # Songs asked for take turns between people - one each, then the
   # next round - instead of first come, first served, so one person
   # cannot fill the whole queue.

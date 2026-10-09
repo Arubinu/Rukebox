@@ -1428,6 +1428,20 @@ The same voice can do three more things.
   device chose in the suggestion box. Up next shows the message under its
   song, and the owner can remove it before it is said. A message is at most
   160 characters, on one line.
+- **Voice dedications** (Network > Guest access, **Voice dedications**,
+  `security.dedications_voice`, off by default, and only with dedications on):
+  the same dialog then offers **Record with the microphone**, up to 25 seconds,
+  to hear again, record again or remove before sending. The radio says "A
+  dedication from Blue fox." and plays the recording, its loudness levelled,
+  just before the song; a written message may go with it. **Browsers only open
+  the microphone on a secure page**: a Rukebox reached over HTTPS (a domain
+  with a certificate in front of the Docker or LXC version, for instance), or
+  `localhost`. On the access point's plain `http://` address the button is
+  greyed out and says why, and the setting shows the same warning when the
+  page reading it is not secure. Up next marks a waiting recording as **Voice
+  message**, and the owner can **Listen** to it before it plays, or remove it.
+  A recording is deleted once it has played or been removed, and one never
+  sent with a song after six hours.
 - **Reminders** (Home > Reminders, owner only): a sentence to say in N
   minutes or at a time, within the next seven days - "Reminder: take the
   cake out of the oven." The music goes on under it at the level of **Music

@@ -163,6 +163,18 @@ def dedication_sentence(title, sender, message, lang):
     return _stop(head + message) + tail
 
 
+def voice_dedication_sentence(sender, lang):
+    """What is said before a recorded dedication."""
+    lang = language(lang)
+    sender = clean_text(sender, 40)
+    if sender:
+        return {"en": "A dedication from %s.", "fr": "Une dédicace de %s.", "de": "Eine Widmung von %s.",
+                "es": "Una dedicatoria de %s.", "it": "Una dedica da %s.",
+                "nl": "Een opdracht van %s."}[lang] % sender
+    return {"en": "A dedication.", "fr": "Une dédicace.", "de": "Eine Widmung.",
+            "es": "Una dedicatoria.", "it": "Una dedica.", "nl": "Een opdracht."}[lang]
+
+
 def reminder_sentence(text, lang):
     lang = language(lang)
     text = clean_text(text)

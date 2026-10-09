@@ -953,6 +953,14 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 .upnext-dedication { display: block; margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); font-style: italic; overflow-wrap: anywhere; }
 .upnext-dedication .btn-link { font-style: normal; margin-left: 6px; }
 .dedication-box textarea { width: 100%; resize: vertical; min-height: 4.5em; }
+.voice-rec { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.voice-rec audio { width: 100%; }
+.voice-rec .btn.is-recording { background: var(--danger); border-color: var(--danger); color: var(--danger-contrast); }
+.voice-rec .hint, .voice-https-note { margin: 0; text-align: center; }
+.voice-https-note { color: var(--warning, var(--text-muted)); }
+.voice-https-note::before { width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; }
+.upnext-voice { display: inline-flex; align-items: center; gap: 4px; }
+.upnext-voice::before { width: 14px; height: 14px; }
 .reminder-when { font-variant-numeric: tabular-nums; font-weight: 600; margin-right: 10px; }
 .suggest-list { max-height: none; }
 .suggest-list li.suggest-item { align-items: flex-start; }

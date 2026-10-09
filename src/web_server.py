@@ -26,7 +26,7 @@ import urllib.request
 import sys
 from datetime import datetime, timedelta
 
-from flask import Flask, Response, g, jsonify, redirect, request, send_from_directory, session
+from flask import Flask, Response, g, jsonify, redirect, request, send_file, send_from_directory, session
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -218,6 +218,7 @@ _AUTH_EXEMPT_PREFIX = "/api/auth/"
 
 # Paths a guest may call without the password; long_press (power off) never.
 _GUEST_PATHS = frozenset({
+    "/api/dedications/voice",
     "/api/status",
     "/api/status/wait",
     "/api/vote/skip",
@@ -1936,6 +1937,82 @@ def _path_for_key(key):
 
 
 DEDICATION_MAX = 160
+VOICE_MAX_BYTES = 900 * 1024
+VOICE_MAX_SEC = 30
+VOICE_KEEP_SEC = 6 * 3600
+VOICE_TYPES = {"audio/webm": ".webm", "audio/ogg": ".ogg", "audio/mp4": ".m4a",
+               "audio/aac": ".aac", "audio/mpeg": ".mp3", "audio/wav": ".wav"}
+_VOICE_ID_RE = re.compile(r"^[0-9a-f]{32}\.(webm|ogg|m4a|aac|mp3|wav)$")
+
+
+def _voice_dir():
+    return os.path.join(cfg()["STATE_DIR"], "voice-dedications")
+
+
+def _voice_path(voice_id):
+    """The recording `voice_id` names, or None when it is not one."""
+    if not isinstance(voice_id, str) or not _VOICE_ID_RE.match(voice_id):
+        return None
+    path = os.path.join(_voice_dir(), voice_id)
+    return path if os.path.isfile(path) else None
+
+
+def _voice_seconds(path):
+    """The recording's length, or None when ffprobe cannot tell (or is not there)."""
+    try:
+        done = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                               "-of", "default=nw=1:nk=1", path], capture_output=True, text=True, timeout=15)
+        return float(done.stdout.strip())
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+@app.route("/api/dedications/voice", methods=["POST"])
+def api_dedication_voice():
+    """A recorded dedication (the request body is the audio): answers its id, to send with the song."""
+    c = cfg()
+    if not (c.get("DEDICATIONS_ENABLED") and c.get("DEDICATIONS_VOICE")):
+        return jsonify({"ok": False, "error": "voice_dedications_off"}), 403
+    ext = VOICE_TYPES.get((request.mimetype or "").lower())
+    if not ext:
+        return jsonify({"ok": False, "error": "voice_bad_type"}), 400
+    data = request.get_data(cache=False)
+    if not data:
+        return jsonify({"ok": False, "error": "voice_empty"}), 400
+    if len(data) > VOICE_MAX_BYTES:
+        return jsonify({"ok": False, "error": "voice_too_long"}), 413
+    folder = _voice_dir()
+    os.makedirs(folder, exist_ok=True)
+    # A recording never sent with a song is not kept for ever.
+    now = time.time()
+    for old in os.listdir(folder):
+        try:
+            if now - os.path.getmtime(os.path.join(folder, old)) > VOICE_KEEP_SEC:
+                os.remove(os.path.join(folder, old))
+        except OSError:
+            pass
+    voice_id = secrets.token_hex(16) + ext
+    path = os.path.join(folder, voice_id)
+    with open(path, "wb") as f:
+        f.write(data)
+    seconds = _voice_seconds(path)
+    if seconds is not None and seconds > VOICE_MAX_SEC:
+        os.remove(path)
+        return jsonify({"ok": False, "error": "voice_too_long"}), 413
+    return jsonify({"ok": True, "data": {"id": voice_id}})
+
+
+@app.route("/api/dedications/listen")
+def api_dedication_listen():
+    """The recording waiting with a song of Up next, for the owner to hear before it plays."""
+    path = _path_for_key(request.args.get("key"))
+    result = control("get_queue", n=50) if path else {}
+    entry = ((result.get("data") or {}).get("dedications") or {}).get(path) if path else None
+    voice = (entry or {}).get("voice")
+    if not voice or os.path.dirname(os.path.realpath(voice)) != os.path.realpath(_voice_dir()) \
+            or not os.path.isfile(voice):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return send_file(voice, conditional=True)
 
 
 @app.route("/api/library/queue", methods=["POST"])
@@ -1955,10 +2032,19 @@ def api_library_queue():
         pass
     extra = {}
     message = " ".join(str(body.get("message") or "").split())[:DEDICATION_MAX]
-    if message:
+    voice = None
+    if body.get("voice"):
+        voice = _voice_path(body.get("voice"))
+        if not voice:
+            return jsonify({"ok": False, "error": "not_found"}), 404
+        if not cfg().get("DEDICATIONS_VOICE"):
+            return jsonify({"ok": False, "error": "voice_dedications_off"}), 403
+    if message or voice:
         if not cfg().get("DEDICATIONS_ENABLED"):
             return jsonify({"ok": False, "error": "dedications_off"}), 403
         extra["dedication"] = {"from": name, "text": message}
+        if voice:
+            extra["dedication"]["voice"] = voice
     result = control("queue_track", path=path, person=person, **extra)
     return jsonify(result), (200 if result.get("ok") else 400)
 
@@ -2058,7 +2144,8 @@ def api_queue():
         item["excluded"] = item.get("key") in excluded
         if show_dedications and isinstance(dedications.get(path), dict):
             item["dedication"] = {"from": dedications[path].get("from"),
-                                  "text": dedications[path].get("text")}
+                                  "text": dedications[path].get("text"),
+                                  "voice": bool(dedications[path].get("voice"))}
         items.append(item)
     return jsonify({"ok": True, "data": {"enabled": True, "items": items}})
 
@@ -2859,6 +2946,7 @@ def api_status():
     data["track_key"] = track_media.track_key(track_path)
     data["guest_pages_off"] = _guest_pages_off() if _quota_applies() else []
     data["dedications"] = bool(cfg().get("DEDICATIONS_ENABLED"))
+    data["dedications_voice"] = bool(cfg().get("DEDICATIONS_ENABLED") and cfg().get("DEDICATIONS_VOICE"))
     data["skip_vote"] = _skip_vote_state(data["track_key"], _repeat_person()) \
         if data.get("mode") == "music" else None
     info = track_media.tags(track_path) if track_path else {}

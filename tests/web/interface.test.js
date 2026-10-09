@@ -917,6 +917,34 @@ test("a song put up next may carry a message, shown in Up next with a way to rem
   await until(() => !page.document.querySelector(".upnext-dedication"));
 });
 
+test("voice dedications are offered, and blocked with a reason off HTTPS", async (t) => {
+  const { STATUS } = require("./harness");
+  const items = [{ key: "k2", title: "Fly", artist: "Hilary Duff", requested: true,
+                   dedication: { from: "Fox", text: null, voice: true } }];
+  const page = open(t, { hash: "#home/upnext", routes: {
+    "GET /api/status": Object.assign({}, STATUS, { mode: "music", dedications: true, dedications_voice: true }),
+    "GET /api/memories": [{ key: "k1", title: "Paradise", artist: "Coldplay", years: 1 }],
+    "GET /api/queue": () => ({ enabled: true, items }),
+    "POST /api/library/queue": { started: false, position: 1 },
+  } });
+  const line = await until(() => page.document.querySelector(".upnext-dedication"));
+  assert.match(line.textContent, /Voice message - from Fox/);
+  assert.ok([...line.querySelectorAll(".btn-link")].some((b) => b.textContent === "Listen"), "the owner may listen first");
+  assert.equal(page.$("dedicationsVoiceHttps").hidden, false, "this page is not secure, and the setting says so");
+  await until(() => page.document.querySelector("#memoriesList .library-next"));
+  page.document.querySelector("#memoriesList .library-next").click();
+  await until(() => !page.$("modalOverlay").hidden);
+  const record = page.document.querySelector("#modalBody .voice-rec .btn");
+  assert.ok(record && record.disabled, "no microphone without HTTPS");
+  assert.match(page.document.querySelector("#modalBody .voice-rec .hint").textContent, /https/);
+  page.document.querySelector("#modalBody textarea").value = "Hi";
+  page.$("modalChoices").children[0].click();
+  await until(() => page.sent("POST", "/api/library/queue").length === 1);
+  assert.deepEqual(page.sent("POST", "/api/library/queue")[0].body, { key: "k1", message: "Hi" });
+  assert.equal(page.sent("POST", "/api/dedications/voice").length, 0);
+  assert.deepEqual(page.errors, []);
+});
+
 test("a reminder is added in minutes or at a time, and listed", async (t) => {
   const items = [];
   const page = open(t, { hash: "#home/reminders", routes: {

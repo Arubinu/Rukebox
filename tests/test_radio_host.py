@@ -193,6 +193,48 @@ class DaemonTest(unittest.TestCase):
         self.end_song()
         self.assertEqual(self.played()[-1], "d.mp3")
 
+    def voice(self, name="abc.webm"):
+        folder = os.path.join(self.dir, "voice-dedications")
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, name)
+        with open(path, "wb") as f:
+            f.write(b"voice")
+        return path
+
+    def fake_ffmpeg(self, command, **kwargs):
+        open(command[-1], "wb").close()
+        return mock.Mock(returncode=0)
+
+    def test_a_recorded_dedication_is_announced_then_played(self):
+        self.daemon.cfg.update({"DEDICATIONS_ENABLED": True, "DEDICATIONS_VOICE": True})
+        voice = self.voice()
+        mock.patch.object(rukebox_daemon.subprocess, "run", side_effect=self.fake_ffmpeg).start()
+        self.daemon._play_next_track()
+        target = os.path.join(self.music, "d.mp3")
+        self.daemon.state.set_dedication(target, {"from": "Anne", "text": None, "voice": voice})
+        self.daemon.state.enqueue_request(target, "anne", True)
+        self.end_song()
+        self.assertEqual(self.said, ["A dedication from Anne."])
+        self.assertEqual(os.path.basename(self.daemon.mpv.files[-1]), "voice-abc.wav")
+        self.assertFalse(os.path.exists(voice), "the recording is not kept once played")
+        self.end_song()
+        self.assertEqual(self.played()[-1], "d.mp3")
+
+    def test_a_recording_outside_its_folder_is_never_kept(self):
+        self.daemon.cfg.update({"DEDICATIONS_ENABLED": True, "DEDICATIONS_VOICE": True})
+        outside = os.path.join(self.dir, "elsewhere.webm")
+        open(outside, "wb").close()
+        self.assertIsNone(self.daemon._voice_file(outside))
+        self.assertEqual(self.daemon._voice_file(self.voice()), os.path.realpath(self.voice()))
+
+    def test_a_dropped_recording_is_deleted(self):
+        self.daemon.cfg.update({"DEDICATIONS_ENABLED": True, "DEDICATIONS_VOICE": True})
+        voice = self.voice()
+        target = os.path.join(self.music, "c.mp3")
+        self.daemon.state.set_dedication(target, {"from": "Anne", "text": None, "voice": voice})
+        self.daemon._forget_voice(self.daemon.state.pop_dedication(target))
+        self.assertFalse(os.path.exists(voice))
+
     def test_a_dedication_is_not_said_when_they_are_off(self):
         self.daemon.cfg["DEDICATIONS_ENABLED"] = False
         self.daemon._play_next_track()
