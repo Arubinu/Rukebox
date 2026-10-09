@@ -219,6 +219,18 @@ class UsbMusicTest(unittest.TestCase):
         self.assertEqual(answer["data"]["remembered"]["model"], "Elements 25A2")
         self.assertEqual(answer["data"]["devices"][0]["model"], "Elements 25A2")
 
+    def test_a_song_of_the_internal_folder_can_still_be_asked_for(self):
+        """The catalogue keeps both folders: a song chosen from the internal one plays."""
+        self.plugged([KEY])
+        self.write(os.path.join(self.mount, "Artiste", "b1.mp3"))
+        self.daemon._usb_music_command({"device": "/dev/sda1"}, source="web")
+        internal = os.path.join(self.music, "a.mp3")
+        self.assertEqual(self.daemon._library_path(internal), os.path.realpath(internal))
+        self.assertIsNotNone(self.daemon._library_path(os.path.join(self.mount, "Artiste", "b1.mp3")))
+        outside = os.path.join(self.dir, "elsewhere.mp3")
+        open(outside, "wb").close()
+        self.assertIsNone(self.daemon._library_path(outside))
+
     def test_the_queue_follows_the_key(self):
         """Checked because the owner asked: once a key is taken, the next songs
         are the key's, not the folder that was playing before."""

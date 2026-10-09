@@ -22,7 +22,7 @@ import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 import cards  # noqa: E402
 import dj_intro  # noqa: E402
-from config_and_scan import DEFAULTS, get_music_list, load_config  # noqa: E402
+from config_and_scan import AUDIO_EXTENSIONS, DEFAULTS, get_music_list, load_config  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import hidden_tracks  # noqa: E402
 import library  # noqa: E402
@@ -1610,14 +1610,20 @@ class RadioDaemon:
         return album[(album.index(path) + step) % len(album)]
 
     def _library_path(self, raw):
-        """`raw` as a real file of the music library, or None."""
+        """`raw` as a real file of the music library, or None: the folder being played,
+        or the one the settings name, which a song can be asked from while a key plays."""
         path = os.path.realpath(str(raw or ""))
-        root = os.path.realpath(self._music_dir())
-        if not path.startswith(root + os.sep) or not os.path.isfile(path):
+        if not os.path.isfile(path):
             return None
-        tracks = self._get_music_list()
-        by_real = {os.path.realpath(t): t for t in tracks}
-        return by_real.get(path)
+        root = os.path.realpath(self._music_dir())
+        if path.startswith(root + os.sep):
+            by_real = {os.path.realpath(t): t for t in self._get_music_list()}
+            return by_real.get(path)
+        planned = os.path.realpath(self.cfg.get("MUSIC_DIR") or "")
+        if planned and planned != root and path.startswith(planned + os.sep) \
+                and os.path.splitext(path)[1].lower() in AUDIO_EXTENSIONS:
+            return path
+        return None
 
     def _next_tracks(self, count):
         """The next `count` songs as they would come: the forced one, then a

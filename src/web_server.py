@@ -49,7 +49,8 @@ import stream as stream_mod  # noqa: E402
 import system_actions  # noqa: E402
 import upnp  # noqa: E402
 import web_auth  # noqa: E402
-from config_and_scan import DEFAULTS, get_music_list, load_config, update_config_file  # noqa: E402
+from config_and_scan import (DEFAULTS, get_music_list, load_config, scan_audio_dir,  # noqa: E402
+                             update_config_file)
 from control_client import send_control_command  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
 import suggestions  # noqa: E402
@@ -1861,28 +1862,44 @@ def _get_library():
         return _library
 
 
+def _library_roots():
+    """(the folder the settings name, the storage device being played from or None)."""
+    planned = cfg().get("MUSIC_DIR") or ""
+    current = _effective_music_dir()
+    return planned, (current if current and current != planned else None)
+
+
 def _library_loop():
     time.sleep(20)
     while True:
         try:
             c = cfg()
-            tracks = get_music_list(_effective_music_dir(), c["MUSIC_CACHE_FILE"])
-            _library.sync(tracks, _effective_music_dir())
-            while True:
+            roots = _library_roots()
+            planned, device = roots
+            # Both folders stay in the catalogue, so the tags of the internal one survive
+            # a key; the shared cache file only ever holds the folder the radio plays.
+            if device:
+                tracks = scan_audio_dir(planned) + get_music_list(device, c["MUSIC_CACHE_FILE"])
+            else:
+                tracks = get_music_list(planned, c["MUSIC_CACHE_FILE"])
+            folders = [r for r in roots if r]
+            _library.sync(tracks, folders)
+            same = lambda: not _library_wake.is_set() and _library_roots() == roots
+            while same():
                 batch = _library.unread(20)
                 if not batch:
                     break
                 for path in batch:
-                    _library.store(path, library.read_tags(path), _effective_music_dir())
+                    _library.store(path, library.read_tags(path), folders)
             # The endings are quick (30 seconds of each file), so before the loudness.
-            while not _library_wake.is_set():
+            while same():
                 batch = _library.untailed(10)
                 if not batch:
                     break
                 for path, duration in batch:
                     _library.store_tail(path, library.read_tail(path, duration))
             # After the tags, which the page needs first: one ffmpeg pass per file, once.
-            while not _library_wake.is_set():
+            while same():
                 batch = _library.unmeasured(5)
                 if not batch:
                     break
@@ -1890,7 +1907,12 @@ def _library_loop():
                     _library.store_loudness(path, library.read_loudness(path))
         except Exception:  # noqa: BLE001
             log.exception("Library catalogue: update failed")
-        _library_wake.wait(LIBRARY_RESYNC_SEC)
+        # A storage device that comes or goes is picked up within seconds, not minutes.
+        deadline = time.monotonic() + LIBRARY_RESYNC_SEC
+        while time.monotonic() < deadline and not _library_wake.is_set():
+            if _library_roots() != roots:
+                break
+            _library_wake.wait(5)
         _library_wake.clear()
 
 

@@ -69,6 +69,13 @@ class LibraryTest(unittest.TestCase):
         self.assertEqual(self.lib.facets()["genres"], [{"name": "Rock", "count": 1}],
                          "a re-read tag replaces the old genre")
 
+    def test_names_come_from_the_folder_that_holds_the_file(self):
+        roots = ["/home/pi/audio/music", "/media/rukebox-usb"]
+        self.assertEqual(library._from_path("/media/rukebox-usb/Sia/Unstoppable/02 - Alive.opus", roots),
+                         ("Alive", "Sia", "Unstoppable"))
+        self.assertEqual(library._from_path("/home/pi/audio/music/a-ha/Hunting/01 - Take On Me.mp3", roots),
+                         ("Take On Me", "a-ha", "Hunting"))
+
     def test_names_from_path_until_read(self):
         item = self.lib.item_for_path(self.files[0])
         self.assertEqual((item["title"], item["artist"], item["album"]), ("One More Time", "Daft Punk", "Discovery"))

@@ -62,8 +62,16 @@ def split_genres(value):
     return out
 
 
+def _root_of(path, music_dir):
+    """The one of `music_dir` (a folder, or several) that holds `path`."""
+    roots = [music_dir] if isinstance(music_dir, str) else [r for r in (music_dir or []) if r]
+    return next((r for r in roots if os.path.realpath(path).startswith(os.path.realpath(r) + os.sep)),
+                roots[0] if roots else "")
+
+
 def _from_path(path, music_dir):
     """(title, artist, album) guessed from the path, until the tags are read."""
+    music_dir = _root_of(path, music_dir)
     rel = os.path.relpath(path, music_dir) if music_dir else os.path.basename(path)
     parts = rel.replace("\\", "/").split("/")
     title = _LEADING_NUMBER.sub("", os.path.splitext(parts[-1])[0]) or parts[-1]
