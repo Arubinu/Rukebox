@@ -292,7 +292,7 @@ function bootMessage(key, showRetry, subKey) {
   document.getElementById("bootRetry").hidden = !showRetry;
 
   document.getElementById("bootOverlay").dataset.state =
-    key === "boot.not_rukebox" || key === "boot.banned" ? "error"
+    key === "boot.not_rukebox" || key === "boot.banned" || key === "boot.bad_host" ? "error"
       : key === "boot.connecting" ? "loading"
         : key === "boot.powered_off" ? "off"
           : "waiting";
@@ -358,6 +358,13 @@ async function boot() {
     }
     const result = answer.data;
 
+    if (result.ok === false && result.error === "bad_host") {
+      const message = document.getElementById("bootMessage");
+      message.dataset.i18nVarHost = window.location.hostname;
+      bootMessage("boot.bad_host", false, "boot.bad_host_how");
+      message.textContent = t("boot.bad_host", { host: window.location.hostname });
+      return;
+    }
     if (result.ok === false && result.error === "auth_required") {
       hideBootOverlay();
       showLoginOverlay();
@@ -3183,7 +3190,7 @@ async function restartDaemon() {
   if (result.ok) showToast(t("alert.service_restarted")); else showError(result.error);
 }
 
-const SETTINGS_FORMS = ["settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
+const SETTINGS_FORMS = ["domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
   .map((id) => document.getElementById(id))
   .filter(Boolean);
 
@@ -11615,6 +11622,44 @@ document.querySelectorAll(SCROLL_FADE_SELECTOR).forEach((el) => {
   if (window.ResizeObserver) new ResizeObserver(update).observe(el);
   update();
 });
+
+async function refreshDomains() {
+  const result = await apiGet("/api/security/hosts");
+  if (!result.ok || !result.data) return;
+  const refused = result.data.refused || [];
+  document.getElementById("refusedHostsBox").hidden = !refused.length;
+  document.getElementById("refusedHosts").replaceChildren(...refused.map((one) => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "device-name";
+    name.textContent = one.host;
+    const allow = document.createElement("button");
+    allow.type = "button";
+    allow.className = "btn btn-small";
+    allow.dataset.icon = "check";
+    allow.textContent = t("domain.allow");
+    allow.addEventListener("click", async () => {
+      const field = document.getElementById("extraHosts");
+      const names = field.value.split(/[\s,]+/).filter(Boolean);
+      if (!names.includes(one.host)) names.push(one.host);
+      const value = names.join(", ");
+      allow.disabled = true;
+      const r = await apiPost("/api/settings", { WEB_EXTRA_HOSTS: value });
+      allow.disabled = false;
+      if (!r.ok) {
+        showError(r.error);
+        return;
+      }
+      field.value = value;
+      settingsBaseline.WEB_EXTRA_HOSTS = value;
+      showToast(t("domain.allowed", { host: one.host }), t("domain.allowed_hint"));
+      refreshDomains();
+    });
+    li.append(name, allow);
+    return li;
+  }));
+}
+refreshEvery(refreshDomains, 30000, ["system/security"]);
 
 const portalHoldsDevice = await refreshPortalBanner();
 if (portalHoldsDevice && arrivedWithoutHash && !railMode()) {

@@ -719,6 +719,13 @@ network:
   # the interface.
   web_extra_hosts: ""
 
+  # A reverse proxy (nginx, Caddy, Traefik...) stands in front of the
+  # interface: its X-Forwarded-Host, -Proto and -For headers are
+  # trusted, so the visitor's own address and the domain they typed are
+  # the ones seen. Leave it off without a proxy: anyone could then forge
+  # those headers.
+  web_behind_proxy: false
+
   # Items of the web interface's "To finish" card that were set aside
   # (comma-separated: speaker, clock, timezone, music, password, ap_open).
   setup_hidden: ""

@@ -311,6 +311,45 @@ class WebTest(unittest.TestCase):
         finally:
             del type(self).extra["WEB_EXTRA_HOSTS"]
 
+    def test_a_reverse_proxy_is_trusted_only_when_the_setting_says_so(self):
+        owner = self.owner()
+        proxied = {"Host": "192.168.1.5", "X-Forwarded-Host": "radio.example",
+                   "X-Forwarded-Proto": "https", "Origin": "https://radio.example"}
+        type(self).extra["WEB_EXTRA_HOSTS"] = "radio.example"
+        try:
+            answer = owner.post("/api/mute", json={"on": True}, headers=proxied)
+            self.assertEqual(answer.get_json()["error"], "bad_origin", "no proxy said: headers ignored")
+            type(self).extra["WEB_BEHIND_PROXY"] = True
+            # Past both guards: the test client keeps its session cookie for "localhost" only,
+            # so the next gate it meets is the login.
+            answer = owner.post("/api/mute", json={"on": True}, headers=proxied)
+            self.assertNotIn((answer.get_json() or {}).get("error"), ("bad_origin", "bad_host"))
+            forged = dict(proxied, **{"X-Forwarded-Host": "evil.example", "Origin": "https://evil.example"})
+            self.assertEqual(owner.post("/api/mute", json={"on": True}, headers=forged).get_json()["error"],
+                             "bad_host", "the domain list still holds behind a proxy")
+        finally:
+            type(self).extra.pop("WEB_EXTRA_HOSTS", None)
+            type(self).extra.pop("WEB_BEHIND_PROXY", None)
+
+    def test_a_refused_name_is_offered_to_the_owner(self):
+        owner = self.owner()
+        ws._refused_hosts.clear()
+        owner.get("/api/auth/status", headers={"Host": "music.example.org"})
+        listed = [r["host"] for r in owner.get("/api/security/hosts").get_json()["data"]["refused"]]
+        self.assertEqual(listed, ["music.example.org"])
+        type(self).extra["WEB_EXTRA_HOSTS"] = "music.example.org"
+        try:
+            self.assertEqual(owner.get("/api/security/hosts").get_json()["data"]["refused"], [])
+        finally:
+            del type(self).extra["WEB_EXTRA_HOSTS"]
+
+    def test_the_domain_list_holds_names_only(self):
+        body = {"WEB_EXTRA_HOSTS": "Radio.Example ,  x.org radio.example"}
+        self.assertIsNone(ws._check_extra_hosts(body))
+        self.assertEqual(body["WEB_EXTRA_HOSTS"], "radio.example, x.org")
+        self.assertEqual(ws._check_extra_hosts({"WEB_EXTRA_HOSTS": "bad_name!"}), "bad_host_name")
+        self.assertIsNone(ws._check_extra_hosts({"WEB_EXTRA_HOSTS": ""}))
+
     def test_a_json_body_is_bounded(self):
         owner_body = "x" * (1024 * 1024 + 10)
         answer = self.owner().post("/api/mute", data=owner_body, content_type="application/json")

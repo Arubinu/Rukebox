@@ -525,6 +525,87 @@ Two consequences worth knowing before you look for a card:
   container keeps its music on its own disk (`/srv/rukebox/audio`), so it is
   writable and the pages stay.
 
+### Behind a reverse proxy, with a domain name and HTTPS
+
+A Docker or LXC Rukebox can be reached through a domain name and a
+certificate, which is also what the microphone of **voice dedications**
+needs. Two guards stand in the way by default, and both are there on
+purpose: they stop another website from pointing its own name at your radio
+and reading its interface (DNS rebinding).
+
+- **The name has to be allowed.** Open the interface by its local address
+  (its IP, or `rukebox.local`), then **System > Security > Access through a
+  domain name**: type the domain under **Allowed domain names**
+  (`network.web_extra_hosts`, comma-separated). Simpler still: open it once
+  under the domain - the page says the address is not allowed - then come
+  back by the local address, where the refused name waits under **Refused
+  recently** with an **Allow** button.
+- **Behind a reverse proxy** (`network.web_behind_proxy`, off by default):
+  turn it on when a proxy stands in front. The radio then trusts the
+  `X-Forwarded-Host`, `-Proto` and `-For` headers the proxy adds, so it sees
+  the domain the visitor typed (actions are refused otherwise when the proxy
+  rewrites the name) and the visitor's own address rather than the proxy's
+  (guest credits, bans, password attempts). Leave it off without a proxy:
+  anyone could then forge those headers. The domain list still applies.
+
+What the proxy needs, whatever it is:
+
+- forward the `X-Forwarded-*` headers (every proxy below does it by itself
+  except nginx, see its example);
+- **no buffering on `/stream`**, the network audio stream, or a player waits
+  for ever;
+- a long enough read timeout: the page keeps one request open for up to 20
+  seconds to hear about changes at once;
+- a body size large enough for music uploads (up to 512 MB a file).
+
+**nginx**
+
+```nginx
+location / {
+    proxy_pass http://192.168.1.20:80;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 60s;
+    client_max_body_size 512m;
+}
+location /stream {
+    proxy_pass http://192.168.1.20:80;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_buffering off;
+    proxy_read_timeout 1d;
+}
+```
+
+**Caddy**
+
+```caddy
+radio.example.com {
+    reverse_proxy 192.168.1.20:80 {
+        flush_interval -1
+    }
+}
+```
+
+**Traefik** (Docker labels on the Rukebox container)
+
+```yaml
+labels:
+  - traefik.enable=true
+  - traefik.http.routers.rukebox.rule=Host(`radio.example.com`)
+  - traefik.http.routers.rukebox.entrypoints=websecure
+  - traefik.http.routers.rukebox.tls.certresolver=letsencrypt
+  - traefik.http.services.rukebox.loadbalancer.server.port=80
+```
+
+**Nginx Proxy Manager**: a proxy host to the radio's address and port 80,
+**Websockets support** not needed, an SSL certificate, and in the
+*Advanced* tab `proxy_buffering off; client_max_body_size 512m;`.
+
 ## Running in an LXC container (Proxmox, or any host with lxc)
 
 The same installer that runs on a Pi takes a **container profile**, which

@@ -495,6 +495,22 @@ def _same_origin():
 
 
 _LOCAL_SUFFIXES = ("", ".local", ".lan", ".home", ".home.arpa", ".internal", ".localdomain")
+_HOST_NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$")
+# The names the API was recently asked under and refused: the owner allows one in a tap.
+_refused_hosts = {}
+REFUSED_HOSTS_KEEP_SEC = 24 * 3600
+
+
+def _note_refused_host(host):
+    name = (host or "").strip().lower().split(":", 1)[0]
+    if not _HOST_NAME_RE.match(name):
+        return
+    now = time.time()
+    _refused_hosts[name] = now
+    for old in [h for h, at in _refused_hosts.items() if now - at > REFUSED_HOSTS_KEEP_SEC]:
+        _refused_hosts.pop(old, None)
+    while len(_refused_hosts) > 10:
+        _refused_hosts.pop(min(_refused_hosts, key=_refused_hosts.get))
 
 
 def _known_host():
@@ -523,6 +539,7 @@ def _known_host():
 @app.before_request
 def _refuse_foreign_requests():
     if request.path.startswith("/api/") and not _known_host():
+        _note_refused_host(request.host)
         return jsonify({"ok": False, "error": "bad_host", "detail": request.host}), 403
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return None
@@ -3693,7 +3710,8 @@ def api_set_settings():
         return jsonify({"ok": False, "error": "no_data"}), 400
     if _SETTINGS_HIDDEN_KEYS & set(body):
         return jsonify({"ok": False, "error": "use_auth_endpoint"}), 400
-    bad = _check_github_repo(body) or _check_bt_adapters(body) or _check_gpio_pins(body)
+    bad = (_check_github_repo(body) or _check_extra_hosts(body) or _check_bt_adapters(body)
+           or _check_gpio_pins(body))
     if bad:
         return jsonify({"ok": False, "error": bad}), 400
     try:
@@ -3759,6 +3777,25 @@ def api_set_settings():
         "audio_reloaded": audio_reloaded,
     }})
 
+
+
+class _ForwardedHeaders:
+    """Trusts a reverse proxy's X-Forwarded-* headers, only while the settings say one is in front."""
+
+    def __init__(self, wsgi_app):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        self.plain = wsgi_app
+        self.fixed = ProxyFix(wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+    def __call__(self, environ, start_response):
+        try:
+            behind = bool(cfg().get("WEB_BEHIND_PROXY"))
+        except Exception:  # noqa: BLE001 - an unreadable config is no proxy
+            behind = False
+        return (self.fixed if behind else self.plain)(environ, start_response)
+
+
+app.wsgi_app = _ForwardedHeaders(app.wsgi_app)
 
 def _wled_memory(c):
     """What the daemon learned of each WLED's timezone, keyed by address."""
@@ -6969,6 +7006,31 @@ def _check_gpio_pins(updates):
     except (TypeError, ValueError):
         return None
     return "gpio_pin_taken" if button == reset else None
+
+
+def _check_extra_hosts(updates):
+    """Error code for a WEB_EXTRA_HOSTS that holds something other than host names, or None."""
+    value = updates.get("WEB_EXTRA_HOSTS")
+    if value is None:
+        return None
+    names = str(value).lower().replace(",", " ").split()
+    if any(not _HOST_NAME_RE.match(name.split(":", 1)[0]) for name in names):
+        return "bad_host_name"
+    updates["WEB_EXTRA_HOSTS"] = ", ".join(dict.fromkeys(names))
+    return None
+
+
+@app.route("/api/security/hosts")
+def api_security_hosts():
+    """The names the interface may be opened under, and the ones it refused lately."""
+    c = cfg()
+    allowed = str(c.get("WEB_EXTRA_HOSTS") or "").lower().replace(",", " ").split()
+    now = time.time()
+    refused = [{"host": h, "ago": round(now - at)} for h, at in sorted(_refused_hosts.items(), key=lambda i: -i[1])
+               if h not in allowed and now - at <= REFUSED_HOSTS_KEEP_SEC]
+    return jsonify({"ok": True, "data": {"allowed": allowed, "refused": refused,
+                                         "behind_proxy": bool(c.get("WEB_BEHIND_PROXY")),
+                                         "this_host": (request.host or "").split(":", 1)[0].lower()}})
 
 
 def _check_github_repo(updates):

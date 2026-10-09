@@ -2178,6 +2178,35 @@
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
             </div>
           </form>
+          <details class="subsection" id="domainSection">
+            <summary><span data-i18n="domain.section">Access through a domain name</span></summary>
+            <p class="hint help-text" data-i18n="domain.help" hidden>To reach the interface through a domain name, for instance behind a reverse proxy with an HTTPS certificate, list that name here: any other name pointing at the radio is refused, which is what stops another site from reading the interface.</p>
+            <form id="domainForm" class="settings-form">
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="extraHosts" data-i18n="domain.hosts">Allowed domain names</label>
+                  <p class="field-desc" id="extraHostsDesc" data-i18n="domain.hosts_desc">Separated by commas. Its address and rukebox.local always work.</p>
+                </div>
+                <input type="text" id="extraHosts" data-key="WEB_EXTRA_HOSTS" class="text-input" placeholder="radio.example.com"
+                       aria-describedby="extraHostsDesc" spellcheck="false" autocapitalize="off" autocomplete="off">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="behindProxy" data-i18n="domain.proxy">Behind a reverse proxy</label>
+                  <p class="field-desc" id="behindProxyDesc" data-i18n="domain.proxy_desc">Trusts the headers your proxy adds (X-Forwarded-*). Only with a proxy in front.</p>
+                </div>
+                <input type="checkbox" id="behindProxy" data-key="WEB_BEHIND_PROXY" class="switch-input" role="switch"
+                       aria-describedby="behindProxyDesc">
+              </div>
+              <div id="refusedHostsBox" hidden>
+                <p class="hint" data-i18n="domain.refused">Refused recently:</p>
+                <ul class="device-list" id="refusedHosts"></ul>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
           <details data-level="detail" class="subsection">
             <summary><span data-i18n="security.gpio_section">Forgot the password? (GPIO reset)</span></summary>
             <p class="hint help-text" data-i18n="security.gpio_hint" hidden>

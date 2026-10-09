@@ -785,6 +785,13 @@ SETTINGS = [
         "the interface.",
         "Other accepted host names",
     ),
+    Setting("WEB_BEHIND_PROXY", "network", "web_behind_proxy", "bool", "false",
+            "A reverse proxy (nginx, Caddy, Traefik...) stands in front of the\n"
+            "interface: its X-Forwarded-Host, -Proto and -For headers are\n"
+            "trusted, so the visitor's own address and the domain they typed are\n"
+            "the ones seen. Leave it off without a proxy: anyone could then forge\n"
+            "those headers.",
+            "Behind a reverse proxy"),
     Setting(
         "SETUP_HIDDEN", "network", "setup_hidden", "str", "",
         "Items of the web interface's \"To finish\" card that were set aside\n"
