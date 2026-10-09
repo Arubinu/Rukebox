@@ -4954,6 +4954,19 @@ function paintGame(g) {
   document.getElementById("gameLobby").hidden = !lobby;
   document.getElementById("gameStartForm").hidden = !g.owner;
   document.getElementById("gameVoiceForm").hidden = !g.owner;
+  const hall = g.hall || [];
+  document.getElementById("gameHallBox").hidden = !lobby || !hall.length;
+  document.getElementById("gameHallResetRow").hidden = !g.owner;
+  document.getElementById("gameHall").replaceChildren(...hall.map((h) => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = h.name;
+    const wins = document.createElement("span");
+    wins.className = "game-points";
+    wins.textContent = t(h.wins === 1 ? "game.wins_one" : "game.wins", { n: h.wins });
+    li.append(name, wins);
+    return li;
+  }));
   document.getElementById("gameWaiting").hidden = !!g.owner;
   if (g.owner && !gameOptionsFilled && g.round_choices) {
     gameOptionsFilled = true;
@@ -5045,6 +5058,12 @@ function paintGame(g) {
     li.classList.toggle("is-me", !!s.me);
     const name = document.createElement("span");
     name.textContent = s.name;
+    if (s.wins) {
+      const wins = document.createElement("span");
+      wins.className = "game-wins";
+      wins.textContent = t(s.wins === 1 ? "game.wins_one" : "game.wins", { n: s.wins });
+      name.append(wins);
+    }
     const points = document.createElement("span");
     points.className = "game-points";
     points.textContent = t(s.points === 1 ? "game.points_one" : "game.points", { n: s.points });
@@ -5071,6 +5090,14 @@ document.getElementById("gameCoverGo").addEventListener("click", () => setActive
     if (!r.ok) showError(r.error, t("game.title"));
     refreshGame();
   });
+});
+document.getElementById("gameHallReset").addEventListener("click", async () => {
+  const sure = await showConfirm(t("game.hall_reset_confirm"), t("game.hall_reset"));
+  if (!sure) return;
+  const r = await apiDelete("/api/game/hall");
+  if (!r.ok) showToolError(t("common.failed"), r);
+  else showToast(t("game.hall_reset_done"));
+  refreshGame();
 });
 document.getElementById("gameGoBtn").addEventListener("click", async () => {
   await apiPost("/api/game/go", {});
@@ -9143,7 +9170,7 @@ function formatBytes(n) {
 const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shutdown",
   "clock_ready", "clock_unreliable", "clock_manual_set", "timezone_set", "click", "track_played",
   "meme_played", "announce_played", "playback_error", "playback_stalled",
-  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "skip_voted", "game_started", "game_over", "card_read", "card_saved", "folder_played", "ap_client_connected",
+  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "skip_voted", "game_started", "game_over", "game_hall_reset", "card_read", "card_saved", "folder_played", "ap_client_connected",
   "ap_client_disconnected", "web_session", "music_started", "music_list_stopped",
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",

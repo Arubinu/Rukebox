@@ -623,7 +623,7 @@ schedule:
   dj_announce_mode: "spoken"
 
   # The blind test says out loud when it begins and when it ends (with
-  # the winner).
+  # the podium, from the third place up).
   game_voice_start_stop: false
 
   # After each round, the blind test says who found the song. A name

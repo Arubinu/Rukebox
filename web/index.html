@@ -282,12 +282,19 @@
             </div>
           </div>
           <ol class="device-list game-scores" id="gameScores"></ol>
+          <div class="game-hall" id="gameHallBox" hidden>
+            <h3 class="game-voice-title" data-i18n="game.hall">Hall of fame</h3>
+            <ol class="device-list game-scores" id="gameHall"></ol>
+            <div class="form-actions" id="gameHallResetRow" hidden>
+              <button type="button" class="btn btn-danger-outline" id="gameHallReset" data-icon="trash" data-i18n="game.hall_reset">Start the hall of fame over</button>
+            </div>
+          </div>
           <form id="gameVoiceForm" class="settings-form" hidden>
             <h3 class="game-voice-title" data-i18n="game.voice_title">Voice</h3>
             <div class="field-row">
               <div class="field-text">
                 <label for="gameVoiceStartStop" data-i18n="game.voice_start_stop">Say the start and the end</label>
-                <p class="field-desc" id="gameVoiceStartStopDesc" data-i18n="game.voice_start_stop_desc">Out loud, with the winner at the end.</p>
+                <p class="field-desc" id="gameVoiceStartStopDesc" data-i18n="game.voice_start_stop_desc">Out loud, with the podium at the end.</p>
               </div>
               <input type="checkbox" id="gameVoiceStartStop" data-key="GAME_VOICE_START_STOP" class="switch-input" role="switch"
                      aria-describedby="gameVoiceStartStopDesc">

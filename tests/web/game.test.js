@@ -61,3 +61,22 @@ test("before the first round everyone chooses to play or watch, the host may sta
   await until(() => page.sent("POST", "/api/game/go").length);
   await page.close();
 });
+
+test("the hall of fame counts the wins, and a player's wins show by their score", async () => {
+  const lobby = { state: "none", owner: true, round_choices: [5], second_choices: [10],
+                  hall: [{ name: "Owl", wins: 4 }, { name: "Fox", wins: 1 }] };
+  const page = load({ hash: "#home/game", routes: { "GET /api/status": STATUS, "GET /api/game": lobby } });
+  await until(() => !page.$("gameHallBox").hidden);
+  const rows = [...page.document.querySelectorAll("#gameHall li")].map((li) => li.textContent);
+  assert.deepEqual(rows, ["Owl4 wins", "Fox1 win"]);
+  assert.equal(page.$("gameHallResetRow").hidden, false, "the host may start it over");
+  await page.close();
+
+  const playing = Object.assign({}, PLAYING, { role: "player", hall: lobby.hall,
+    scores: [{ name: "Owl", points: 3, me: false, wins: 4 }] });
+  const game = load({ hash: "#home/game", routes: { "GET /api/status": STATUS, "GET /api/game": playing } });
+  await until(() => game.document.querySelector("#gameScores .game-wins"));
+  assert.equal(game.document.querySelector("#gameScores .game-wins").textContent, "4 wins");
+  assert.equal(game.$("gameHallBox").hidden, true, "the hall waits for the lobby");
+  await game.close();
+});

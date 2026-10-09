@@ -211,26 +211,50 @@ GAME_WORDS = {
     "nobody": {"en": "Nobody found it.", "fr": "Personne n'a trouvé.", "de": "Niemand hat es erraten.",
                "es": "Nadie lo ha adivinado.", "it": "Nessuno l'ha indovinato.", "nl": "Niemand had het goed."},
     "and": {"en": "and", "fr": "et", "de": "und", "es": "y", "it": "e", "nl": "en"},
+    "place3": {"en": "Third place:", "fr": "Troisième place :", "de": "Dritter Platz:", "es": "Tercer puesto:",
+               "it": "Terzo posto:", "nl": "Derde plaats:"},
+    "place2": {"en": "Second place:", "fr": "Deuxième place :", "de": "Zweiter Platz:", "es": "Segundo puesto:",
+               "it": "Secondo posto:", "nl": "Tweede plaats:"},
+    "place1": {"en": "And first place:", "fr": "Et la première place :", "de": "Und der erste Platz:",
+               "es": "Y el primer puesto:", "it": "E il primo posto:", "nl": "En de eerste plaats:"},
+    "with": {"en": "with", "fr": "avec", "de": "mit", "es": "con", "it": "con", "nl": "met"},
+    "point": {"en": "point", "fr": "point", "de": "Punkt", "es": "punto", "it": "punto", "nl": "punt"},
+    "points": {"en": "points", "fr": "points", "de": "Punkten", "es": "puntos", "it": "punti", "nl": "punten"},
 }
 
 
 def game_parts(kind, people, lang):
     """What the blind test says, as parts: {"text"} and {"name", "person"} (said by the person's
     own recording when there is one). kind: start, round (people = the right answers, fastest
-    first) or end (people = the winners)."""
+    first) or podium (people = game.podium())."""
     lang = language(lang)
     words = {key: value[lang] for key, value in GAME_WORDS.items()}
-    named = []
-    for i, one in enumerate(people or []):
-        if i:
-            named.append({"text": words["and"] if i == len(people) - 1 else ","})
-        named.append({"name": clean_text(one.get("name"), 40) or "?", "person": one.get("person")})
+
+    def names(group):
+        out = []
+        for i, one in enumerate(group or []):
+            if i:
+                out.append({"text": words["and"] if i == len(group) - 1 else ","})
+            out.append({"name": clean_text(one.get("name"), 40) or "?", "person": one.get("person")})
+        return out
+
+    named = names(people)
+    if kind == "podium":
+        # people: the places, first place first; said from the last one up, for the suspense.
+        said = [{"text": words["end"]}]
+        places = list(people or [])
+        for rank in range(len(places), 0, -1):
+            place = places[rank - 1]
+            lead = words["winner"] if len(places) == 1 else words["place%d" % rank]
+            n = int(place.get("points") or 0)
+            said += [{"text": lead}] + names(place.get("people")) + [
+                {"text": ", %s %d %s%s" % (words["with"], n, words["point" if n == 1 else "points"],
+                                           "!" if rank == 1 else ".")}]
+        return said
     if kind == "start":
         return [{"text": words["start"]}]
     if kind == "round":
         return [{"text": words["right"]}] + named + [{"text": "."}] if named else [{"text": words["nobody"]}]
-    if kind == "end":
-        return [{"text": words["end"]}] + ([{"text": words["winner"]}] + named + [{"text": "!"}] if named else [])
     return []
 
 

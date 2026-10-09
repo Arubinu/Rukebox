@@ -2866,8 +2866,9 @@ def _devices_linked(box, device_id, to_id, by):
     person = box.link(device_id, to_id)
     try:
         name_voice.carry(cfg()["STATE_DIR"], was, person)
+        blind_test.carry_wins(_game_wins_file(), was, person)
     except OSError:
-        log.warning("Could not keep the name recording", exc_info=True)
+        log.warning("Could not keep the name recording or the wins", exc_info=True)
     with _quota_lock:
         _quota_load(time.time())
         if _quota.pop(was, None) is not None:
@@ -2972,8 +2973,10 @@ def _unlink_device(box, device, by):
     try:
         for person in {device["id"], box.person_id(others[0])}:
             name_voice.carry(cfg()["STATE_DIR"], was, person, keep=True)
+        # The wins stay with the devices that remain together; the one leaving starts at none.
+        blind_test.carry_wins(_game_wins_file(), was, box.person_id(others[0]))
     except OSError:
-        log.warning("Could not keep the name recording", exc_info=True)
+        log.warning("Could not keep the name recording or the wins", exc_info=True)
     with _quota_lock:
         _quota_load(time.time())
         entry = _quota.get(was)
@@ -3306,8 +3309,13 @@ def _game_run(game):
             spoken = _game_say(game, "round", game.right_people()) if not game.stopped else 0
             _game_wait(game, max(blind_test.REVEAL_SEC, spoken + 0.5))
         game.finish()
+        if not game.stopped:
+            try:
+                blind_test.record_wins(_game_wins_file(), game.winners())
+            except OSError:
+                log.exception("Could not keep the blind test's winners")
         # The end is said even after Stop: the radio goes back to its music after it.
-        _game_wait(game, _game_say(game, "end", game.winners()) + 0.3, stop_counts=False)
+        _game_wait(game, _game_say(game, "podium", game.podium()) + 0.3, stop_counts=False)
         best = game.view(None)["scores"][:1]
         stats.record("game_over", label=best[0]["name"] if best else "-",
                      detail={"rounds": game.round, "players": len(game.scores)})
@@ -3318,16 +3326,47 @@ def _game_run(game):
         control("game_end")
 
 
+def _game_wins_file():
+    return os.path.join(cfg()["STATE_DIR"], "game_wins.json")
+
+
+GAME_HALL_SIZE = 10
+
+
+def _game_hall(won):
+    """The most wins first, named as their device is now."""
+    box = _suggestion_box()
+    hall = []
+    for person, entry in won.items():
+        device = box.device_by_id(person) or {}
+        if entry.get("wins"):
+            hall.append({"name": device.get("name") or entry.get("name") or "?", "wins": int(entry["wins"])})
+    hall.sort(key=lambda h: (-h["wins"], h["name"].casefold()))
+    return hall[:GAME_HALL_SIZE]
+
+
 @app.route("/api/game")
 def api_game():
     person, name = _game_player()
     game = _game
+    won = blind_test.wins(_game_wins_file())
     options = {"owner": _is_owner(), "round_choices": list(blind_test.ROUNDS),
-               "second_choices": list(blind_test.CLIP_SECONDS)}
+               "second_choices": list(blind_test.CLIP_SECONDS), "hall": _game_hall(won)}
     if game is None or (game.state == "over" and time.monotonic() - game.ended_at > GAME_KEPT_SEC):
         return jsonify({"ok": True, "data": dict(options, state="none")})
     game.seen(person, name)
-    return jsonify({"ok": True, "data": dict(game.view(person), **options)})
+    wins = {p: int(e.get("wins") or 0) for p, e in won.items()}
+    return jsonify({"ok": True, "data": dict(game.view(person, wins=wins), **options)})
+
+
+@app.route("/api/game/hall", methods=["DELETE"])
+def api_game_hall_reset():
+    """The owner starts the wins over."""
+    path = _game_wins_file()
+    with json_file.lock(path):
+        json_file.write(path, {"people": {}})
+    stats.record("game_hall_reset")
+    return jsonify({"ok": True})
 
 
 @app.route("/api/game/start", methods=["POST"])

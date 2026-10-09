@@ -1619,6 +1619,7 @@ body.lyrics-fullscreen { overflow: hidden; }
 .name-voice-box audio { width: 100%; }
 .game-scores li { display: flex; justify-content: space-between; gap: 12px; }
 .game-scores li.is-me { font-weight: 600; }
+.game-wins { margin-left: 8px; font-size: 13px; font-weight: 500; color: var(--text-muted); }
 .game-points { font-variant-numeric: tabular-nums; }
 .cards-empty { text-align: center; }
 .recap-heading { font-size: 1rem; margin: 20px 0 8px; }

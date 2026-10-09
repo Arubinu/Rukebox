@@ -2012,6 +2012,11 @@ out; the owner may **Start now**. Nobody playing at the end of the wait
 cancels the game. Someone arriving later, or a spectator changing their
 mind, can still join in; only players answer and appear in the scores.
 
+The **Hall of fame** under the game counts the games each person won, for
+good (`game_wins.json` in the state folder): a game played to its end gives
+a win to its first place, to each of them on a tie; a game stopped early
+gives none. Linked devices add their wins up. The owner can start it over.
+
 Every extract fades in and out with the interactive fade
 (`fades.interactive_sec`), and so does the music when it comes back. While a
 game plays, the player's frame is blurred (the cover and the title could give
@@ -2022,8 +2027,8 @@ volume, mute, standby and switching off still work.
 
 Two switches on the game page (the owner's only) make the radio speak, in the
 spoken language (`schedule.speech_language`): **Say the start and the end**
-(`schedule.game_voice_start_stop`, with the winner at the end, after Stop
-too) and **Say who found it** (`schedule.game_voice_winners`, after each
+(`schedule.game_voice_start_stop`; the end is the podium, from the third
+place up with each one's points, after Stop too) and **Say who found it** (`schedule.game_voice_winners`, after each
 round, fastest first). A name is said by the synthetic voice, or by its
 owner's own recording: **My voice** next to the name in the suggestion box
 records it with the microphone (the browser needs an https address for it),

@@ -5,6 +5,7 @@ import random
 import threading
 import time
 
+import json_file
 import library
 
 CHOICES = 4
@@ -170,6 +171,17 @@ class Game:
                     for p, pts in sorted(self.scores.items(), key=lambda kv: self.names.get(kv[0]) or "")
                     if best > 0 and pts == best]
 
+    def podium(self):
+        """Up to three places, by points (several people share a place on a tie), first place
+        first: [{"points", "people": [{"person", "name"}]}]. Nobody without a point."""
+        with self._lock:
+            levels = sorted({pts for pts in self.scores.values() if pts > 0}, reverse=True)[:3]
+            return [{"points": level,
+                     "people": [{"person": p, "name": self.names.get(p)}
+                                for p, pts in sorted(self.scores.items(), key=lambda kv: self.names.get(kv[0]) or "")
+                                if pts == level]}
+                    for level in levels]
+
     def finish(self, error=None):
         with self._lock:
             self.state = "over"
@@ -180,8 +192,8 @@ class Game:
         with self._lock:
             self.stopped = True
 
-    def view(self, person, now=None):
-        """What `person` may see: never the answer before the reveal."""
+    def view(self, person, now=None, wins=None):
+        """What `person` may see: never the answer before the reveal. `wins`: games won, by person."""
         now = now if now is not None else time.monotonic()
         with self._lock:
             mine = self.answers.get(person)
@@ -201,7 +213,8 @@ class Game:
                 "mine": mine[0] if mine else None,
                 "choices": self.question["choices"] if self.question else [],
                 "remaining": None,
-                "scores": sorted(({"name": self.names.get(p) or "?", "points": pts, "me": p == person}
+                "scores": sorted(({"name": self.names.get(p) or "?", "points": pts, "me": p == person,
+                                   "wins": (wins or {}).get(p, 0)}
                                   for p, pts in self.scores.items()),
                                  key=lambda s: (-s["points"], s["name"])),
             }
@@ -212,3 +225,37 @@ class Game:
                 out["gain"] = self.reveal["gains"].get(person)
                 out["fastest"] = self.names.get(self.reveal["fastest"]) if self.reveal["fastest"] else None
             return out
+
+
+def wins(path):
+    """{person: {"wins", "name"}} of every game won, kept for good."""
+    doc = json_file.read(path) or {}
+    people = doc.get("people")
+    return people if isinstance(people, dict) else {}
+
+
+def record_wins(path, people):
+    """One more win for each of `people` ([{"person", "name"}])."""
+    if not people:
+        return
+    with json_file.lock(path):
+        everyone = wins(path)
+        for one in people:
+            entry = everyone.setdefault(str(one["person"]), {"wins": 0, "name": None})
+            entry["wins"] = int(entry.get("wins") or 0) + 1
+            entry["name"] = one.get("name") or entry.get("name")
+        json_file.write(path, {"people": everyone})
+
+
+def carry_wins(path, was, now):
+    """Linking two devices adds up their wins under the person that stays."""
+    if not was or not now or was == now:
+        return
+    with json_file.lock(path):
+        everyone = wins(path)
+        gone = everyone.pop(str(was), None)
+        if not gone:
+            return
+        entry = everyone.setdefault(str(now), {"wins": 0, "name": gone.get("name")})
+        entry["wins"] = int(entry.get("wins") or 0) + int(gone.get("wins") or 0)
+        json_file.write(path, {"people": everyone})

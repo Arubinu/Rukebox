@@ -135,8 +135,42 @@ class GameSpeechTest(unittest.TestCase):
                          ["Right answer from", "Ana", ",", "Bo", "and", "Cy", "."])
         self.assertEqual(parts[1]["person"], "a", "a name keeps who it is, for that person's recording")
         self.assertEqual(speech.game_parts("round", [], "fr"), [{"text": "Personne n'a trouvé."}])
-        self.assertEqual([p.get("text") or p["name"] for p in speech.game_parts("end", [{"name": "Ana"}], "fr")],
-                         ["Le blind test est terminé.", "Bravo à", "Ana", "!"])
+
+    def test_the_podium_is_said_from_the_third_place_up(self):
+        podium = [{"points": 12, "people": [{"name": "Ana", "person": "a"}]},
+                  {"points": 7, "people": [{"name": "Bo"}, {"name": "Cy"}]},
+                  {"points": 1, "people": [{"name": "Di"}]}]
+        said = [p.get("text") or p["name"] for p in speech.game_parts("podium", podium, "fr")]
+        self.assertEqual(said, ["Le blind test est terminé.",
+                                "Troisième place :", "Di", ", avec 1 point.",
+                                "Deuxième place :", "Bo", "et", "Cy", ", avec 7 points.",
+                                "Et la première place :", "Ana", ", avec 12 points!"])
+        alone = [p.get("text") or p["name"] for p in speech.game_parts("podium", podium[:1], "fr")]
+        self.assertEqual(alone, ["Le blind test est terminé.", "Bravo à", "Ana", ", avec 12 points!"])
+        self.assertEqual(speech.game_parts("podium", [], "en"), [{"text": "The blind test is over."}])
+
+
+class WinsTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.path = os.path.join(self.dir, "game_wins.json")
+
+    def test_the_podium_ranks_by_points_and_skips_nobody_with_none(self):
+        game = blind_test.Game(tracks(), rounds=3, now=0)
+        for person, points in (("a", 5), ("b", 5), ("c", 3), ("d", 2), ("e", 1), ("f", 0)):
+            game.join(person, person.upper(), True)
+            game.scores[person] = points
+        podium = game.podium()
+        self.assertEqual([(p["points"], [x["name"] for x in p["people"]]) for p in podium],
+                         [(5, ["A", "B"]), (3, ["C"]), (2, ["D"])])
+
+    def test_wins_are_kept_and_follow_linked_devices(self):
+        blind_test.record_wins(self.path, [{"person": "a", "name": "Ana"}])
+        blind_test.record_wins(self.path, [{"person": "a", "name": "Ana"}, {"person": "b", "name": "Bo"}])
+        self.assertEqual({p: e["wins"] for p, e in blind_test.wins(self.path).items()}, {"a": 2, "b": 1})
+        blind_test.carry_wins(self.path, "b", "a")
+        self.assertEqual({p: e["wins"] for p, e in blind_test.wins(self.path).items()}, {"a": 3})
 
 
 class DaemonGameTest(DaemonCase):
