@@ -5027,6 +5027,13 @@ function paintGame(g) {
     step.className = "podium-step";
     step.setAttribute("aria-hidden", "true");
     step.textContent = String(i + 1);
+    if (i === 0) {
+      const crown = document.createElement("span");
+      crown.className = "podium-crown";
+      crown.dataset.icon = "crown";
+      crown.setAttribute("aria-hidden", "true");
+      li.append(crown);
+    }
     li.append(names, points, step);
     return li;
   }));

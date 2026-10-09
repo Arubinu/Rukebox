@@ -144,6 +144,7 @@
   --i-scan-barcode: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 7V5a2 2 0 0 1 2-2h2%22/%3E%3Cpath d=%22M17 3h2a2 2 0 0 1 2 2v2%22/%3E%3Cpath d=%22M21 17v2a2 2 0 0 1-2 2h-2%22/%3E%3Cpath d=%22M7 21H5a2 2 0 0 1-2-2v-2%22/%3E%3Cpath d=%22M8 7v10%22/%3E%3Cpath d=%22M12 7v10%22/%3E%3Cpath d=%22M17 7v10%22/%3E%3C/svg%3E");
   --i-award: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%228%22 r=%226%22/%3E%3Cpath d=%22M15.477 12.89 17 22l-5-3-5 3 1.523-9.11%22/%3E%3C/svg%3E");
   --i-trophy: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 9H4.5a2.5 2.5 0 0 1 0-5H6%22/%3E%3Cpath d=%22M18 9h1.5a2.5 2.5 0 0 0 0-5H18%22/%3E%3Cpath d=%22M4 22h16%22/%3E%3Cpath d=%22M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22%22/%3E%3Cpath d=%22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22%22/%3E%3Cpath d=%22M18 2H6v7a6 6 0 0 0 12 0V2Z%22/%3E%3C/svg%3E");
+  --i-crown: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z%22/%3E%3Cpath d=%22M5 21h14%22/%3E%3C/svg%3E");
   --i-users: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2%22/%3E%3Ccircle cx=%229%22 cy=%227%22 r=%224%22/%3E%3Cpath d=%22M22 21v-2a4 4 0 0 0-3-3.87%22/%3E%3Cpath d=%22M16 3.13a4 4 0 0 1 0 7.75%22/%3E%3C/svg%3E");
   --i-battery: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect width=%2216%22 height=%2210%22 x=%222%22 y=%227%22 rx=%222%22 ry=%222%22/%3E%3Cline x1=%2222%22 x2=%2222%22 y1=%2211%22 y2=%2213%22/%3E%3C/svg%3E");
   --i-lock: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect width=%2218%22 height=%2211%22 x=%223%22 y=%2211%22 rx=%222%22 ry=%222%22/%3E%3Cpath d=%22M7 11V7a5 5 0 0 1 10 0v4%22/%3E%3C/svg%3E");
@@ -251,6 +252,7 @@
 [data-icon="battery"] { --icon: var(--i-battery); }
 [data-icon="users"] { --icon: var(--i-users); }
 [data-icon="trophy"] { --icon: var(--i-trophy); }
+[data-icon="crown"] { --icon: var(--i-crown); }
 [data-icon="award"] { --icon: var(--i-award); }
 [data-icon="scan-barcode"] { --icon: var(--i-scan-barcode); }
 [data-icon="clock"] { --icon: var(--i-clock); }
@@ -1635,6 +1637,8 @@ body.lyrics-fullscreen { overflow: hidden; }
 .podium-place[data-place="1"] { grid-column: 2; }
 .podium-place[data-place="2"] { grid-column: 1; grid-row: 1; }
 .podium-place[data-place="3"] { grid-column: 3; grid-row: 1; }
+.podium-crown { color: #e0ac1c; font-size: 30px; line-height: 1; }
+.podium-crown::before { width: 1em; height: 1em; }
 .podium-names { font-weight: 700; font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
 .podium-place[data-place="1"] .podium-names { font-size: 16px; }
 .podium-points { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
