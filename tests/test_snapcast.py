@@ -42,7 +42,8 @@ class SnapcastTest(unittest.TestCase):
 
         def run(args, **kw):
             calls.append(args)
-            out = "31\tmodule-pipe-sink\tfile=x sink_name=rukebox_snapcast\n" if len(calls) > 2 else ""
+            out = ("31\tmodule-pipe-sink\tfile=x sink_name=rukebox_snapcast sink_properties='%s'\n"
+                   % snapcast.SINK_PROPERTIES) if len(calls) > 3 else ""
             return mock.Mock(stdout=out, returncode=0, stderr="")
 
         with mock.patch.object(snapcast.subprocess, "run", side_effect=run):
@@ -52,6 +53,14 @@ class SnapcastTest(unittest.TestCase):
         self.assertEqual(len(loads), 1)
         self.assertIn("sink_name=rukebox_snapcast", loads[0])
         self.assertIn("file=%s" % snapcast.fifo(self.dir), loads[0])
+
+    def test_a_sink_loaded_by_an_older_radio_is_loaded_again(self):
+        old = mock.Mock(stdout="31\tmodule-pipe-sink\tfile=x sink_name=rukebox_snapcast\n", returncode=0, stderr="")
+        with mock.patch.object(snapcast.subprocess, "run", return_value=old) as run:
+            snapcast.load_sink(self.dir, {})
+        commands = [c[0][0][:2] for c in run.call_args_list]
+        self.assertIn(["pactl", "unload-module"], commands, "one that may fall asleep is replaced")
+        self.assertIn(["pactl", "load-module"], commands)
 
     def test_clients_connected_first_with_their_volume(self):
         found = snapcast.clients(STATUS)

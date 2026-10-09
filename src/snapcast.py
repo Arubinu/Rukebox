@@ -18,6 +18,9 @@ SAMPLE_FORMAT = "48000:16:2"
 BUFFER_MS = 1000
 HTTP_PORT = 1780
 SNAPWEB = "/usr/share/snapserver/snapweb"
+# Never suspended: silence keeps flowing through a pause or a song change, so the clients
+# stay in step instead of running dry and catching up again.
+SINK_PROPERTIES = "device.description=Snapcast node.always-process=true session.suspend-timeout-seconds=0"
 
 
 def available():
@@ -122,23 +125,27 @@ def _modules(env):
     return [line.split("\t") for line in out.splitlines() if "\t" in line]
 
 
-def sink_module(env):
-    """The id of the pipe sink's module, or None when it is not loaded."""
+def sink_module(env, current=False):
+    """The id of the pipe sink's module, or None when it is not loaded (with `current`, also
+    when it was loaded without today's properties)."""
     for parts in _modules(env):
         if len(parts) >= 3 and parts[1] == "module-pipe-sink" and "sink_name=%s" % SINK in parts[2]:
+            if current and "node.always-process" not in parts[2]:
+                return None
             return parts[0]
     return None
 
 
 def load_sink(state_dir, env):
     """The PipeWire sink whose sound goes into snapserver's pipe."""
-    if sink_module(env):
+    if sink_module(env, current=True):
         return True
+    unload_sink(env)
     os.makedirs(folder(state_dir), exist_ok=True)
     rate, bits, channels = SAMPLE_FORMAT.split(":")
     args = ["pactl", "load-module", "module-pipe-sink", "file=%s" % fifo(state_dir), "sink_name=%s" % SINK,
             "format=s%sle" % bits, "rate=%s" % rate, "channels=%s" % channels,
-            "sink_properties=device.description=Snapcast"]
+            "sink_properties='%s'" % SINK_PROPERTIES]
     try:
         done = subprocess.run(args, capture_output=True, text=True, timeout=10, env=env)
     except (OSError, subprocess.SubprocessError):
