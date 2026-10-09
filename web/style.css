@@ -3863,6 +3863,7 @@ body[data-access="guest"] .toast-stack { bottom: calc(20px + env(safe-area-inset
 
 .toast-detail {
   margin-top: 2px;
+  white-space: pre-line;
   font-size: 14px;
   line-height: 1.4;
   opacity: 0.82;
