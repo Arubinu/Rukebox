@@ -556,6 +556,19 @@ buttons:
   # rather than a click.
   gpio_button_long_press_sec: 1.5
 
+  # Bluetooth remotes used as a button (selfie shutters, media remotes),
+  # by address, separated by commas. Any key of a remote is one press,
+  # read as a single, double or long press like the Flic button. Pair it
+  # in the Bluetooth card, then "Use as a remote".
+  bt_buttons: ""
+
+  # How long to wait after a press of a remote for a second one.
+  bt_button_double_click_window_sec: 0.4
+
+  # How long a remote's key must be held for a long press. Many remotes
+  # only send a short press, whatever the finger does.
+  bt_button_long_press_sec: 1.0
+
   # What a long press does: poweroff (fade out, then the Pi switches
   # off) or standby (fade out, the Pi stays on, waiting like at
   # startup - a click or the start mode brings the music back).

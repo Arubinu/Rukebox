@@ -13,7 +13,6 @@ from control_client import send_control_command  # noqa: E402
 from config_and_scan import load_config  # noqa: E402
 from gpio_reset import is_raspberry_pi, pinctrl_available, pin_is_grounded  # noqa: E402
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [gpio_click] %(message)s")
 log = logging.getLogger("gpio_click")
 
 CONTROL_SOCKET = os.environ.get("CONTROL_SOCKET", "/tmp/rukebox_control.sock")
@@ -30,7 +29,7 @@ class ButtonWatcher:
     / double_click / long_press commands."""
 
     def __init__(self, debounce_sec, double_click_window_sec, long_press_sec,
-                 timer=threading.Timer, clock=time.monotonic):
+                 timer=threading.Timer, clock=time.monotonic, send=None):
         # The timer and the clock are arguments so that a test can own the time.
         self._timer = timer
         self._clock = clock
@@ -44,6 +43,10 @@ class ButtonWatcher:
         self._double_click_timer = None
         self._long_press_fired = False
         self._click_count = 0
+        self._send = send
+
+    def _emit(self, cmd):
+        (self._send or send_command)(cmd)
 
     def on_change(self, grounded):
         now = self._clock()
@@ -85,7 +88,7 @@ class ButtonWatcher:
             self._double_click_timer = None
             self._click_count = 0
             log.info("Double click detected -> double_click")
-            send_command("double_click")
+            self._emit("double_click")
 
     def _on_long_press(self):
         with self._lock:
@@ -94,14 +97,14 @@ class ButtonWatcher:
             self._long_press_fired = True
             self._click_count = 0
         log.info("Long press detected -> long_press")
-        send_command("long_press")
+        self._emit("long_press")
 
     def _on_single_click_confirmed(self):
         with self._lock:
             self._click_count = 0
             self._double_click_timer = None
         log.info("Single click detected -> single_click")
-        send_command("single_click")
+        self._emit("single_click")
 
 
 def watch_forever(pin, watcher):
@@ -130,6 +133,7 @@ def watch_forever(pin, watcher):
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [gpio_click] %(message)s")
     cfg = load_config()
 
     if not is_raspberry_pi():

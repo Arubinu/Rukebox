@@ -884,6 +884,20 @@ class WebTest(unittest.TestCase):
         self.assertIn("pair 7C:E9:13:69:66:55", seen["commands"])
         self.assertIsInstance(seen["commands"][1], float, "the scan needs a moment first")
 
+    def test_a_paired_device_becomes_a_remote(self):
+        paired = {"value": False}
+        commands, written = [], []
+        info = lambda mac: {"paired": paired["value"], "connected": False, "name": "AB Shutter3"}
+        with unittest.mock.patch.object(ws, "_bt_device_info", info),                 unittest.mock.patch.object(ws, "_bt_script", lambda c, **kw: commands.extend(c)),                 unittest.mock.patch.object(ws, "update_config_file", written.append):
+            owner = self.owner()
+            answer = owner.post("/api/bluetooth/remote", json={"mac": "2a:07:98:10:34:ff"})
+            self.assertEqual(answer.get_json()["error"], "bt_remote_not_paired")
+            paired["value"] = True
+            answer = owner.post("/api/bluetooth/remote", json={"mac": "2a:07:98:10:34:ff"})
+        self.assertTrue(answer.get_json()["ok"], answer.get_json())
+        self.assertEqual(written[-1], {"BT_BUTTONS": "2A:07:98:10:34:FF"})
+        self.assertIn("trust 2A:07:98:10:34:FF", commands)
+
     def test_a_number_in_the_commands_is_a_pause(self):
         with unittest.mock.patch.object(ws.subprocess, "Popen", FakeBluetoothctl):
             verdict = ws._bt_await(["scan on", 0.05, "pair AA:BB:CC:DD:EE:FF"],

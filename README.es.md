@@ -21,7 +21,7 @@ cualquier móvil conectado al Wi-Fi de la Pi.
 - **Tus anuncios**: un mensaje de buenos días, un jingle entre canciones,
   un recordatorio cada hora... cada uno con su horario, e incluso «una vez
   de cada dos» para dar una pequeña sorpresa.
-- **Con un botón basta**: un botón Flic, un pulsador conectado a la Pi, los
+- **Con un botón basta**: un botón Flic, un mando Bluetooth, un pulsador conectado a la Pi, los
   botones del altavoz o las teclas de los auriculares de una tarjeta de
   sonido USB - siguiente, anterior, pausa, repetición, volumen,
   temporizador, reposo.

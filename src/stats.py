@@ -81,7 +81,7 @@ KNOWN_COUNTERS = [
     "seconds_music", "seconds_meme", "seconds_announce",
     "tracks_played", "memes_played", "announcements_played",
     "clicks_single", "clicks_double", "clicks_long", "clicks_speaker",
-    "clicks_flic", "clicks_gpio", "clicks_web", "clicks_ignored",
+    "clicks_flic", "clicks_gpio", "clicks_web", "clicks_remote", "clicks_ignored",
     "playback_errors", "playback_stalls",
     "speaker_drops", "speaker_recoveries",
     "ap_client_connections", "web_sessions",

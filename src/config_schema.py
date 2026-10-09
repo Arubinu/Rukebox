@@ -618,6 +618,26 @@ SETTINGS = [
         "rather than a click.",
         "GPIO button long-press duration (sec)",
     ),
+    Setting(
+        "BT_BUTTONS", "buttons", "bt_buttons", "str", "",
+        "Bluetooth remotes used as a button (selfie shutters, media remotes),\n"
+        "by address, separated by commas. Any key of a remote is one press,\n"
+        "read as a single, double or long press like the Flic button. Pair it\n"
+        "in the Bluetooth card, then \"Use as a remote\".",
+        "Bluetooth remotes",
+    ),
+    Setting(
+        "BT_BUTTON_DOUBLE_CLICK_WINDOW_SEC", "buttons", "bt_button_double_click_window_sec",
+        "float", "0.4",
+        "How long to wait after a press of a remote for a second one.",
+        "Remote double-click window (sec)",
+    ),
+    Setting(
+        "BT_BUTTON_LONG_PRESS_SEC", "buttons", "bt_button_long_press_sec", "float", "1.0",
+        "How long a remote's key must be held for a long press. Many remotes\n"
+        "only send a short press, whatever the finger does.",
+        "Remote long press (sec)",
+    ),
 
     Setting("CUTOFF_ENABLED", "schedule", "cutoff_enabled", "bool", "true",
             "Whether the day ends with a cutoff at all. Off, nothing stops the\n"

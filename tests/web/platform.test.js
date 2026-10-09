@@ -64,8 +64,10 @@ test("a container is offered none of what it cannot do", async (t) => {
   await until(() => page.document.body.dataset.caps !== undefined);
   const rows = rowsOf(page.document);
   assert.ok(rows.length >= 4, "the rows carry data-needs: " + rows.length);
-  assert.deepEqual(rows.filter((row) => !row.hidden), [],
-                   "every row that needs a capability is closed");
+  const lacking = (row) => row.needs.split(" ").some((need) => DOCKER[need] === false);
+  assert.deepEqual(rows.filter((row) => !row.hidden && lacking(row)), [],
+                   "every row that needs a missing capability is closed");
+  assert.ok(rows.some((row) => !row.hidden), "a row whose capability is there stays open");
   for (const need of ["gpio", "set_clock", "usb_gadget"]) {
     assert.ok(rows.some((row) => row.needs === need), "a row asks for " + need);
   }

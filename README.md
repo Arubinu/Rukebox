@@ -21,7 +21,7 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
 - **Your announcements**: a morning message, a jingle between songs, a
   reminder every hour... each on its own schedule, and even "one time out
   of two" for a little surprise.
-- **One button is enough**: a Flic button, a push-button wired to the Pi,
+- **One button is enough**: a Flic button, a Bluetooth remote, a push-button wired to the Pi,
   the speaker's own buttons or the headphone keys of a USB sound card - next,
   previous, pause, loop, volume, sleep timer, standby.
 - **A clear web interface** on phone, tablet or computer: now playing with

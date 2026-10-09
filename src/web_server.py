@@ -4356,8 +4356,7 @@ _AUDIO_ICONS = {
     "audio-input-microphone",
 }
 _OTHER_ICONS = {
-    "phone", "computer", "input-keyboard", "input-mouse", "input-gaming",
-    "input-tablet", "printer", "scanner", "camera-photo", "camera-video",
+    "phone", "computer", "printer", "scanner", "camera-photo", "camera-video",
     "video-display", "modem",
 }
 
@@ -4365,6 +4364,8 @@ _OTHER_ICONS = {
 def _bt_kind(icon):
     if icon in _AUDIO_ICONS:
         return "audio"
+    if icon.startswith("input-"):
+        return "input"
     if icon in _OTHER_ICONS:
         return "other"
     return "unknown"
@@ -4855,6 +4856,49 @@ def api_bt_forget():
     return jsonify({"ok": True})
 
 
+def _remote_macs(c=None):
+    """The remotes the settings name, upper case."""
+    found = []
+    for part in re.split(r"[\s,;]+", str((c or cfg()).get("BT_BUTTONS") or "")):
+        mac = part.strip().upper()
+        if _MAC_RE.match(mac) and mac not in found:
+            found.append(mac)
+    return found
+
+
+@app.route("/api/bluetooth/remotes")
+def api_bt_remotes():
+    """The remotes used as a button, with their name and whether they are connected."""
+    remotes = []
+    for mac in _remote_macs():
+        info = _bt_device_info(mac)
+        remotes.append({"mac": mac, "name": info.get("name") or mac,
+                        "paired": bool(info.get("paired")), "connected": bool(info.get("connected"))})
+    return jsonify({"ok": True, "data": {"remotes": remotes}})
+
+
+@app.route("/api/bluetooth/remote", methods=["POST"])
+def api_bt_remote():
+    """{mac, on}: a paired device becomes a remote, or stops being one."""
+    body = request.get_json(silent=True) or {}
+    mac = str(body.get("mac") or "").upper()
+    if not _MAC_RE.match(mac):
+        return jsonify({"ok": False, "error": "missing_mac"}), 400
+    macs = _remote_macs()
+    if body.get("on", True):
+        if not _bt_device_info(mac)["paired"]:
+            return jsonify({"ok": False, "error": "bt_remote_not_paired"}), 400
+        _bt_script([f"trust {mac}", f"connect {mac}"], timeout=10)
+        _bt_info_cache.pop(mac, None)
+        if mac not in macs:
+            macs.append(mac)
+    else:
+        macs = [one for one in macs if one != mac]
+    update_config_file({"BT_BUTTONS": ",".join(macs)})
+    stats.record("bluetooth_remote", label=mac, detail={"on": bool(body.get("on", True))})
+    return jsonify({"ok": True, "data": {"remotes": macs}})
+
+
 @app.route("/api/bluetooth/disconnect", methods=["POST"])
 def api_bt_disconnect():
     body = request.get_json(silent=True) or {}
@@ -5227,6 +5271,7 @@ SYSTEM_SERVICES = (
     ("bt-connect", True),
     ("home-wifi-connect", True),
     ("rukebox-speaker-buttons", True),
+    ("rukebox-bt-buttons", True),
     ("rukebox-card-reader", True),
     ("rukebox-gpio-button", True),
     ("flicd", True),

@@ -8296,7 +8296,8 @@ function deviceRow(dev, running) {
   const states = [];
   if (dev.connected) states.push(["speaker.state_connected", "badge connected"]);
   else if (dev.paired) states.push(["speaker.state_paired", "badge"]);
-  if (dev.kind === "other") states.push(["speaker.state_not_audio", "badge"]);
+  if (dev.kind === "other" || dev.kind === "input") states.push(["speaker.state_not_audio", "badge"]);
+  if (remoteMacs.has(dev.mac.toUpperCase())) states.push(["remotes.badge", "badge connected"]);
   if (states.length) {
     const state = document.createElement("span");
     state.className = "device-state";
@@ -8356,11 +8357,11 @@ function deviceRow(dev, running) {
   speakerBtn.className = "btn";
   speakerBtn.textContent = t("speaker.use_as_speaker");
 
-  speakerBtn.disabled = dev.kind === "other";
+  speakerBtn.disabled = dev.kind === "other" || dev.kind === "input";
   speakerBtn.addEventListener("click", async () => {
     speakerBtn.disabled = true;
     const result = await apiPost("/api/bluetooth/connect", { mac: dev.mac, set_as_speaker: true });
-    speakerBtn.disabled = dev.kind === "other";
+    speakerBtn.disabled = dev.kind === "other" || dev.kind === "input";
     if (result.ok) {
       showToast(t("speaker.connected_set_alert"));
     } else {
@@ -8379,10 +8380,82 @@ function deviceRow(dev, running) {
     openBtClockSection();
   });
 
-  splitActions(actions, [pairBtn], [speakerBtn, clockBtn]);
+  const isRemote = remoteMacs.has(dev.mac.toUpperCase());
+  const remoteBtn = document.createElement("button");
+  remoteBtn.className = "btn";
+  remoteBtn.textContent = t(isRemote ? "remotes.stop_using" : "remotes.use");
+  remoteBtn.disabled = dev.kind === "audio";
+  remoteBtn.addEventListener("click", async () => {
+    remoteBtn.disabled = true;
+    const result = await apiPost("/api/bluetooth/remote", { mac: dev.mac, on: !isRemote });
+    remoteBtn.disabled = false;
+    if (!result.ok) showError(result.error);
+    else showToast(t(isRemote ? "remotes.removed" : "remotes.added"), isRemote ? "" : t("remotes.added_hint"));
+    await refreshRemotes();
+    refreshScanList();
+  });
+
+  const roles = dev.kind === "input" ? [remoteBtn, clockBtn] : [speakerBtn, clockBtn, remoteBtn];
+  splitActions(actions, [pairBtn], roles);
   li.appendChild(actions);
   return li;
 }
+
+let remoteMacs = new Set();
+
+function remoteRow(remote) {
+  const li = document.createElement("li");
+  const label = document.createElement("span");
+  const name = document.createElement("span");
+  name.className = "device-name";
+  name.textContent = remote.name;
+  const sub = document.createElement("span");
+  sub.className = "device-sub";
+  const mac = document.createElement("span");
+  mac.className = "device-mac";
+  mac.textContent = remote.mac;
+  const state = document.createElement("span");
+  state.className = remote.connected ? "badge connected" : "badge";
+  state.textContent = t(remote.connected ? "speaker.state_connected"
+    : remote.paired ? "remotes.asleep" : "remotes.not_paired");
+  sub.append(mac, state);
+  label.append(name, sub);
+  const actions = document.createElement("span");
+  actions.className = "device-actions";
+  const drop = document.createElement("button");
+  drop.type = "button";
+  drop.className = "btn btn-warning-outline";
+  drop.textContent = t("remotes.remove");
+  drop.addEventListener("click", async () => {
+    drop.disabled = true;
+    const result = await apiPost("/api/bluetooth/remote", { mac: remote.mac, on: false });
+    drop.disabled = false;
+    if (!result.ok) showError(result.error);
+    refreshRemotes();
+  });
+  actions.appendChild(drop);
+  li.append(label, actions);
+  return li;
+}
+
+async function refreshRemotes() {
+  const result = await apiGet("/api/bluetooth/remotes");
+  if (!result.ok) return;
+  const remotes = (result.data && result.data.remotes) || [];
+  remoteMacs = new Set(remotes.map((one) => one.mac));
+  const list = document.getElementById("remoteList");
+  list.innerHTML = "";
+  remotes.forEach((one) => list.appendChild(remoteRow(one)));
+  list.hidden = !remotes.length;
+  document.getElementById("remoteEmpty").hidden = remotes.length > 0;
+  lastScanSignature = "";
+}
+refreshEvery(refreshRemotes, 15000, ["settings/buttons"]);
+
+document.getElementById("remoteFind").addEventListener("click", () => {
+  setActiveView("audio", "bluetooth");
+  showToast(t("remotes.find_title"), t("remotes.find_hint"));
+});
 
 function renderDevices(devices, running, blocked) {
   const list = document.getElementById("deviceList");
@@ -8391,7 +8464,8 @@ function renderDevices(devices, running, blocked) {
     dev.mac === lastKnownSpeakerMac);
 
   const signature = (running ? "run|" : "stop|") + (blocked ? "blocked|" : "") +
-    shown.map((d) => [d.mac, d.name, d.paired, d.connected, d.kind, d.named].join("~")).join(",");
+    shown.map((d) => [d.mac, d.name, d.paired, d.connected, d.kind, d.named,
+                      remoteMacs.has(d.mac.toUpperCase())].join("~")).join(",");
   if (signature === lastScanSignature) return;
   lastScanSignature = signature;
 
@@ -8773,7 +8847,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "counters_reset", "music_upload", "playback_pause", "portal_released", "stats_rows_deleted",
   "system_sound_off", "system_sound_reset", "system_sound_set", "track_queued", "device_free_credits",
   "device_renamed", "device_name_locked", "portal_reset", "device_forgotten",
-  "devices_linked", "device_unlinked", "dedication_played", "reminder_said", "bluetooth_forget",
+  "devices_linked", "device_unlinked", "dedication_played", "reminder_said", "bluetooth_forget", "bluetooth_remote",
   "schedule_started", "schedule_ended", "schedule_stop",
   "schedule_added", "schedule_changed", "schedule_removed",
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
@@ -8907,8 +8981,8 @@ function renderKpis(summary) {
     kpiTile("pointer", t("kpi.button_presses"), Math.round(totalClicks),
       t("kpi.button_presses_sub", { single: Math.round(c.clicks_single || 0), double: Math.round(c.clicks_double || 0), long: Math.round(c.clicks_long || 0), speaker: Math.round(c.clicks_speaker || 0) }), { keys: keysIf(["clicks_single", "clicks_double", "clicks_long", "clicks_speaker"]) }),
     kpiTile("antenna", t("kpi.click_sources"),
-      Math.round(c.clicks_flic || 0) + " / " + Math.round(c.clicks_gpio || 0) + " / " + Math.round(c.clicks_web || 0),
-      t("kpi.click_sources_sub", { ignored: Math.round(c.clicks_ignored || 0) }), { keys: keysIf(["clicks_flic", "clicks_gpio", "clicks_web", "clicks_ignored"]) }),
+      Math.round(c.clicks_flic || 0) + " / " + Math.round(c.clicks_gpio || 0) + " / " + Math.round(c.clicks_remote || 0) + " / " + Math.round(c.clicks_web || 0),
+      t("kpi.click_sources_sub", { ignored: Math.round(c.clicks_ignored || 0) }), { keys: keysIf(["clicks_flic", "clicks_gpio", "clicks_remote", "clicks_web", "clicks_ignored"]) }),
     kpiTile("play", t("kpi.startups"), Math.round(c.sessions_started || 0),
       t("kpi.startups_sub", { used: Math.round(c.sessions_used || 0), unclean: Math.round(c.sessions_unclean || 0) }), { keys: keysIf(["sessions_started", "sessions_used", "sessions_unclean"]) }),
     kpiTile("power", t("kpi.shutdowns"), Math.round((c.shutdowns_cutoff || 0) + (c.shutdowns_longpress || 0) + (c.shutdowns_speaker || 0)),
@@ -9192,6 +9266,7 @@ function describeEvent(event) {
     case "click": {
       const source = d.source === "flic" ? t("evt.source_flic")
         : d.source === "gpio" ? t("evt.source_gpio")
+        : d.source === "remote" ? t("evt.source_remote")
         : d.source === "web" ? t("evt.source_web")
         : d.source === "speaker" ? t("evt.source_speaker")
         : d.source === "usb" ? t("evt.source_usb") : t("evt.source_unknown");

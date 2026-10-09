@@ -1434,6 +1434,23 @@
                 and the same for the headphone keys of a USB sound card.
               </p>
             </details>
+            <details class="subsection" data-needs="bluetooth" id="remotesSection">
+              <summary><span data-i18n="remotes.section">Bluetooth remotes</span></summary>
+              <p class="hint help-text" data-i18n="remotes.help" hidden>A selfie shutter or a media remote, used like the Flic button: any of its keys is one press, read as a single, double or long press, and does what the actions above say. Pair it in Audio &gt; Bluetooth, then press "Use as a remote".</p>
+              <ul class="device-list" id="remoteList"></ul>
+              <p class="hint" id="remoteEmpty" data-i18n="remotes.none">No remote yet.</p>
+              <div class="form-actions">
+                <button type="button" class="btn" id="remoteFind" data-icon="search" data-i18n="remotes.find">Find a remote</button>
+              </div>
+              <div class="field-row" data-level="detail">
+                <label for="btButtonDoubleClickWindow" data-i18n="remotes.double_window">Double-click window (sec)</label>
+                <input type="number" id="btButtonDoubleClickWindow" min="0.1" max="2" step="0.05" data-key="BT_BUTTON_DOUBLE_CLICK_WINDOW_SEC" class="num-input" inputmode="decimal">
+              </div>
+              <div class="field-row" data-level="detail">
+                <label for="btButtonLongPress" data-i18n="remotes.long_press">Long press (sec)</label>
+                <input type="number" id="btButtonLongPress" min="0.3" max="10" step="0.1" data-key="BT_BUTTON_LONG_PRESS_SEC" class="num-input" inputmode="decimal">
+              </div>
+            </details>
             <details data-level="detail" class="subsection" data-needs="gpio">
               <summary><span data-i18n="settings.gpio_section">Physical GPIO button</span></summary>
               <div class="field-row">

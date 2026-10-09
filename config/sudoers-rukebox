@@ -25,6 +25,7 @@ pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rukebox-web.service
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart bt-connect.service
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart home-wifi-connect.service
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rukebox-speaker-buttons.service
+pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rukebox-bt-buttons.service
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rukebox-card-reader.service
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rukebox-gpio-button.service
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart flicd.service

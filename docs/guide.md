@@ -998,6 +998,35 @@ Zero is the one the gadget uses: a reader needs `USB_PORT_MODE=host` (and a
 hub if a Bluetooth dongle is plugged too). **Not tried with a real reader
 yet.**
 
+## Bluetooth remotes
+
+A cheap Bluetooth remote can be the radio's button, beside the Flic button or
+instead of it: a selfie shutter (the "AB Shutter3" kind), a media remote, a page
+turner. Such a remote is a small keyboard to the system, and Rukebox reads it
+like one.
+
+- **Setting one up**: put the remote in pairing mode (often a long press), then
+  in **Audio > Bluetooth** search, **Pair**, and **Use as a remote**. It is listed
+  in **Settings > Buttons > Bluetooth remotes**, where **Remove** takes it off
+  again (the pairing stays).
+- **What it does**: any of its keys is one press, read as a **single**,
+  **double** or **long** press, and does what the single click, double click and
+  long press actions say - the same actions as the Flic and GPIO buttons. The
+  statistics count its presses as their own source.
+- **Timing**: the double-click window (0.4 s) and the long press (1 s) are the
+  remote's own, in the detailed view. Many remotes only ever send a short press,
+  whatever the finger does: those have no long press.
+- **Asleep**: a remote sleeps between presses to save its battery. The first
+  press after a while wakes it and reconnects it, which can take a second or
+  two, and some remotes lose that first press.
+- **With the Flic button**: the Flic keeps its own controller; a remote is paired
+  on the controller BlueZ manages, the speaker's, which takes several devices
+  at once.
+- The keys are read by `rukebox-bt-buttons.service` (root, like the card
+  reader), and taken for the radio alone: a remote that types never reaches a
+  console. The exact setting is `bt_buttons` under `buttons:`, a list of
+  addresses.
+
 ## GPIO button
 
 Instead of, or in addition to, the Flic button, you can wire a plain

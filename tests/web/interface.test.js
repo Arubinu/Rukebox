@@ -1256,3 +1256,18 @@ test("the light strips page offers the strip's presets and tries one", async (t)
   assert.deepEqual(sent.body, { preset: 2 });
   assert.deepEqual(page.errors, []);
 });
+
+test("the buttons page lists the Bluetooth remotes and removes one", async (t) => {
+  const page = open(t, { hash: "#settings/buttons", routes: {
+    "GET /api/bluetooth/remotes": { remotes: [
+      { mac: "2A:07:98:10:34:FF", name: "AB Shutter3", paired: true, connected: false }] },
+    "POST /api/bluetooth/remote": { remotes: [] },
+  } });
+  const row = await until(() => page.$("remoteList").querySelector("li"));
+  assert.match(row.textContent, /AB Shutter3/);
+  assert.ok(page.$("remoteEmpty").hidden, "no empty line beside a remote");
+  row.querySelector("button").click();
+  const sent = await until(() => page.sent("POST", "/api/bluetooth/remote")[0]);
+  assert.deepEqual(sent.body, { mac: "2A:07:98:10:34:FF", on: false });
+  assert.deepEqual(page.errors, []);
+});

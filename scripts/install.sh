@@ -387,7 +387,8 @@ LXC_UNITS="create-uap0.service rukebox-bt-radio.service rukebox-usb-gadget.servi
            rukebox-card-reader.service flicd.service flic-bridge.service"
 PI_UNITS="rukebox-gpio-reset.service bt-connect.service home-wifi-connect.service
           create-uap0.service rukebox-bt-radio.service rukebox-usb-gadget.service
-          rukebox-act-led.service rukebox-card-reader.service rukebox-speaker-buttons.service"
+          rukebox-act-led.service rukebox-card-reader.service rukebox-speaker-buttons.service
+          rukebox-bt-buttons.service"
 
 systemctl enable rukebox-config.service 2>/dev/null || true
 systemctl enable rukebox-daemon.service 2>/dev/null || true

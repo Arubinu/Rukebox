@@ -22,7 +22,7 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
 - **Tes annonces** : un message du matin, un jingle entre deux morceaux,
   un rappel toutes les heures... chacune avec son propre horaire, et même
   « une fois sur deux » pour une petite surprise.
-- **Un seul bouton suffit** : un bouton Flic, un bouton-poussoir branché
+- **Un seul bouton suffit** : un bouton Flic, une télécommande Bluetooth, un bouton-poussoir branché
   sur le Pi, les boutons de l'enceinte ou les touches du casque branché sur
   une carte son USB - suivant, précédent, pause, boucle, volume, minuterie,
   veille.

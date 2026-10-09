@@ -1,0 +1,12 @@
+[Unit]
+Description=Bridge between Bluetooth remotes used as a button and the radio daemon
+After=rukebox-daemon.service rukebox-config.service bluetooth.service
+Wants=rukebox-config.service
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/rukebox/src/bt_buttons.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

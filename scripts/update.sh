@@ -156,7 +156,7 @@ if [ -z "${RUKEBOX_STATE_DIR:-}" ]; then
 fi
 mkdir -p "$BACKUP_DIR"
 
-ALL_SERVICES="rukebox-daemon.service rukebox-web.service flic-bridge.service rukebox-speaker-buttons.service rukebox-card-reader.service bt-connect.service home-wifi-connect.service"
+ALL_SERVICES="rukebox-daemon.service rukebox-web.service flic-bridge.service rukebox-speaker-buttons.service rukebox-bt-buttons.service rukebox-card-reader.service bt-connect.service home-wifi-connect.service"
 RUNNING_SERVICES=""
 
 remember_running() {
@@ -543,6 +543,7 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     fi
     if [ "$PROFILE" = "pi" ]; then
         systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
+        systemctl enable --now rukebox-bt-buttons.service 2>/dev/null || true
         systemctl enable --now rukebox-card-reader.service 2>/dev/null || true
         systemctl enable --now home-wifi-connect.service 2>/dev/null || true
         loginctl enable-linger "$RUKEBOX_USER" 2>/dev/null || true
