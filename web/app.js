@@ -5427,6 +5427,7 @@ async function refreshFlic() {
   document.getElementById("flicEnabled").checked = !!d.enabled;
   document.getElementById("btnFlicPair").hidden = !(d.sdk && d.active) || blocked;
   document.getElementById("btFlicController").disabled = blocked;
+  document.getElementById("flicTitle").hidden = !(d.buttons || []).length;
   document.getElementById("flicButtonList").replaceChildren(...(d.buttons || []).map((address) => {
     const li = document.createElement("li");
     li.append(trackMain({ title: t("btctl.flic_button"), artist: address.toUpperCase() }));

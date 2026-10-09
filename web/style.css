@@ -3991,6 +3991,7 @@ body[data-access="guest"][data-page]:not([data-page=""]) .guest-release { displa
   background: var(--surface);
 }
 .guest-banner > .hint { text-align: center; }
+#flicStatusLine { text-align: center; }
 /* Each on its own line when two would only fit squeezed. */
 .guest-banner .form-actions > .btn { flex-basis: 220px; }
 body[data-access="guest"] .card:not([data-tab="home"]):not(.guest-banner),
