@@ -956,7 +956,8 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 .voice-rec { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .voice-rec audio { width: 100%; }
 .voice-rec .btn.is-recording { background: var(--danger); border-color: var(--danger); color: var(--danger-contrast); }
-.voice-rec .hint, .voice-https-note { margin: 0; text-align: center; }
+.voice-rec .hint { margin: 0; text-align: center; }
+p.hint.voice-https-note { margin: 0 0 12px; text-align: center; }
 .voice-https-note { color: var(--warning, var(--text-muted)); }
 .voice-https-note::before { width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; }
 .upnext-voice { display: inline-flex; align-items: center; gap: 4px; }
@@ -1993,6 +1994,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 999px; }
 .field-row + .field-row { border-top: 1px solid var(--border); }
 /* The separator survives a hidden hint between two rows. */
 .field-row + .hint[hidden] + .field-row { border-top: 1px solid var(--border); }
+.voice-https-note + .field-row { border-top: 1px solid var(--border); }
 /* Struck through, not removed: the setting keeps its value. */
 select option.option-inert { text-decoration: line-through; opacity: 0.55; }
 
