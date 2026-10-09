@@ -3607,8 +3607,8 @@ select {
 .login-box::before {
   content: "";
   align-self: center;
-  width: 64px;
-  height: 64px;
+  width: 104px;
+  height: 104px;
   background: url("/logo.webp") center / contain no-repeat;
 }
 .login-box h1 { font-size: 22px; font-weight: 750; }
