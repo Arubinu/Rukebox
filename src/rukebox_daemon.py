@@ -1734,7 +1734,7 @@ class RadioDaemon:
                 self.state.add_recent(path, self.cfg.get("RECENT_TRACKS_COUNT", 20))
             except Exception:
                 log.exception("Could not record the recent track")
-        elif kind != "restart_cue":
+        elif kind not in ("restart_cue", "game"):
             self._last_sound = {"path": path, "kind": kind, "at": time.monotonic()}
         self._play_kind = kind
         self._play_path = path
@@ -2016,6 +2016,16 @@ class RadioDaemon:
         # A volume handed to an idle Bluetooth link never reaches the speaker.
         self._sink_resync = self.SINK_RESYNC_TURNS
         self._open_quick_steps()
+        self._faded_in(start, fade, music_only=True)
+
+    def _interactive_fade(self):
+        try:
+            return min(max(float(self.cfg.get("INTERACTIVE_FADE_DURATION_SEC", 0) or 0), 0.0), 10.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _faded_in(self, start, fade, music_only=False):
+        """Runs `start` (which loads a file) with the volume rising from silence over `fade` seconds."""
         if fade <= 0:
             start()
             return
@@ -2027,8 +2037,8 @@ class RadioDaemon:
         self._write_level(target)
         self.mpv.set_volume(0)
         start()
-        if self.mode == "music":
-            log.info("Music starts with a %.0fs fade-in", fade)
+        if self.mode == "music" or not music_only:
+            log.info("Starts with a %.1fs fade-in", fade)
             self._glide_volume(target, fade)
         else:
             self._restore_base_volume()
@@ -2848,47 +2858,89 @@ class RadioDaemon:
         self._begin_play("speech", path)
         return None
 
+    # While a blind test plays, these would take the radio away from it.
+    GAME_HELD = {"single_click", "double_click", "start_music", "next_track", "toggle_pause",
+                 "previous_track", "timed_pause", "play_track", "skip_sound", "speak",
+                 "play_announcement", "card", "speaker_button", "test_click", "test_system_sound"}
+
+    def _game_enter(self):
+        """The radio steps aside for the blind test: an error code, or None."""
+        if self.mode == "game":
+            return None
+        if self.mode not in ("music", "idle", "stopped"):
+            return "busy"
+        back = (self._last_music_track, self._position) if self.mode == "music" else None
+        self._game_return = (self.mode, back)
+        if self.mode == "music" and not self._paused:
+            self._fade_out_and_pause(self._interactive_fade())
+        self.mode = "game"
+        log.info("Blind test: the radio steps aside")
+        return None
+
+    def _game_hush(self):
+        """What the blind test plays now goes quiet, faded."""
+        self._set_timer("game", None)
+        if self._play_kind == "game" and not self._paused:
+            self._fade_out_to_zero(self._interactive_fade())
+            self.mpv.set_pause(True)
+            self._paused = True
+
     def _game_clip(self, path, start, seconds):
-        """A blind test's extract: the radio steps aside, the clip plays and
-        pauses after `seconds`, and nothing follows on by itself."""
+        """A blind test's extract: the radio steps aside, the clip fades in, fades out
+        after `seconds`, and nothing follows on by itself."""
         path = self._library_path(path)
         if not path:
             return "not_found"
-        if self.mode != "game":
-            if self.mode not in ("music", "idle", "stopped"):
-                return "busy"
-            back = (self._last_music_track, self._position) if self.mode == "music" else None
-            self._game_return = (self.mode, back)
-            if self.mode == "music" and not self._paused:
-                self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
-            log.info("Blind test: the radio steps aside")
+        error = self._game_enter()
+        if error:
+            return error
+        self._game_hush()
         self._restore_base_volume()
-        self.mode = "game"
-        self._sound_volume = None
         self._pending_seek = start if start and start > 1 else None
-        self._begin_play("game", path)
+        fade = self._interactive_fade()
+        self._faded_in(lambda: self._begin_play("game", path), fade)
         self._paused = False
 
         def hush():
-            if self.mode == "game":
-                self.mpv.set_pause(True)
-                self._paused = True
-        self._set_timer("game", max(3.0, min(float(seconds or 20), 60.0)), hush)
+            if self.mode == "game" and self._play_path == path:
+                self._game_hush()
+        # The fade-out ends with the extract, not after it.
+        self._set_timer("game", max(3.0, min(float(seconds or 20), 60.0) - fade), hush)
+        return None
+
+    def _game_speech_dir(self):
+        return os.path.join(self.cfg.get("STATE_DIR") or "/tmp", "game-speech")
+
+    def _game_say(self, path):
+        """Plays what the blind test says (prepared by the web server) in place of the clip."""
+        path = os.path.realpath(str(path or ""))
+        if os.path.dirname(path) != os.path.realpath(self._game_speech_dir()) or not os.path.isfile(path):
+            return "not_found"
+        error = self._game_enter()
+        if error:
+            return error
+        self._game_hush()
+        self._restore_base_volume()
+        self._sound_volume = None
+        self._pending_seek = None
+        self._begin_play("game", path)
+        self._paused = False
         return None
 
     def _game_end(self):
-        """The blind test is over: the radio takes up what it was doing."""
+        """The blind test is over: the radio takes up what it was doing, faded in."""
         if self.mode != "game":
             return
-        self._set_timer("game", None)
+        self._game_hush()
         self._end_play("stop")
         mode, back = getattr(self, "_game_return", None) or ("idle", None)
         self._game_return = None
         log.info("Blind test over: back to %s", mode)
+        self._restore_base_volume()
         if mode == "music":
             self._resume_mode = "music"
             self._resume_track = back
-            self._resume_after_announce()
+            self._faded_in(self._resume_after_announce, self._interactive_fade(), music_only=True)
         else:
             self._start_keepalive(mode, quiet=True)
 
@@ -3995,7 +4047,7 @@ class RadioDaemon:
     def _interrupting_sound(self):
         """(file name without extension, announcement name) of what is playing
         instead of the music."""
-        if not self._current_track or self.mode in ("music", "idle", "stopped", "shutting_down"):
+        if not self._current_track or self.mode in ("music", "idle", "stopped", "shutting_down", "game"):
             return None, None
         name = os.path.splitext(os.path.basename(self._current_track))[0]
         label = None
@@ -4101,6 +4153,8 @@ class RadioDaemon:
                               "unknown"):
                 source = "unknown"
             self._announcements()
+            if self.mode == "game" and cmd in self.GAME_HELD:
+                return {"ok": False, "error": "game_running"}
 
             if cmd == "single_click":
                 self._handle_single_click(source)
@@ -4379,6 +4433,9 @@ class RadioDaemon:
             if cmd == "game_end":
                 self._game_end()
                 return {"ok": True}
+            if cmd == "game_say":
+                error = self._game_say(msg.get("path"))
+                return {"ok": False, "error": error} if error else {"ok": True}
             if cmd == "speak":
                 kind = msg.get("kind")
                 if kind not in ("time", "time_date"):

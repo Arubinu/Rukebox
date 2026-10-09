@@ -12,6 +12,7 @@ REVEAL_SEC = 6
 ROUNDS = (5, 10, 15, 20)
 CLIP_SECONDS = (10, 15, 20, 30)
 VIEWER_SEC = 5
+JOIN_SEC = 45
 
 
 def label(track):
@@ -19,7 +20,7 @@ def label(track):
 
 
 class Game:
-    def __init__(self, tracks, rounds=10, clip_sec=20, rng=None):
+    def __init__(self, tracks, rounds=10, clip_sec=20, rng=None, join_sec=JOIN_SEC, now=None):
         self.rng = rng or random.Random()
         self.rounds = rounds
         self.clip_sec = clip_sec
@@ -31,7 +32,12 @@ class Game:
                 seen.add(key)
                 self.tracks.append(track)
         self.rng.shuffle(self.tracks)
-        self.state = "playing"
+        # Before the first round, everyone looking says whether they play or watch.
+        self.state = "joining"
+        self.join_until = (now if now is not None else time.monotonic()) + join_sec
+        self.go_now = False
+        self.players = set()
+        self.spectators = set()
         self.round = 0
         self.question = None
         self.answers = {}
@@ -78,12 +84,39 @@ class Game:
             self.state = "playing"
             return self.question
 
+    def join(self, person, name, play):
+        """`person` plays (True) or watches (False); one may change one's mind at any time."""
+        with self._lock:
+            if name:
+                self.names[person] = name
+            if play:
+                self.spectators.discard(person)
+                self.players.add(person)
+                self.scores.setdefault(person, 0)
+            else:
+                self.players.discard(person)
+                self.spectators.add(person)
+
+    def _looking(self, now):
+        return {p for p, at in self.viewers.items() if now - at <= VIEWER_SEC}
+
+    def ready(self, now=None):
+        """The game may begin: asked to, the wait is over, or everyone looking has chosen
+        with someone to play."""
+        now = now if now is not None else time.monotonic()
+        with self._lock:
+            if self.go_now or now >= self.join_until:
+                return True
+            return bool(self.players) and self._looking(now) <= (self.players | self.spectators)
+
     def answer(self, person, name, choice, now=None):
         """An error code, or None once the answer is taken."""
         with self._lock:
             self.names[person] = name
             if self.state != "playing" or not self.question:
                 return "game_not_asking"
+            if person not in self.players:
+                return "game_not_player"
             if person in self.answers:
                 return "game_already_answered"
             if not isinstance(choice, int) or not 0 <= choice < CHOICES:
@@ -103,7 +136,7 @@ class Game:
         """Every player looking at the game has answered."""
         now = now if now is not None else time.monotonic()
         with self._lock:
-            looking = {p for p, at in self.viewers.items() if now - at <= VIEWER_SEC}
+            looking = self._looking(now) & self.players
             return bool(self.answers) and looking <= set(self.answers)
 
     def close_round(self):
@@ -120,9 +153,22 @@ class Game:
             for person, points in gains.items():
                 self.scores[person] = self.scores.get(person, 0) + points
             self.reveal = {"answer": self.question["answer"], "gains": gains,
-                           "fastest": right[0][1] if right else None}
+                           "fastest": right[0][1] if right else None, "right": [p for _, p in right]}
             self.state = "reveal"
             return self.reveal
+
+    def right_people(self):
+        """The round's right answers, fastest first: [{"person", "name"}]."""
+        with self._lock:
+            return [{"person": p, "name": self.names.get(p)} for p in (self.reveal or {}).get("right") or []]
+
+    def winners(self):
+        """Who has the most points (several on a tie), or nobody when no one scored."""
+        with self._lock:
+            best = max(self.scores.values(), default=0)
+            return [{"person": p, "name": self.names.get(p)}
+                    for p, pts in sorted(self.scores.items(), key=lambda kv: self.names.get(kv[0]) or "")
+                    if best > 0 and pts == best]
 
     def finish(self, error=None):
         with self._lock:
@@ -139,8 +185,14 @@ class Game:
         now = now if now is not None else time.monotonic()
         with self._lock:
             mine = self.answers.get(person)
+            looking = self._looking(now)
             out = {
                 "state": self.state,
+                "role": "player" if person in self.players else "spectator" if person in self.spectators else None,
+                "players": len(self.players),
+                "spectators": len(self.spectators),
+                "undecided": len(looking - self.players - self.spectators),
+                "join_left": max(0, round(self.join_until - now)) if self.state == "joining" else None,
                 "round": self.round,
                 "rounds": self.rounds,
                 "clip_sec": self.clip_sec,

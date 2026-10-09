@@ -38,6 +38,8 @@ import config_bundle  # noqa: E402
 import duplicates  # noqa: E402
 import hidden_tracks  # noqa: E402
 import json_file  # noqa: E402
+import name_voice  # noqa: E402
+import speech  # noqa: E402
 import playlist  # noqa: E402
 import track_order  # noqa: E402
 import track_media  # noqa: E402
@@ -221,11 +223,13 @@ _AUTH_EXEMPT_PREFIX = "/api/auth/"
 # Paths a guest may call without the password; long_press (power off) never.
 _GUEST_PATHS = frozenset({
     "/api/dedications/voice",
+    "/api/suggestions/name_voice",
     "/api/status",
     "/api/status/wait",
     "/api/vote/skip",
     "/api/game",
     "/api/game/answer",
+    "/api/game/join",
     "/api/volume",
     "/api/action/single_click",
     "/api/action/double_click",
@@ -265,7 +269,7 @@ GUEST_PAGE_PATHS = {
     "recent": {"/api/recent"},
     "today": {"/api/today"},
     "library": {"/api/library", "/api/library/facets"},
-    "game": {"/api/game", "/api/game/answer"},
+    "game": {"/api/game", "/api/game/answer", "/api/game/join"},
     "suggest": {"/api/suggestions", "/api/suggestions/vote", "/api/suggestions/delete",
                 "/api/suggestions/name"},
 }
@@ -1254,7 +1258,8 @@ def api_suggestions():
     interval = _rename_interval_sec()
     return _suggestion_call(lambda box, dev: {
         "me": {"name": dev["name"], "rename_wait": box.rename_wait(dev, interval),
-               "locked": box.name_locked(dev["id"]), "linked": len(box.linked_devices(dev["id"]))},
+               "locked": box.name_locked(dev["id"]), "linked": len(box.linked_devices(dev["id"])),
+               "name_voice": bool(name_voice.existing(cfg()["STATE_DIR"], dev.get("person") or dev["id"]))},
         "owner": owner,
         "text_max": suggestions.TEXT_MAX,
         "items": _with_library_matches(box.list(dev, admin=owner)),
@@ -2090,6 +2095,66 @@ def api_dedication_voice():
     return jsonify({"ok": True, "data": {"id": voice_id}})
 
 
+def _name_voice_answer(person):
+    """GET plays the recording, POST (the body is audio) replaces it, DELETE drops it."""
+    state_dir = cfg()["STATE_DIR"]
+    if not person or not name_voice.path(state_dir, person):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    if request.method == "GET":
+        found = name_voice.existing(state_dir, person)
+        if not found:
+            return jsonify({"ok": False, "error": "not_found"}), 404
+        return send_file(found, mimetype="audio/wav", max_age=0)
+    if request.method == "DELETE":
+        name_voice.remove(state_dir, person)
+        return jsonify({"ok": True})
+    if not (request.mimetype or "").lower().startswith("audio/"):
+        return jsonify({"ok": False, "error": "voice_bad_type"}), 400
+    data = request.get_data(cache=False)
+    if not data:
+        return jsonify({"ok": False, "error": "voice_empty"}), 400
+    if len(data) > VOICE_MAX_BYTES:
+        return jsonify({"ok": False, "error": "voice_too_long"}), 413
+    folder = name_voice.folder(state_dir)
+    os.makedirs(folder, exist_ok=True)
+    raw = os.path.join(folder, "upload-%s" % secrets.token_hex(8))
+    try:
+        with open(raw, "wb") as f:
+            f.write(data)
+        target = name_voice.path(state_dir, person)
+        trial = target + ".new.wav"
+        length = name_voice.prepare(raw, trial)
+        if not length:
+            return jsonify({"ok": False, "error": "name_voice_unreadable"}), 400
+        if length > name_voice.MAX_SEC:
+            os.remove(trial)
+            return jsonify({"ok": False, "error": "name_voice_too_long",
+                            "detail": int(name_voice.MAX_SEC)}), 413
+        os.replace(trial, target)
+    finally:
+        if os.path.exists(raw):
+            os.remove(raw)
+    return jsonify({"ok": True, "data": {"seconds": round(length, 1)}})
+
+
+@app.route("/api/suggestions/name_voice", methods=["GET", "POST", "DELETE"])
+def api_my_name_voice():
+    """This person's own recording of their name, for the blind test."""
+    device = _this_device(_suggestion_box())
+    if request.method == "POST" and not device.get("name"):
+        return jsonify({"ok": False, "error": "name_required"}), 409
+    return _name_voice_answer(device.get("person") or device["id"])
+
+
+@app.route("/api/devices/name_voice", methods=["GET", "POST", "DELETE"])
+def api_device_name_voice():
+    """?device_id=: the owner listens to, sends or drops someone's name recording."""
+    device = _suggestion_box().device_by_id(str(request.args.get("device_id") or ""))
+    if not device:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return _name_voice_answer(_suggestion_box().person_id(device["id"]))
+
+
 @app.route("/api/dedications/listen")
 def api_dedication_listen():
     """The recording waiting with a song of Up next, for the owner to hear before it plays."""
@@ -2584,6 +2649,7 @@ def _now_clients(box, stations):
         if device:
             entry.update(box.device_summary(device))
             entry["me"] = device["id"] == me["id"]
+            entry["name_voice"] = bool(name_voice.existing(cfg()["STATE_DIR"], entry["person"]))
         clients.append(entry)
     for device_id, age in sorted(_recently_seen().items(), key=lambda kv: kv[1]):
         if device_id in banned_ids:
@@ -2596,6 +2662,7 @@ def _now_clients(box, stations):
         entry["portal_released"] = _portal_tap_remembered(entry["ip"] or "", entry["mac"])
         entry.update(box.device_summary(device))
         entry["me"] = device_id == me["id"]
+        entry["name_voice"] = bool(name_voice.existing(cfg()["STATE_DIR"], entry["person"]))
         clients.append(entry)
     return clients
 
@@ -2797,6 +2864,10 @@ def _devices_linked(box, device_id, to_id, by):
     """Links, and gives the joined person one credit counter instead of two."""
     was = box.person_id(device_id)
     person = box.link(device_id, to_id)
+    try:
+        name_voice.carry(cfg()["STATE_DIR"], was, person)
+    except OSError:
+        log.warning("Could not keep the name recording", exc_info=True)
     with _quota_lock:
         _quota_load(time.time())
         if _quota.pop(was, None) is not None:
@@ -2898,6 +2969,11 @@ def _unlink_device(box, device, by):
     others = [one["device_id"] for one in box.linked_devices(device["id"])]
     was = box.person_id(device["id"])
     box.unlink(device["id"])
+    try:
+        for person in {device["id"], box.person_id(others[0])}:
+            name_voice.carry(cfg()["STATE_DIR"], was, person, keep=True)
+    except OSError:
+        log.warning("Could not keep the name recording", exc_info=True)
     with _quota_lock:
         _quota_load(time.time())
         entry = _quota.get(was)
@@ -3122,9 +3198,97 @@ def _game_player():
         return request.remote_addr, None
 
 
+GAME_SPEECH_KEEP_SEC = 600
+_game_speech_seq = 0
+
+
+def _game_speech_dir():
+    return os.path.join(cfg()["STATE_DIR"], "game-speech")
+
+
+def _game_speech(parts):
+    """The parts of speech.game_parts() as one WAV the radio can play: (path, seconds), or
+    (None, 0) when nothing can be said."""
+    global _game_speech_seq
+    c = cfg()
+    folder = _game_speech_dir()
+    os.makedirs(folder, exist_ok=True)
+    now = time.time()
+    for old in os.listdir(folder):
+        try:
+            if now - os.path.getmtime(os.path.join(folder, old)) > GAME_SPEECH_KEEP_SEC:
+                os.remove(os.path.join(folder, old))
+        except OSError:
+            pass
+    pieces, words = [], []
+
+    def said():
+        global _game_speech_seq
+        text = re.sub(r"\s+([.,!])", r"\1", " ".join(words)).strip(" ,")
+        words.clear()
+        if not text or text in ".!":
+            return
+        _game_speech_seq += 1
+        out = os.path.join(folder, "t%d.wav" % _game_speech_seq)
+        if speech.render(text, c.get("SPEECH_LANGUAGE"), out, c.get("PIPER_VOICE")):
+            pieces.append(out)
+
+    for part in parts:
+        voice = name_voice.existing(c["STATE_DIR"], part.get("person")) if "name" in part else None
+        if voice:
+            said()
+            pieces.append(voice)
+        else:
+            words.append(part.get("text") if "text" in part else part.get("name") or "")
+    said()
+    if not pieces:
+        return None, 0
+    _game_speech_seq += 1
+    out = os.path.join(folder, "say%d.wav" % _game_speech_seq)
+    inputs = []
+    for piece in pieces:
+        inputs += ["-i", piece]
+    chain = "".join("[%d:a]aresample=44100,aformat=channel_layouts=mono[a%d];" % (i, i) for i in range(len(pieces)))
+    chain += "".join("[a%d]" % i for i in range(len(pieces))) + "concat=n=%d:v=0:a=1[out]" % len(pieces)
+    try:
+        done = subprocess.run(["ffmpeg", "-y", "-loglevel", "error"] + inputs
+                              + ["-filter_complex", chain, "-map", "[out]", out], capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None, 0
+    length = name_voice.seconds(out) if done.returncode == 0 else None
+    return (out, length) if length else (None, 0)
+
+
+def _game_say(game, kind, people=None):
+    """Says `kind` when the settings want it: how long it lasts, 0 when nothing is said."""
+    want = "GAME_VOICE_WINNERS" if kind == "round" else "GAME_VOICE_START_STOP"
+    if not cfg().get(want):
+        return 0
+    try:
+        path, length = _game_speech(speech.game_parts(kind, people, cfg().get("SPEECH_LANGUAGE")))
+    except Exception:  # noqa: BLE001 - a voice that fails never stops the game
+        log.exception("The blind test could not speak")
+        return 0
+    if not path or not control("game_say", path=path).get("ok"):
+        return 0
+    return length
+
+
+def _game_wait(game, seconds, stop_counts=True):
+    end = time.monotonic() + seconds
+    while time.monotonic() < end and not (stop_counts and game.stopped):
+        time.sleep(0.25)
+
+
 def _game_run(game):
     """Plays the rounds one after the other, then gives the radio back."""
     try:
+        while not game.stopped and not game.ready():
+            time.sleep(0.25)
+        if not game.players and not game.stopped:
+            game.finish("game_no_players")
+            return
+        _game_wait(game, _game_say(game, "start") + 0.3)
         while not game.stopped:
             question = game.next_question()
             if question is None:
@@ -3139,10 +3303,11 @@ def _game_run(game):
             while time.monotonic() < deadline and not game.stopped and not game.everyone_answered():
                 time.sleep(0.25)
             game.close_round()
-            reveal_end = time.monotonic() + blind_test.REVEAL_SEC
-            while time.monotonic() < reveal_end and not game.stopped:
-                time.sleep(0.25)
+            spoken = _game_say(game, "round", game.right_people()) if not game.stopped else 0
+            _game_wait(game, max(blind_test.REVEAL_SEC, spoken + 0.5))
         game.finish()
+        # The end is said even after Stop: the radio goes back to its music after it.
+        _game_wait(game, _game_say(game, "end", game.winners()) + 0.3, stop_counts=False)
         best = game.view(None)["scores"][:1]
         stats.record("game_over", label=best[0]["name"] if best else "-",
                      detail={"rounds": game.round, "players": len(game.scores)})
@@ -3185,6 +3350,26 @@ def api_game_start():
         _game = game
     stats.record("game_started", label="%d x %ds" % (rounds, seconds), detail={"rounds": rounds})
     threading.Thread(target=_game_run, args=(game,), daemon=True).start()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/game/join", methods=["POST"])
+def api_game_join():
+    """{play}: this person plays, or watches."""
+    game = _game
+    if game is None or game.state == "over":
+        return jsonify({"ok": False, "error": "game_not_asking"}), 409
+    person, name = _game_player()
+    game.join(person, name, bool((request.get_json(silent=True) or {}).get("play")))
+    return jsonify({"ok": True, "data": game.view(person)})
+
+
+@app.route("/api/game/go", methods=["POST"])
+def api_game_go():
+    """The host starts the game without waiting for the others to choose."""
+    game = _game
+    if game is not None and game.state == "joining":
+        game.go_now = True
     return jsonify({"ok": True})
 
 

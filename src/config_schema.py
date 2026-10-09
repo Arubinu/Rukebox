@@ -686,6 +686,13 @@ SETTINGS = [
         "  files_first -> the file when there is one, the radio's voice otherwise",
         "Who introduces the songs",
     ),
+    Setting("GAME_VOICE_START_STOP", "schedule", "game_voice_start_stop", "bool", "false",
+            "The blind test says out loud when it begins and when it ends (with\n"
+            "the winner).", "Blind test: say the start and the end"),
+    Setting("GAME_VOICE_WINNERS", "schedule", "game_voice_winners", "bool", "false",
+            "After each round, the blind test says who found the song. A name\n"
+            "recorded by its owner is played instead of the synthetic voice.",
+            "Blind test: say who found it"),
     Setting("ANNOUNCE_MUSIC_UNDER", "fades", "music_under_announcements", "int", "0",
             "Keep the music playing under an announcement (the spoken time\n"
             "included), at this percentage of its volume. 0 = the music pauses\n"

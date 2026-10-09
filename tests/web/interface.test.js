@@ -858,7 +858,7 @@ test("the blind test: the host starts it, a player answers once, and sees the ri
   const page = open(t, { hash: "#home/game", routes: {
     "GET /api/game": () => game,
     "POST /api/game/start": () => {
-      game = { state: "playing", owner: true, round: 1, rounds: 5, remaining: 18, answered: 0, mine: null,
+      game = { state: "playing", owner: true, role: "player", round: 1, rounds: 5, remaining: 18, answered: 0, mine: null,
                choices: ["A - 1", "B - 2", "C - 3", "D - 4"], scores: [] };
       return {};
     },

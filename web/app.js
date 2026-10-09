@@ -170,11 +170,13 @@ let guestPagesOff = [];
 // Guest-allowed paths: keep in step with web_server.py's _GUEST_PATHS (a test compares them).
 const GUEST_API_PATHS = [
   "/api/dedications/voice",
+  "/api/suggestions/name_voice",
   "/api/status",
   "/api/status/wait",
   "/api/vote/skip",
   "/api/game",
   "/api/game/answer",
+  "/api/game/join",
   "/api/volume",
   "/api/action/single_click",
   "/api/action/double_click",
@@ -1475,6 +1477,16 @@ async function refreshStatus() {
   document.getElementById("btnPause").hidden = guest && (d.mode === "idle" || d.mode === "stopped");
   document.getElementById("btnSingle").disabled = !["music", "idle", "stopped"].includes(d.mode);
   document.getElementById("btnDouble").disabled = d.mode !== "music";
+  // The radio refuses them while a blind test plays.
+  document.getElementById("btnPause").disabled = d.mode === "game";
+  document.getElementById("btnNext").disabled = d.mode === "game";
+  const inGame = d.mode === "game";
+  const frame = document.querySelector(".card-player .now-playing");
+  if (frame) {
+    frame.classList.toggle("is-game", inGame);
+    [...frame.children].forEach((child) => { if (child.id !== "gameCover") child.inert = inGame; });
+  }
+  document.getElementById("gameCover").hidden = !inGame;
 
   const clockBox = document.getElementById("clockStatus");
 
@@ -1999,7 +2011,6 @@ function applyNotices(d) {
     });
   }
   if (d.output_override) add("info", "speaker", "notice.override", { output: t("audioout." + d.output_override) });
-  if (d.mode === "game") add("info", "trophy", "notice.game");
   if (d.clock_ready === false) add("warn", "clock", "notice.clock");
   if (d.track_count === 0) add("warn", "music", "notice.no_tracks");
   if ((d.consecutive_play_errors || 0) >= 3) add("warn", "alert", "notice.errors", { n: d.consecutive_play_errors });
@@ -3214,7 +3225,7 @@ async function restartDaemon() {
   if (result.ok) showToast(t("alert.service_restarted")); else showError(result.error);
 }
 
-const SETTINGS_FORMS = ["domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
+const SETTINGS_FORMS = ["gameVoiceForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
   .map((id) => document.getElementById(id))
   .filter(Boolean);
 
@@ -4942,6 +4953,7 @@ function paintGame(g) {
   const lobby = g.state === "none" || g.state === "over";
   document.getElementById("gameLobby").hidden = !lobby;
   document.getElementById("gameStartForm").hidden = !g.owner;
+  document.getElementById("gameVoiceForm").hidden = !g.owner;
   document.getElementById("gameWaiting").hidden = !!g.owner;
   if (g.owner && !gameOptionsFilled && g.round_choices) {
     gameOptionsFilled = true;
@@ -4962,7 +4974,21 @@ function paintGame(g) {
 
   document.getElementById("gamePlay").hidden = g.state === "none";
   const round = document.getElementById("gameRound");
-  if (g.state === "playing") {
+  const joining = g.state === "joining";
+  const role = document.getElementById("gameRole");
+  role.hidden = !(joining || ((g.state === "playing" || g.state === "reveal") && g.role !== "player"));
+  if (!role.hidden) {
+    document.getElementById("gameRoleText").textContent = t(g.role === "player" ? "game.role_is_player"
+      : g.role === "spectator" ? "game.role_is_spectator" : "game.role_ask");
+    document.getElementById("gamePlayBtn").hidden = g.role === "player";
+    document.getElementById("gameWatchBtn").hidden = g.role === "spectator";
+    document.getElementById("gameRoleCount").textContent = t("game.role_count",
+      { p: g.players || 0, s: g.spectators || 0, u: g.undecided || 0 });
+    document.getElementById("gameGoRow").hidden = !(joining && g.owner);
+  }
+  if (joining) {
+    round.textContent = t("game.join_wait", { s: g.join_left || 0 });
+  } else if (g.state === "playing") {
     round.textContent = t("game.round", { n: g.round, total: g.rounds }) + " · " + t("game.remaining", { s: g.remaining || 0 });
   } else if (g.state === "reveal") {
     round.textContent = t("game.round", { n: g.round, total: g.rounds });
@@ -4989,7 +5015,7 @@ function paintGame(g) {
     });
   }
   [...box.children].forEach((btn, index) => {
-    btn.disabled = g.state !== "playing" || g.mine !== null;
+    btn.disabled = g.state !== "playing" || g.mine !== null || g.role !== "player";
     btn.classList.toggle("is-mine", g.mine === index);
     btn.classList.toggle("is-right", g.answer === index && g.state !== "playing");
     btn.classList.toggle("is-wrong", g.mine === index && g.answer !== undefined && g.answer !== index
@@ -5010,7 +5036,7 @@ function paintGame(g) {
   if (g.state === "over" && g.error) text = errorLabel(g.error);
   result.textContent = text;
 
-  document.getElementById("btnGameStop").hidden = !(g.owner && (g.state === "playing" || g.state === "reveal"));
+  document.getElementById("btnGameStop").hidden = !(g.owner && ["joining", "playing", "reveal"].includes(g.state));
 
   const scores = document.getElementById("gameScores");
   scores.innerHTML = "";
@@ -5021,7 +5047,7 @@ function paintGame(g) {
     name.textContent = s.name;
     const points = document.createElement("span");
     points.className = "game-points";
-    points.textContent = t("game.points", { n: s.points });
+    points.textContent = t(s.points === 1 ? "game.points_one" : "game.points", { n: s.points });
     li.append(name, points);
     scores.appendChild(li);
   });
@@ -5034,6 +5060,20 @@ document.getElementById("gameStartForm").addEventListener("submit", async (e) =>
     seconds: Number(document.getElementById("gameSeconds").value),
   });
   if (!r.ok) showError(r.error, t("game.title"));
+  refreshGame();
+});
+
+document.getElementById("gameCoverGo").addEventListener("click", () => setActiveView("home", "game"));
+
+[["gamePlayBtn", true], ["gameWatchBtn", false]].forEach(([id, play]) => {
+  document.getElementById(id).addEventListener("click", async () => {
+    const r = await apiPost("/api/game/join", { play });
+    if (!r.ok) showError(r.error, t("game.title"));
+    refreshGame();
+  });
+});
+document.getElementById("gameGoBtn").addEventListener("click", async () => {
+  await apiPost("/api/game/go", {});
   refreshGame();
 });
 
@@ -5685,7 +5725,8 @@ function libraryButton(item, next) {
 // The browser only opens the microphone on a secure page (HTTPS, or localhost).
 const VOICE_LIMIT_SEC = 25;
 
-function voiceRecorder() {
+function voiceRecorder(limitSec) {
+  const limit = limitSec || VOICE_LIMIT_SEC;
   const wrap = document.createElement("div");
   wrap.className = "voice-rec";
   const state = { blob: null, cleanup: () => {} };
@@ -5719,7 +5760,7 @@ function voiceRecorder() {
   let started = 0;
   const finish = () => { if (recorder && recorder.state !== "inactive") recorder.stop(); };
   const tick = () => {
-    const left = VOICE_LIMIT_SEC - Math.floor((Date.now() - started) / 1000);
+    const left = limit - Math.floor((Date.now() - started) / 1000);
     button.textContent = t("dedication.voice_stop", { s: Math.max(0, left) });
     if (left <= 0) finish();
   };
@@ -5769,6 +5810,66 @@ function voiceRecorder() {
   });
   wrap.append(button, player, drop);
   return { node: wrap, state };
+}
+
+const NAME_VOICE_SEC = 6;
+
+/* A name said in its owner's voice: recorded here (https only), or sent as a file by the owner. */
+async function editNameVoice({ url, has, title, hint, file }) {
+  const box = document.createElement("div");
+  box.className = "name-voice-box";
+  const intro = document.createElement("p");
+  intro.className = "hint";
+  intro.textContent = hint;
+  box.append(intro);
+  if (has) {
+    const label = document.createElement("p");
+    label.className = "hint";
+    label.textContent = t("name_voice.current");
+    const current = document.createElement("audio");
+    current.controls = true;
+    current.preload = "none";
+    current.src = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+    box.append(label, current);
+  }
+  const recorder = voiceRecorder(NAME_VOICE_SEC);
+  box.append(recorder.node);
+  let picker = null;
+  if (file) {
+    const label = document.createElement("label");
+    label.className = "hint";
+    label.textContent = t("name_voice.file");
+    picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "audio/*";
+    label.append(document.createElement("br"), picker);
+    box.append(label);
+  }
+  const choices = [{ label: t("name_voice.keep"), value: "save" }];
+  if (has) choices.push({ label: t("name_voice.delete"), value: "delete", danger: true });
+  const choice = await openModal({ title, bodyNode: box, choices, modalClass: "modal-dedication" });
+  recorder.state.cleanup();
+  if (choice === "delete") {
+    const r = await apiDelete(url);
+    if (!r.ok) showToolError(t("common.failed"), r);
+    else showToast(t("name_voice.deleted"));
+    return r.ok;
+  }
+  if (choice !== "save") return false;
+  const blob = (picker && picker.files && picker.files[0]) || recorder.state.blob;
+  if (!blob) {
+    showToast(t("name_voice.nothing"), "", { error: true });
+    return false;
+  }
+  const sent = await apiFetch(url, {
+    method: "POST", headers: { "Content-Type": blob.type || "audio/webm" }, body: blob,
+  });
+  if (!sent.ok) {
+    showToolError(t("common.failed"), sent);
+    return false;
+  }
+  showToast(t("name_voice.saved"));
+  return true;
 }
 
 // null: the reader closed the dialog, nothing is queued; otherwise {message, voice}.
@@ -6832,6 +6933,14 @@ function paintSuggestBadges() {
   }
 }
 
+document.getElementById("suggestVoiceBtn").addEventListener("click", async () => {
+  const me = suggestState.me || {};
+  if (await editNameVoice({ url: "/api/suggestions/name_voice", has: !!me.name_voice,
+                            title: t("name_voice.title"), hint: t("name_voice.hint") })) {
+    refreshSuggestions();
+  }
+});
+
 function renderSuggestMe() {
   const name = suggestState.me && suggestState.me.name;
   const locked = !!(suggestState.me && suggestState.me.locked);
@@ -6839,6 +6948,8 @@ function renderSuggestMe() {
   document.getElementById("suggestMeLine").hidden = editing;
   document.getElementById("suggestMeName").textContent = name || "";
   document.getElementById("suggestRenameBtn").hidden = locked;
+  document.getElementById("suggestVoiceBtn").textContent = t(suggestState.me && suggestState.me.name_voice
+    ? "name_voice.button_has" : "name_voice.button");
   document.getElementById("suggestNameLocked").hidden = !(locked && name);
   document.getElementById("suggestNameForm").hidden = !editing;
   document.getElementById("suggestNameCancel").hidden = !name;
@@ -10049,6 +10160,33 @@ function clientRow(c, options) {
   });
   freeRow.append(freeText, free);
   fold.append(freeRow);
+
+  if (c.device_id) {
+    const voiceRow = document.createElement("div");
+    voiceRow.className = "field-row";
+    const voiceText = document.createElement("div");
+    voiceText.className = "field-text";
+    const voiceLabel = document.createElement("span");
+    voiceLabel.className = "field-label";
+    voiceLabel.textContent = t("clients.name_voice");
+    const voiceDesc = document.createElement("p");
+    voiceDesc.className = "field-desc";
+    voiceDesc.textContent = t(c.name_voice ? "clients.name_voice_has" : "clients.name_voice_none");
+    voiceText.append(voiceLabel, voiceDesc);
+    const voiceBtn = document.createElement("button");
+    voiceBtn.type = "button";
+    voiceBtn.className = "btn btn-small client-name-voice";
+    voiceBtn.textContent = t(c.name_voice ? "name_voice.edit" : "name_voice.add");
+    voiceBtn.addEventListener("click", async () => {
+      const changed = await editNameVoice({
+        url: "/api/devices/name_voice?device_id=" + encodeURIComponent(c.device_id), has: !!c.name_voice,
+        title: t("name_voice.owner_title", { name: clientLabel(c) }), hint: t("name_voice.owner_hint"), file: true,
+      });
+      if (changed) refreshClients();
+    });
+    voiceRow.append(voiceText, voiceBtn);
+    fold.append(voiceRow);
+  }
 
   const portalRow = document.createElement("div");
   portalRow.className = "field-row";

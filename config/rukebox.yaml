@@ -622,6 +622,14 @@ schedule:
   #   files_first -> the file when there is one, the radio's voice otherwise
   dj_announce_mode: "spoken"
 
+  # The blind test says out loud when it begins and when it ends (with
+  # the winner).
+  game_voice_start_stop: false
+
+  # After each round, the blind test says who found the song. A name
+  # recorded by its owner is played instead of the synthetic voice.
+  game_voice_winners: false
+
 # ---------------------------------------------------------------
 # Fade durations - every stop is progressive, never abrupt
 # ---------------------------------------------------------------

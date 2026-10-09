@@ -158,6 +158,10 @@
               <div class="np-meta">
                 <span class="np-next" id="npNext"></span>
               </div>
+              <div class="game-cover" id="gameCover" hidden>
+                <p class="game-cover-text"><span data-i18n="game.cover">A blind test is on.</span><br><span data-i18n="game.cover_secret">The song stays a secret.</span></p>
+                <button type="button" class="btn btn-primary" id="gameCoverGo" data-icon="trophy" data-i18n="game.join">Join the blind test</button>
+              </div>
             </div>
 
             <div class="player-controls">
@@ -260,6 +264,17 @@
           </div>
           <div id="gamePlay" hidden>
             <p class="game-round" id="gameRound" role="status"></p>
+            <div class="game-role" id="gameRole" hidden>
+              <p class="game-role-text" id="gameRoleText"></p>
+              <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="gamePlayBtn" data-icon="thumb-up" data-i18n="game.role_play">I play</button>
+                <button type="button" class="btn" id="gameWatchBtn" data-icon="headphones" data-i18n="game.role_watch">I watch</button>
+              </div>
+              <p class="hint game-role-count" id="gameRoleCount"></p>
+              <div class="form-actions" id="gameGoRow" hidden>
+                <button type="button" class="btn btn-primary" id="gameGoBtn" data-icon="next" data-i18n="game.go">Start now</button>
+              </div>
+            </div>
             <div class="game-choices" id="gameChoices"></div>
             <p class="hint game-result" id="gameResult" role="status"></p>
             <div class="form-actions">
@@ -267,6 +282,28 @@
             </div>
           </div>
           <ol class="device-list game-scores" id="gameScores"></ol>
+          <form id="gameVoiceForm" class="settings-form" hidden>
+            <h3 class="game-voice-title" data-i18n="game.voice_title">Voice</h3>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="gameVoiceStartStop" data-i18n="game.voice_start_stop">Say the start and the end</label>
+                <p class="field-desc" id="gameVoiceStartStopDesc" data-i18n="game.voice_start_stop_desc">Out loud, with the winner at the end.</p>
+              </div>
+              <input type="checkbox" id="gameVoiceStartStop" data-key="GAME_VOICE_START_STOP" class="switch-input" role="switch"
+                     aria-describedby="gameVoiceStartStopDesc">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="gameVoiceWinners" data-i18n="game.voice_winners">Say who found it</label>
+                <p class="field-desc" id="gameVoiceWinnersDesc" data-i18n="game.voice_winners_desc">After each round. A name its owner recorded is played as it is.</p>
+              </div>
+              <input type="checkbox" id="gameVoiceWinners" data-key="GAME_VOICE_WINNERS" class="switch-input" role="switch"
+                     aria-describedby="gameVoiceWinnersDesc">
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
         </section>
 
         <section class="card" id="likesCard" data-page="likes" data-tab="home" aria-labelledby="likesTitle" hidden>
@@ -540,6 +577,7 @@
             <span class="suggest-me-actions">
               <button type="button" class="btn-link" id="suggestRenameBtn" data-i18n="suggest.change_name">Change</button>
               <button type="button" class="btn-link" id="suggestLinkBtn" data-i18n="suggest.link_btn">My devices</button>
+              <button type="button" class="btn-link" id="suggestVoiceBtn" data-i18n="name_voice.button">My voice</button>
             </span>
             <span class="hint" id="suggestNameLocked" data-i18n="suggest.name_locked" hidden></span>
           </p>

@@ -197,6 +197,43 @@ def sentence(kind, when, lang, minutes=None):
     return ""
 
 
+GAME_WORDS = {
+    "start": {"en": "The blind test begins!", "fr": "C'est parti pour le blind test !",
+              "de": "Der Blindtest beginnt!", "es": "¡Empieza el test a ciegas!",
+              "it": "Inizia il blind test!", "nl": "De blinde test begint!"},
+    "end": {"en": "The blind test is over.", "fr": "Le blind test est terminé.",
+            "de": "Der Blindtest ist vorbei.", "es": "El test a ciegas ha terminado.",
+            "it": "Il blind test è finito.", "nl": "De blinde test is voorbij."},
+    "winner": {"en": "Well done,", "fr": "Bravo à", "de": "Glückwunsch an", "es": "Enhorabuena a",
+               "it": "Complimenti a", "nl": "Gefeliciteerd,"},
+    "right": {"en": "Right answer from", "fr": "Bonne réponse de", "de": "Richtige Antwort von",
+              "es": "Respuesta correcta de", "it": "Risposta giusta di", "nl": "Goed antwoord van"},
+    "nobody": {"en": "Nobody found it.", "fr": "Personne n'a trouvé.", "de": "Niemand hat es erraten.",
+               "es": "Nadie lo ha adivinado.", "it": "Nessuno l'ha indovinato.", "nl": "Niemand had het goed."},
+    "and": {"en": "and", "fr": "et", "de": "und", "es": "y", "it": "e", "nl": "en"},
+}
+
+
+def game_parts(kind, people, lang):
+    """What the blind test says, as parts: {"text"} and {"name", "person"} (said by the person's
+    own recording when there is one). kind: start, round (people = the right answers, fastest
+    first) or end (people = the winners)."""
+    lang = language(lang)
+    words = {key: value[lang] for key, value in GAME_WORDS.items()}
+    named = []
+    for i, one in enumerate(people or []):
+        if i:
+            named.append({"text": words["and"] if i == len(people) - 1 else ","})
+        named.append({"name": clean_text(one.get("name"), 40) or "?", "person": one.get("person")})
+    if kind == "start":
+        return [{"text": words["start"]}]
+    if kind == "round":
+        return [{"text": words["right"]}] + named + [{"text": "."}] if named else [{"text": words["nobody"]}]
+    if kind == "end":
+        return [{"text": words["end"]}] + ([{"text": words["winner"]}] + named + [{"text": "!"}] if named else [])
+    return []
+
+
 def engines():
     """The speech programs installed here, best first - what the radio says with."""
     found = ["piper"] if _any_piper_model() else []

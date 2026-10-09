@@ -2069,6 +2069,9 @@ class GameRouteTest(unittest.TestCase):
         self.assertEqual(self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20}).get_json()["error"],
                          "game_running")
         question = ws._game.next_question()
+        self.assertEqual(self.client.post("/api/game/answer", json={"choice": question["answer"]},
+                                          headers={"X-Who": "b"}).get_json()["error"], "game_not_player")
+        self.client.post("/api/game/join", json={"play": True}, headers={"X-Who": "b"})
         r = self.client.post("/api/game/answer", json={"choice": question["answer"]}, headers={"X-Who": "b"})
         self.assertEqual(r.get_json()["data"]["mine"], question["answer"])
         self.assertNotIn("answer", r.get_json()["data"], "the answer stays hidden until the reveal")

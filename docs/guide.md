@@ -2005,6 +2005,33 @@ artist, are asked about; a library with fewer than the rounds asked for
 cannot start a game. The extracts never count in the statistics; the event
 log keeps "Blind test started" and who won it.
 
+Once started, the game waits up to 45 seconds for people to come: everyone
+with the page open chooses **I play** or **I watch**. It begins as soon as
+everyone looking has chosen with at least one player, or when the wait runs
+out; the owner may **Start now**. Nobody playing at the end of the wait
+cancels the game. Someone arriving later, or a spectator changing their
+mind, can still join in; only players answer and appear in the scores.
+
+Every extract fades in and out with the interactive fade
+(`fades.interactive_sec`), and so does the music when it comes back. While a
+game plays, the player's frame is blurred (the cover and the title could give
+the answer away) under a **Join the blind test** button, and the radio refuses
+what would take it away from the game - previous, pause, next, the click
+actions, a card, the speaker's own buttons - with "A blind test is on"; the
+volume, mute, standby and switching off still work.
+
+Two switches on the game page (the owner's only) make the radio speak, in the
+spoken language (`schedule.speech_language`): **Say the start and the end**
+(`schedule.game_voice_start_stop`, with the winner at the end, after Stop
+too) and **Say who found it** (`schedule.game_voice_winners`, after each
+round, fastest first). A name is said by the synthetic voice, or by its
+owner's own recording: **My voice** next to the name in the suggestion box
+records it with the microphone (the browser needs an https address for it),
+and the owner can record or send an audio file for anyone from their line in
+the connected devices (**Recorded name**). The recording is trimmed of its
+silences and levelled, 6 seconds at most, kept in `name-voices/` in the state
+folder, and follows its person when devices are linked.
+
 ### Features
 
 - **Finding your way**: the bar at the bottom (a column on a wider screen)
