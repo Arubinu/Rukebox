@@ -25,7 +25,7 @@ import schedules  # noqa: E402
 
 OUT_DIR = os.path.expanduser("~/rukebox-tests")
 RELOADS = ("reload_config", "reload_schedules", "reload_announcements", "reload_lists", "reload_hidden")
-TEST_NAME = "Test matériel (temporaire)"
+TEST_NAME = "Hardware test (temporary)"
 TEST_VOLUME = 25
 SCHEDULE_VOLUME = 30
 
@@ -110,10 +110,10 @@ def ask_run(title, what):
     say("-" * 70)
     say(what)
     while True:
-        key = read_key("Entrée = lancer, P = passer, Q = arrêter : ")
-        if key in ("", "o"):
+        key = read_key("Enter = run, S = skip, Q = quit: ")
+        if key in ("", "y"):
             return True
-        if key == "p":
+        if key == "s":
             return False
         if key == "q":
             raise Quit()
@@ -121,15 +121,15 @@ def ask_run(title, what):
 
 def ask_verdict(question):
     while True:
-        key = read_key(question + " [o = oui, n = non, p = je ne sais pas] : ")
-        if key in ("o", "n", "p"):
-            return {"o": "réussi", "n": "échoué", "p": "non conclu"}[key]
+        key = read_key(question + " [y = yes, n = no, u = unsure]: ")
+        if key in ("y", "n", "u"):
+            return {"y": "passed", "n": "failed", "u": "inconclusive"}[key]
         if key == "q":
             raise Quit()
 
 
 def pause_prompt(text):
-    read_key(text + " (Entrée quand c'est fait) ")
+    read_key(text + " (Enter when done) ")
 
 
 def ensure_music():
@@ -148,29 +148,29 @@ def ensure_music():
 def t_connection():
     link = speaker()
     sink, desc = audio_diag.default_sink(ENV)
-    say("Enceinte : %s, contrôleur %s" % (
-        "connectée" if link.get("connected") else "NON connectée", link.get("controller") or "-"))
-    say("Sortie PipeWire : %s" % (desc or sink or "aucune"))
+    say("Speaker: %s, controller %s" % (
+        "connected" if link.get("connected") else "NOT connected", link.get("controller") or "-"))
+    say("PipeWire output: %s" % (desc or sink or "none"))
     ok = bool(link.get("connected")) and bool(sink and sink.startswith("bluez"))
-    return ("réussi" if ok else "échoué"), "connectée=%s sink=%s" % (link.get("connected"), sink)
+    return ("passed" if ok else "failed"), "connected=%s sink=%s" % (link.get("connected"), sink)
 
 
 def t_sound():
     if not ensure_music():
-        return "échoué", "la musique n'a pas démarré"
-    return ask_verdict("Entends-tu la musique sur l'enceinte ?"), ""
+        return "failed", "the music did not start"
+    return ask_verdict("Do you hear the music on the speaker?"), ""
 
 
 def t_volume():
     ensure_music()
     before = status().get("volume") or 50
     lower = max(5, int(before) - 12)
-    say("Volume %s -> %s pendant 4 s, puis retour." % (before, lower))
+    say("Volume %s -> %s for 4 s, then back." % (before, lower))
     control("set_volume", value=lower)
     time.sleep(4)
     control("set_volume", value=before)
     time.sleep(2)
-    return ask_verdict("As-tu entendu le son baisser puis remonter ?"), ""
+    return ask_verdict("Did you hear the sound go down, then up again?"), ""
 
 
 def t_link():
@@ -187,32 +187,32 @@ def t_link():
     # The speaker answers its own volume a moment after it is set.
     same = bool(wait_for(agree, 10))
     shown, sink = levels()
-    say("Interface : %s, enceinte : %s" % (shown, sink))
-    pause_prompt("Appuie une ou deux fois sur le bouton volume + ou - de l'enceinte.")
+    say("Interface: %s, speaker: %s" % (shown, sink))
+    pause_prompt("Press the speaker's volume + or - button once or twice.")
     moved = wait_for(lambda: abs((status().get("volume") or 0) - (shown or 0)) >= 1, 10)
     after = status().get("volume")
-    say("L'interface affiche maintenant %s." % after)
+    say("The interface now shows %s." % after)
     ok = same and moved
-    return ("réussi" if ok else "échoué"), "même niveau=%s, suivi=%s" % (same, bool(moved))
+    return ("passed" if ok else "failed"), "same level=%s, followed=%s" % (same, bool(moved))
 
 
 def t_handover():
     set_settings({"SPEAKER_VOLUME_LINK": True, "SPEAKER_VOLUME_LOCK": False})
     ensure_music()
     shown = status().get("volume")
-    pause_prompt("Éteins l'enceinte.")
+    pause_prompt("Switch the speaker off.")
     wait_for(lambda: not speaker().get("connected"), 60, 3)
-    pause_prompt("Rallume-la maintenant.")
-    say("J'attends qu'elle revienne (jusqu'à 2 min)...")
+    pause_prompt("Switch it back on now.")
+    say("Waiting for it to come back (up to 2 min)...")
     if not wait_for(lambda: speaker().get("connected"), 120, 3):
-        return "échoué", "pas de reconnexion en 2 min"
+        return "failed", "no reconnection within 2 min"
     ensure_music()
     time.sleep(10)
     sink = sink_volume()
-    say("Interface : %s, enceinte : %s" % (shown, sink))
+    say("Interface: %s, speaker: %s" % (shown, sink))
     same = sink is not None and shown is not None and abs(round(shown) - sink) <= 2
-    heard = ask_verdict("Le son est-il revenu au même niveau qu'avant, sans toucher l'enceinte ?")
-    return (heard if same else "échoué"), "interface=%s enceinte=%s" % (shown, sink)
+    heard = ask_verdict("Did the sound come back at the same level as before, without touching the speaker?")
+    return (heard if same else "failed"), "interface=%s speaker=%s" % (shown, sink)
 
 
 def t_lock():
@@ -221,15 +221,15 @@ def t_lock():
     set_settings({"SPEAKER_VOLUME_LINK": True, "SPEAKER_VOLUME_LOCK": True})
     time.sleep(5)
     held = sink_volume()
-    say("Niveau tenu : %s" % held)
-    pause_prompt("Appuie plusieurs fois sur le volume + de l'enceinte.")
+    say("Level held: %s" % held)
+    pause_prompt("Press the speaker's volume + several times.")
     back = wait_for(lambda: held is not None and sink_volume() is not None
                     and abs(sink_volume() - held) <= 2, 8)
     time.sleep(1)
     now = sink_volume()
-    say("Niveau maintenant : %s" % now)
-    heard = ask_verdict("Le son est-il revenu à son niveau en 2-3 secondes ?")
-    return (heard if back else "échoué"), "tenu=%s maintenant=%s" % (held, now)
+    say("Level now: %s" % now)
+    heard = ask_verdict("Did the sound go back to its level within 2-3 seconds?")
+    return (heard if back else "failed"), "held=%s now=%s" % (held, now)
 
 
 def _button_lines(since):
@@ -241,53 +241,53 @@ def _button_lines(since):
 def t_buttons():
     ensure_music()
     since = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    pause_prompt("Appuie sur Lecture/Pause, puis sur Suivant de l'enceinte.")
+    pause_prompt("Press the speaker's Play/Pause, then Next.")
     seen = wait_for(lambda: _button_lines(since), 15)
-    say("Gestes reçus : %s" % (", ".join(seen) if seen else "aucun"))
+    say("Gestures received: %s" % (", ".join(seen) if seen else "none"))
     if not seen:
-        return "échoué", "aucun geste dans le journal"
-    return ask_verdict("La radio a-t-elle fait l'action réglée dans « Boutons de l'enceinte »,"
-                       " musique comprise ?"), \
+        return "failed", "no gesture in the log"
+    return ask_verdict("Did the radio do the action set under \"Speaker buttons\","
+                       " music included?"), \
         ", ".join(seen)
 
 
 def t_loss():
     set_settings({"SPEAKER_LOSS_PAUSE": True})
     ensure_music()
-    pause_prompt("Éteins l'enceinte pendant que la musique joue.")
+    pause_prompt("Switch the speaker off while the music plays.")
     paused = wait_for(lambda: status().get("paused"), 60, 2)
-    say("Musique en pause : %s" % bool(paused))
-    pause_prompt("Rallume l'enceinte.")
+    say("Music paused: %s" % bool(paused))
+    pause_prompt("Switch the speaker back on.")
     resumed = wait_for(lambda: speaker().get("connected") and not status().get("paused"), 120, 3)
-    say("Reprise : %s" % bool(resumed))
+    say("Resumed: %s" % bool(resumed))
     ok = bool(paused) and bool(resumed)
-    return ("réussi" if ok else "échoué"), "pause=%s reprise=%s" % (bool(paused), bool(resumed))
+    return ("passed" if ok else "failed"), "paused=%s resumed=%s" % (bool(paused), bool(resumed))
 
 
 def t_chime():
     keys = ["AP_CONNECT_SOUND"] + [k for k in config_schema.SYSTEM_SOUNDS if k != "AP_CONNECT_SOUND"]
     key = next((k for k in keys if cfg.get(k) and os.path.exists(cfg[k])), None)
     if not key:
-        return "non conclu", "aucun son système présent sur le Pi"
+        return "inconclusive", "no system sound on the Pi"
     ensure_music()
-    say("Son joué : %s" % os.path.basename(cfg[key]))
-    say("D'abord seul, musique en pause...")
+    say("Sound played: %s" % os.path.basename(cfg[key]))
+    say("First alone, music paused...")
     control("toggle_pause")
     time.sleep(2)
     answer = control("test_system_sound", key=key)
     time.sleep(3)
     control("toggle_pause")
     if not answer.get("ok"):
-        return "échoué", answer.get("error", "")
-    alone = ask_verdict("L'as-tu entendu seul ?")
+        return "failed", answer.get("error", "")
+    alone = ask_verdict("Did you hear it alone?")
     time.sleep(2)
-    say("Puis par-dessus la musique...")
+    say("Then over the music...")
     control("test_system_sound", key=key)
     time.sleep(3)
-    over = ask_verdict("Et par-dessus la musique, sans coupure ?")
-    if alone == "échoué":
-        return "échoué", "inaudible même seul : trop faible"
-    return over, "seul=%s, sur la musique=%s" % (alone, over)
+    over = ask_verdict("And over the music, without a cut?")
+    if alone == "failed":
+        return "failed", "not heard even alone: too quiet"
+    return over, "alone=%s, over the music=%s" % (alone, over)
 
 
 def _next_minute(lead=60):
@@ -303,13 +303,13 @@ def t_announcement(created):
         "hour": at.hour, "minute": at.minute, "after_action": "pause"})
     created["announcement"] = item["id"]
     control("reload_announcements")
-    say("Annonce à %s, suivie d'une pause. Attends..." % at.strftime("%H:%M"))
+    say("Announcement at %s, followed by a pause. Wait..." % at.strftime("%H:%M"))
     played = wait_for(lambda: str(status().get("mode", "")).startswith("custom:"),
                       (at - datetime.now()).total_seconds() + 45)
     paused = played and wait_for(lambda: status().get("mode") == "music" and status().get("paused"), 120)
-    say("Jouée : %s, pause ensuite : %s" % (bool(played), bool(paused)))
+    say("Played: %s, paused after: %s" % (bool(played), bool(paused)))
     ok = bool(played) and bool(paused)
-    return ("réussi" if ok else "échoué"), "jouée=%s pause=%s" % (bool(played), bool(paused))
+    return ("passed" if ok else "failed"), "played=%s paused=%s" % (bool(played), bool(paused))
 
 
 def t_schedule(created):
@@ -323,17 +323,17 @@ def t_schedule(created):
         "stop_action": "pause", "settings": {"BASE_VOLUME": str(SCHEDULE_VOLUME)}})
     created["schedule"] = item["id"]
     control("reload_schedules")
-    say("Planning %s -> %s, volume %d. Environ 3 minutes..." % (
+    say("Schedule %s -> %s, volume %d. About 3 minutes..." % (
         start.strftime("%H:%M"), stop.strftime("%H:%M"), SCHEDULE_VOLUME))
     began = wait_for(lambda: status().get("mode") == "music" and not status().get("paused"),
                      (start - datetime.now()).total_seconds() + 40)
     volume = status().get("volume")
-    say("Démarrée : %s, volume %s" % (bool(began), volume))
+    say("Started: %s, volume %s" % (bool(began), volume))
     ended = began and wait_for(lambda: status().get("paused") or status().get("mode") != "music",
                                (stop - datetime.now()).total_seconds() + 40)
-    say("Arrêtée : %s" % bool(ended))
+    say("Stopped: %s" % bool(ended))
     ok = bool(began) and bool(ended) and volume is not None and round(volume) == SCHEDULE_VOLUME
-    return ("réussi" if ok else "échoué"), "début=%s volume=%s fin=%s" % (bool(began), volume, bool(ended))
+    return ("passed" if ok else "failed"), "start=%s volume=%s end=%s" % (bool(began), volume, bool(ended))
 
 
 def t_resume():
@@ -342,17 +342,17 @@ def t_resume():
     time.sleep(15)
     st = status()
     track, position = st.get("current_track"), st.get("position") or 0
-    say("En cours : %s à %d s. Veille..." % (track, position))
+    say("Playing: %s at %d s. Standby..." % (track, position))
     control("standby")
     time.sleep(5)
     control("start_music")
     time.sleep(6)
     st = status()
     same = st.get("current_track") == track
-    say("Repris : %s à %d s" % (st.get("current_track"), st.get("position") or 0))
+    say("Resumed: %s at %d s" % (st.get("current_track"), st.get("position") or 0))
     near = same and abs((st.get("position") or 0) - position) < 15
-    heard = ask_verdict("La chanson a-t-elle repris là où elle était (quelques secondes avant) ?")
-    return (heard if near else "échoué"), "même=%s pos %s -> %s" % (same, position, st.get("position"))
+    heard = ask_verdict("Did the song pick up where it was (a few seconds earlier)?")
+    return (heard if near else "failed"), "same=%s pos %s -> %s" % (same, position, st.get("position"))
 
 
 def t_mute():
@@ -361,41 +361,41 @@ def t_mute():
     time.sleep(4)
     control("set_mute", on=False)
     time.sleep(1)
-    return ask_verdict("Le son s'est-il coupé 4 s puis est-il revenu ?"), ""
+    return ask_verdict("Did the sound cut out for 4 s, then come back?"), ""
 
 
 def t_diag():
     report = audio_diag.report(cfg)
     say(report)
-    return "réussi", "rapport enregistré"
+    return "passed", "report saved"
 
 
 TESTS = [
-    ("connection", "1. Connexion de l'enceinte",
-     "Vérifie que l'enceinte est connectée et que le son part vers elle.", t_connection),
-    ("sound", "2. Le son sort", "Lance la musique si besoin.", t_sound),
-    ("volume", "3. Volume depuis l'interface", "Baisse le volume 4 s puis le remet.", t_volume),
-    ("link", "4. Volume lié à l'enceinte",
-     "Active « volume de l'enceinte = celui de la radio » ; il faudra appuyer sur ses boutons.", t_link),
-    ("handover", "5. Remise du volume à la connexion",
-     "Il faudra éteindre puis rallumer l'enceinte (environ 2 min).", t_handover),
-    ("lock", "6. Verrou du volume de l'enceinte",
-     "Volume lié et verrouillé : ses boutons de volume ne doivent plus rien changer.", t_lock),
-    ("buttons", "7. Boutons de l'enceinte (AVRCP)",
-     "Il faudra appuyer sur Lecture/Pause et Suivant de l'enceinte.", t_buttons),
-    ("loss", "8. Enceinte perdue puis retrouvée",
-     "Il faudra l'éteindre (la musique doit se mettre en pause) puis la rallumer.", t_loss),
-    ("chime", "9. Son système par-dessus la musique",
-     "Joue un son système seul, puis par-dessus la musique.", t_chime),
-    ("announcement", "10. Annonce programmée suivie d'une pause",
-     "Automatique, rien à faire : une annonce temporaire est programmée à la minute"
-     " suivante, puis je vérifie qu'elle passe et que la musique se met en pause (1 à 2 min).", None),
-    ("schedule", "11. Planning complet",
-     "Automatique, rien à faire : veille, puis un planning temporaire démarre la musique"
-     " au volume 30 et l'arrête 2 min plus tard (environ 3 min).", None),
-    ("resume", "12. Reprise à la même position", "Veille puis redémarrage de la musique.", t_resume),
-    ("mute", "13. Muet", "Coupe le son 4 s.", t_mute),
-    ("diag", "14. Diagnostic audio", "Mesure le débit du lien (6 s) et affiche le rapport.", t_diag),
+    ("connection", "1. Speaker connection",
+     "Checks the speaker is connected and the sound goes to it.", t_connection),
+    ("sound", "2. Sound comes out", "Starts the music if needed.", t_sound),
+    ("volume", "3. Volume from the interface", "Lowers the volume for 4 s, then puts it back.", t_volume),
+    ("link", "4. Volume linked to the speaker",
+     "Turns on \"speaker volume = the radio's\"; you will press its buttons.", t_link),
+    ("handover", "5. Volume handed over on connection",
+     "You will switch the speaker off, then on again (about 2 min).", t_handover),
+    ("lock", "6. Speaker volume lock",
+     "Volume linked and locked: its volume buttons must no longer change anything.", t_lock),
+    ("buttons", "7. Speaker buttons (AVRCP)",
+     "You will press the speaker's Play/Pause and Next.", t_buttons),
+    ("loss", "8. Speaker lost, then found again",
+     "You will switch it off (the music must pause), then on again.", t_loss),
+    ("chime", "9. System sound over the music",
+     "Plays a system sound alone, then over the music.", t_chime),
+    ("announcement", "10. Scheduled announcement followed by a pause",
+     "Automatic, nothing to do: a temporary announcement is scheduled for the next"
+     " minute, then the script checks it plays and the music pauses (1 to 2 min).", None),
+    ("schedule", "11. A whole schedule",
+     "Automatic, nothing to do: standby, then a temporary schedule starts the music"
+     " at volume 30 and stops it 2 min later (about 3 min).", None),
+    ("resume", "12. Resume at the same position", "Standby, then the music starts again.", t_resume),
+    ("mute", "13. Mute", "Cuts the sound for 4 s.", t_mute),
+    ("diag", "14. Audio diagnostic", "Measures the link's throughput (6 s) and shows the report.", t_diag),
 ]
 
 
@@ -418,7 +418,7 @@ def take_snapshot():
 
 def restore(snapshot, created=None):
     say()
-    say("Remise des réglages d'avant les tests...")
+    say("Putting back the settings from before the tests...")
     for kind, item_id in (created or {}).items():
         try:
             if kind == "announcement":
@@ -452,7 +452,7 @@ def restore(snapshot, created=None):
         control("set_active_list", id=run.get("active_list"))
     if run.get("sink_volume") is not None and not cfg.get("SPEAKER_VOLUME_LINK"):
         audio_diag.set_default_sink_volume(run["sink_volume"], ENV)
-    say("Réglages remis.")
+    say("Settings put back.")
 
 
 def _stop(*_):
@@ -461,7 +461,7 @@ def _stop(*_):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--restore", metavar="FICHIER", help="remet un instantané pris par ce script")
+    parser.add_argument("--restore", metavar="FILE", help="puts back a snapshot this script took")
     args = parser.parse_args()
 
     if args.restore:
@@ -470,26 +470,26 @@ def main():
         return 0
 
     if not status():
-        say("Le service rukebox-daemon ne répond pas : rien n'a été changé.")
+        say("The rukebox-daemon service does not answer: nothing was changed.")
         return 1
 
     os.makedirs(OUT_DIR, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    snap_path = os.path.join(OUT_DIR, "avant-%s.json" % stamp)
+    snap_path = os.path.join(OUT_DIR, "before-%s.json" % stamp)
     snapshot = take_snapshot()
     with open(snap_path, "w", encoding="utf-8") as f:
         json.dump(snapshot, f, ensure_ascii=False, indent=1)
 
-    say("Tests de la Rukebox avec l'enceinte")
-    say("Réglages sauvegardés dans %s" % snap_path)
-    say("Ils sont remis à la fin, même si tu arrêtes avec Q ou Ctrl-C.")
-    say("Si la connexion coupe : python3 %s --restore %s" % (os.path.abspath(__file__), snap_path))
+    say("Rukebox tests with the speaker")
+    say("Settings saved in %s" % snap_path)
+    say("They are put back at the end, even if you stop with Q or Ctrl-C.")
+    say("If the connection drops: python3 %s --restore %s" % (os.path.abspath(__file__), snap_path))
 
     # The base too: a standby or a start goes back to it.
     config_file.write_values({"BASE_VOLUME": str(TEST_VOLUME)})
     control("reload_config")
     control("set_volume", value=TEST_VOLUME)
-    say("Volume des tests : %d %%." % TEST_VOLUME)
+    say("Test volume: %d %%." % TEST_VOLUME)
 
     signal.signal(signal.SIGHUP, _stop)
     signal.signal(signal.SIGTERM, _stop)
@@ -498,7 +498,7 @@ def main():
     try:
         for key, title, what, fn in TESTS:
             if not ask_run(title, what):
-                results.append((title, "passé", ""))
+                results.append((title, "skipped", ""))
                 continue
             try:
                 if key == "announcement":
@@ -508,32 +508,32 @@ def main():
                 else:
                     verdict, detail = fn()
             except (Quit, KeyboardInterrupt):
-                results.append((title, "interrompu", ""))
+                results.append((title, "interrupted", ""))
                 raise
             except Exception as e:  # noqa: BLE001
-                verdict, detail = "erreur", "%s: %s" % (type(e).__name__, e)
+                verdict, detail = "error", "%s: %s" % (type(e).__name__, e)
             say(">> %s %s" % (verdict.upper(), detail))
             results.append((title, verdict, detail))
             put_back_settings()
     except (Quit, KeyboardInterrupt):
         say()
-        say("Arrêt demandé.")
+        say("Stop requested.")
     finally:
         TOUCHED.clear()
         try:
             restore(snapshot, created)
         except Exception as e:  # noqa: BLE001
-            say("La remise a échoué (%s). Relance : python3 %s --restore %s"
+            say("Putting back failed (%s). Run again: python3 %s --restore %s"
                 % (e, os.path.abspath(__file__), snap_path))
-        report_path = os.path.join(OUT_DIR, "resultats-%s.txt" % stamp)
+        report_path = os.path.join(OUT_DIR, "results-%s.txt" % stamp)
         lines = ["%-45s %-11s %s" % (t, v, d) for t, v, d in results]
         with open(report_path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
         say()
-        say("Résumé :")
+        say("Summary:")
         for line in lines:
             say("  " + line)
-        say("Enregistré dans %s" % report_path)
+        say("Saved in %s" % report_path)
     return 0
 
 
