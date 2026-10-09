@@ -455,9 +455,7 @@ code {
 .brand-logo {
   width: 36px;
   height: 36px;
-  border-radius: 9px;
   flex: none;
-  box-shadow: var(--shadow-sm);
 }
 
 .brand-text {
@@ -3468,27 +3466,19 @@ select {
   width: 104px;
   height: 104px;
 }
-.boot-mark::before {
-  content: "";
-  position: absolute;
-  inset: -14px;
-  border-radius: 36px;
-  background: color-mix(in srgb, var(--boot-color) 22%, transparent);
-  filter: blur(14px);
-  animation: boot-breathe 2.4s ease-in-out infinite;
-}
-.boot-overlay[data-state="error"] .boot-mark::before { animation: none; opacity: 0.6; }
-@keyframes boot-breathe {
-  0%, 100% { opacity: 0.45; transform: scale(0.94); }
-  50% { opacity: 1; transform: scale(1.04); }
-}
+/* The halo is a shadow of the logo's own shape: the logo is not a square. */
 .boot-logo {
   position: relative;
   display: block;
   width: 104px;
   height: 104px;
-  border-radius: 28px;
-  box-shadow: var(--shadow-lg);
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--boot-color) 40%, transparent));
+  animation: boot-breathe 2.4s ease-in-out infinite;
+}
+.boot-overlay[data-state="error"] .boot-logo { animation: none; }
+@keyframes boot-breathe {
+  0%, 100% { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--boot-color) 35%, transparent)); }
+  50% { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--boot-color) 75%, transparent)); }
 }
 .boot-name {
   margin-top: 20px;
@@ -3541,8 +3531,7 @@ select {
 
 .boot-off { display: none; }
 .boot-overlay[data-state="off"] .boot-eq { display: none; }
-.boot-overlay[data-state="off"] .boot-mark::before { animation: none; opacity: 0.4; }
-.boot-overlay[data-state="off"] .boot-logo { filter: grayscale(1); opacity: 0.7; }
+.boot-overlay[data-state="off"] .boot-logo { animation: none; filter: grayscale(1); opacity: 0.7; }
 .boot-overlay[data-state="off"] .boot-off {
   display: grid;
   place-items: center;
@@ -3618,9 +3607,7 @@ select {
   align-self: center;
   width: 64px;
   height: 64px;
-  border-radius: 18px;
-  background: url("/logo.webp") center / cover no-repeat;
-  box-shadow: var(--shadow);
+  background: url("/logo.webp") center / contain no-repeat;
 }
 .login-box h1 { font-size: 22px; font-weight: 750; }
 .login-box .text-input { text-align: center; }
@@ -4141,7 +4128,7 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
     font-weight: 750;
     letter-spacing: -0.01em;
   }
-  .nav-brand img { width: 40px; height: 40px; border-radius: 11px; box-shadow: var(--shadow-sm); }
+  .nav-brand img { width: 40px; height: 40px; }
   .tab-btn {
     flex-direction: row;
     justify-content: flex-start;
