@@ -4530,51 +4530,73 @@ document.getElementById("audioOutputSelect").addEventListener("change", () => {
   if (document.getElementById("audioOutputSelect").value === "snapcast") refreshAudioOutputs();
 });
 
-function snapcastRow(client) {
+/* One line of the devices dialog: its name and mute on top, its volume across below. */
+function snapcastLine(title, detail, volumeLabel) {
   const li = document.createElement("li");
+  const head = document.createElement("div");
+  head.className = "snapcast-head";
   const text = document.createElement("span");
   text.className = "snapcast-name";
   const name = document.createElement("span");
   name.className = "device-name";
-  name.textContent = client.name;
+  name.textContent = title;
   const sub = document.createElement("span");
   sub.className = "device-sub";
-  sub.textContent = t(client.connected ? "snapcast.connected" : "snapcast.disconnected")
-    + (client.ip ? " · " + client.ip.replace(/^::ffff:/, "") : "");
+  sub.textContent = detail;
   text.append(name, sub);
+  const mute = document.createElement("button");
+  mute.type = "button";
+  mute.className = "btn btn-icon btn-small";
+  head.append(text, mute);
   const volume = document.createElement("input");
   volume.type = "range";
   volume.min = "0";
   volume.max = "100";
-  volume.value = String(client.volume);
-  volume.setAttribute("aria-label", t("snapcast.volume_of", { name: client.name }));
-  setVolumeFill(volume);
+  volume.setAttribute("aria-label", volumeLabel);
   volume.addEventListener("input", () => setVolumeFill(volume));
-  volume.addEventListener("change", async () => {
-    const r = await apiPost("/api/snapcast/client", { id: client.id, volume: Number(volume.value) });
-    if (!r.ok) showError(r.error);
-  });
-  const mute = document.createElement("button");
-  mute.type = "button";
-  mute.className = "btn btn-icon btn-small";
-  const paintMute = () => {
-    mute.dataset.icon = client.muted ? "volume-x" : "volume-low";
-    mute.setAttribute("aria-pressed", client.muted ? "true" : "false");
-    mute.setAttribute("aria-label", t(client.muted ? "snapcast.unmute" : "snapcast.mute"));
-    mute.title = mute.getAttribute("aria-label");
+  li.append(head, volume);
+  return { li, head, mute, volume };
+}
+
+function paintSnapcastMute(button, muted, onKey, offKey) {
+  button.dataset.icon = muted ? "volume-x" : "volume-low";
+  button.setAttribute("aria-pressed", muted ? "true" : "false");
+  button.setAttribute("aria-label", t(muted ? offKey : onKey));
+  button.title = button.getAttribute("aria-label");
+}
+
+function snapcastRow(client, onChange) {
+  const line = snapcastLine(client.name,
+    t(client.connected ? "snapcast.connected" : "snapcast.disconnected")
+      + (client.ip ? " · " + client.ip.replace(/^::ffff:/, "") : ""),
+    t("snapcast.volume_of", { name: client.name }));
+  const paint = () => {
+    line.volume.value = String(client.volume);
+    setVolumeFill(line.volume);
+    paintSnapcastMute(line.mute, client.muted, "snapcast.mute", "snapcast.unmute");
   };
-  paintMute();
-  mute.addEventListener("click", async () => {
+  paint();
+  line.volume.addEventListener("change", async () => {
+    const r = await apiPost("/api/snapcast/client", { id: client.id, volume: Number(line.volume.value) });
+    if (!r.ok) {
+      showError(r.error);
+      return;
+    }
+    client.volume = Number(line.volume.value);
+    onChange();
+  });
+  line.mute.addEventListener("click", async () => {
     const r = await apiPost("/api/snapcast/client", { id: client.id, muted: !client.muted });
     if (!r.ok) {
       showError(r.error);
       return;
     }
     client.muted = !client.muted;
-    paintMute();
+    paint();
+    onChange();
   });
-  li.append(text, volume, mute);
   if (!client.connected) {
+    // Snapcast cannot send away a device still connected: it would come straight back.
     const forget = document.createElement("button");
     forget.type = "button";
     forget.className = "btn btn-icon btn-small btn-danger-outline";
@@ -4584,11 +4606,11 @@ function snapcastRow(client) {
     forget.addEventListener("click", async () => {
       const r = await apiDelete("/api/snapcast/client", { id: client.id });
       if (!r.ok) showError(r.error);
-      else li.remove();
+      else line.li.remove();
     });
-    li.append(forget);
+    line.head.append(forget);
   }
-  return li;
+  return { li: line.li, paint };
 }
 
 document.getElementById("snapcastManage").addEventListener("click", async () => {
@@ -4605,8 +4627,37 @@ document.getElementById("snapcastManage").addEventListener("click", async () => 
     if (data.clients.length) {
       const list = document.createElement("ul");
       list.className = "device-list snapcast-list";
-      list.append(...data.clients.map(snapcastRow));
+      const clients = data.clients;
+      const all = snapcastLine(t("snapcast.all"), t("snapcast.all_desc"), t("snapcast.volume_all"));
+      all.li.classList.add("snapcast-all");
+      const paintAll = () => {
+        const heard = clients.filter((c) => c.connected);
+        const counted = heard.length ? heard : clients;
+        all.volume.value = String(Math.round(counted.reduce((sum, c) => sum + c.volume, 0) / counted.length));
+        setVolumeFill(all.volume);
+        paintSnapcastMute(all.mute, counted.every((c) => c.muted), "snapcast.mute_all", "snapcast.unmute_all");
+      };
+      const rows = clients.map((client) => snapcastRow(client, paintAll));
+      const setAll = async (change) => {
+        const done = await apiPost("/api/snapcast/clients", change);
+        if (!done.ok) {
+          showError(done.error);
+          paintAll();
+          return;
+        }
+        clients.forEach((c) => Object.assign(c, change));
+        rows.forEach((row) => row.paint());
+        paintAll();
+      };
+      all.volume.addEventListener("change", () => setAll({ volume: Number(all.volume.value) }));
+      all.mute.addEventListener("click", () => setAll({ muted: all.mute.getAttribute("aria-pressed") !== "true" }));
+      paintAll();
+      list.append(all.li, ...rows.map((row) => row.li));
       box.append(list);
+      const keep = document.createElement("p");
+      keep.className = "hint";
+      keep.textContent = t("snapcast.keep_out");
+      box.append(keep);
     } else {
       const none = document.createElement("p");
       none.className = "hint";
@@ -4623,7 +4674,7 @@ document.getElementById("snapcastManage").addEventListener("click", async () => 
       box.append(link);
     }
   }
-  await openModal({ title: t("snapcast.clients"), bodyNode: box, modalClass: "modal-dedication" });
+  await openModal({ title: t("snapcast.clients"), bodyNode: box, modalClass: "modal-dedication", actions: false });
   refreshAudioOutputs();
 });
 document.getElementById("btnAudioTest").addEventListener("click", async () => {

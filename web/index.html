@@ -1813,13 +1813,6 @@
                 <option value="snapcast" data-i18n="audioout.snapcast">Multiroom (Snapcast)</option>
               </select>
             </div>
-            <div class="field-row" id="snapcastRow" hidden>
-              <div class="field-text">
-                <span class="field-label" data-i18n="snapcast.clients">Devices listening</span>
-                <p class="field-desc" data-i18n="snapcast.clients_desc">The Snapcast app, snapclient or a browser. The button sets the volume of each one.</p>
-              </div>
-              <button type="button" class="btn btn-small" id="snapcastManage" data-icon="users" data-i18n="snapcast.manage">Manage</button>
-            </div>
             <div data-level="detail" class="field-row" id="snapcastCodecRow" hidden>
               <div class="field-text">
                 <label for="snapcastCodec" data-i18n="snapcast.codec">Multiroom codec</label>
@@ -1830,6 +1823,13 @@
                 <option value="flac">FLAC</option>
                 <option value="pcm">PCM</option>
               </select>
+            </div>
+            <div class="field-row" id="snapcastRow" hidden>
+              <div class="field-text">
+                <span class="field-label" data-i18n="snapcast.clients">Devices listening</span>
+                <p class="field-desc" data-i18n="snapcast.clients_desc">The Snapcast app, snapclient or a browser. The button sets the volume of each one.</p>
+              </div>
+              <button type="button" class="btn" id="snapcastManage" data-icon="users" data-i18n="snapcast.manage">Manage</button>
             </div>
             <div class="field-row" id="audioFallbackRow">
               <div class="field-text">

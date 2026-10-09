@@ -18,6 +18,7 @@ function page(caps, output) {
     "GET /api/audio/outputs": { output, outputs: [] },
     "GET /api/snapcast/clients": CLIENTS,
     "POST /api/snapcast/client": {},
+    "POST /api/snapcast/clients": {},
   } });
 }
 
@@ -29,9 +30,16 @@ test("chosen, the multiroom output says its delay and opens the devices listenin
   await until(() => !p.$("snapcastRow").hidden);
   p.$("snapcastManage").click();
   const list = await until(() => p.document.querySelector("#modalBody .snapcast-list"));
-  assert.equal(list.children.length, 2);
-  assert.equal(list.children[1].querySelectorAll(".btn-danger-outline").length, 1, "only a device gone can be forgotten");
-  const volume = list.children[0].querySelector('input[type="range"]');
+  assert.equal(list.children.length, 3, "all the devices first, then each one");
+  assert.ok(list.children[0].classList.contains("snapcast-all"));
+  assert.equal(p.document.querySelector("#modalOverlay .modal-actions").hidden, true, "the cross closes it, no OK");
+  assert.equal(list.children[1].querySelectorAll(".btn-danger-outline").length, 0);
+  assert.equal(list.children[2].querySelectorAll(".btn-danger-outline").length, 1, "only a device gone can be forgotten");
+  list.children[0].querySelector(".snapcast-head button").click();
+  await until(() => p.sent("POST", "/api/snapcast/clients").length);
+  assert.deepEqual(p.sent("POST", "/api/snapcast/clients")[0].body, { muted: true }, "mutes them all");
+  await until(() => list.children[1].querySelector(".snapcast-head button").getAttribute("aria-pressed") === "true");
+  const volume = list.children[1].querySelector('input[type="range"]');
   volume.value = "30";
   volume.dispatchEvent(new p.window.Event("change"));
   await until(() => p.sent("POST", "/api/snapcast/client").length);

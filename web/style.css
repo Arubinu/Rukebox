@@ -1620,11 +1620,15 @@ body.lyrics-fullscreen { overflow: hidden; }
 #audioOutputDetected { white-space: pre-line; }
 .snapcast-box { display: flex; flex-direction: column; gap: 12px; }
 .snapcast-box > .hint { margin: 0; }
-.snapcast-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.snapcast-list .snapcast-name { flex: 1 1 140px; min-width: 0; }
+/* Beats the later `.device-list li`, which centres its rows. */
+.device-list.snapcast-list li { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.snapcast-head { display: flex; align-items: center; gap: 8px; }
+.snapcast-list .snapcast-name { flex: 1 1 auto; min-width: 0; }
 .snapcast-list .device-name { font-weight: 600; }
 .snapcast-list .device-sub { font-weight: 400; font-size: 13px; color: var(--text-muted); }
-.snapcast-list input[type="range"] { flex: 1 1 140px; }
+.snapcast-list input[type="range"] { width: 100%; }
+.device-list.snapcast-list li.snapcast-all { background: var(--accent-soft); }
+.snapcast-box > .btn-link { align-self: center; }
 .name-voice-box > .hint { margin: 0; }
 .name-voice-box audio { width: 100%; }
 .game-scores li { display: flex; justify-content: space-between; gap: 12px; }

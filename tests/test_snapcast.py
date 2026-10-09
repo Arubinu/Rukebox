@@ -106,6 +106,13 @@ class SnapcastRouteTest(unittest.TestCase):
         self.client.delete("/api/snapcast/client", json={"id": "b"})
         self.assertEqual(self.rpc.call_args[0], ("Server.DeleteClient", {"id": "b"}))
 
+    def test_every_device_at_once(self):
+        self.assertTrue(self.client.post("/api/snapcast/clients", json={"volume": 30}).get_json()["ok"])
+        sets = [c[0] for c in self.rpc.call_args_list if c[0][0] == "Client.SetVolume"]
+        self.assertEqual(sets, [("Client.SetVolume", {"id": "a", "volume": {"percent": 30}}),
+                                ("Client.SetVolume", {"id": "b", "volume": {"percent": 30}})])
+        self.assertEqual(self.client.post("/api/snapcast/clients", json={}).status_code, 400)
+
     def test_a_server_that_does_not_answer(self):
         self.rpc.side_effect = OSError("refused")
         self.assertFalse(self.client.get("/api/snapcast/clients").get_json()["data"]["running"])

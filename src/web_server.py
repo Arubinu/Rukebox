@@ -5537,9 +5537,28 @@ def api_audio_outputs():
     }})
 
 
-@app.route("/api/snapcast/clients")
+@app.route("/api/snapcast/clients", methods=["GET", "POST"])
 def api_snapcast_clients():
-    """The devices listening to the multiroom output, with their volume."""
+    """The devices listening to the multiroom output, with their volume; POST {volume?, muted?}
+    sets every one of them at once."""
+    if request.method == "POST":
+        body = request.get_json(silent=True) or {}
+        volume = {}
+        if "volume" in body:
+            try:
+                volume["percent"] = min(max(int(body["volume"]), 0), 100)
+            except (TypeError, ValueError):
+                return jsonify({"ok": False, "error": "invalid_value"}), 400
+        if "muted" in body:
+            volume["muted"] = bool(body["muted"])
+        if not volume:
+            return jsonify({"ok": False, "error": "bad_request"}), 400
+        try:
+            for one in snapcast.clients(snapcast.rpc("Server.GetStatus")):
+                snapcast.rpc("Client.SetVolume", {"id": one["id"], "volume": volume})
+        except OSError:
+            return jsonify({"ok": False, "error": "snapcast_unreachable"}), 503
+        return jsonify({"ok": True})
     data = {"available": snapcast.available(), "running": False, "clients": [],
             "web": os.path.isdir(snapcast.SNAPWEB), "port": snapcast.HTTP_PORT}
     if data["available"]:
