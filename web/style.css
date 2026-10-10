@@ -1599,7 +1599,7 @@ body.lyrics-fullscreen { overflow: hidden; }
 .game-marks { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0; }
 .game-mark[aria-pressed="true"] { background: var(--success-soft); border-color: var(--success); color: var(--success-text); }
 .game-mark .game-mark-gain { margin-left: 6px; font-weight: 700; }
-.game-hall-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 28px 0 8px; }
+.game-hall-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 8px; }
 .game-hall-head .game-voice-title { margin: 0; }
 /* The title's letters sit low in their box: the list follows them rather than the box. */
 #gameHallKind { margin-top: 6px; }
