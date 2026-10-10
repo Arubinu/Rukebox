@@ -77,5 +77,8 @@ VOLUME ["/config", "/data", "/music"]
 # 1704 carries the multiroom sound to the Snapcast clients, 1780 their volumes and the browser player.
 EXPOSE 80 1704 1780
 
+# Docker, Portainer and Dockge show "healthy" only once the daemon and the web server both answer.
+HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 \
+    CMD ["python3", "/opt/rukebox/docker/healthcheck.py"]
 ENTRYPOINT ["/opt/rukebox/docker/entrypoint.sh"]
 CMD ["python3", "/opt/rukebox/docker/supervisor.py"]

@@ -440,6 +440,10 @@ the stack's environment (Portainer, Dockge). Changing them afterwards does
 nothing: the interface owns the settings from then on.
 `config_bundle.py setup` applies them by hand.
 
+The image carries a **health check** (`docker/healthcheck.py`): the container
+is *healthy* once the daemon answers on its socket and the web server answers
+HTTP on `WEB_PORT`, which `docker ps`, Portainer and Dockge show as is.
+
 ### Variant 1: hearing it at all
 
 A container with no sound card still plays: it plays into a **virtual
