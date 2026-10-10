@@ -1,8 +1,11 @@
 """Exports and imports the whole configuration as one portable file."""
 
+import base64
+import binascii
 import json
 import logging
 import os
+import re
 import sys
 import time
 
@@ -22,6 +25,38 @@ BUNDLE_FORMAT = "rukebox-config"
 BUNDLE_VERSION = 1
 
 EXCLUDED_SETTINGS = ("WEB_PASSWORD_HASH", "WEB_SESSION_SECRET")
+
+# What the server setup page hands a Docker or LXC installation, once: its answers as the base64
+# of a bundle, and the interface password already hashed in the browser.
+SETUP_ENV = "RUKEBOX_SETUP"
+SETUP_HASH_ENV = "RUKEBOX_WEB_PASSWORD_HASH"
+_HASH_RE = re.compile(r"^pbkdf2_sha256\$\d{4,7}\$[0-9a-f]{32}\$[0-9a-f]{64}$")
+
+
+def apply_setup(text, password_hash=""):
+    """Writes a prepared installation's answers into the configuration: (settings, password set)."""
+    updates = {}
+    if text:
+        try:
+            data = json.loads(base64.b64decode(text.strip(), validate=True).decode("utf-8"))
+        except (ValueError, binascii.Error, UnicodeDecodeError):
+            raise ValueError("not_a_bundle")
+        if not isinstance(data, dict) or data.get("format") != BUNDLE_FORMAT:
+            raise ValueError("not_a_bundle")
+        settings = data.get("settings")
+        if not isinstance(settings, dict):
+            raise ValueError("no_settings")
+        known = {setting.env for setting in config_schema.SETTINGS}
+        updates = {key: "" if value is None else str(value) for key, value in settings.items()
+                   if key in known and key not in EXCLUDED_SETTINGS}
+    applied = len(updates)
+    if password_hash:
+        if not _HASH_RE.match(password_hash.strip()):
+            raise ValueError("bad_password_hash")
+        updates["WEB_PASSWORD_HASH"] = password_hash.strip()
+    if updates:
+        config_file.write_values(updates)
+    return applied, bool(password_hash)
 
 
 REPAIR_FILE = "repair.json"
@@ -263,6 +298,7 @@ REFUSAL_MESSAGES = {
     "not_a_bundle": "this is not a Rukebox configuration file",
     "newer_bundle": "this file comes from a newer version of Rukebox",
     "no_settings": "there are no settings in this file",
+    "bad_password_hash": "the interface password is not a hash this radio reads",
 }
 
 
@@ -271,7 +307,15 @@ def _refusal_message(code):
 
 
 def _main(argv):
-    """`config_bundle.py export <file>` / `import <file>`."""
+    """`config_bundle.py export <file>` / `import <file>` / `setup` (reads RUKEBOX_SETUP)."""
+    if argv[:1] == ["setup"]:
+        try:
+            applied, password = apply_setup(os.environ.get(SETUP_ENV, ""), os.environ.get(SETUP_HASH_ENV, ""))
+        except ValueError as e:
+            print("Refused: %s" % _refusal_message(str(e)), file=sys.stderr)
+            return 1
+        print("Prepared settings applied: %d%s" % (applied, ", and the interface password" if password else ""))
+        return 0
     if len(argv) < 2 or argv[0] not in ("export", "import"):
         print("Usage: config_bundle.py export|import <file>", file=sys.stderr)
         return 2

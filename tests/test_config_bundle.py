@@ -1,10 +1,13 @@
 """The configuration as one portable file (src/config_bundle.py), and the saved
 order of the announcement folders it carries (src/track_order.py)."""
+import base64
+import io
 import json
 import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import _path  # noqa: F401
 import announcements
@@ -15,6 +18,7 @@ import likes
 import music_lists
 import schedules
 import track_order
+import web_auth
 
 
 class TrackOrderTest(unittest.TestCase):
@@ -244,6 +248,48 @@ class BundleTest(unittest.TestCase):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.bundle(), f)
         self.assertEqual(config_bundle.load_bundle_file(path)["format"], "rukebox-config")
+
+    def setup_text(self, settings):
+        return base64.b64encode(json.dumps(self.bundle(settings=settings)).encode("utf-8")).decode("ascii")
+
+    def test_a_prepared_setup_writes_known_settings_and_never_a_secret(self):
+        text = self.setup_text({"UPNP_NAME": "Kitchen", "AUDIO_OUTPUT": "jack", "NOT_A_SETTING": "x",
+                                "WEB_SESSION_SECRET": "stolen", "WEB_PASSWORD_HASH": "pbkdf2$planted"})
+        self.assertEqual(config_bundle.apply_setup(text), (2, False))
+        values = config_file.read_values()
+        self.assertEqual((values["UPNP_NAME"], values["AUDIO_OUTPUT"]), ("Kitchen", "jack"))
+        self.assertNotIn("stolen", self.yaml_text())
+        self.assertNotIn("planted", self.yaml_text())
+
+    def test_a_prepared_password_hash_is_written_when_it_has_the_right_shape(self):
+        good = web_auth.hash_password("correct horse")
+        self.assertEqual(config_bundle.apply_setup("", good), (0, True))
+        self.assertTrue(web_auth.verify_password("correct horse", config_file.read_values()["WEB_PASSWORD_HASH"]))
+        for bad in ("plain text", "pbkdf2_sha256$260000$zz$00", good + "\nUPNP_NAME: x"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError) as caught:
+                config_bundle.apply_setup("", bad)
+            self.assertEqual(str(caught.exception), "bad_password_hash")
+
+    def test_a_prepared_setup_that_is_not_a_bundle_is_refused(self):
+        for text, code in (("not base64!", "not_a_bundle"),
+                           (base64.b64encode(b"[1, 2]").decode(), "not_a_bundle"),
+                           (base64.b64encode(json.dumps({"format": "x"}).encode()).decode(), "not_a_bundle"),
+                           (base64.b64encode(json.dumps({"format": config_bundle.BUNDLE_FORMAT}).encode()).decode(),
+                            "no_settings")):
+            with self.subTest(text=text), self.assertRaises(ValueError) as caught:
+                config_bundle.apply_setup(text)
+            self.assertEqual(str(caught.exception), code)
+
+    def test_the_setup_command_reads_the_environment(self):
+        env = {config_bundle.SETUP_ENV: self.setup_text({"UPNP_NAME": "Garage"}),
+               config_bundle.SETUP_HASH_ENV: web_auth.hash_password("eight chars")}
+        with mock.patch.dict(os.environ, env), mock.patch("sys.stdout", new=io.StringIO()) as out:
+            self.assertEqual(config_bundle._main(["setup"]), 0)
+        self.assertIn("applied: 1, and the interface password", out.getvalue())
+        self.assertEqual(config_file.read_values()["UPNP_NAME"], "Garage")
+        with mock.patch.dict(os.environ, {config_bundle.SETUP_ENV: "junk"}), \
+                mock.patch("sys.stderr", new=io.StringIO()):
+            self.assertEqual(config_bundle._main(["setup"]), 1)
 
 
 if __name__ == "__main__":
