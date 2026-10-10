@@ -89,8 +89,14 @@
         if (!value || Object.values(PLACES).some((p) => p[key] === value)) $(field).value = place[key];
       }
     }
+    paintHome();
     paintSound();
   }
+  function paintHome() {
+    const home = $("wzHome").value.trim();
+    $("wzHomeResult").textContent = home ? t("server.home_result", { config: under(home, "config"), data: under(home, "data") }) : "";
+  }
+  $("wzHome").addEventListener("input", paintHome);
   function paintSound() {
     const sound = choice("sound");
     $("wzCardRow").hidden = sound !== "card";
@@ -269,7 +275,7 @@
   });
 
   paintTarget();
-  window.LANG_CHANGE_LISTENERS.push(() => { if (steps[current].dataset.step === "result") paintResult(); });
+  window.LANG_CHANGE_LISTENERS.push(() => { paintHome(); if (steps[current].dataset.step === "result") paintResult(); });
   window.__rukeboxServer = { show, compose, lxcCommand, bundle, passwordHash, paintResult };
   show(0);
 })();

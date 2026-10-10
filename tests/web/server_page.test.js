@@ -161,3 +161,11 @@ test("every text of the page exists in the six languages", () => {
     for (const key of keys) assert.ok(key in I18N[lang], lang + " lacks " + key);
   }
 });
+
+test("the settings folder says where its config and data folders land", () => {
+  const p = load();
+  assert.equal(p.$("wzHomeResult").textContent, "Settings in ./config, statistics in ./data");
+  p.$("wzHome").value = "/srv/radio/";
+  p.$("wzHome").dispatchEvent(new p.window.Event("input"));
+  assert.equal(p.$("wzHomeResult").textContent, "Settings in /srv/radio/config, statistics in /srv/radio/data");
+});

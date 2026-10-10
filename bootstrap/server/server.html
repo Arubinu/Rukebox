@@ -111,8 +111,9 @@
             <input type="text" id="wzMusic" class="text-input" spellcheck="false" autocapitalize="off"></div>
           <div class="field-row"><label for="wzWritable" data-i18n="server.writable">Add music from the interface too</label>
             <input type="checkbox" id="wzWritable" class="switch-input" role="switch"></div>
-          <div class="field-row wz-col"><label for="wzHome" data-i18n="server.home">Folder for its settings and statistics</label>
-            <input type="text" id="wzHome" class="text-input" spellcheck="false" autocapitalize="off"></div>
+          <div class="field-row wz-col"><label for="wzHome" data-i18n="server.home">Folder where its config and data folders go</label>
+            <input type="text" id="wzHome" class="text-input" spellcheck="false" autocapitalize="off">
+            <small class="hint" id="wzHomeResult" role="status"></small></div>
           <div class="field-row"><label for="wzPort" data-i18n="server.port">Port of the interface</label>
             <input type="text" id="wzPort" class="text-input wz-short" value="8080" inputmode="numeric"></div>
           <p class="hint wz-center" id="wzHostNet" data-i18n="server.host_network" hidden>Bluetooth needs the machine's own network: nothing is mapped, the radio listens on this port itself.</p>
