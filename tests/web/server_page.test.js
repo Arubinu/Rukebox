@@ -159,7 +159,12 @@ test("a Proxmox container gets one command, from the release tag, with the sound
   const steps = [...p.$("wzSteps").children];
   assert.equal(steps.length, 6);
   assert.match(steps[1].textContent, /\/etc\/pve\/lxc\/120\.conf/);
-  assert.match(steps[2].textContent, /pct start 120 && pct enter 120/);
+  assert.match(steps[2].textContent, /Console/);
+  assert.doesNotMatch(steps[2].textContent, /pct/);
+  assert.equal(p.$("wzPctRow").hidden, false);
+  p.$("wzPct").checked = true;
+  await p.api.paintResult();
+  assert.match(p.$("wzSteps").children[2].textContent, /pct start 120 && pct enter 120/);
   assert.equal(steps[3].querySelectorAll("button").length, 1, "a command is copied, not downloaded");
 });
 

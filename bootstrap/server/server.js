@@ -285,7 +285,8 @@
         "server.lxc_cores", "server.lxc_memory", "server.lxc_disk", "server.lxc_network"] }));
       const id = $("wzCtId").value;
       if (sound === "card") list.push(item("server.lxc_card", null, { code: SOUND_HOST.replace("{id}", id) }));
-      list.push(item("server.lxc_run", null, { code: "pct start " + id + " && pct enter " + id }));
+      if ($("wzPct").checked) list.push(item("server.lxc_enter", null, { code: "pct start " + id + " && pct enter " + id }));
+      else list.push(item("server.lxc_console"));
       list.push(item("server.lxc_paste", null, { block: [t("server.code_command"), lxcCommand(hash), ""] }));
       list.push(item("server.lxc_time"));
       list.push(item("server.lxc_open", { url: "http://<" + address + ">/" }));
@@ -306,11 +307,13 @@
       if (sound === "card") list.push(item("server.card_group", null, { code: "getent group audio" }));
     }
     $("wzEnvRow").hidden = target === "lxc";
+    $("wzPctRow").hidden = target !== "lxc";
     $("wzSteps").replaceChildren(...list);
     $("wzSecret").hidden = !hash;
     $("wzCopied").textContent = "";
   }
   $("wzEnvFile").addEventListener("change", paintResult);
+  $("wzPct").addEventListener("change", paintResult);
 
   paintTarget();
   window.LANG_CHANGE_LISTENERS.push(() => { paintHome(); if (steps[current].dataset.step === "result") paintResult(); });
