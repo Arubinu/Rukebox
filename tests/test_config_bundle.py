@@ -249,8 +249,9 @@ class BundleTest(unittest.TestCase):
             json.dump(self.bundle(), f)
         self.assertEqual(config_bundle.load_bundle_file(path)["format"], "rukebox-config")
 
-    def setup_text(self, settings):
-        return base64.b64encode(json.dumps(self.bundle(settings=settings)).encode("utf-8")).decode("ascii")
+    def setup_text(self, settings, **parts):
+        data = self.bundle(settings=settings, **parts)
+        return base64.b64encode(json.dumps(data).encode("utf-8")).decode("ascii")
 
     def test_a_prepared_setup_writes_known_settings_and_never_a_secret(self):
         text = self.setup_text({"UPNP_NAME": "Kitchen", "AUDIO_OUTPUT": "jack", "NOT_A_SETTING": "x",
@@ -263,11 +264,11 @@ class BundleTest(unittest.TestCase):
 
     def test_a_prepared_password_hash_is_written_when_it_has_the_right_shape(self):
         good = web_auth.hash_password("correct horse")
-        self.assertEqual(config_bundle.apply_setup("", good), (0, True))
+        self.assertEqual(config_bundle.apply_setup(self.setup_text({}, web_password_hash=good)), (0, True))
         self.assertTrue(web_auth.verify_password("correct horse", config_file.read_values()["WEB_PASSWORD_HASH"]))
         for bad in ("plain text", "pbkdf2_sha256$260000$zz$00", good + "\nUPNP_NAME: x"):
             with self.subTest(bad=bad), self.assertRaises(ValueError) as caught:
-                config_bundle.apply_setup("", bad)
+                config_bundle.apply_setup(self.setup_text({}, web_password_hash=bad))
             self.assertEqual(str(caught.exception), "bad_password_hash")
 
     def test_a_prepared_setup_that_is_not_a_bundle_is_refused(self):
@@ -281,8 +282,8 @@ class BundleTest(unittest.TestCase):
             self.assertEqual(str(caught.exception), code)
 
     def test_the_setup_command_reads_the_environment(self):
-        env = {config_bundle.SETUP_ENV: self.setup_text({"UPNP_NAME": "Garage"}),
-               config_bundle.SETUP_HASH_ENV: web_auth.hash_password("eight chars")}
+        env = {config_bundle.SETUP_ENV: self.setup_text({"UPNP_NAME": "Garage"},
+                                                        web_password_hash=web_auth.hash_password("eight chars"))}
         with mock.patch.dict(os.environ, env), mock.patch("sys.stdout", new=io.StringIO()) as out:
             self.assertEqual(config_bundle._main(["setup"]), 0)
         self.assertIn("applied: 1, and the interface password", out.getvalue())

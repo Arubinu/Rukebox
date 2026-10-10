@@ -37,8 +37,7 @@ def main():
         "%s=%s" % (key, updates[key]) for key in sorted(updates)))
     # The server setup page's answers come last: they may choose another output.
     try:
-        applied, password = config_bundle.apply_setup(os.environ.get(config_bundle.SETUP_ENV, ""),
-                                                      os.environ.get(config_bundle.SETUP_HASH_ENV, ""))
+        applied, password = config_bundle.apply_setup(os.environ.get(config_bundle.SETUP_ENV, ""))
     except ValueError as error:
         print("first_start: the prepared settings were refused (%s)" % error, file=sys.stderr)
         return 1

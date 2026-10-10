@@ -567,7 +567,7 @@ fi
 unset AP_PASSWORD WEB_PASSWORD WEB_PASSWORD_HASH 2>/dev/null || true
 
 # Answers prepared by the server setup page (an LXC install): applied once, over the defaults.
-if [ -n "${RUKEBOX_SETUP:-}" ] || [ -n "${RUKEBOX_WEB_PASSWORD_HASH:-}" ]; then
+if [ -n "${RUKEBOX_SETUP:-}" ]; then
     python3 "$PROJECT_ROOT/src/config_bundle.py" setup || echo "!! The prepared settings were refused." >&2
 fi
 

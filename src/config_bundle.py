@@ -26,16 +26,15 @@ BUNDLE_VERSION = 1
 
 EXCLUDED_SETTINGS = ("WEB_PASSWORD_HASH", "WEB_SESSION_SECRET")
 
-# What the server setup page hands a Docker or LXC installation, once: its answers as the base64
-# of a bundle, and the interface password already hashed in the browser.
+# What the server setup page hands a Docker or LXC installation, once: the base64 of a bundle,
+# whose web_password_hash was made in the browser. Base64 keeps "$" out of compose and .env files.
 SETUP_ENV = "RUKEBOX_SETUP"
-SETUP_HASH_ENV = "RUKEBOX_WEB_PASSWORD_HASH"
 _HASH_RE = re.compile(r"^pbkdf2_sha256\$\d{4,7}\$[0-9a-f]{32}\$[0-9a-f]{64}$")
 
 
-def apply_setup(text, password_hash=""):
+def apply_setup(text):
     """Writes a prepared installation's answers into the configuration: (settings, password set)."""
-    updates = {}
+    updates, password_hash = {}, ""
     if text:
         try:
             data = json.loads(base64.b64decode(text.strip(), validate=True).decode("utf-8"))
@@ -49,6 +48,7 @@ def apply_setup(text, password_hash=""):
         known = {setting.env for setting in config_schema.SETTINGS}
         updates = {key: "" if value is None else str(value) for key, value in settings.items()
                    if key in known and key not in EXCLUDED_SETTINGS}
+        password_hash = str(data.get("web_password_hash") or "")
     applied = len(updates)
     if password_hash:
         if not _HASH_RE.match(password_hash.strip()):
@@ -310,7 +310,7 @@ def _main(argv):
     """`config_bundle.py export <file>` / `import <file>` / `setup` (reads RUKEBOX_SETUP)."""
     if argv[:1] == ["setup"]:
         try:
-            applied, password = apply_setup(os.environ.get(SETUP_ENV, ""), os.environ.get(SETUP_HASH_ENV, ""))
+            applied, password = apply_setup(os.environ.get(SETUP_ENV, ""))
         except ValueError as e:
             print("Refused: %s" % _refusal_message(str(e)), file=sys.stderr)
             return 1
