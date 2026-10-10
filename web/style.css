@@ -2832,8 +2832,11 @@ select {
 .duration-new { width: 5rem; flex: none; }
 /* Sized like the text fields beside it: their width on a wide card, the whole line on a narrow one. */
 .field-row > #gameNames { flex: 0 1 19rem; width: 19rem; max-width: 100%; min-width: 0; margin-left: 0; }
+/* On a narrow card the row wraps under its label: the field then takes the whole line. */
 @container card (max-width: 520px) {
-  .field-row > #gameNames { flex: 1 1 100%; width: 100%; }
+  .field-row > .duration-field,
+  .field-row > #gameNames { flex: 1 1 100%; width: 100%; margin-left: 0; }
+  .field-row > .duration-field .duration-new { flex: 1 1 auto; width: auto; min-width: 0; }
 }
 .duration-new.game-name-new { flex: 1 1 auto; width: auto; min-width: 0; }
 .duration-list { display: flex; flex-direction: column; }
