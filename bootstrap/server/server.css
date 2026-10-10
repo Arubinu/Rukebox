@@ -8,6 +8,8 @@
   font: 12.5px/1.5 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .srv-inline { margin-top: 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.wz-list > li > span { white-space: pre-line; }
 .wz-list ul { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
 #wzSecret { margin: 0; }
+#wzHomeResult { text-align: center; }
 #wzCopied:empty { display: none; }
