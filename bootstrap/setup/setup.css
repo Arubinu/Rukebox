@@ -1,5 +1,5 @@
 /* The interface's body is a fixed shell that never scrolls; these pages are documents that do. */
-.wz-body { height: auto; overflow: visible; background: var(--bg); }
+.wz-body { height: auto; overflow: visible; padding-bottom: 32px; background: var(--bg); }
 .wz-head {
   display: flex; align-items: center; gap: 12px;
   width: min(640px, 100% - 32px); margin: 20px auto 8px;
@@ -8,7 +8,7 @@
 .wz-head-text { flex: 1; }
 .wz-brand { display: block; width: auto; height: 24px; }
 .wz-sub { color: var(--text-muted); font-size: 14px; }
-.wz-main { width: min(640px, 100% - 32px); margin: 0 auto 40px; display: flex; flex-direction: column; gap: 16px; }
+.wz-main { width: min(640px, 100% - 32px); margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 .wz-dots { display: flex; justify-content: center; gap: 8px; list-style: none; margin: 8px 0 16px; padding: 0; }
 .wz-dots li { width: 9px; height: 9px; border-radius: 50%; background: var(--border-strong); }
 .wz-dots li.done { background: var(--accent); opacity: 0.5; }
