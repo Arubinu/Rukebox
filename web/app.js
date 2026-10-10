@@ -10311,6 +10311,7 @@ document.getElementById("sharePrint").addEventListener("click", async () => {
     { value: "wifi", label: t("share.wifi") },
     { value: "url", label: t("share.open") },
     { value: "both", label: t("share.print_both") },
+    { value: "apart", label: t("share.print_apart") },
   ], t("share.print"));
   if (!which) return;
   document.body.dataset.print = which;

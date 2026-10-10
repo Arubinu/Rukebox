@@ -2830,7 +2830,12 @@ select {
   margin-left: auto;
 }
 .duration-new { width: 5rem; flex: none; }
-.duration-new.game-name-new { width: 8rem; }
+/* Sized like the text fields beside it: their width on a wide card, the whole line on a narrow one. */
+.field-row > #gameNames { flex: 0 1 19rem; width: 19rem; max-width: 100%; min-width: 0; margin-left: 0; }
+@container card (max-width: 520px) {
+  .field-row > #gameNames { flex: 1 1 100%; width: 100%; }
+}
+.duration-new.game-name-new { flex: 1 1 auto; width: auto; min-width: 0; }
 .duration-list { display: flex; flex-direction: column; }
 .duration-row {
   display: flex;
@@ -4035,19 +4040,27 @@ body[data-access="guest"] .toast-stack { bottom: calc(20px + env(safe-area-inset
 @media print {
   body.print-share * { visibility: hidden !important; }
   body.print-share #shareCard, body.print-share #shareCard * { visibility: visible !important; }
+  /* The dashed line is where to cut, on a white sheet: around the whole card, or around each code. */
   body.print-share #shareCard {
     position: absolute; left: 0; top: 0; width: 100%;
-    border: 0; box-shadow: none; background: #fff; color: #000;
+    padding: 20px;
+    border: 3px dashed rgba(128, 128, 128, 0.5); box-shadow: none; background: #fff; color: #000;
   }
+  body.print-share[data-print="apart"] #shareCard { border-color: transparent; }
 
   body.print-share[data-print="wifi"] #shareItemUrl,
   body.print-share[data-print="url"] #shareItemWifi { display: none !important; }
+  /* One code alone keeps the size it has next to the other: half the page, plus half of the
+     padding, border and gap the pair shares. */
+  body.print-share[data-print="wifi"] #shareCard,
+  body.print-share[data-print="url"] #shareCard { width: calc(50% + 15px); }
+  body.print-share[data-print="wifi"] .share-grid,
+  body.print-share[data-print="url"] .share-grid { grid-template-columns: 1fr; }
   body.print-share #shareCard .share-actions,
   body.print-share #shareCard .help-btn { display: none !important; }
-  /* Two columns even for one code: it prints the size it has next to the other. */
-  body.print-share .share-grid { grid-template-columns: 1fr 1fr; }
-  /* Where to cut, on a white sheet. */
-  body.print-share .share-item { background: #fff; border: 3px dashed rgba(128, 128, 128, 0.5); }
+  body.print-share .share-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
+  body.print-share .share-item { background: #fff; border-color: #ccc; }
+  body.print-share[data-print="apart"] .share-item { border: 3px dashed rgba(128, 128, 128, 0.5); }
   body.print-share .share-text { color: #000; }
 }
 body[data-access="guest"] .guest-banner { display: block; }
