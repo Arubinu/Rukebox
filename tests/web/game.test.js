@@ -105,3 +105,44 @@ test("with the suggestion box off, the page is only about one's name", async () 
   assert.equal(page.$("suggestMeLine").hidden, false, "the name and its links stay");
   await page.close();
 });
+
+test("aloud: the host's form, the names to mark after the answer, and one hall at a time", async () => {
+  const lobby = { state: "none", owner: true, round_choices: [5, 10], second_choices: [10, 20],
+                  hall: [{ name: "Owl", wins: 4 }], hall_oral: [{ name: "Ana", wins: 2 }] };
+  const page = load({ hash: "#home/game", routes: {
+    "GET /api/status": STATUS, "GET /api/game": lobby, "POST /api/game/start": {} } });
+  await until(() => !page.$("gameStartForm").hidden);
+  assert.equal(page.$("gameNamesRow").hidden, true, "the names belong to a game aloud");
+  page.$("gameMode").value = "oral";
+  page.$("gameMode").dispatchEvent(new page.window.Event("change"));
+  assert.equal(page.$("gameNamesRow").hidden, false);
+  page.$("gamePace").value = "host";
+  page.$("gameNames").value = "Ana, Bo ,";
+  page.$("gameStartForm").dispatchEvent(new page.window.Event("submit", { cancelable: true }));
+  await until(() => page.sent("POST", "/api/game/start").length);
+  const sent = page.sent("POST", "/api/game/start")[0].body;
+  assert.deepEqual([sent.mode, sent.pace, sent.names], ["oral", "host", ["Ana", "Bo"]]);
+  await until(() => !page.$("gameHallBox").hidden);
+  assert.equal(page.$("gameHallKind").hidden, false, "both halls: a choice, not both lists");
+  assert.equal(page.document.querySelectorAll("#gameHall li").length, 1);
+  await page.close();
+
+  const reveal = { state: "reveal", mode: "oral", pace: "host", owner: true, round: 2, rounds: 5, choices: [],
+    answer_label: "Fly - Hilary Duff", scores: [], oral_names: [{ name: "Ana", marked: true, first: true },
+    { name: "Bo", marked: false, first: false }], round_choices: [5], second_choices: [10] };
+  const host = load({ hash: "#home/game", routes: {
+    "GET /api/status": Object.assign({}, STATUS, { mode: "game" }), "GET /api/game": reveal,
+    "POST /api/game/mark": reveal, "POST /api/game/next": {} } });
+  await until(() => !host.$("gameMarks").hidden);
+  assert.equal(host.$("gameResult").textContent, "Fly - Hilary Duff");
+  assert.equal(host.$("gameRole").hidden, true, "nobody chooses to play or watch aloud");
+  const marks = [...host.$("gameMarks").children];
+  assert.deepEqual(marks.map((b) => b.textContent), ["Ana+2", "Bo"]);
+  marks[1].click();
+  await until(() => host.sent("POST", "/api/game/mark").length);
+  assert.deepEqual(host.sent("POST", "/api/game/mark")[0].body, { name: "Bo", on: true });
+  assert.equal(host.$("gameNextBtn").textContent, "Next round");
+  host.$("gameNextBtn").click();
+  await until(() => host.sent("POST", "/api/game/next").length);
+  await host.close();
+});

@@ -220,6 +220,8 @@ GAME_WORDS = {
     "with": {"en": "with", "fr": "avec", "de": "mit", "es": "con", "it": "con", "nl": "met"},
     "point": {"en": "point", "fr": "point", "de": "Punkt", "es": "punto", "it": "punto", "nl": "punt"},
     "points": {"en": "points", "fr": "points", "de": "Punkten", "es": "puntos", "it": "punti", "nl": "punten"},
+    "answer": {"en": "That was %s, by %s.", "fr": "C'était %s, de %s.", "de": "Das war %s von %s.",
+               "es": "Era %s, de %s.", "it": "Era %s, di %s.", "nl": "Dat was %s van %s."},
 }
 
 
@@ -239,6 +241,11 @@ def game_parts(kind, people, lang):
         return out
 
     named = names(people)
+    if kind == "answer":
+        # people: [{"title", "artist"}], the song that was playing.
+        song = (people or [{}])[0]
+        return [{"text": words["answer"] % (clean_text(song.get("title"), 80) or "?",
+                                            clean_text(song.get("artist"), 60) or "?")}]
     if kind == "podium":
         # people: the places, first place first; said from the last one up, for the suspense.
         said = [{"text": words["end"]}]

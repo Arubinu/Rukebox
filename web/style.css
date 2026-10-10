@@ -1596,6 +1596,13 @@ body.lyrics-fullscreen { overflow: hidden; }
 .game-result { min-height: 1.4em; margin-top: 10px; text-align: center; }
 .game-voice-title { font-size: 1rem; margin: 20px 0 4px; }
 .game-role { margin-bottom: 14px; text-align: center; }
+.game-marks { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0; }
+.game-mark[aria-pressed="true"] { background: var(--success-soft); border-color: var(--success); color: var(--success-text); }
+.game-mark .game-mark-gain { margin-left: 6px; font-weight: 700; }
+.game-hall-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 8px; }
+.game-hall-head .game-voice-title { margin: 0; }
+.game-hall-head select { width: auto; }
+#gameHostRow .btn { flex: 1 1 160px; justify-content: center; }
 .game-role-text { margin: 0 0 10px; font-weight: 600; }
 .game-role .form-actions .btn { flex: 1 1 140px; justify-content: center; }
 .game-role-count { margin: 10px 0 0; }

@@ -38,6 +38,7 @@ import config_bundle  # noqa: E402
 import duplicates  # noqa: E402
 import hidden_tracks  # noqa: E402
 import json_file  # noqa: E402
+import game_sounds  # noqa: E402
 import name_voice  # noqa: E402
 import speech  # noqa: E402
 import snapcast  # noqa: E402
@@ -3243,6 +3244,7 @@ def _game_speech(parts):
 
     for part in parts:
         voice = name_voice.existing(c["STATE_DIR"], part.get("person")) if "name" in part else None
+        voice = part.get("sound") or voice
         if voice:
             said()
             pieces.append(voice)
@@ -3267,19 +3269,80 @@ def _game_speech(parts):
     return (out, length) if length else (None, 0)
 
 
-def _game_say(game, kind, people=None):
-    """Says `kind` when the settings want it: how long it lasts, 0 when nothing is said."""
-    want = "GAME_VOICE_WINNERS" if kind == "round" else "GAME_VOICE_START_STOP"
-    if not cfg().get(want):
+def _game_speak(parts):
+    """Plays the parts at once: how long it lasts, 0 when nothing is played."""
+    if not parts:
         return 0
     try:
-        path, length = _game_speech(speech.game_parts(kind, people, cfg().get("SPEECH_LANGUAGE")))
+        path, length = _game_speech(parts)
     except Exception:  # noqa: BLE001 - a voice that fails never stops the game
         log.exception("The blind test could not speak")
         return 0
     if not path or not control("game_say", path=path).get("ok"):
         return 0
     return length
+
+
+def _game_say(game, kind, people=None):
+    """Says `kind` when the settings want it: how long it lasts, 0 when nothing is said."""
+    if not cfg().get("GAME_VOICE_START_STOP"):
+        return 0
+    return _game_speak(speech.game_parts(kind, people, cfg().get("SPEECH_LANGUAGE")))
+
+
+def _game_sounds_dir():
+    return os.path.join(cfg()["STATE_DIR"], "game-sounds")
+
+
+def _round_speech(game, question):
+    """The end of a round: the answer (always aloud, on demand otherwise), then who found it."""
+    c = cfg()
+    lang = c.get("SPEECH_LANGUAGE")
+    parts = []
+    if game.mode == "oral" or c.get("GAME_VOICE_ANSWER"):
+        sound = game_sounds.answer_sound(c.get("GAME_ANSWER_SOUND") or "", _game_sounds_dir())
+        if sound:
+            parts.append({"sound": sound})
+        parts += speech.game_parts("answer", [question], lang)
+    if game.mode == "phones" and c.get("GAME_VOICE_WINNERS"):
+        parts += speech.game_parts("round", game.right_people(), lang)
+    return _game_speak(parts)
+
+
+def _game_taps():
+    return int(((control("get_status").get("data") or {}).get("game_taps")) or 0)
+
+
+class _HostTaps:
+    """The host moving the game on aloud: the page's buttons or a button's click."""
+
+    def __init__(self, game):
+        self.game = game
+        self.seen = _game_taps() if game.pace == "host" else 0
+        self.polled = 0.0
+
+    def fresh(self, flag):
+        if self.game.pace != "host":
+            return False
+        if getattr(self.game, flag):
+            setattr(self.game, flag, False)
+            return True
+        if time.monotonic() - self.polled < 0.5:
+            return False
+        self.polled = time.monotonic()
+        taps = _game_taps()
+        moved, self.seen = taps > self.seen, taps
+        return moved
+
+
+def _game_hold(game, seconds, taps=None, flag="advance"):
+    """Waits `seconds` (None: until the host moves on), or less when the host moves on."""
+    end = None if seconds is None else time.monotonic() + seconds
+    while not game.stopped and (end is None or time.monotonic() < end):
+        if taps is not None and taps.fresh(flag):
+            return True
+        time.sleep(0.25)
+    return False
 
 
 def _game_wait(game, seconds, stop_counts=True):
@@ -3291,11 +3354,19 @@ def _game_wait(game, seconds, stop_counts=True):
 def _game_run(game):
     """Plays the rounds one after the other, then gives the radio back."""
     try:
-        while not game.stopped and not game.ready():
-            time.sleep(0.25)
-        if not game.players and not game.stopped:
-            game.finish("game_no_players")
-            return
+        oral = game.mode == "oral"
+        if not oral:
+            while not game.stopped and not game.ready():
+                time.sleep(0.25)
+            if not game.players and not game.stopped:
+                game.finish("game_no_players")
+                return
+        c = cfg()
+        think_sec = min(max(int(c.get("GAME_THINK_SEC") or 0), 0), 60) if oral else 0
+        # Made before the first round: synthesising them on a small board takes a moment.
+        think_sound = game_sounds.think_sound(c.get("GAME_THINK_SOUND") or "", think_sec, _game_sounds_dir())
+        game_sounds.answer_sound(c.get("GAME_ANSWER_SOUND") or "", _game_sounds_dir())
+        taps = _HostTaps(game) if oral else None
         _game_wait(game, _game_say(game, "start") + 0.3)
         while not game.stopped:
             question = game.next_question()
@@ -3309,14 +3380,27 @@ def _game_run(game):
             question["started"] = time.monotonic()
             deadline = question["started"] + game.clip_sec
             while time.monotonic() < deadline and not game.stopped and not game.everyone_answered():
+                if taps is not None and taps.fresh("cut"):
+                    control("game_hush")
+                    break
                 time.sleep(0.25)
+            if think_sec and not game.stopped:
+                game.think(think_sec)
+                _game_speak([{"sound": think_sound}] if think_sound else [])
+                if _game_hold(game, think_sec, taps):
+                    control("game_hush")
             game.close_round()
-            spoken = _game_say(game, "round", game.right_people()) if not game.stopped else 0
-            _game_wait(game, max(blind_test.REVEAL_SEC, spoken + 0.5))
+            spoken = _round_speech(game, question) if not game.stopped else 0
+            if oral and game.pace == "host":
+                _game_hold(game, None, taps)
+            else:
+                reveal = blind_test.ORAL_REVEAL_SEC if oral and game.players else blind_test.REVEAL_SEC
+                _game_wait(game, max(reveal, spoken + 0.5))
+            game.score_marks()
         game.finish()
         if not game.stopped:
             try:
-                blind_test.record_wins(_game_wins_file(), game.winners())
+                blind_test.record_wins(_game_wins_file(oral), game.winners())
             except OSError:
                 log.exception("Could not keep the blind test's winners")
         # The end is said even after Stop: the radio goes back to its music after it.
@@ -3331,8 +3415,9 @@ def _game_run(game):
         control("game_end")
 
 
-def _game_wins_file():
-    return os.path.join(cfg()["STATE_DIR"], "game_wins.json")
+def _game_wins_file(oral=False):
+    """The wins of games played on phones, or aloud (named as typed): kept apart."""
+    return os.path.join(cfg()["STATE_DIR"], "game_wins_oral.json" if oral else "game_wins.json")
 
 
 GAME_HALL_SIZE = 10
@@ -3360,8 +3445,11 @@ def api_game():
     person, name = _game_player()
     game = _game
     won = blind_test.wins(_game_wins_file())
+    oral_hall = sorted(({"name": e.get("name") or "?", "wins": int(e.get("wins") or 0)}
+                        for e in blind_test.wins(_game_wins_file(oral=True)).values() if e.get("wins")),
+                       key=lambda h: (-h["wins"], h["name"].casefold()))[:GAME_HALL_SIZE]
     options = {"owner": _is_owner(), "round_choices": list(blind_test.ROUNDS),
-               "second_choices": list(blind_test.CLIP_SECONDS), "hall": _game_hall(won)}
+               "second_choices": list(blind_test.CLIP_SECONDS), "hall": _game_hall(won), "hall_oral": oral_hall}
     if game is None or (game.state == "over" and time.monotonic() - game.ended_at > GAME_KEPT_SEC):
         return jsonify({"ok": True, "data": dict(options, state="none")})
     game.seen(person, name)
@@ -3371,8 +3459,8 @@ def api_game():
 
 @app.route("/api/game/hall", methods=["DELETE"])
 def api_game_hall_reset():
-    """The owner starts the wins over."""
-    path = _game_wins_file()
+    """The owner starts the wins over (?kind=oral: those of the games played aloud)."""
+    path = _game_wins_file(oral=request.args.get("kind") == "oral")
     with json_file.lock(path):
         json_file.write(path, {"people": {}})
     stats.record("game_hall_reset")
@@ -3389,6 +3477,15 @@ def api_game_start():
         return jsonify({"ok": False, "error": "bad_request"}), 400
     if rounds not in blind_test.ROUNDS or seconds not in blind_test.CLIP_SECONDS:
         return jsonify({"ok": False, "error": "bad_request"}), 400
+    mode, pace = body.get("mode") or "phones", body.get("pace") or "auto"
+    if mode not in blind_test.MODES or pace not in blind_test.PACES:
+        return jsonify({"ok": False, "error": "bad_request"}), 400
+    names = []
+    for raw in body.get("names") or []:
+        name = speech.clean_text(str(raw), 24)
+        if name and blind_test.oral_id(name) not in {blind_test.oral_id(n) for n in names}:
+            names.append(name)
+    names = names[:blind_test.ORAL_NAMES]
     with _game_lock:
         if _game is not None and _game.state != "over":
             return jsonify({"ok": False, "error": "game_running"}), 409
@@ -3397,11 +3494,11 @@ def api_game_start():
             join_sec = min(max(int(cfg().get("GAME_JOIN_SEC") or blind_test.JOIN_SEC), 10), 300)
         except (TypeError, ValueError):
             join_sec = blind_test.JOIN_SEC
-        game = blind_test.Game(tracks, rounds, seconds, join_sec=join_sec)
+        game = blind_test.Game(tracks, rounds, seconds, join_sec=join_sec, mode=mode, pace=pace, names=names)
         if not game.enough():
             return jsonify({"ok": False, "error": "game_not_enough_tracks"}), 409
         _game = game
-    stats.record("game_started", label="%d x %ds" % (rounds, seconds), detail={"rounds": rounds})
+    stats.record("game_started", label="%d x %ds" % (rounds, seconds), detail={"rounds": rounds, "mode": mode})
     threading.Thread(target=_game_run, args=(game,), daemon=True).start()
     return jsonify({"ok": True})
 
@@ -3414,6 +3511,39 @@ def api_game_join():
         return jsonify({"ok": False, "error": "game_not_asking"}), 409
     person, name = _game_player()
     game.join(person, name, bool((request.get_json(silent=True) or {}).get("play")))
+    return jsonify({"ok": True, "data": game.view(person)})
+
+
+@app.route("/api/game/cut", methods=["POST"])
+def api_game_cut():
+    """Aloud, at the host's pace: the extract stops here (or the answer comes now)."""
+    game = _game
+    if game is not None and game.state in ("playing", "thinking"):
+        game.cut = game.state == "playing"
+        game.advance = game.state == "thinking"
+    return jsonify({"ok": True})
+
+
+@app.route("/api/game/next", methods=["POST"])
+def api_game_next():
+    """Aloud, at the host's pace: on to the next round."""
+    game = _game
+    if game is not None and game.state in ("thinking", "reveal"):
+        game.advance = True
+    return jsonify({"ok": True})
+
+
+@app.route("/api/game/mark", methods=["POST"])
+def api_game_mark():
+    """Aloud: {name, on} - that name found it (the first one marked scores twice)."""
+    game = _game
+    if game is None:
+        return jsonify({"ok": False, "error": "game_not_asking"}), 409
+    body = request.get_json(silent=True) or {}
+    error = game.mark(body.get("name"), bool(body.get("on", True)))
+    if error:
+        return jsonify({"ok": False, "error": error}), 409
+    person, _name = _game_player()
     return jsonify({"ok": True, "data": game.view(person)})
 
 

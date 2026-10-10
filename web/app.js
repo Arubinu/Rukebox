@@ -5129,7 +5129,13 @@ function paintGame(g) {
   document.getElementById("gameStartForm").hidden = !g.owner;
   // The game's settings wait for the game to be over.
   document.getElementById("gameVoiceForm").hidden = !g.owner || !lobby;
-  const hall = g.hall || [];
+  // One hall shown at a time: the games on the phones, or those played aloud.
+  const halls = { phones: g.hall || [], oral: g.hall_oral || [] };
+  const kindSelect = document.getElementById("gameHallKind");
+  const both = halls.phones.length > 0 && halls.oral.length > 0;
+  kindSelect.hidden = !both;
+  if (!both) kindSelect.value = halls.oral.length ? "oral" : "phones";
+  const hall = halls[kindSelect.value] || [];
   document.getElementById("gameHallBox").hidden = !lobby || !hall.length;
   document.getElementById("gameHallResetRow").hidden = !g.owner;
   document.getElementById("gameHall").replaceChildren(...hall.map((h) => {
@@ -5164,7 +5170,8 @@ function paintGame(g) {
   const round = document.getElementById("gameRound");
   const joining = g.state === "joining";
   const role = document.getElementById("gameRole");
-  role.hidden = !(joining || ((g.state === "playing" || g.state === "reveal") && g.role !== "player"));
+  role.hidden = g.mode === "oral"
+    || !(joining || ((g.state === "playing" || g.state === "reveal") && g.role !== "player"));
   if (!role.hidden) {
     document.getElementById("gameRoleText").textContent = t(g.role === "player" ? "game.role_is_player"
       : g.role === "spectator" ? "game.role_is_spectator" : "game.role_ask");
@@ -5178,6 +5185,8 @@ function paintGame(g) {
     round.textContent = t("game.join_wait", { s: g.join_left || 0 });
   } else if (g.state === "playing") {
     round.textContent = t("game.round", { n: g.round, total: g.rounds }) + " · " + t("game.remaining", { s: g.remaining || 0 });
+  } else if (g.state === "thinking") {
+    round.textContent = t("game.round", { n: g.round, total: g.rounds }) + " · " + t("game.thinking", { s: g.think_left || 0 });
   } else if (g.state === "reveal") {
     round.textContent = t("game.round", { n: g.round, total: g.rounds });
   } else if (g.state === "over") {
@@ -5250,10 +5259,47 @@ function paintGame(g) {
     else text = t("game.no_answer");
     if (g.fastest && g.gain < 2) text += " " + t("game.fastest", { name: g.fastest });
   }
+  if (g.mode === "oral") {
+    text = g.state === "playing" ? t("game.oral_listen") : g.state === "thinking" ? t("game.oral_think")
+      : g.answer_label && (g.state === "reveal" || g.state === "over") ? g.answer_label : "";
+  }
   if (g.state === "over" && g.error) text = errorLabel(g.error);
   result.textContent = text;
 
-  document.getElementById("btnGameStop").hidden = !(g.owner && ["joining", "playing", "reveal"].includes(g.state));
+  // Aloud: the host moves the game on, and marks who found it (the first one marked scores twice).
+  const host = g.owner && g.mode === "oral";
+  const marks = document.getElementById("gameMarks");
+  marks.hidden = !(host && g.state === "reveal" && (g.oral_names || []).length);
+  if (!marks.hidden) {
+    marks.replaceChildren(...g.oral_names.map((one) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-small game-mark";
+      btn.setAttribute("aria-pressed", one.marked ? "true" : "false");
+      btn.append(one.name);
+      if (one.marked) {
+        const gain = document.createElement("span");
+        gain.className = "game-mark-gain";
+        gain.textContent = one.first ? "+2" : "+1";
+        btn.append(gain);
+      }
+      btn.addEventListener("click", async () => {
+        const r = await apiPost("/api/game/mark", { name: one.name, on: !one.marked });
+        if (!r.ok) showError(r.error, t("game.title"));
+        else paintGame(Object.assign({}, g, r.data, { owner: g.owner, hall: g.hall, hall_oral: g.hall_oral }));
+      });
+      return btn;
+    }));
+  }
+  const atPace = host && g.pace === "host";
+  document.getElementById("gameHostRow").hidden = !(atPace && ["playing", "thinking", "reveal"].includes(g.state));
+  document.getElementById("gameCutBtn").hidden = g.state !== "playing";
+  const next = document.getElementById("gameNextBtn");
+  next.hidden = !["thinking", "reveal"].includes(g.state);
+  next.dataset.i18n = g.state === "thinking" ? "game.answer_now" : "game.next";
+  next.textContent = t(next.dataset.i18n);
+
+  document.getElementById("btnGameStop").hidden = !(g.owner && ["joining", "playing", "thinking", "reveal"].includes(g.state));
 
   const scores = document.getElementById("gameScores");
   scores.innerHTML = "";
@@ -5278,15 +5324,37 @@ function paintGame(g) {
 
 document.getElementById("gameStartForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const oral = document.getElementById("gameMode").value === "oral";
   const r = await apiPost("/api/game/start", {
     rounds: Number(document.getElementById("gameRounds").value),
     seconds: Number(document.getElementById("gameSeconds").value),
+    mode: oral ? "oral" : "phones",
+    pace: oral ? document.getElementById("gamePace").value : "auto",
+    names: oral ? document.getElementById("gameNames").value.split(",").map((n) => n.trim()).filter(Boolean) : [],
   });
   if (!r.ok) showError(r.error, t("game.title"));
   refreshGame();
 });
 
 document.getElementById("gameCoverGo").addEventListener("click", () => setActiveView("home", "game"));
+
+function paintGameMode() {
+  const oral = document.getElementById("gameMode").value === "oral";
+  document.getElementById("gamePaceRow").hidden = !oral;
+  document.getElementById("gameNamesRow").hidden = !oral;
+}
+document.getElementById("gameMode").addEventListener("change", paintGameMode);
+paintGameMode();
+document.getElementById("gameHallKind").addEventListener("change", refreshGame);
+document.getElementById("gameCutBtn").addEventListener("click", async () => {
+  await apiPost("/api/game/cut", {});
+  refreshGame();
+});
+document.getElementById("gameNextBtn").addEventListener("click", async () => {
+  await apiPost(document.getElementById("gameNextBtn").dataset.i18n === "game.answer_now" ? "/api/game/cut"
+    : "/api/game/next", {});
+  refreshGame();
+});
 
 [["gamePlayBtn", true], ["gameWatchBtn", false]].forEach(([id, play]) => {
   document.getElementById(id).addEventListener("click", async () => {
@@ -5298,7 +5366,7 @@ document.getElementById("gameCoverGo").addEventListener("click", () => setActive
 document.getElementById("gameHallReset").addEventListener("click", async () => {
   const sure = await showConfirm(t("game.hall_reset_confirm"), t("game.hall_reset"));
   if (!sure) return;
-  const r = await apiDelete("/api/game/hall");
+  const r = await apiDelete("/api/game/hall" + (document.getElementById("gameHallKind").value === "oral" ? "?kind=oral" : ""));
   if (!r.ok) showToolError(t("common.failed"), r);
   else showToast(t("game.hall_reset_done"));
   refreshGame();

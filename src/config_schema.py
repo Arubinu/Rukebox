@@ -700,6 +700,18 @@ SETTINGS = [
             "After each round, the blind test says who found the song. A name\n"
             "recorded by its owner is played instead of the synthetic voice.",
             "Blind test: say who found it"),
+    Setting("GAME_VOICE_ANSWER", "schedule", "game_voice_answer", "bool", "false",
+            "After each round, the blind test says the song and its artist, before\n"
+            "who found it. A game played aloud always says it.", "Blind test: say the answer"),
+    Setting("GAME_THINK_SEC", "schedule", "game_think_sec", "int", "5",
+            "A game played aloud: the time to think between the extract and the\n"
+            "answer. 0 to 60, 0 = none.", "Blind test: thinking time (sec)"),
+    Setting("GAME_THINK_SOUND", "schedule", "game_think_sound", "str", "tick",
+            "What plays during the thinking time: tick, heartbeat, rise, or empty\n"
+            "for silence.", "Blind test: thinking sound"),
+    Setting("GAME_ANSWER_SOUND", "schedule", "game_answer_sound", "str", "ding",
+            "What plays right before the answer is said: gong, ding, fanfare, or\n"
+            "empty for none.", "Blind test: sound before the answer"),
     Setting("GAME_JOIN_SEC", "schedule", "game_join_sec", "int", "45",
             "Before its first round, how long the blind test waits for people to\n"
             "choose to play or watch (it begins sooner once everyone looking has\n"

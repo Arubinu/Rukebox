@@ -638,6 +638,22 @@ schedule:
   # recorded by its owner is played instead of the synthetic voice.
   game_voice_winners: false
 
+  # After each round, the blind test says the song and its artist, before
+  # who found it. A game played aloud always says it.
+  game_voice_answer: false
+
+  # A game played aloud: the time to think between the extract and the
+  # answer. 0 to 60, 0 = none.
+  game_think_sec: 5
+
+  # What plays during the thinking time: tick, heartbeat, rise, or empty
+  # for silence.
+  game_think_sound: "tick"
+
+  # What plays right before the answer is said: gong, ding, fanfare, or
+  # empty for none.
+  game_answer_sound: "ding"
+
   # Before its first round, how long the blind test waits for people to
   # choose to play or watch (it begins sooner once everyone looking has
   # chosen). 10 to 300.

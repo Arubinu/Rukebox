@@ -278,6 +278,8 @@ class RadioDaemon:
         self._last_card = None
         # The cutoff or a schedule's end came during a blind test: standby once it is over.
         self._standby_after_game = False
+        # A button's click during a blind test is the host's tap: the web server's game reads it.
+        self._game_taps = 0
         self._quick_until = 0.0
         self._duck_factor = 1.0
         self._duck_proc = None
@@ -4168,6 +4170,7 @@ class RadioDaemon:
             "lights": {"scene": self._light_scene(),
                        "beat": self._light_audio is not None and self._light_audio.alive()},
             "consecutive_play_errors": self._consecutive_play_errors,
+            "game_taps": self._game_taps,
         }
 
     def _start_control_socket(self):
@@ -4186,6 +4189,10 @@ class RadioDaemon:
                               "unknown"):
                 source = "unknown"
             self._announcements()
+            if self.mode == "game" and cmd == "single_click":
+                self._game_taps += 1
+                self._bump_state()
+                return {"ok": True, "data": {"game_taps": self._game_taps}}
             if self.mode == "game" and cmd in self.GAME_HELD:
                 return {"ok": False, "error": "game_running"}
 
@@ -4465,6 +4472,10 @@ class RadioDaemon:
                 return {"ok": False, "error": error} if error else {"ok": True}
             if cmd == "game_end":
                 self._game_end()
+                return {"ok": True}
+            if cmd == "game_hush":
+                if self.mode == "game":
+                    self._game_hush()
                 return {"ok": True}
             if cmd == "game_say":
                 error = self._game_say(msg.get("path"))

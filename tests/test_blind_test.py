@@ -247,8 +247,10 @@ class DaemonGameTest(DaemonCase):
         self.daemon._start_control_socket()
         self.addCleanup(self.daemon._stop_event.set)
         self.daemon.mode = "game"
-        for cmd in ("next_track", "toggle_pause", "single_click"):
+        for cmd in ("next_track", "toggle_pause", "double_click"):
             self.assertEqual(control_client.send_control_command(path, cmd).get("error"), "game_running", cmd)
+        tap = control_client.send_control_command(path, "single_click")
+        self.assertEqual(tap.get("data"), {"game_taps": 1}, "a click is the host's tap, for a game aloud")
         self.assertTrue(control_client.send_control_command(path, "set_volume", value=40).get("ok"),
                         "the volume stays the listeners'")
 

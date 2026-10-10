@@ -1,5 +1,6 @@
 """A blind test: an extract plays, everyone with the page open picks the song among four, and
-the right answers score - the fastest one scores twice."""
+the right answers score - the fastest one scores twice. Played aloud (mode "oral"), the answers
+are called out in the room and the host marks, if anyone, who found it."""
 
 import random
 import threading
@@ -14,17 +15,34 @@ ROUNDS = (5, 10, 15, 20)
 CLIP_SECONDS = (10, 15, 20, 30)
 VIEWER_SEC = 5
 JOIN_SEC = 45
+MODES = ("phones", "oral")
+PACES = ("auto", "host")
+ORAL_NAMES = 12
+ORAL_REVEAL_SEC = 10
 
 
 def label(track):
     return "%s - %s" % (track["title"], track["artist"])
 
 
+def oral_id(name):
+    """The person a name typed for a game aloud stands for."""
+    return "name:" + library.fold(name)[:40]
+
+
 class Game:
-    def __init__(self, tracks, rounds=10, clip_sec=20, rng=None, join_sec=JOIN_SEC, now=None):
+    def __init__(self, tracks, rounds=10, clip_sec=20, rng=None, join_sec=JOIN_SEC, now=None,
+                 mode="phones", pace="auto", names=None):
         self.rng = rng or random.Random()
         self.rounds = rounds
         self.clip_sec = clip_sec
+        self.mode = mode if mode in MODES else MODES[0]
+        self.pace = pace if pace in PACES else PACES[0]
+        # The host's taps: cut the extract short, move on, and who found it (in the order marked).
+        self.cut = False
+        self.advance = False
+        self.marks = []
+        self.think_until = None
         self._lock = threading.RLock()
         seen, self.tracks = set(), []
         for track in tracks:
@@ -49,6 +67,15 @@ class Game:
         self.error = None
         self.stopped = False
         self.ended_at = None
+        if self.mode == "oral":
+            # Nobody to wait for: the names, if any, are only there to keep a score.
+            self.go_now = True
+            for name in names or []:
+                person = oral_id(name)
+                if person != "name:" and person not in self.players:
+                    self.players.add(person)
+                    self.names[person] = name
+                    self.scores[person] = 0
 
     @staticmethod
     def playable(tracks, clip_sec):
@@ -78,12 +105,56 @@ class Game:
                 "start": round(start, 1),
                 "choices": [label(t) for t in picked],
                 "answer": picked.index(track),
+                "title": track["title"],
+                "artist": track["artist"],
                 "started": now if now is not None else time.monotonic(),
             }
             self.answers = {}
             self.reveal = None
+            self.cut = self.advance = False
+            self.marks = []
+            self.think_until = None
             self.state = "playing"
             return self.question
+
+    def think(self, seconds, now=None):
+        """Aloud: the extract is over, the room thinks before the answer is said."""
+        with self._lock:
+            self.state = "thinking"
+            self.think_until = (now if now is not None else time.monotonic()) + seconds
+
+    def tell(self):
+        """Aloud: the answer is said; the host may now mark who found it."""
+        with self._lock:
+            if not self.question:
+                return
+            self.reveal = {"answer": self.question["answer"], "gains": {}, "fastest": None, "right": []}
+            self.state = "reveal"
+
+    def mark(self, name, on):
+        """Aloud: `name` found it (or not after all). An error code, or None."""
+        with self._lock:
+            person = oral_id(str(name or ""))
+            if self.mode != "oral" or self.state != "reveal":
+                return "game_not_asking"
+            if person not in self.players:
+                return "not_found"
+            if on and person not in self.marks:
+                self.marks.append(person)
+            elif not on and person in self.marks:
+                self.marks.remove(person)
+            return None
+
+    def score_marks(self):
+        """Aloud: the round's points, from the host's marks - the first one marked was the fastest."""
+        with self._lock:
+            if self.mode != "oral" or not self.reveal or self.reveal.get("scored"):
+                return
+            gains = {p: (2 if i == 0 else 1) for i, p in enumerate(self.marks)}
+            for person, points in gains.items():
+                self.scores[person] = self.scores.get(person, 0) + points
+            self.reveal.update(gains=gains, right=list(self.marks), scored=True,
+                               fastest=self.marks[0] if self.marks else None)
 
     def join(self, person, name, play):
         """`person` plays (True) or watches (False); one may change one's mind at any time."""
@@ -143,6 +214,9 @@ class Game:
     def close_round(self):
         """Scores the round: one point a right answer, one more for the fastest."""
         with self._lock:
+            if self.mode == "oral":
+                self.tell()
+                return self.reveal
             if not self.question or self.state != "playing":
                 return self.reveal
             right = sorted((t, p) for p, (c, t) in self.answers.items() if c == self.question["answer"])
@@ -205,13 +279,16 @@ class Game:
                 "spectators": len(self.spectators),
                 "undecided": len(looking - self.players - self.spectators),
                 "join_left": max(0, round(self.join_until - now)) if self.state == "joining" else None,
+                "mode": self.mode,
+                "pace": self.pace,
+                "think_left": max(0, round(self.think_until - now)) if self.state == "thinking" else None,
                 "round": self.round,
                 "rounds": self.rounds,
                 "clip_sec": self.clip_sec,
                 "error": self.error,
                 "answered": len(self.answers),
                 "mine": mine[0] if mine else None,
-                "choices": self.question["choices"] if self.question else [],
+                "choices": self.question["choices"] if self.question and self.mode == "phones" else [],
                 "remaining": None,
                 "scores": sorted(({"name": self.names.get(p) or "?", "points": pts, "me": p == person,
                                    "wins": (wins or {}).get(p, 0)}
@@ -223,6 +300,12 @@ class Game:
             if self.state == "over":
                 out["podium"] = [{"points": place["points"], "names": [one["name"] or "?" for one in place["people"]]}
                                  for place in self.podium()]
+            if self.mode == "oral":
+                out["oral_names"] = [{"name": self.names.get(p) or "?", "marked": p in self.marks,
+                                      "first": bool(self.marks) and self.marks[0] == p}
+                                     for p in sorted(self.players, key=lambda q: (self.names.get(q) or "").casefold())]
+            if self.state in ("reveal", "over") and self.reveal and self.question:
+                out["answer_label"] = label(self.question)
             if self.state in ("reveal", "over") and self.reveal:
                 out["answer"] = self.reveal["answer"]
                 out["gain"] = self.reveal["gains"].get(person)

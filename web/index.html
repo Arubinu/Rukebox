@@ -250,6 +250,34 @@
             <p class="hint game-waiting" id="gameWaiting" data-i18n="game.waiting">No game is on: the host starts one from here.</p>
             <form id="gameStartForm" class="settings-form" hidden>
               <div class="field-row">
+                <div class="field-text">
+                  <label for="gameMode" data-i18n="game.mode">How to play</label>
+                  <p class="field-desc" id="gameModeDesc" data-i18n="game.mode_desc">Aloud: the answers are called out in the room, nobody needs a phone.</p>
+                </div>
+                <select id="gameMode" aria-describedby="gameModeDesc">
+                  <option value="phones" data-i18n="game.mode_phones">On the phones</option>
+                  <option value="oral" data-i18n="game.mode_oral">Aloud</option>
+                </select>
+              </div>
+              <div class="field-row" id="gamePaceRow" hidden>
+                <div class="field-text">
+                  <label for="gamePace" data-i18n="game.pace">Pace</label>
+                  <p class="field-desc" id="gamePaceDesc" data-i18n="game.pace_desc">At your pace, the game waits for you (or a click of a button) to cut an extract short and move on.</p>
+                </div>
+                <select id="gamePace" aria-describedby="gamePaceDesc">
+                  <option value="auto" data-i18n="game.pace_auto">Automatic</option>
+                  <option value="host" data-i18n="game.pace_host">At your pace</option>
+                </select>
+              </div>
+              <div class="field-row" id="gameNamesRow" hidden>
+                <div class="field-text">
+                  <label for="gameNames" data-i18n="game.names">First names (optional)</label>
+                  <p class="field-desc" id="gameNamesDesc" data-i18n="game.names_desc">Only to keep a ranking: after each answer, tap who found it. Separated by commas.</p>
+                </div>
+                <input type="text" id="gameNames" class="text-input" maxlength="300" autocomplete="off"
+                       aria-describedby="gameNamesDesc">
+              </div>
+              <div class="field-row">
                 <label for="gameRounds" data-i18n="game.rounds">Rounds</label>
                 <select id="gameRounds"></select>
               </div>
@@ -278,13 +306,24 @@
             </div>
             <div class="game-choices" id="gameChoices"></div>
             <p class="hint game-result" id="gameResult" role="status"></p>
+            <div class="game-marks" id="gameMarks" hidden></div>
+            <div class="form-actions" id="gameHostRow" hidden>
+              <button type="button" class="btn btn-primary" id="gameCutBtn" data-icon="pause" data-i18n="game.cut">Stop the extract</button>
+              <button type="button" class="btn btn-primary" id="gameNextBtn" data-icon="skip" data-i18n="game.next">Next round</button>
+            </div>
             <div class="form-actions">
               <button type="button" class="btn btn-warning-outline" id="btnGameStop" data-icon="stop" data-i18n="game.stop" hidden>Stop the game</button>
             </div>
           </div>
           <ol class="device-list game-scores" id="gameScores"></ol>
           <div class="game-hall" id="gameHallBox" hidden>
-            <h3 class="game-voice-title" data-i18n="game.hall">Hall of fame</h3>
+            <div class="game-hall-head">
+              <h3 class="game-voice-title" data-i18n="game.hall">Hall of fame</h3>
+              <select id="gameHallKind" data-i18n-aria-label="game.hall_kind" aria-label="Which hall of fame" hidden>
+                <option value="phones" data-i18n="game.mode_phones">On the phones</option>
+                <option value="oral" data-i18n="game.mode_oral">Aloud</option>
+              </select>
+            </div>
             <ol class="device-list game-scores" id="gameHall"></ol>
             <div class="form-actions" id="gameHallResetRow" hidden>
               <button type="button" class="btn btn-danger-outline" id="gameHallReset" data-icon="trash" data-i18n="game.hall_reset">Start the hall of fame over</button>
@@ -316,6 +355,43 @@
               <input type="checkbox" id="gameVoiceWinners" data-key="GAME_VOICE_WINNERS" class="switch-input" role="switch"
                      aria-describedby="gameVoiceWinnersDesc">
             </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="gameVoiceAnswer" data-i18n="game.voice_answer">Say the answer</label>
+                <p class="field-desc" id="gameVoiceAnswerDesc" data-i18n="game.voice_answer_desc">The song and its artist, before who found it. Always said in a game aloud.</p>
+              </div>
+              <input type="checkbox" id="gameVoiceAnswer" data-key="GAME_VOICE_ANSWER" class="switch-input" role="switch"
+                     aria-describedby="gameVoiceAnswerDesc">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="gameThinkSec" data-i18n="game.think_sec">Thinking time (sec)</label>
+                <p class="field-desc" id="gameThinkSecDesc" data-i18n="game.think_sec_desc">Aloud, between the extract and the answer. 0 = none.</p>
+              </div>
+              <input type="number" id="gameThinkSec" min="0" max="60" step="1" data-key="GAME_THINK_SEC" class="num-input"
+                     inputmode="numeric" aria-describedby="gameThinkSecDesc">
+            </div>
+            <details class="subsection" id="gameSoundsSection">
+              <summary><span data-i18n="game.sounds">Sounds</span></summary>
+              <div class="field-row">
+                <label for="gameThinkSound" data-i18n="game.think_sound">During the thinking time</label>
+                <select id="gameThinkSound" data-key="GAME_THINK_SOUND">
+                  <option value="" data-i18n="game.sound_none">None</option>
+                  <option value="tick" data-i18n="game.sound_tick">Tick-tock</option>
+                  <option value="heartbeat" data-i18n="game.sound_heartbeat">Heartbeat</option>
+                  <option value="rise" data-i18n="game.sound_rise">Rising tension</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="gameAnswerSound" data-i18n="game.answer_sound">Before the answer</label>
+                <select id="gameAnswerSound" data-key="GAME_ANSWER_SOUND">
+                  <option value="" data-i18n="game.sound_none">None</option>
+                  <option value="gong" data-i18n="game.sound_gong">Gong</option>
+                  <option value="ding" data-i18n="game.sound_ding">Ding</option>
+                  <option value="fanfare" data-i18n="game.sound_fanfare">Fanfare</option>
+                </select>
+              </div>
+            </details>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
             </div>

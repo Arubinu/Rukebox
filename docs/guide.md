@@ -2039,7 +2039,28 @@ records it with the microphone (the browser needs an https address for it),
 and the owner can record or send an audio file for anyone from their line in
 the connected devices (**Recorded name**). The recording is trimmed of its
 silences and levelled, 6 seconds at most, kept in `name-voices/` in the state
-folder, and follows its person when devices are linked.
+folder, and follows its person when devices are linked. **Say the answer**
+(`schedule.game_voice_answer`) says the song and its artist at the end of each
+round, before who found it.
+
+**A game aloud** (**How to play: Aloud** when starting one): nobody needs a
+phone, the answers are called out in the room. No wait for players: each
+round plays its extract, then a **thinking time** (`schedule.game_think_sec`,
+5 s by default, 0 for none), then the radio always says the answer, title and
+artist. **Automatic** moves on by itself; **At your pace** waits for the host:
+**Stop the extract** cuts it short to give fewer clues, **The answer now**
+skips the rest of the thinking time, **Next round** goes on - and a single
+click of the Flic button, a remote or the GPIO button does the same, one
+step at a time. **First names** are optional, only to keep a ranking: after
+each answer the host taps who found it (the first one tapped scores two
+points, the others one), and the game ends on its podium. Those names are
+not devices: no recorded voice, and their wins go to a hall of fame of their
+own (`game_wins_oral.json`); the page shows one hall at a time, with a choice
+when both have wins. The **Sounds** fold picks what plays during the thinking
+time (tick-tock, heartbeat, rising tension or silence,
+`schedule.game_think_sound`) and right before the answer (gong, ding,
+fanfare or none, `schedule.game_answer_sound`); the radio synthesises them
+itself and keeps them in `game-sounds/` in the state folder.
 
 ### Features
 
