@@ -2021,8 +2021,11 @@ scores. At the end, or when the owner stops it, the radio takes up the song
 it had paused (or goes back to waiting). Players are named like in the
 suggestion box. Only songs whose tags have been read, with a title and an
 artist, are asked about; a library with fewer than the rounds asked for
-cannot start a game. The extracts never count in the statistics; the event
-log keeps "Blind test started" and who won it.
+cannot start a game. **Songs** narrows a game to one music list (a manual
+list or a genre list, as it stands when the game starts), the wrong answers
+included; the choice is kept on the device. The extracts never count in the
+statistics; the event log keeps "Blind test started", the list if any, and
+who won it.
 
 Once started, the game waits for people to come (45 seconds by default,
 `schedule.game_join_sec`, set from the game page): everyone

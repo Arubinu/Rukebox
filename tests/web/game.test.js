@@ -149,3 +149,26 @@ test("aloud: the host's form, the names to mark after the answer, and one hall a
   await until(() => host.sent("POST", "/api/game/next").length);
   await host.close();
 });
+
+test("the host may ask about one list, remembered on this device; no list, no choice", async () => {
+  const none = { state: "none", owner: true, round_choices: [5, 10], second_choices: [10, 20], hall: [], hall_oral: [],
+    lists: [{ id: "mine", name: "Mine" }, { id: "jazz", name: "Jazz" }] };
+  const host = load({ hash: "#home/game", storage: { rukebox_game_list: "jazz" }, routes: {
+    "GET /api/game": none, "POST /api/game/start": {} } });
+  await until(() => !host.$("gameListRow").hidden);
+  const select = host.$("gameList");
+  assert.deepEqual([...select.options].map((o) => o.textContent), ["The whole library", "Mine", "Jazz"]);
+  assert.equal(select.value, "jazz", "the list chosen last time on this device");
+  select.value = "mine";
+  select.dispatchEvent(new host.window.Event("change"));
+  assert.equal(host.window.localStorage.getItem("rukebox_game_list"), "mine");
+  host.$("gameStartForm").requestSubmit();
+  await until(() => host.sent("POST", "/api/game/start").length);
+  assert.equal(host.sent("POST", "/api/game/start")[0].body.list, "mine");
+  await host.close();
+
+  const bare = load({ hash: "#home/game", routes: { "GET /api/game": Object.assign({}, none, { lists: [] }) } });
+  await until(() => !bare.$("gameStartForm").hidden);
+  assert.equal(bare.$("gameListRow").hidden, true);
+  await bare.close();
+});

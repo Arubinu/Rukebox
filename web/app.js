@@ -5165,6 +5165,7 @@ function paintGame(g) {
     fill("gameRounds", g.round_choices, 10);
     fill("gameSeconds", g.second_choices, 20);
   }
+  if (g.owner) paintGameLists(g.lists || []);
 
   document.getElementById("gamePlay").hidden = g.state === "none";
   const round = document.getElementById("gameRound");
@@ -5322,10 +5323,38 @@ function paintGame(g) {
   });
 }
 
+/* The lists a game can ask about; the choice stays while the lists change, and on this device. */
+const GAME_LIST_KEY = "rukebox_game_list";
+
+function paintGameLists(lists) {
+  const select = document.getElementById("gameList");
+  const shown = [...select.options].slice(1).map((o) => o.value + "\n" + o.textContent).join("|");
+  if (shown !== lists.map((l) => l.id + "\n" + l.name).join("|")) {
+    let picked = select.value;
+    if (!select.dataset.ready) {
+      select.dataset.ready = "1";
+      try { picked = localStorage.getItem(GAME_LIST_KEY) || ""; } catch (e) { /* private window */ }
+    }
+    select.replaceChildren(select.options[0], ...lists.map((l) => {
+      const o = document.createElement("option");
+      o.value = l.id;
+      o.textContent = l.name;
+      return o;
+    }));
+    select.value = lists.some((l) => l.id === picked) ? picked : "";
+  }
+  document.getElementById("gameListRow").hidden = !lists.length;
+}
+
+document.getElementById("gameList").addEventListener("change", (e) => {
+  try { localStorage.setItem(GAME_LIST_KEY, e.target.value); } catch (err) { /* private window */ }
+});
+
 document.getElementById("gameStartForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const oral = document.getElementById("gameMode").value === "oral";
   const r = await apiPost("/api/game/start", {
+    list: document.getElementById("gameList").value,
     rounds: Number(document.getElementById("gameRounds").value),
     seconds: Number(document.getElementById("gameSeconds").value),
     mode: oral ? "oral" : "phones",

@@ -34,6 +34,7 @@ if flask:
     # Read by web_server at import time; nothing of the real installation is opened for writing.
     os.environ["STATS_DB_FILE"] = os.path.join(TMP, "stats.db")
     import library
+    import music_lists
     import track_media
     import web_auth
     import web_server as ws
@@ -2110,6 +2111,32 @@ class GameRouteTest(unittest.TestCase):
         ws._get_library.return_value = unittest.mock.Mock(quiz_tracks=lambda: [])
         r = self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20})
         self.assertEqual(r.get_json()["error"], "game_not_enough_tracks")
+
+    def use_lists(self, entries):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        path = os.path.join(folder, "music_lists.json")
+        music_lists.save_all(path, entries)
+        unittest.mock.patch.object(ws, "_lists_path", return_value=path).start()
+
+    def test_a_game_can_ask_only_about_a_list(self):
+        self.use_lists([{"id": "mine", "name": "Mine", "kind": "manual",
+                         "tracks": ["/m/%d" % i for i in range(8)] + ["/gone"]},
+                        {"id": "jazz", "name": "Jazz", "kind": "genre", "genres": ["Jazz"]}])
+        unittest.mock.patch.object(ws, "_is_owner", return_value=True).start()
+        lists = self.client.get("/api/game").get_json()["data"]["lists"]
+        self.assertEqual(lists, [{"id": "mine", "name": "Mine"}, {"id": "jazz", "name": "Jazz"}])
+
+        self.assertTrue(self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20, "list": "mine"})
+                        .get_json()["ok"])
+        self.assertEqual({t["path"] for t in ws._game.tracks}, {"/m/%d" % i for i in range(8)})
+        ws._game = None
+
+        ws._get_library.return_value.paths_for_genres = lambda genres: ["/m/1", "/m/2"]
+        r = self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20, "list": "jazz"})
+        self.assertEqual((r.status_code, r.get_json()["error"]), (409, "game_list_not_enough"))
+        r = self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20, "list": "deleted"})
+        self.assertEqual((r.status_code, r.get_json()["error"]), (404, "game_list_gone"))
 
 
 class SkipVoteTest(unittest.TestCase):

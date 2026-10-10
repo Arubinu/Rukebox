@@ -3459,6 +3459,8 @@ def api_game():
                        key=lambda h: (-h["wins"], h["name"].casefold()))[:GAME_HALL_SIZE]
     options = {"owner": _is_owner(), "round_choices": list(blind_test.ROUNDS),
                "second_choices": list(blind_test.CLIP_SECONDS), "hall": _game_hall(won), "hall_oral": oral_hall}
+    if options["owner"]:
+        options["lists"] = [{"id": e["id"], "name": e["name"]} for e in music_lists.load(_lists_path())]
     if game is None or (game.state == "over" and time.monotonic() - game.ended_at > GAME_KEPT_SEC):
         return jsonify({"ok": True, "data": dict(options, state="none")})
     game.seen(person, name)
@@ -3495,19 +3497,33 @@ def api_game_start():
         if name and blind_test.oral_id(name) not in {blind_test.oral_id(n) for n in names}:
             names.append(name)
     names = names[:blind_test.ORAL_NAMES]
+    list_id, entry = str(body.get("list") or ""), None
+    if list_id:
+        try:
+            entry = music_lists.get(_lists_path(), list_id)
+        except KeyError:
+            return jsonify({"ok": False, "error": "game_list_gone"}), 404
     with _game_lock:
         if _game is not None and _game.state != "over":
             return jsonify({"ok": False, "error": "game_running"}), 409
-        tracks = blind_test.Game.playable(_get_library().quiz_tracks(), seconds)
+        lib = _get_library()
+        quiz = lib.quiz_tracks()
+        if entry:
+            kept = set(music_lists.resolved(entry, [t["path"] for t in quiz], lib.paths_for_genres))
+            quiz = [t for t in quiz if t["path"] in kept]
+        tracks = blind_test.Game.playable(quiz, seconds)
         try:
             join_sec = min(max(int(cfg().get("GAME_JOIN_SEC") or blind_test.JOIN_SEC), 10), 300)
         except (TypeError, ValueError):
             join_sec = blind_test.JOIN_SEC
         game = blind_test.Game(tracks, rounds, seconds, join_sec=join_sec, mode=mode, pace=pace, names=names)
         if not game.enough():
-            return jsonify({"ok": False, "error": "game_not_enough_tracks"}), 409
+            return jsonify({"ok": False, "error": "game_list_not_enough" if entry else "game_not_enough_tracks"}), 409
         _game = game
-    stats.record("game_started", label="%d x %ds" % (rounds, seconds), detail={"rounds": rounds, "mode": mode})
+    detail = {"rounds": rounds, "mode": mode}
+    if entry:
+        detail["list"] = entry["name"]
+    stats.record("game_started", label="%d x %ds" % (rounds, seconds), detail=detail)
     threading.Thread(target=_game_run, args=(game,), daemon=True).start()
     return jsonify({"ok": True})
 
