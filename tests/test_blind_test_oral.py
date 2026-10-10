@@ -62,6 +62,10 @@ class AnswerAndSoundsTest(unittest.TestCase):
             self.assertAlmostEqual(f.getnframes() / f.getframerate(), 3.0, delta=0.05)
         self.assertEqual(game_sounds.answer_sound("gong", folder), os.path.join(folder, "answer-gong.wav"))
         self.assertIsNone(game_sounds.answer_sound("trumpet", folder))
+        for kind in game_sounds.THINK:
+            self.assertTrue(game_sounds.think_sound(kind, 2, folder), kind)
+        self.assertTrue(game_sounds.think_sound("rise", 2, folder).endswith("think-drumroll-2.wav"),
+                        "a sound no longer offered becomes the one that replaced it")
 
 
 class OralRouteTest(unittest.TestCase):

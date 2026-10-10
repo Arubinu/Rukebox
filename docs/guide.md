@@ -2057,7 +2057,7 @@ points, the others one), and the game ends on its podium. Those names are
 not devices: no recorded voice, and their wins go to a hall of fame of their
 own (`game_wins_oral.json`); the page shows one hall at a time, with a choice
 when both have wins. The **Sounds** fold picks what plays during the thinking
-time (tick-tock, heartbeat, rising tension or silence,
+time (tick-tock, heartbeat, drum roll, quickening pulse or silence,
 `schedule.game_think_sound`) and right before the answer (gong, ding,
 fanfare or none, `schedule.game_answer_sound`); the radio synthesises them
 itself and keeps them in `game-sounds/` in the state folder.

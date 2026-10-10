@@ -646,8 +646,8 @@ schedule:
   # answer. 0 to 60, 0 = none.
   game_think_sec: 5
 
-  # What plays during the thinking time: tick, heartbeat, rise, or empty
-  # for silence.
+  # What plays during the thinking time: tick, heartbeat, drumroll, pulse,
+  # or empty for silence.
   game_think_sound: "tick"
 
   # What plays right before the answer is said: gong, ding, fanfare, or

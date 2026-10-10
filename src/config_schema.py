@@ -707,8 +707,8 @@ SETTINGS = [
             "A game played aloud: the time to think between the extract and the\n"
             "answer. 0 to 60, 0 = none.", "Blind test: thinking time (sec)"),
     Setting("GAME_THINK_SOUND", "schedule", "game_think_sound", "str", "tick",
-            "What plays during the thinking time: tick, heartbeat, rise, or empty\n"
-            "for silence.", "Blind test: thinking sound"),
+            "What plays during the thinking time: tick, heartbeat, drumroll, pulse,\n"
+            "or empty for silence.", "Blind test: thinking sound"),
     Setting("GAME_ANSWER_SOUND", "schedule", "game_answer_sound", "str", "ding",
             "What plays right before the answer is said: gong, ding, fanfare, or\n"
             "empty for none.", "Blind test: sound before the answer"),
