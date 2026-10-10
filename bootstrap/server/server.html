@@ -128,16 +128,11 @@
       <section class="card wz-step" data-step="result" hidden>
         <h2 data-icon="terminal"><span data-i18n="server.result_title">Ready to install</span></h2>
         <p class="hint warning wz-center" id="wzSecret" data-i18n="server.secret">Keep this text to yourself: it holds the password, hashed.</p>
-        <ol class="wz-list" id="wzSteps"></ol>
-        <div class="srv-code">
-          <div class="srv-code-head"><strong id="wzCodeName"></strong>
-            <span class="btn-group">
-              <button type="button" class="btn" id="wzCopy" data-icon="copy" data-i18n="server.copy">Copy</button>
-              <button type="button" class="btn" id="wzSave" data-icon="download" data-i18n="server.save">Download</button>
-            </span></div>
-          <pre id="wzCode" tabindex="0"></pre>
+        <div class="settings-form" id="wzEnvRow">
+          <div class="field-row"><label for="wzEnvFile" data-i18n="server.env_file">Variables apart, in an environment (.env)</label>
+            <input type="checkbox" id="wzEnvFile" class="switch-input" role="switch"></div>
         </div>
-        <ol class="wz-list" id="wzAfter"></ol>
+        <ol class="wz-list" id="wzSteps"></ol>
         <p class="hint wz-center" id="wzCopied" role="status"></p>
       </section>
 

@@ -33,7 +33,7 @@ const env = (text, key) => {
 };
 const setupOf = (b64) => JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
 
-test("a Docker compose pins the release and hands the answers and the hash, $ escaped", async () => {
+test("a Docker compose pins the release and hands the answers, the hash among them", async () => {
   const p = load();
   p.$("wzName").value = "Kitchen radio";
   p.$("wzPw").value = p.$("wzPw2").value = "correct horse";
@@ -45,9 +45,34 @@ test("a Docker compose pins the release and hands the answers and the hash, $ es
   assert.match(text, /- "\.\/config:\/config"/);
   assert.match(text, /- "\.\/music:\/music:ro"/);
   assert.doesNotMatch(text, /network_mode|devices|1704/);
-  // Compose reads "$" as a variable: every one in the hash is doubled.
-  assert.equal(env(text, "RUKEBOX_WEB_PASSWORD_HASH"), hash.replace(/\$/g, "$$$$"));
-  assert.deepEqual(setupOf(env(text, "RUKEBOX_SETUP")).settings, { UPNP_NAME: "Kitchen radio", SPEECH_LANGUAGE: "en" });
+  // The hash travels inside the base64: no "$" for compose or a .env file to read as a variable.
+  assert.doesNotMatch(text, /\$/);
+  const setup = setupOf(env(text, "RUKEBOX_SETUP"));
+  assert.deepEqual(setup.settings, { UPNP_NAME: "Kitchen radio", SPEECH_LANGUAGE: "en" });
+  assert.equal(setup.web_password_hash, hash);
+});
+
+test("variables apart: the compose reads them, the .env holds them, with nothing to escape", async () => {
+  const p = load();
+  p.$("wzTz").value = "Europe/Paris";
+  p.$("wzPw").value = "correct horse";
+  const hash = await p.api.passwordHash();
+  const text = p.api.compose(hash, true);
+  assert.match(text, /^ {6}TZ: \$\{TZ\}\n {6}RUKEBOX_SETUP: \$\{RUKEBOX_SETUP\}$/m);
+  const lines = p.api.envFile(hash).trim().split("\n");
+  assert.equal(lines[0], "TZ=Europe/Paris");
+  assert.match(lines[1], /^RUKEBOX_SETUP=[A-Za-z0-9+/=]+$/);
+  assert.equal(setupOf(lines[1].slice("RUKEBOX_SETUP=".length)).web_password_hash, hash);
+
+  p.pick("target", "stack");
+  p.$("wzEnvFile").checked = true;
+  await p.api.paintResult();
+  const steps = [...p.$("wzSteps").children];
+  assert.equal(steps.length, 4, "the stack, its variables, deploy, open");
+  assert.match(steps[0].querySelector("ul").textContent, /Portainer.*Dockge/s);
+  assert.equal(steps[1].querySelector("strong").textContent, ".env");
+  assert.equal(steps[1].querySelectorAll("button").length, 1, "a .env is copied, not downloaded");
+  assert.equal(steps[0].querySelectorAll("button").length, 2);
 });
 
 test("the hash is the one the radio checks: PBKDF2-SHA256, 260000 rounds, a 16-byte salt", async () => {
@@ -72,7 +97,7 @@ test("each sound gives its own compose: card, host PipeWire, Bluetooth, multiroo
   let text = p.api.compose("");
   assert.match(text, /devices:\n {6}- \/dev\/snd:\/dev\/snd\n {4}group_add:\n {6}- "29"/);
   assert.equal(setupOf(env(text, "RUKEBOX_SETUP")).settings.AUDIO_OUTPUT, "usb");
-  assert.doesNotMatch(text, /RUKEBOX_WEB_PASSWORD_HASH/);
+  assert.equal(setupOf(env(text, "RUKEBOX_SETUP")).web_password_hash, undefined);
 
   p.pick("sound", "pipewire");
   p.$("wzUid").value = "1001";
@@ -126,12 +151,16 @@ test("a Proxmox container gets one command, from the release tag, with the sound
   const command = p.api.lxcCommand(hash);
   assert.match(command, /git clone --depth 1 --branch v1\.16\.0 https:\/\/github\.com\/Arubinu\/Rukebox\.git/);
   assert.match(command, /RUKEBOX_PROFILE=lxc .*RUKEBOX_PIPER=no RUKEBOX_TIMEZONE='Europe\/Paris' RUKEBOX_WEB_PASSWORD= /);
-  assert.ok(command.includes("RUKEBOX_WEB_PASSWORD_HASH='" + hash + "'"));
+  const setup = command.match(/RUKEBOX_SETUP='([^']+)'/)[1];
+  assert.equal(setupOf(setup).web_password_hash, hash);
   assert.match(command, /systemctl enable --now rukebox-daemon\.service rukebox-web\.service\n$/);
   await p.api.paintResult();
-  assert.match(p.$("wzSteps").textContent, /\/etc\/pve\/lxc\/120\.conf/);
-  assert.equal(p.$("wzSave").hidden, true);
-  assert.equal(p.$("wzAfter").start, 4);
+  assert.equal(p.$("wzEnvRow").hidden, true);
+  const steps = [...p.$("wzSteps").children];
+  assert.equal(steps.length, 6);
+  assert.match(steps[1].textContent, /\/etc\/pve\/lxc\/120\.conf/);
+  assert.match(steps[2].textContent, /pct start 120 && pct enter 120/);
+  assert.equal(steps[3].querySelectorAll("button").length, 1, "a command is copied, not downloaded");
 });
 
 test("a page built from no release fetches the latest image and the main branch", () => {

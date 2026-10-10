@@ -55,7 +55,7 @@
     if (step === "sound" && choice("sound") === "pipewire" && !isInt($("wzUid").value, 0, 4294967294)) return "server.err_uid";
     if (step === "place") {
       if (target === "lxc") {
-        if (choice("sound") === "card" && !isInt($("wzCtId").value, 100, 999999999)) return "server.err_ct_id";
+        if (!isInt($("wzCtId").value, 100, 999999999)) return "server.err_ct_id";
         return null;
       }
       const music = $("wzMusic").value.trim(), home = $("wzHome").value.trim();
@@ -131,14 +131,16 @@
     return hashed.hash;
   }
 
-  function bundle() {
+  function bundle(hash) {
     const sound = choice("sound");
     const settings = { UPNP_NAME: $("wzName").value.trim(), SPEECH_LANGUAGE: $("wzLang").value };
     if (sound === "card") settings.AUDIO_OUTPUT = $("wzCard").value;
     if (sound === "bluetooth" || sound === "snapcast") settings.AUDIO_OUTPUT = sound;
     // The machine's own network: no port is mapped, so the radio listens on the chosen one itself.
     if (sound === "bluetooth" && choice("target") !== "lxc") settings.WEB_PORT = $("wzPort").value;
-    return b64(JSON.stringify({ format: "rukebox-config", version: 1, settings }));
+    const data = { format: "rukebox-config", version: 1, settings };
+    if (hash) data.web_password_hash = hash;
+    return b64(JSON.stringify(data));
   }
 
   // Compose reads "$" as a variable: "$$" is a plain one.
@@ -149,15 +151,20 @@
     return (base === "." ? "./" : base + "/") + name;
   };
 
-  function compose(hash) {
+  function envFile(hash) {
+    return "TZ=" + $("wzTz").value + "\nRUKEBOX_SETUP=" + bundle(hash) + "\n";
+  }
+
+  function compose(hash, apart) {
     const target = choice("target"), sound = choice("sound");
     const home = $("wzHome").value.trim(), port = $("wzPort").value;
-    const lines = ["# Rukebox, written by the server setup page.", "# RUKEBOX_SETUP and the password are read once, on the very first start."];
+    const lines = ["# Rukebox, written by the server setup page.", "# RUKEBOX_SETUP is read once, on the very first start."];
     if (target === "docker") lines.push("name: rukebox");
     lines.push("", "services:", "  rukebox:", "    image: " + IMAGE, "    container_name: rukebox", "    restart: unless-stopped");
     if (sound === "bluetooth") lines.push("    network_mode: host");
-    lines.push("    environment:", "      TZ: " + yq($("wzTz").value), "      RUKEBOX_SETUP: " + yq(bundle()));
-    if (hash) lines.push("      RUKEBOX_WEB_PASSWORD_HASH: " + yq(hash));
+    lines.push("    environment:");
+    if (apart) lines.push("      TZ: ${TZ}", "      RUKEBOX_SETUP: ${RUKEBOX_SETUP}");
+    else lines.push("      TZ: " + yq($("wzTz").value), "      RUKEBOX_SETUP: " + yq(bundle(hash)));
     if (sound === "pipewire") lines.push("      PIPEWIRE_RUNTIME_DIR: /run/rukebox", "      PULSE_SERVER: unix:/run/rukebox/pulse/native");
     if (sound !== "bluetooth") {
       lines.push("    ports:", "      - " + yq(port + ":80"));
@@ -177,7 +184,7 @@
   function lxcCommand(hash) {
     const env = ["RUKEBOX_PROFILE=lxc", "RUKEBOX_BOOT_TWEAKS=no", "RUKEBOX_SYSTEM_UPGRADE=no",
       "RUKEBOX_PIPER=" + ($("wzPiper").checked ? "yes" : "no"), "RUKEBOX_TIMEZONE=" + sq($("wzTz").value),
-      "RUKEBOX_WEB_PASSWORD=", "RUKEBOX_WEB_PASSWORD_HASH=" + sq(hash), "RUKEBOX_SETUP=" + sq(bundle())];
+      "RUKEBOX_WEB_PASSWORD=", "RUKEBOX_SETUP=" + sq(bundle(hash))];
     return "apt-get update && apt-get install -y git ca-certificates && " +
       "git clone --depth 1 --branch " + (RELEASE || "main") + " " + REPO + " /opt/rukebox-src && " +
       "cd /opt/rukebox-src && " + env.join(" ") + " bash scripts/install.sh && " +
@@ -189,93 +196,124 @@
     "echo 'SUBSYSTEM==\"sound\", MODE=\"0666\"' > /etc/udev/rules.d/99-rukebox-sound.rules && " +
     "udevadm trigger --subsystem-match=sound";
 
-  function item(key, vars, code, sub) {
+  function copyText(text, pre) {
+    const done = () => { $("wzCopied").textContent = t("server.copied"); };
+    const byHand = () => {
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      if (document.execCommand("copy")) done();
+      else $("wzCopied").textContent = t("server.copy_failed");
+    };
+    if (!navigator.clipboard) { byHand(); return; }
+    navigator.clipboard.writeText(text).then(done, byHand);
+  }
+
+  function saveText(text, file) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+    a.download = file;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function button(icon, key, onClick) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn";
+    btn.dataset.icon = icon;
+    btn.textContent = t(key);
+    btn.addEventListener("click", onClick);
+    return btn;
+  }
+
+  // A file or command to take away: its name, a copy button, and a download one when it is a file.
+  function codeBlock(name, text, file) {
+    const box = document.createElement("div");
+    box.className = "srv-code";
+    const head = document.createElement("div");
+    head.className = "srv-code-head";
+    const title = document.createElement("strong");
+    title.textContent = name;
+    const pre = document.createElement("pre");
+    pre.tabIndex = 0;
+    pre.textContent = text;
+    const actions = document.createElement("span");
+    actions.className = "btn-group";
+    actions.appendChild(button("copy", "server.copy", () => copyText(text, pre)));
+    if (file) actions.appendChild(button("download", "server.save", () => saveText(text, file)));
+    head.append(title, actions);
+    box.append(head, pre);
+    return box;
+  }
+
+  function item(key, vars, extra = {}) {
     const li = document.createElement("li");
     const text = document.createElement("span");
     text.textContent = t(key, vars);
     li.appendChild(text);
-    if (sub) {
+    if (extra.sub) {
       const ul = document.createElement("ul");
-      for (const subKey of sub) {
+      for (const subKey of extra.sub) {
         const entry = document.createElement("li");
         entry.textContent = t(subKey);
         ul.appendChild(entry);
       }
       li.appendChild(ul);
     }
-    if (code) {
+    if (extra.code) {
       const pre = document.createElement("pre");
       pre.className = "srv-inline";
-      pre.textContent = code;
+      pre.textContent = extra.code;
       li.appendChild(pre);
     }
+    if (extra.block) li.appendChild(codeBlock(...extra.block));
     return li;
   }
 
-  let result = { text: "", file: "" };
   async function paintResult() {
     const target = choice("target"), sound = choice("sound");
     const hash = await passwordHash();
     const address = t("server.address");
-    const before = [], after = [];
+    const apart = target !== "lxc" && $("wzEnvFile").checked;
+    const list = [];
     if (target === "lxc") {
-      before.push(item("server.lxc_create", null, "", ["server.lxc_template", "server.lxc_unprivileged",
-        "server.lxc_cores", "server.lxc_memory", "server.lxc_disk", "server.lxc_network"]));
-      if (sound === "card") before.push(item("server.lxc_card", null, SOUND_HOST.replace("{id}", $("wzCtId").value)));
-      before.push(item("server.lxc_run"));
-      after.push(item("server.lxc_time"));
-      after.push(item("server.lxc_open", { url: "http://<" + address + ">/" }));
-      result = { text: lxcCommand(hash), file: "" };
+      list.push(item("server.lxc_create", null, { sub: ["server.lxc_template", "server.lxc_unprivileged",
+        "server.lxc_cores", "server.lxc_memory", "server.lxc_disk", "server.lxc_network"] }));
+      const id = $("wzCtId").value;
+      if (sound === "card") list.push(item("server.lxc_card", null, { code: SOUND_HOST.replace("{id}", id) }));
+      list.push(item("server.lxc_run", null, { code: "pct start " + id + " && pct enter " + id }));
+      list.push(item("server.lxc_paste", null, { block: [t("server.code_command"), lxcCommand(hash), ""] }));
+      list.push(item("server.lxc_time"));
+      list.push(item("server.lxc_open", { url: "http://<" + address + ">/" }));
     } else {
       const port = $("wzPort").value;
+      const composeBlock = ["docker-compose.yml", compose(hash, apart), "docker-compose.yml"];
+      const envBlock = [".env", envFile(hash), ""];
       if (target === "docker") {
-        before.push(item("server.docker_folder"));
-        after.push(item("server.docker_up", null, "docker compose up -d"));
+        list.push(item("server.docker_folder", null, { block: composeBlock }));
+        if (apart) list.push(item("server.docker_env", null, { block: envBlock }));
+        list.push(item("server.docker_up", null, { code: "docker compose up -d" }));
       } else {
-        before.push(item("server.stack_portainer"));
-        before.push(item("server.stack_dockge"));
-        after.push(item("server.stack_deploy"));
+        list.push(item("server.stack_create", null, { sub: ["server.stack_portainer", "server.stack_dockge"], block: composeBlock }));
+        if (apart) list.push(item("server.stack_env", null, { sub: ["server.stack_env_portainer", "server.stack_env_dockge"], block: envBlock }));
+        list.push(item("server.stack_deploy"));
       }
-      after.push(item("server.open", { url: "http://<" + address + ">" + (port === "80" ? "" : ":" + port) + "/" }));
-      if (sound === "card") after.push(item("server.card_group", null, "getent group audio"));
-      result = { text: compose(hash), file: "docker-compose.yml" };
+      list.push(item("server.open", { url: "http://<" + address + ">" + (port === "80" ? "" : ":" + port) + "/" }));
+      if (sound === "card") list.push(item("server.card_group", null, { code: "getent group audio" }));
     }
-    $("wzSteps").replaceChildren(...before);
-    $("wzAfter").replaceChildren(...after);
-    // One numbering across the two lists, the code block belonging to the last step before it.
-    $("wzAfter").start = before.length + 1;
-    $("wzCodeName").textContent = result.file || t("server.code_command");
-    $("wzCode").textContent = result.text;
+    $("wzEnvRow").hidden = target === "lxc";
+    $("wzSteps").replaceChildren(...list);
     $("wzSecret").hidden = !hash;
-    $("wzSave").hidden = !result.file;
     $("wzCopied").textContent = "";
   }
-
-  $("wzCopy").addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(result.text);
-    } catch (e) {
-      const range = document.createRange();
-      range.selectNodeContents($("wzCode"));
-      getSelection().removeAllRanges();
-      getSelection().addRange(range);
-      if (!document.execCommand("copy")) { $("wzCopied").textContent = t("server.copy_failed"); return; }
-    }
-    $("wzCopied").textContent = t("server.copied");
-  });
-
-  $("wzSave").addEventListener("click", () => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([result.text], { type: "text/yaml" }));
-    a.download = result.file;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  });
+  $("wzEnvFile").addEventListener("change", paintResult);
 
   paintTarget();
   window.LANG_CHANGE_LISTENERS.push(() => { paintHome(); if (steps[current].dataset.step === "result") paintResult(); });
-  window.__rukeboxServer = { show, compose, lxcCommand, bundle, passwordHash, paintResult };
+  window.__rukeboxServer = { show, compose, envFile, lxcCommand, bundle, passwordHash, paintResult };
   show(0);
 })();

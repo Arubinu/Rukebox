@@ -430,12 +430,15 @@ sound, then writes what to paste: a `docker-compose.yml` pinned to that
 release's image, or one command for the container's console. Nothing leaves
 the browser; the password is hashed there (PBKDF2, as `web_auth.py` does).
 
-The answers travel in two environment variables, read **once**, on the first
-start of a container whose `/config` is empty, or by `install.sh` in an LXC:
-`RUKEBOX_SETUP` (the base64 of a configuration bundle, without its secrets)
-and `RUKEBOX_WEB_PASSWORD_HASH`. Changing them afterwards does nothing: the
-interface owns the settings from then on. `config_bundle.py setup` applies
-them by hand.
+The answers travel in one environment variable, `RUKEBOX_SETUP`, read
+**once**, on the first start of a container whose `/config` is empty, or by
+`install.sh` in an LXC. It is the base64 of a configuration bundle whose
+`web_password_hash` field carries the hash: base64 has no `$`, so neither
+compose nor a `.env` file reads part of it as a variable. The page can put
+`TZ` and `RUKEBOX_SETUP` in the compose file or apart, in a `.env` (Docker) or
+the stack's environment (Portainer, Dockge). Changing them afterwards does
+nothing: the interface owns the settings from then on.
+`config_bundle.py setup` applies them by hand.
 
 ### Variant 1: hearing it at all
 
