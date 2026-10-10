@@ -2013,6 +2013,7 @@ function applyNotices(d) {
     });
   }
   if (d.output_override) add("info", "speaker", "notice.override", { output: t("audioout." + d.output_override) });
+  if (typeof d.volume_cap === "number") add("info", "volume-low", "notice.volume_cap", { n: d.volume_cap });
   if (d.clock_ready === false) add("warn", "clock", "notice.clock");
   if (d.track_count === 0) add("warn", "music", "notice.no_tracks");
   if ((d.consecutive_play_errors || 0) >= 3) add("warn", "alert", "notice.errors", { n: d.consecutive_play_errors });
@@ -3025,6 +3026,7 @@ async function loadSettingsIntoForm() {
   updateSpeakerFadeVisibility();
   updateClickSoundRows();
   paintStreamRows();
+  paintVolumeCap();
   loadDjIntroFiles();
   loadCoverFiles();
 
@@ -3178,6 +3180,7 @@ async function refreshSettingsIfIdle() {
     settingsBaseline[key] = result.data[key];
   });
   updateStartTimeVisibility();
+  paintVolumeCap();
 }
 
 refreshEvery(refreshSettingsIfIdle, 20000);
@@ -3356,6 +3359,22 @@ async function refreshMqtt() {
 }
 refreshEvery(refreshMqtt, 5000, ["settings/homeassistant"]);
 window.LANG_CHANGE_LISTENERS.push(paintMqttStatus);
+
+/* The night cap: its fields only while it is on, and what 100% and 50% then play at. */
+function paintVolumeCap() {
+  const on = document.getElementById("volumeCapOn").checked;
+  document.getElementById("volumeCapRow").hidden = !on;
+  document.getElementById("volumeCapHoursRow").hidden = !on;
+  const cap = Math.max(0, Math.min(100, Number(document.getElementById("volumeCapPercent").value) || 0));
+  document.getElementById("volumeCapExample").textContent = t("settings.volume_cap_example",
+    { full: cap, half: Math.round(cap / 2) });
+}
+["volumeCapOn", "volumeCapPercent"].forEach((id) => {
+  document.getElementById(id).addEventListener("input", paintVolumeCap);
+  document.getElementById(id).addEventListener("change", paintVolumeCap);
+});
+window.LANG_CHANGE_LISTENERS.push(paintVolumeCap);
+paintVolumeCap();
 window.LANG_CHANGE_LISTENERS.push(() => {
   paintWledScenes();
   if (wledLast) {

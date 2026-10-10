@@ -495,7 +495,7 @@ class RadioDaemon:
         if not path or not os.path.exists(path):
             log.warning("Confirmation sound not found: %s", path)
             return
-        volume = self._source_volume(key) if key else None
+        volume = self._capped(self._source_volume(key) if key else None)
         command = [
             "mpv", "--no-terminal", "--really-quiet",
             "--audio-device=" + (self._audio_device or "auto"),
@@ -754,6 +754,7 @@ class RadioDaemon:
         system_actions.on_exit(self._on_process_end)
         self._init_clock_sync()
         self.mpv.start()
+        self._apply_volume_cap()
         self._apply_audio_output(force=True)
         self.mpv.set_replaygain(self.cfg["REPLAYGAIN_MODE"])
         self._apply_compression()
@@ -842,6 +843,8 @@ class RadioDaemon:
             self._apply_compression()
         if "SPEAKER_VOLUME_LINK" in applied:
             self._apply_volume_link()
+        if any(key.startswith("VOLUME_CAP_") for key in applied):
+            self._apply_volume_cap()
         if "MUSIC_ORDER_MODE" in applied or "MUSIC_DIR" in applied:
             tracks = self._playable_tracks()
             if tracks:
@@ -1506,10 +1509,43 @@ class RadioDaemon:
         return bool(following) and not self._intro_due(following)
 
     def _mpv_level(self):
+        """What a second mpv is started at: the main one's level, the night cap included."""
         if self._speaker_volume_linked():
-            return self._music_gain() * self._duck_factor
+            return self._music_gain() * self._duck_factor * self.mpv.scale
         return (self._current_volume if self._current_volume is not None else self._target_volume()) \
-            * self._duck_factor
+            * self._duck_factor * self.mpv.scale
+
+    def _volume_cap(self, now=None):
+        """The night cap in percent while its hours run, or None."""
+        if not self.cfg.get("VOLUME_CAP_ENABLED"):
+            return None
+        try:
+            start = int(self.cfg["VOLUME_CAP_START_HOUR"]) * 60 + int(self.cfg["VOLUME_CAP_START_MINUTE"])
+            end = int(self.cfg["VOLUME_CAP_END_HOUR"]) * 60 + int(self.cfg["VOLUME_CAP_END_MINUTE"])
+            cap = max(0, min(100, int(self.cfg["VOLUME_CAP_PERCENT"])))
+        except (KeyError, TypeError, ValueError):
+            return None
+        now = now or datetime.now()
+        minute = now.hour * 60 + now.minute
+        # Past midnight when the end comes first; the same two times cap the whole day.
+        inside = start <= minute < end if start < end else (minute >= start or minute < end or start == end)
+        return cap if inside else None
+
+    def _apply_volume_cap(self, now=None):
+        """Plays everything at the cap while it runs: the volume shown stays the one chosen."""
+        cap = self._volume_cap(now)
+        scale = 1.0 if cap is None else cap / 100.0
+        if scale == self.mpv.scale:
+            return
+        log.info("Volume cap: %s", "off" if cap is None else "%d%% of the volume chosen" % cap)
+        self.mpv.set_scale(scale)
+        self._bump_state()
+
+    def _capped(self, volume):
+        """A disposable mpv's level: its own, or the full one, under the night cap."""
+        if self.mpv.scale >= 1.0:
+            return volume
+        return (100.0 if volume is None else volume) * self.mpv.scale
 
     XFADE_SOCKET = "/tmp/rukebox_xfade.sock"
 
@@ -3113,6 +3149,7 @@ class RadioDaemon:
         return True
 
     def _play_cue_blocking(self, path, volume=None):
+        volume = self._capped(volume)
         command = ["mpv", "--no-terminal", "--really-quiet", "--audio-device=" + (self._audio_device or "auto")]
         if volume is not None:
             command.append("--volume=%.1f" % volume)
@@ -3971,6 +4008,7 @@ class RadioDaemon:
             time.sleep(15)
 
     def _scheduler_tick(self):
+        self._apply_volume_cap()
         self._announcements()
         self._check_usb_music()
         now = datetime.now()
@@ -4116,6 +4154,7 @@ class RadioDaemon:
             "mode": self.mode,
             "volume": self._shown_volume,
             "base_volume": self.cfg["BASE_VOLUME"],
+            "volume_cap": self._volume_cap(),
             "current_track": os.path.basename(music_track) if music_track else None,
             "current_track_path": music_track,
             "sound": sound,

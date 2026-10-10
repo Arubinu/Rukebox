@@ -68,6 +68,9 @@ class MPVController:
         self._listener_thread = None
         self._pending = {}
         self._pending_lock = threading.Lock()
+        # The night cap: every level asked is played at this share of it.
+        self.scale = 1.0
+        self._asked_volume = None
 
     def start(self):
         if os.path.exists(self.socket_path):
@@ -198,7 +201,17 @@ class MPVController:
         self._send(["set_property", "mute", bool(muted)])
 
     def set_volume(self, volume: float):
-        self._send(["set_property", "volume", max(0, min(100, volume))])
+        self._asked_volume = max(0, min(100, volume))
+        self._send(["set_property", "volume", round(self._asked_volume * self.scale, 1)])
+
+    def set_scale(self, scale: float):
+        """A new cap: the level last asked is played at it at once."""
+        scale = max(0.0, min(1.0, float(scale)))
+        if scale == self.scale:
+            return
+        self.scale = scale
+        if self._asked_volume is not None:
+            self.set_volume(self._asked_volume)
 
     def get_volume_blocking(self, default=100):
         return default

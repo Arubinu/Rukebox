@@ -3292,6 +3292,19 @@ The lists are one file, `/etc/rukebox/music_lists.json`
 (`music_lists_file`), plain JSON written by the interface - it travels with
 the rest in a configuration backup.
 
+### Night volume: a cap between two times
+
+**Settings > Volume > Night volume** (`volume_cap_enabled`,
+`volume_cap_percent`, `volume_cap_start_*`, `volume_cap_end_*` under
+`playback:`) turns the whole radio down between two times, past midnight when
+the end comes first. The volume keeps its scale: the slider shows what was
+chosen, and that is played as a share of the cap - with a 60% cap, 100% shown
+plays at 60%, 50% at 30%. Music, announcements, the radio host, system sounds
+and the crossfade's second player all follow it; the speaker's own volume,
+when it is linked, is left alone (mpv's gain carries the cap). It applies on
+the next scheduler turn (15 s) when the hours begin or end, at once when saved,
+and the player shows a notice while it runs.
+
 ### Getting more volume out of a quiet speaker
 
 `audio_compression` (`playback:`) is `off` by default: the sound is exactly

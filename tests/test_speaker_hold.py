@@ -21,10 +21,15 @@ MAC = "7C:E9:13:69:66:55"
 class FakeMpv:
     """Records what the daemon asked mpv to do."""
 
+    scale = 1.0
+
     def __init__(self):
         self.files = []
         self.volume = None
         self.paused = None
+
+    def set_scale(self, scale):
+        self.scale = scale
 
     def loadfile(self, path):
         self.files.append(path)

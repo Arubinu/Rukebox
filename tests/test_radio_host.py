@@ -19,10 +19,15 @@ from state import RadioState
 
 
 class FakeMpv:
+    scale = 1.0
+
     def __init__(self):
         self.files = []
         self.calls = []
         self.volumes = []
+
+    def set_scale(self, scale):
+        self.scale = scale
 
     def set_volume(self, volume):
         self.volumes.append(volume)

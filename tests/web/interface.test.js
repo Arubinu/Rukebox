@@ -268,6 +268,7 @@ test("the settings that belong together are folded together", async (t) => {
   holds("timersErrorsSection", ["pauseDurations", "sleepDurations", "retryMax", "retryDelay"]);
   holds("volumeChangeSection", ["volumeMode", "volumeChange", "volumeFadeSec", "volumeStep"]);
   holds("speakerVolumeSection", ["speakerVolumeLink", "speakerVolumeLock"]);
+  holds("volumeCapSection", ["volumeCapOn", "volumeCapPercent", "volumeCapStart", "volumeCapEnd"]);
   holds("guestAllowedSection", ["suggestionsToggle", "dedicationsToggle", "queueFairToggle",
                                 "renameInterval", "guestPagesOff", "guestLocked"]);
   holds("guestVoteSection", ["skipVoteToggle", "skipVoteShare", "actionRepeat"]);

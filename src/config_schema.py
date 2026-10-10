@@ -375,6 +375,24 @@ SETTINGS = [
     Setting("BASE_VOLUME", "playback", "base_volume", "float", "70",
             "Volume (0-100) reset at every daemon start, whatever the previous state.",
             "Base volume"),
+    Setting("VOLUME_CAP_ENABLED", "playback", "volume_cap_enabled", "bool", "false",
+            "Turn the whole radio down between two times (the night, say). The\n"
+            "volume shown stays the one chosen: 100% then plays at the cap below,\n"
+            "50% at half of it. Music, announcements and sounds alike.",
+            "Volume capped at night"),
+    Setting("VOLUME_CAP_PERCENT", "playback", "volume_cap_percent", "int", "60",
+            "The cap, in percent of the full volume: what 100% plays at during\n"
+            "the hours below.",
+            "Volume cap"),
+    Setting("VOLUME_CAP_START_HOUR", "playback", "volume_cap_start_hour", "int", "21", "",
+            "Cap from (hour)"),
+    Setting("VOLUME_CAP_START_MINUTE", "playback", "volume_cap_start_minute", "int", "0",
+            "The cap starts at this time and ends at the one below (past midnight\n"
+            "when it is earlier).", "Cap from (minute)"),
+    Setting("VOLUME_CAP_END_HOUR", "playback", "volume_cap_end_hour", "int", "8", "",
+            "Cap until (hour)"),
+    Setting("VOLUME_CAP_END_MINUTE", "playback", "volume_cap_end_minute", "int", "0", "",
+            "Cap until (minute)"),
     Setting(
         "AUDIO_COMPRESSION", "playback", "audio_compression", "str", "off",
         "Loudness filter mpv applies to everything it plays, before the\n"

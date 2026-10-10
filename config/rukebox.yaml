@@ -292,6 +292,25 @@ playback:
   # Volume (0-100) reset at every daemon start, whatever the previous state.
   base_volume: 70
 
+  # Turn the whole radio down between two times (the night, say). The
+  # volume shown stays the one chosen: 100% then plays at the cap below,
+  # 50% at half of it. Music, announcements and sounds alike.
+  volume_cap_enabled: false
+
+  # The cap, in percent of the full volume: what 100% plays at during
+  # the hours below.
+  volume_cap_percent: 60
+
+  volume_cap_start_hour: 21
+
+  # The cap starts at this time and ends at the one below (past midnight
+  # when it is earlier).
+  volume_cap_start_minute: 0
+
+  volume_cap_end_hour: 8
+
+  volume_cap_end_minute: 0
+
   # Loudness filter mpv applies to everything it plays, before the
   # volume control - see "Getting more volume" in docs/guide.md:
   #   off    -> exactly what the files contain (the default)

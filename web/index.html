@@ -1148,6 +1148,35 @@
                 <option value="strong" data-i18n="compression.strong">Strong</option>
               </select>
             </div>
+            <details class="subsection" id="volumeCapSection">
+              <summary><span data-i18n="settings.group_volume_cap">Night volume</span></summary>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="volumeCapOn" data-i18n="settings.volume_cap">Volume capped at night</label>
+                  <p class="field-desc" id="volumeCapOnDesc" data-i18n="settings.volume_cap_desc">Between the two times below, the whole radio plays lower: music, announcements and sounds. The volume shown stays the one chosen.</p>
+                </div>
+                <input type="checkbox" id="volumeCapOn" data-key="VOLUME_CAP_ENABLED" class="switch-input" role="switch"
+                       aria-describedby="volumeCapOnDesc">
+              </div>
+              <div class="field-row" id="volumeCapRow">
+                <div class="field-text">
+                  <label for="volumeCapPercent" data-i18n="settings.volume_cap_percent">Maximum allowed (%)</label>
+                  <p class="field-desc" id="volumeCapExample"></p>
+                </div>
+                <input type="number" id="volumeCapPercent" min="5" max="100" data-key="VOLUME_CAP_PERCENT" class="num-input"
+                       inputmode="numeric" aria-describedby="volumeCapExample">
+              </div>
+              <div class="field-row" id="volumeCapHoursRow">
+                <label for="volumeCapStart" data-i18n="settings.volume_cap_hours">From / until</label>
+                <span class="sched-time">
+                  <input type="time" id="volumeCapStart" class="time-input" data-key="VOLUME_CAP_START_HOUR"
+                         data-key-minute="VOLUME_CAP_START_MINUTE" value="21:00">
+                  <input type="time" id="volumeCapEnd" class="time-input" data-key="VOLUME_CAP_END_HOUR"
+                         data-key-minute="VOLUME_CAP_END_MINUTE" value="08:00"
+                         data-i18n-aria-label="settings.volume_cap_until" aria-label="Until">
+                </span>
+              </div>
+            </details>
             <details data-level="detail" class="subsection" id="volumeChangeSection">
               <summary><span data-i18n="settings.group_volume_change">How the volume changes</span></summary>
               <div class="field-row">
