@@ -105,7 +105,10 @@ class SaidAtTheEndOfARoundTest(unittest.TestCase):
         game = blind_test.Game(tracks(), rounds=3, mode=mode, names=["Ana"])
         question = game.next_question()
         game.close_round()
-        values = dict(ws.cfg(), GAME_VOICE_ANSWER=False, GAME_VOICE_WINNERS=False, GAME_ANSWER_SOUND="")
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        values = dict(ws.cfg(), GAME_VOICE_ANSWER=False, GAME_VOICE_WINNERS=False, GAME_ANSWER_SOUND="",
+                      STATE_DIR=folder)
         values.update(settings)
         with mock.patch.object(ws, "cfg", return_value=values), \
                 mock.patch.object(ws, "_game_speak", return_value=0) as speak:
@@ -116,6 +119,12 @@ class SaidAtTheEndOfARoundTest(unittest.TestCase):
         parts = self.said("oral", GAME_ANSWER_SOUND="ding")
         self.assertTrue(parts[0]["sound"].endswith("answer-ding.wav"))
         self.assertIn("Song", parts[1]["text"])
+
+    def test_a_sound_that_cannot_be_made_leaves_the_answer_alone(self):
+        with mock.patch.object(game_sounds, "answer_sound", side_effect=PermissionError("read-only")):
+            parts = self.said("oral", GAME_ANSWER_SOUND="ding")
+        self.assertEqual(len(parts), 1)
+        self.assertIn("Song", parts[0]["text"])
 
     def test_on_the_phones_only_when_asked(self):
         self.assertEqual(self.said("phones"), [])

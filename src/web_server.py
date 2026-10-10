@@ -3294,13 +3294,22 @@ def _game_sounds_dir():
     return os.path.join(cfg()["STATE_DIR"], "game-sounds")
 
 
+def _game_sound(make, *args):
+    """A sound for the game, or None: one that cannot be made never stops the game."""
+    try:
+        return make(*args, _game_sounds_dir())
+    except OSError:
+        log.warning("The blind test's sound could not be made", exc_info=True)
+        return None
+
+
 def _round_speech(game, question):
     """The end of a round: the answer (always aloud, on demand otherwise), then who found it."""
     c = cfg()
     lang = c.get("SPEECH_LANGUAGE")
     parts = []
     if game.mode == "oral" or c.get("GAME_VOICE_ANSWER"):
-        sound = game_sounds.answer_sound(c.get("GAME_ANSWER_SOUND") or "", _game_sounds_dir())
+        sound = _game_sound(game_sounds.answer_sound, c.get("GAME_ANSWER_SOUND") or "")
         if sound:
             parts.append({"sound": sound})
         parts += speech.game_parts("answer", [question], lang)
@@ -3364,8 +3373,8 @@ def _game_run(game):
         c = cfg()
         think_sec = min(max(int(c.get("GAME_THINK_SEC") or 0), 0), 60) if oral else 0
         # Made before the first round: synthesising them on a small board takes a moment.
-        think_sound = game_sounds.think_sound(c.get("GAME_THINK_SOUND") or "", think_sec, _game_sounds_dir())
-        game_sounds.answer_sound(c.get("GAME_ANSWER_SOUND") or "", _game_sounds_dir())
+        think_sound = _game_sound(game_sounds.think_sound, c.get("GAME_THINK_SOUND") or "", think_sec)
+        _game_sound(game_sounds.answer_sound, c.get("GAME_ANSWER_SOUND") or "")
         taps = _HostTaps(game) if oral else None
         _game_wait(game, _game_say(game, "start") + 0.3)
         while not game.stopped:
