@@ -90,6 +90,11 @@ La música se escucha con «Escuchar aquí» en la interfaz, en VLC o en un
 altavoz de red. Ver
 [Ejecutar en un contenedor](docs/guide.md#running-in-a-container-docker).
 
+**Más sencillo aún**: abra `rukebox-server.html` de la
+[última versión](https://github.com/Arubinu/Rukebox/releases) y responda a unas
+preguntas. Escribe el `docker-compose.yml` para Docker, la pila para Portainer o
+Dockge, o el comando que pegar en un contenedor LXC de Proxmox.
+
 ## 🎛️ En el día a día
 
 | Gesto | Por defecto |

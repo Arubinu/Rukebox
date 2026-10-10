@@ -84,6 +84,11 @@ docker compose -f docker/compose.stream.yml up -d
 The music is heard with "Listen here" in the interface, in VLC, or on a
 network speaker. See [Running in a container](docs/guide.md#running-in-a-container-docker).
 
+**Simpler still**: open `rukebox-server.html` from the
+[latest release](https://github.com/Arubinu/Rukebox/releases) and answer a few
+questions. It writes the `docker-compose.yml` for Docker, the stack for Portainer
+or Dockge, or the one command to paste into a Proxmox LXC container.
+
 ## 🎛️ Everyday use
 
 | Gesture | By default |

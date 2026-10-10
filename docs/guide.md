@@ -421,6 +421,22 @@ everywhere, moved by the environment rather than by a rewritten file:
 image. The configuration is written on the first start, with those paths in
 it — there is nothing to prepare and nothing to edit before the first `up`.
 
+### Prepared from a page: `rukebox-server.html`
+
+Each release carries `rukebox-server.html` next to the card page. It asks
+where the radio runs (Docker, a Portainer or Dockge stack, a Proxmox LXC
+container), its name, spoken language, timezone, interface password and
+sound, then writes what to paste: a `docker-compose.yml` pinned to that
+release's image, or one command for the container's console. Nothing leaves
+the browser; the password is hashed there (PBKDF2, as `web_auth.py` does).
+
+The answers travel in two environment variables, read **once**, on the first
+start of a container whose `/config` is empty, or by `install.sh` in an LXC:
+`RUKEBOX_SETUP` (the base64 of a configuration bundle, without its secrets)
+and `RUKEBOX_WEB_PASSWORD_HASH`. Changing them afterwards does nothing: the
+interface owns the settings from then on. `config_bundle.py setup` applies
+them by hand.
+
 ### Variant 1: hearing it at all
 
 A container with no sound card still plays: it plays into a **virtual
@@ -2856,12 +2872,14 @@ git tag -a v1.0.0 -m "v1.0.0" && git push --tags
 git checkout v1.0.0
 python3 bootstrap/build_setup_page.py
 # dist/rukebox-setup.html: 2.0 MB (project archive 1.0 MB, release v1.0.0)
+# dist/rukebox-server.html: 1.1 MB
 # installed tree hash: 571ca29903b5281ad636aa81e436ca6491361c74b1f963487db4bb59abf5dd49
 # release badge: https://img.shields.io/badge/tree--hash-571ca29903b5-blue
 ```
 
 Then **Releases > Draft a new release**, tag `v1.0.0`, attach
-`dist/rukebox-setup.html`, and in the **description**:
+`dist/rukebox-setup.html` and `dist/rukebox-server.html` (it names that tag's
+image and branch), and in the **description**:
 
 - paste the `release badge:` line in the **description** — or just
   `tree-hash:` followed by the 12 characters it printed. The release

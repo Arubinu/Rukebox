@@ -91,6 +91,11 @@ Gehört wird die Musik über „Hier hören" in der Oberfläche, in VLC oder auf
 einem Netzwerklautsprecher. Siehe
 [Im Container betreiben](docs/guide.md#running-in-a-container-docker).
 
+**Noch einfacher**: Öffnen Sie `rukebox-server.html` aus der
+[neuesten Version](https://github.com/Arubinu/Rukebox/releases) und beantworten
+Sie ein paar Fragen. Die Seite schreibt die `docker-compose.yml` für Docker, den
+Stack für Portainer oder Dockge oder den Befehl für einen Proxmox-LXC-Container.
+
 ## 🎛️ Im Alltag
 
 | Geste | Standard |

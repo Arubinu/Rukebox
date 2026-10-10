@@ -1,0 +1,13 @@
+.srv-code { margin: 14px 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); overflow: hidden; }
+.srv-code-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--border);
+}
+.srv-code pre, .srv-inline {
+  margin: 0; padding: 12px 14px; overflow: auto; max-height: 420px;
+  font: 12.5px/1.5 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.srv-inline { margin-top: 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.wz-list ul { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+#wzSecret { margin: 0; }
+#wzCopied:empty { display: none; }

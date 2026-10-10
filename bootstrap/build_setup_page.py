@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds dist/rukebox-setup.html, the self-contained card setup page."""
+"""Builds dist/rukebox-setup.html, the self-contained card setup page, and dist/rukebox-server.html."""
 
 import argparse
 import base64
@@ -106,35 +106,64 @@ def installed_hash(archive, workdir):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def build(out, release=""):
-    page = read("bootstrap", "setup", "setup.html")
-    style = read("web", "style.css") + "\n" + read("bootstrap", "setup", "setup.css")
+def images():
     with open(os.path.join(ROOT, "web", "logo.webp"), "rb") as f:
         logo = "data:image/webp;base64," + base64.b64encode(f.read()).decode()
     with open(os.path.join(ROOT, "web", "title.svg"), "rb") as f:
         title = "data:image/svg+xml;base64," + base64.b64encode(f.read()).decode()
+    return logo, title
+
+
+def as_script(text):
+    return text.replace("</", "<\\/")
+
+
+def write_page(out, page):
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    with open(out, "w", encoding="utf-8", newline="\n") as f:
+        f.write(page)
+
+
+def build(out, release=""):
+    page = read("bootstrap", "setup", "setup.html")
+    style = read("web", "style.css") + "\n" + read("bootstrap", "setup", "setup.css")
+    logo, title = images()
     archive = project_archive(release)
     payload = {
         "version": version(),
         "project": base64.b64encode(archive).decode(),
         "firstrun": read("bootstrap", "firstrun.sh.template").replace("\r\n", "\n"),
     }
-    as_script = lambda text: text.replace("</", "<\\/")
     page = (page.replace("/*STYLE*/", style)
                 .replace("{{LOGO}}", logo)
                 .replace("{{TITLE}}", title)
                 .replace("/*I18N*/", as_script(read("web", "i18n.js")))
                 .replace("/*PAYLOAD*/", as_script(json.dumps(payload)))
                 .replace("/*SETUP_JS*/", as_script(read("bootstrap", "setup", "setup.js"))))
-    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-    with open(out, "w", encoding="utf-8", newline="\n") as f:
-        f.write(page)
+    write_page(out, page)
     return len(page), len(archive), installed_hash(archive, os.path.dirname(os.path.abspath(out)))
 
 
+def build_server(out, release=""):
+    """The server page carries no project: it names the release the server fetches."""
+    page = read("bootstrap", "server", "server.html")
+    style = "\n".join((read("web", "style.css"), read("bootstrap", "setup", "setup.css"),
+                       read("bootstrap", "server", "server.css")))
+    logo, title = images()
+    page = (page.replace("/*STYLE*/", style)
+                .replace("{{LOGO}}", logo)
+                .replace("{{TITLE}}", title)
+                .replace("/*I18N*/", as_script(read("web", "i18n.js")))
+                .replace("/*PAYLOAD*/", as_script(json.dumps({"release": release})))
+                .replace("/*SERVER_JS*/", as_script(read("bootstrap", "server", "server.js"))))
+    write_page(out, page)
+    return len(page)
+
+
 def main(argv=None):
-    p = argparse.ArgumentParser(description="Build the self-contained card setup page.")
+    p = argparse.ArgumentParser(description="Build the self-contained card setup page and the server page.")
     p.add_argument("--out", default=os.path.join(ROOT, "dist", "rukebox-setup.html"))
+    p.add_argument("--server-out", default=os.path.join(ROOT, "dist", "rukebox-server.html"))
     p.add_argument("--release", default="", help="tag the page is built from (default: git describe)")
     args = p.parse_args(argv)
     release = release_stamp(args.release)
@@ -144,6 +173,7 @@ def main(argv=None):
     size, archive, installed = build(args.out, release)
     print("%s: %.1f MB (project archive %.1f MB, release %s)"
           % (args.out, size / 1048576, archive / 1048576, release or "unknown"))
+    print("%s: %.1f MB" % (args.server_out, build_server(args.server_out, release) / 1048576))
     print("installed tree hash: %s" % installed)
     print("release badge: https://img.shields.io/badge/tree--hash-%s-blue" % installed[:12])
 
