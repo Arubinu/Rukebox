@@ -5330,13 +5330,127 @@ document.getElementById("gameStartForm").addEventListener("submit", async (e) =>
     seconds: Number(document.getElementById("gameSeconds").value),
     mode: oral ? "oral" : "phones",
     pace: oral ? document.getElementById("gamePace").value : "auto",
-    names: oral ? document.getElementById("gameNames").value.split(",").map((n) => n.trim()).filter(Boolean) : [],
+    names: oral ? gameNamesWith(document.getElementById("gameNamesNew")) : [],
   });
   if (!r.ok) showError(r.error, t("game.title"));
   refreshGame();
 });
 
 document.getElementById("gameCoverGo").addEventListener("click", () => setActiveView("home", "game"));
+
+/* The first names of a game aloud, kept on this device from one game to the next. */
+const GAME_NAMES_KEY = "rukebox_game_names";
+const GAME_NAMES_MAX = 12;
+
+function gameNames() {
+  try {
+    const kept = JSON.parse(localStorage.getItem(GAME_NAMES_KEY) || "[]");
+    return Array.isArray(kept) ? kept.filter((n) => typeof n === "string" && n) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveGameNames(names) {
+  try {
+    localStorage.setItem(GAME_NAMES_KEY, JSON.stringify(names));
+  } catch (e) {
+    // Private browsing: the names last as long as the page.
+  }
+  gameNames.held = names;
+}
+
+function heldGameNames() {
+  return gameNames.held || gameNames();
+}
+
+function addGameName(input) {
+  const name = input.value.trim().slice(0, 24);
+  if (!name) return;
+  const names = heldGameNames();
+  input.value = "";
+  if (names.some((n) => n.toLowerCase() === name.toLowerCase())) {
+    showToast(t("game.name_exists", { name }));
+    return;
+  }
+  if (names.length >= GAME_NAMES_MAX) {
+    showToast(t("game.names_full", { n: GAME_NAMES_MAX }), "", { error: true });
+    return;
+  }
+  saveGameNames(names.concat(name));
+  showToast(t("game.name_added", { name }));
+  input.focus();
+}
+
+/* The names to send: a name typed and not added yet counts too. */
+function gameNamesWith(input) {
+  if (input && input.value.trim()) addGameName(input);
+  return heldGameNames();
+}
+
+function gameNamesList() {
+  const names = heldGameNames();
+  const list = document.createElement("div");
+  list.className = "duration-list";
+  if (!names.length) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = t("game.names_none");
+    list.appendChild(empty);
+    return list;
+  }
+  names.forEach((name) => {
+    const row = document.createElement("div");
+    row.className = "duration-row";
+    const label = document.createElement("span");
+    label.textContent = name;
+    const off = document.createElement("button");
+    off.type = "button";
+    off.className = "btn btn-icon duration-row-x btn-danger-outline";
+    off.dataset.icon = "trash";
+    off.title = t("game.name_remove", { name });
+    off.setAttribute("aria-label", off.title);
+    off.addEventListener("click", () => {
+      saveGameNames(heldGameNames().filter((one) => one !== name));
+      list.replaceWith(gameNamesList());
+    });
+    row.append(label, off);
+    list.appendChild(row);
+  });
+  return list;
+}
+
+(function gameNamesField() {
+  const el = document.getElementById("gameNames");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "text-input duration-new game-name-new";
+  input.id = "gameNamesNew";
+  input.maxLength = 24;
+  input.placeholder = "Ana";
+  input.autocomplete = "off";
+  const plus = document.createElement("button");
+  plus.type = "button";
+  plus.className = "btn btn-icon duration-add-btn";
+  plus.dataset.icon = "plus";
+  plus.title = t("common.add");
+  plus.setAttribute("aria-label", t("common.add"));
+  plus.addEventListener("click", () => addGameName(input));
+  const list = document.createElement("button");
+  list.type = "button";
+  list.className = "btn btn-icon duration-open";
+  list.dataset.icon = "list";
+  list.title = t("game.names_manage");
+  list.setAttribute("aria-label", list.title);
+  list.addEventListener("click", () => openModal({ title: t("game.names"), bodyNode: gameNamesList(), actions: false }));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();  // otherwise the game starts
+      addGameName(input);
+    }
+  });
+  el.replaceChildren(input, plus, list);
+}());
 
 function paintGameMode() {
   const oral = document.getElementById("gameMode").value === "oral";
@@ -10174,8 +10288,8 @@ async function refreshShare() {
   if (d.configured) {
     wifiBox.innerHTML = RukeboxQR.svg(RukeboxQR.wifiText(d.ssid, d.open ? "" : d.password),
       Object.assign({ label: t("share.wifi") }, opts));
-    document.getElementById("shareWifiText").textContent = t("share.wifi_text",
-      { ssid: d.ssid, password: d.open ? t("share.no_password") : d.password });
+    document.getElementById("shareWifiText").textContent = d.open ? t("share.wifi_text_open", { ssid: d.ssid })
+      : t("share.wifi_text", { ssid: d.ssid, password: d.password });
   } else {
     wifiBox.textContent = "";
     document.getElementById("shareWifiText").textContent = t("share.no_ap");

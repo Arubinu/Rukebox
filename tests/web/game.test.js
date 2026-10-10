@@ -117,11 +117,14 @@ test("aloud: the host's form, the names to mark after the answer, and one hall a
   page.$("gameMode").dispatchEvent(new page.window.Event("change"));
   assert.equal(page.$("gameNamesRow").hidden, false);
   page.$("gamePace").value = "host";
-  page.$("gameNames").value = "Ana, Bo ,";
+  page.$("gameNamesNew").value = "Ana";
+  page.$("gameNames").querySelector(".duration-add-btn").click();
+  page.$("gameNamesNew").value = "Bo";
   page.$("gameStartForm").dispatchEvent(new page.window.Event("submit", { cancelable: true }));
   await until(() => page.sent("POST", "/api/game/start").length);
   const sent = page.sent("POST", "/api/game/start")[0].body;
-  assert.deepEqual([sent.mode, sent.pace, sent.names], ["oral", "host", ["Ana", "Bo"]]);
+  assert.deepEqual([sent.mode, sent.pace, sent.names], ["oral", "host", ["Ana", "Bo"]],
+                   "a name typed and not added yet counts too");
   await until(() => !page.$("gameHallBox").hidden);
   assert.equal(page.$("gameHallKind").hidden, false, "both halls: a choice, not both lists");
   assert.equal(page.document.querySelectorAll("#gameHall li").length, 1);

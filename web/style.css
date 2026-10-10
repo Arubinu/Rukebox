@@ -1599,8 +1599,10 @@ body.lyrics-fullscreen { overflow: hidden; }
 .game-marks { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0; }
 .game-mark[aria-pressed="true"] { background: var(--success-soft); border-color: var(--success); color: var(--success-text); }
 .game-mark .game-mark-gain { margin-left: 6px; font-weight: 700; }
-.game-hall-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 8px; }
+.game-hall-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 28px 0 8px; }
 .game-hall-head .game-voice-title { margin: 0; }
+/* The title's letters sit low in their box: the list follows them rather than the box. */
+#gameHallKind { margin-top: 6px; }
 .game-hall-head select { width: auto; }
 #gameHostRow .btn { flex: 1 1 160px; justify-content: center; }
 .game-role-text { margin: 0 0 10px; font-weight: 600; }
@@ -2828,6 +2830,7 @@ select {
   margin-left: auto;
 }
 .duration-new { width: 5rem; flex: none; }
+.duration-new.game-name-new { width: 8rem; }
 .duration-list { display: flex; flex-direction: column; }
 .duration-row {
   display: flex;
@@ -4027,6 +4030,7 @@ body[data-access="guest"] .toast-stack { bottom: calc(20px + env(safe-area-inset
 .share-item figcaption { display: grid; gap: 4px; }
 .share-text { font-size: 14px; color: var(--text-muted); overflow-wrap: anywhere; white-space: pre-line; }
 .share-actions .btn { flex: 1 1 auto; }
+#djIntroCount { text-align: center; }
 
 @media print {
   body.print-share * { visibility: hidden !important; }
@@ -4040,7 +4044,10 @@ body[data-access="guest"] .toast-stack { bottom: calc(20px + env(safe-area-inset
   body.print-share[data-print="url"] #shareItemWifi { display: none !important; }
   body.print-share #shareCard .share-actions,
   body.print-share #shareCard .help-btn { display: none !important; }
-  body.print-share .share-item { background: #fff; border-color: #ccc; }
+  /* Two columns even for one code: it prints the size it has next to the other. */
+  body.print-share .share-grid { grid-template-columns: 1fr 1fr; }
+  /* Where to cut, on a white sheet. */
+  body.print-share .share-item { background: #fff; border: 3px dashed rgba(128, 128, 128, 0.5); }
   body.print-share .share-text { color: #000; }
 }
 body[data-access="guest"] .guest-banner { display: block; }
