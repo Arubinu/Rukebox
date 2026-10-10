@@ -1,5 +1,6 @@
 """The night cap: between two times everything plays at a share of the volume chosen, which stays
 the one shown (100% of a 60% cap plays at 60%)."""
+import threading
 import unittest
 from datetime import datetime
 from unittest import mock
@@ -31,7 +32,7 @@ class ControllerScaleTest(unittest.TestCase):
 class DaemonCapTest(DaemonCase):
     def setUp(self):
         super().setUp()
-        self.daemon.cfg.update(VOLUME_CAP_ENABLED=True, VOLUME_CAP_PERCENT=60,
+        self.daemon.cfg.update(VOLUME_CAP_ENABLED=True, VOLUME_CAP_PERCENT=60, VOLUME_CAP_FADE_SEC=0,
                                VOLUME_CAP_START_HOUR=21, VOLUME_CAP_START_MINUTE=30,
                                VOLUME_CAP_END_HOUR=7, VOLUME_CAP_END_MINUTE=0)
 
@@ -66,6 +67,20 @@ class DaemonCapTest(DaemonCase):
         self.assertEqual(self.daemon._capped(50), 30.0)
         self.daemon._apply_volume_cap(self.at(9))
         self.assertEqual((self.daemon.mpv.scale, self.daemon._capped(None)), (1.0, None))
+
+    def test_the_hours_beginning_glide_down_and_a_save_cuts_the_glide_short(self):
+        self.daemon.cfg["VOLUME_CAP_FADE_SEC"] = 1
+        self.daemon._apply_volume_cap(self.at(23))
+        self.assertEqual(self.daemon.mpv.scale, 1.0, "not at once")
+        for _ in range(50):
+            if self.daemon.mpv.scale == 0.6:
+                break
+            threading.Event().wait(0.05)
+        self.assertAlmostEqual(self.daemon.mpv.scale, 0.6)
+        self.daemon.cfg["VOLUME_CAP_FADE_SEC"] = 5
+        self.daemon._apply_volume_cap(self.at(9))
+        self.daemon._apply_volume_cap(self.at(23), glide=False)
+        self.assertEqual(self.daemon.mpv.scale, 0.6, "a save applies at once, whatever was gliding")
 
     def test_a_setting_saved_applies_at_once(self):
         with mock.patch.object(self.daemon, "_apply_volume_cap") as applied:

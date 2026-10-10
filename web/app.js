@@ -3365,6 +3365,7 @@ function paintVolumeCap() {
   const on = document.getElementById("volumeCapOn").checked;
   document.getElementById("volumeCapRow").hidden = !on;
   document.getElementById("volumeCapHoursRow").hidden = !on;
+  document.getElementById("volumeCapFadeRow").hidden = !on;
   const cap = Math.max(0, Math.min(100, Number(document.getElementById("volumeCapPercent").value) || 0));
   document.getElementById("volumeCapExample").textContent = t("settings.volume_cap_example",
     { full: cap, half: Math.round(cap / 2) });

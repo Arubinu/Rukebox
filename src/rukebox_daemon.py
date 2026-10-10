@@ -306,6 +306,9 @@ class RadioDaemon:
         self._session_marked_used = False
         self._last_volume_event = NEVER
         self._volume_glide_gen = 0
+        # The night cap mpv is going to (the glide towards it may still run), and that glide's turn.
+        self._cap_scale = 1.0
+        self._cap_glide_gen = 0
         self._volume_glide_target = None
         self._sink_level = None
         self._sink_name = None
@@ -754,7 +757,7 @@ class RadioDaemon:
         system_actions.on_exit(self._on_process_end)
         self._init_clock_sync()
         self.mpv.start()
-        self._apply_volume_cap()
+        self._apply_volume_cap(glide=False)
         self._apply_audio_output(force=True)
         self.mpv.set_replaygain(self.cfg["REPLAYGAIN_MODE"])
         self._apply_compression()
@@ -844,7 +847,7 @@ class RadioDaemon:
         if "SPEAKER_VOLUME_LINK" in applied:
             self._apply_volume_link()
         if any(key.startswith("VOLUME_CAP_") for key in applied):
-            self._apply_volume_cap()
+            self._apply_volume_cap(glide=False)
         if "MUSIC_ORDER_MODE" in applied or "MUSIC_DIR" in applied:
             tracks = self._playable_tracks()
             if tracks:
@@ -1531,15 +1534,40 @@ class RadioDaemon:
         inside = start <= minute < end if start < end else (minute >= start or minute < end or start == end)
         return cap if inside else None
 
-    def _apply_volume_cap(self, now=None):
-        """Plays everything at the cap while it runs: the volume shown stays the one chosen."""
+    def _apply_volume_cap(self, now=None, glide=True):
+        """Plays everything at the cap while it runs: the volume shown stays the one chosen.
+        The hours beginning or ending glide to it; a setting saved, or the start, apply at once."""
         cap = self._volume_cap(now)
         scale = 1.0 if cap is None else cap / 100.0
-        if scale == self.mpv.scale:
+        if scale == self._cap_scale and (glide or scale == self.mpv.scale):
             return
-        log.info("Volume cap: %s", "off" if cap is None else "%d%% of the volume chosen" % cap)
-        self.mpv.set_scale(scale)
+        self._cap_scale = scale
+        try:
+            seconds = max(0.0, float(self.cfg.get("VOLUME_CAP_FADE_SEC") or 0)) if glide else 0.0
+        except (TypeError, ValueError):
+            seconds = 0.0
+        log.info("Volume cap: %s%s", "off" if cap is None else "%d%% of the volume chosen" % cap,
+                 " over %.0fs" % seconds if seconds else "")
+        self._glide_cap(scale, seconds)
         self._bump_state()
+
+    def _glide_cap(self, scale, seconds):
+        """Moves mpv's cap to `scale` in half-second steps over `seconds` (at once for 0)."""
+        self._cap_glide_gen += 1
+        gen = self._cap_glide_gen
+        start = self.mpv.scale
+        steps = int(seconds * 2)
+        if steps < 2:
+            self.mpv.set_scale(scale)
+            return
+
+        def run():
+            for i in range(1, steps + 1):
+                if self._stop_event.wait(seconds / steps) or gen != self._cap_glide_gen:
+                    return
+                self.mpv.set_scale(start + (scale - start) * i / steps)
+
+        threading.Thread(target=run, daemon=True).start()
 
     def _capped(self, volume):
         """A disposable mpv's level: its own, or the full one, under the night cap."""

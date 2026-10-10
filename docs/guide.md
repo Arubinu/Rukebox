@@ -3301,9 +3301,11 @@ the end comes first. The volume keeps its scale: the slider shows what was
 chosen, and that is played as a share of the cap - with a 60% cap, 100% shown
 plays at 60%, 50% at 30%. Music, announcements, the radio host, system sounds
 and the crossfade's second player all follow it; the speaker's own volume,
-when it is linked, is left alone (mpv's gain carries the cap). It applies on
-the next scheduler turn (15 s) when the hours begin or end, at once when saved,
-and the player shows a notice while it runs.
+when it is linked, is left alone (mpv's gain carries the cap). When the hours
+begin or end (seen on the next scheduler turn, within 15 s), the volume glides
+to the cap or back over **Transition** (`volume_cap_fade_sec`, 60 s; 0 = at
+once). A setting saved, and the radio starting, apply at once. The player shows
+a notice while the cap runs.
 
 ### Getting more volume out of a quiet speaker
 

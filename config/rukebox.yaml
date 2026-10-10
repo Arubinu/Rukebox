@@ -311,6 +311,11 @@ playback:
 
   volume_cap_end_minute: 0
 
+  # How long the volume takes to go down to the cap when its hours begin,
+  # and back up when they end, in seconds. 0 = at once. A setting saved
+  # always applies at once.
+  volume_cap_fade_sec: 60
+
   # Loudness filter mpv applies to everything it plays, before the
   # volume control - see "Getting more volume" in docs/guide.md:
   #   off    -> exactly what the files contain (the default)

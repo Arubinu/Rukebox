@@ -393,6 +393,11 @@ SETTINGS = [
             "Cap until (hour)"),
     Setting("VOLUME_CAP_END_MINUTE", "playback", "volume_cap_end_minute", "int", "0", "",
             "Cap until (minute)"),
+    Setting("VOLUME_CAP_FADE_SEC", "playback", "volume_cap_fade_sec", "float", "60",
+            "How long the volume takes to go down to the cap when its hours begin,\n"
+            "and back up when they end, in seconds. 0 = at once. A setting saved\n"
+            "always applies at once.",
+            "Night volume transition (sec)"),
     Setting(
         "AUDIO_COMPRESSION", "playback", "audio_compression", "str", "off",
         "Loudness filter mpv applies to everything it plays, before the\n"

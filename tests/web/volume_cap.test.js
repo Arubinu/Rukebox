@@ -25,6 +25,7 @@ test("the cap's fields say what the volume shown plays at, and hide while it is 
   page.$("volumeCapOn").dispatchEvent(new page.window.Event("change"));
   assert.equal(page.$("volumeCapRow").hidden, true);
   assert.equal(page.$("volumeCapHoursRow").hidden, true);
+  assert.equal(page.$("volumeCapFadeRow").hidden, true);
   await page.close();
 });
 

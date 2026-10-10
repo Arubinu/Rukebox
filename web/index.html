@@ -1176,6 +1176,14 @@
                          data-i18n-aria-label="settings.volume_cap_until" aria-label="Until">
                 </span>
               </div>
+              <div class="field-row" id="volumeCapFadeRow">
+                <div class="field-text">
+                  <label for="volumeCapFade" data-i18n="settings.volume_cap_fade">Transition (sec)</label>
+                  <p class="field-desc" id="volumeCapFadeDesc" data-i18n="settings.volume_cap_fade_desc">The time the volume takes to go down when the hours begin, and back up when they end. 0 = at once.</p>
+                </div>
+                <input type="number" id="volumeCapFade" min="0" max="600" step="5" data-key="VOLUME_CAP_FADE_SEC"
+                       class="num-input" inputmode="numeric" aria-describedby="volumeCapFadeDesc">
+              </div>
             </details>
             <details data-level="detail" class="subsection" id="volumeChangeSection">
               <summary><span data-i18n="settings.group_volume_change">How the volume changes</span></summary>
