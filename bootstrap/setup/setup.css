@@ -1,5 +1,5 @@
 /* The interface's body is a fixed shell that never scrolls; these pages are documents that do. */
-.wz-body { height: auto; min-height: 100%; overflow: visible; background: var(--bg); }
+.wz-body { height: auto; overflow: visible; background: var(--bg); }
 .wz-head {
   display: flex; align-items: center; gap: 12px;
   width: min(640px, 100% - 32px); margin: 20px auto 8px;
