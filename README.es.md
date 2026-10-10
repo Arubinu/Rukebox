@@ -40,6 +40,8 @@ cualquier móvil conectado al Wi-Fi de la Pi.
 - **Luces que siguen la música**: las tiras WLED cambian de escena al
   empezar la música, en pausa o durante un anuncio, laten al ritmo y
   comparten la hora con la radio.
+- **Home Assistant**: por MQTT, la radio aparece sola con lo que suena,
+  su volumen y botones de reproducir/pausa, siguiente y espera.
 - **Pensada para funcionar sola**: mantiene el altavoz conectado, sabe la
   hora sin Internet, salta los archivos ilegibles, vigila su tarjeta SD y
   avisa en pantalla cuando algo necesita tu atención.

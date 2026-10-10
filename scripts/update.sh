@@ -156,7 +156,7 @@ if [ -z "${RUKEBOX_STATE_DIR:-}" ]; then
 fi
 mkdir -p "$BACKUP_DIR"
 
-ALL_SERVICES="rukebox-daemon.service rukebox-web.service flic-bridge.service rukebox-speaker-buttons.service rukebox-bt-buttons.service rukebox-card-reader.service bt-connect.service home-wifi-connect.service"
+ALL_SERVICES="rukebox-daemon.service rukebox-web.service rukebox-mqtt.service flic-bridge.service rukebox-speaker-buttons.service rukebox-bt-buttons.service rukebox-card-reader.service bt-connect.service home-wifi-connect.service"
 RUNNING_SERVICES=""
 
 remember_running() {
@@ -541,6 +541,7 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         install -D -m 644 -o root -g root "$SOURCE_DIR/config/rtkit-quiet.conf" \
             /etc/systemd/system/rtkit-daemon.service.d/50-rukebox-quiet.conf 2>/dev/null || true
     fi
+    systemctl enable --now rukebox-mqtt.service 2>/dev/null || true
     if [ "$PROFILE" = "pi" ]; then
         systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
         systemctl enable --now rukebox-bt-buttons.service 2>/dev/null || true

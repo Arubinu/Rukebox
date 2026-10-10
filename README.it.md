@@ -40,6 +40,9 @@ della cassa o qualsiasi telefono collegato al Wi-Fi del Pi.
 - **Luci che seguono la musica**: le strisce WLED cambiano scena
   all'avvio della musica, in pausa o durante un annuncio, pulsano a ritmo
   e condividono l'ora con la radio.
+- **Home Assistant**: via MQTT, la radio compare da sola con ciò che
+  suona, il suo volume e pulsanti per riproduci/pausa, successivo e
+  standby.
 - **Pensato per funzionare da solo**: tiene la cassa collegata, conosce
   l'ora senza Internet, salta i file illeggibili, sorveglia la sua scheda
   SD e segnala sullo schermo quando qualcosa richiede attenzione.

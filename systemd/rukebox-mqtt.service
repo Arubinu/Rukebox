@@ -1,0 +1,14 @@
+[Unit]
+Description=Bridge between the radio daemon and Home Assistant over MQTT
+After=network-online.target rukebox-daemon.service rukebox-config.service
+Wants=network-online.target rukebox-config.service
+
+[Service]
+# It waits on its own while the setting is off: nothing to enable or disable from the page.
+ExecStart=/usr/bin/python3 /opt/rukebox/src/mqtt_bridge.py
+Restart=always
+RestartSec=5
+User=pi
+
+[Install]
+WantedBy=multi-user.target

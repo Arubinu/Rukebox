@@ -476,6 +476,37 @@ lights:
   clock: true
 
 # ---------------------------------------------------------------
+# Home Assistant over MQTT: the radio's state and commands
+# ---------------------------------------------------------------
+home_assistant:
+  # Publish the radio to an MQTT broker, where Home Assistant finds it by
+  # itself (MQTT discovery): what plays, the volume, the speaker, and
+  # buttons for play/pause, next, previous, standby...
+  enabled: false
+
+  # The broker's address (homeassistant.local, 192.168.1.10...).
+  host: ""
+
+  # The broker's port: 1883, or 8883 with TLS.
+  port: 1883
+
+  # The broker account, if it asks for one.
+  username: ""
+
+  # That account's password. The interface never shows it back.
+  password: ""
+
+  # Connect with TLS (the broker's certificate must be a valid one).
+  tls: false
+
+  # The topic the radio publishes under: <topic>/<this radio>/state,
+  # /availability, and /set/<command> for what it is asked.
+  topic: "rukebox"
+
+  # Home Assistant's discovery prefix (homeassistant unless changed there).
+  discovery_prefix: "homeassistant"
+
+# ---------------------------------------------------------------
 # Flic and/or GPIO button: what single and double click do
 # ---------------------------------------------------------------
 buttons:

@@ -3227,7 +3227,7 @@ async function restartDaemon() {
   if (result.ok) showToast(t("alert.service_restarted")); else showError(result.error);
 }
 
-const SETTINGS_FORMS = ["gameVoiceForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
+const SETTINGS_FORMS = ["gameVoiceForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "mqttForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
   .map((id) => document.getElementById(id))
   .filter(Boolean);
 
@@ -3336,6 +3336,26 @@ async function refreshWled() {
 }
 paintWledScenes();
 refreshEvery(refreshWled, 20000, ["settings/lights"]);
+
+/* The Home Assistant link, as the bridge last wrote it. */
+let mqttLast = null;
+function paintMqttStatus() {
+  const s = mqttLast;
+  const box = document.getElementById("mqttStatus");
+  if (!s) { box.textContent = ""; return; }
+  box.classList.toggle("warning", s.state === "error");
+  box.textContent = !s.enabled ? t("mqtt.status_off") : s.state === "connected" ? t("mqtt.status_connected")
+    : s.state === "error" ? t("mqtt.status_error", { why: t("mqtt.error_" + s.error) === "mqtt.error_" + s.error
+      ? s.error : t("mqtt.error_" + s.error) }) : t("mqtt.status_waiting");
+}
+async function refreshMqtt() {
+  const r = await apiGet("/api/mqtt/status");
+  if (!r.ok) return;
+  mqttLast = r.data || null;
+  paintMqttStatus();
+}
+refreshEvery(refreshMqtt, 5000, ["settings/homeassistant"]);
+window.LANG_CHANGE_LISTENERS.push(paintMqttStatus);
 window.LANG_CHANGE_LISTENERS.push(() => {
   paintWledScenes();
   if (wledLast) {

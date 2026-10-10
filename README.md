@@ -37,6 +37,8 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
 - **Lights that follow the music**: WLED light strips change scene when
   the music starts, pauses or an announcement plays, pulse to the beat,
   and share the time with the radio.
+- **Home Assistant**: over MQTT, the radio shows up by itself with what
+  plays, its volume and buttons for play/pause, next and standby.
 - **Made to run unattended**: it keeps the speaker connected, knows the
   time without Internet, skips unreadable files, watches its SD card, and
   says on screen when something needs attention.

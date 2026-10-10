@@ -26,6 +26,7 @@ SECTIONS = [
     ("folders", "Audio folders (subfolders are scanned recursively)"),
     ("playback", "Playback"),
     ("lights", "WLED light strips: scenes that follow the radio, its beat and the clock"),
+    ("home_assistant", "Home Assistant over MQTT: the radio's state and commands"),
     ("buttons", "Flic and/or GPIO button: what single and double click do"),
     ("schedule", "Evening cutoff (the morning announcement is a custom one)"),
     ("fades", "Fade durations - every stop is progressive, never abrupt"),
@@ -1259,6 +1260,49 @@ SETTINGS = [
         "the radio stops choosing them on its own. Nothing is deleted, and the\n"
         "file is still there to be played by hand.",
         "Hidden tracks file",
+    ),
+    Setting(
+        "MQTT_ENABLED", "home_assistant", "enabled", "bool", "false",
+        "Publish the radio to an MQTT broker, where Home Assistant finds it by\n"
+        "itself (MQTT discovery): what plays, the volume, the speaker, and\n"
+        "buttons for play/pause, next, previous, standby...",
+        "Home Assistant (MQTT)",
+    ),
+    Setting(
+        "MQTT_HOST", "home_assistant", "host", "str", "",
+        "The broker's address (homeassistant.local, 192.168.1.10...).",
+        "Broker address",
+    ),
+    Setting(
+        "MQTT_PORT", "home_assistant", "port", "int", "1883",
+        "The broker's port: 1883, or 8883 with TLS.",
+        "Broker port",
+    ),
+    Setting(
+        "MQTT_USERNAME", "home_assistant", "username", "str", "",
+        "The broker account, if it asks for one.",
+        "User name",
+    ),
+    Setting(
+        "MQTT_PASSWORD", "home_assistant", "password", "str", "",
+        "That account's password. The interface never shows it back.",
+        "Password",
+    ),
+    Setting(
+        "MQTT_TLS", "home_assistant", "tls", "bool", "false",
+        "Connect with TLS (the broker's certificate must be a valid one).",
+        "TLS",
+    ),
+    Setting(
+        "MQTT_TOPIC", "home_assistant", "topic", "str", "rukebox",
+        "The topic the radio publishes under: <topic>/<this radio>/state,\n"
+        "/availability, and /set/<command> for what it is asked.",
+        "Topic",
+    ),
+    Setting(
+        "MQTT_DISCOVERY_PREFIX", "home_assistant", "discovery_prefix", "str", "homeassistant",
+        "Home Assistant's discovery prefix (homeassistant unless changed there).",
+        "Discovery prefix",
     ),
     Setting(
         "WLED_ENABLED", "lights", "enabled", "bool", "false",

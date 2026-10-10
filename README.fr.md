@@ -41,6 +41,8 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
 - **Des lumières qui suivent la musique** : des rubans WLED changent de
   scène au démarrage, à la pause ou pendant une annonce, battent au
   rythme, et partagent l'heure avec la radio.
+- **Home Assistant** : par MQTT, la radio apparaît toute seule avec ce
+  qui joue, son volume et des boutons lecture/pause, suivant et veille.
 - **Pensé pour tourner seul** : il garde l'enceinte connectée, connaît
   l'heure sans Internet, ignore les fichiers illisibles, surveille sa
   carte SD et te prévient à l'écran quand quelque chose demande ton

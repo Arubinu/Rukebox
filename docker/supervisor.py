@@ -117,6 +117,7 @@ def children():
     started.append(Child("daemon", [sys.executable, os.path.join(SRC, "rukebox_daemon.py")],
                          ready=_audio_ready))
     started.append(Child("web", [sys.executable, os.path.join(SRC, "web_server.py")]))
+    started.append(Child("mqtt", [sys.executable, os.path.join(SRC, "mqtt_bridge.py")]))
     return started
 
 

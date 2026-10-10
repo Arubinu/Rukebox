@@ -3702,6 +3702,14 @@ def api_action_poweroff():
     return jsonify(result), (200 if result.get("ok") else 400)
 
 
+@app.route("/api/mqtt/status")
+def api_mqtt_status():
+    """The Home Assistant link: off, connected, or the error that keeps it down."""
+    doc = json_file.read(os.path.join(cfg()["STATE_DIR"], "mqtt_status.json")) or {}
+    return jsonify({"ok": True, "data": {"state": doc.get("state") or "off", "error": doc.get("error"),
+                                         "enabled": bool(cfg().get("MQTT_ENABLED"))}})
+
+
 @app.route("/api/mute", methods=["POST"])
 def api_mute():
     """{on: true | false | "toggle"}: mpv's mute, the volume untouched."""
@@ -4173,14 +4181,18 @@ def api_clear_track_order(source_id):
 
 # Only /api/auth/set_password may write these (it checks the current one).
 _SETTINGS_HIDDEN_KEYS = {"WEB_PASSWORD_HASH", "WEB_SESSION_SECRET"}
+# Written from the page, never read back: a set one shows as this mask, which a save leaves alone.
+_SETTINGS_WRITE_ONLY = {"MQTT_PASSWORD"}
+_SECRET_MASK = "\u2022" * 8
 
 
 @app.route("/api/settings")
 def api_get_settings():
     c = cfg()
-    return jsonify({"ok": True, "data": {
-        k: c[k] for k in DEFAULTS if k in c and k not in _SETTINGS_HIDDEN_KEYS
-    }})
+    data = {k: c[k] for k in DEFAULTS if k in c and k not in _SETTINGS_HIDDEN_KEYS}
+    for key in _SETTINGS_WRITE_ONLY & set(data):
+        data[key] = _SECRET_MASK if data[key] else ""
+    return jsonify({"ok": True, "data": data})
 
 
 @app.route("/api/settings", methods=["POST"])
@@ -4190,6 +4202,10 @@ def api_set_settings():
         return jsonify({"ok": False, "error": "no_data"}), 400
     if _SETTINGS_HIDDEN_KEYS & set(body):
         return jsonify({"ok": False, "error": "use_auth_endpoint"}), 400
+    body = {k: v for k, v in body.items() if not (k in _SETTINGS_WRITE_ONLY and v == _SECRET_MASK)}
+    if not body:
+        return jsonify({"ok": True, "data": {"applied_live": True, "restart_needed": False,
+                                             "reboot_needed": False, "audio_reloaded": False}})
     bad = (_check_github_repo(body) or _check_extra_hosts(body) or _check_bt_adapters(body)
            or _check_gpio_pins(body))
     if bad:

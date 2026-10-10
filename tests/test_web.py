@@ -914,6 +914,22 @@ class WebTest(unittest.TestCase):
         self.assertEqual(owner.post("/api/settings", json={"GPIO_RESET_PIN": "17"}).status_code, 200)
         self.assertEqual(owner.post("/api/settings", json={"GPIO_RESET_PIN": before}).status_code, 200)
 
+    def test_the_mqtt_password_is_written_but_never_read_back(self):
+        owner = self.owner()
+        self.assertEqual(owner.get("/api/settings").get_json()["data"]["MQTT_PASSWORD"], "")
+        self.assertEqual(owner.post("/api/settings", json={"MQTT_PASSWORD": "broker-secret"}).status_code, 200)
+        self.assertEqual(ws.cfg()["MQTT_PASSWORD"], "broker-secret")
+        shown = owner.get("/api/settings").get_json()["data"]["MQTT_PASSWORD"]
+        self.assertNotIn("secret", shown)
+        self.assertTrue(shown)
+        owner.post("/api/settings", json={"MQTT_PASSWORD": shown, "MQTT_PORT": "1884"})
+        self.assertEqual((ws.cfg()["MQTT_PASSWORD"], str(ws.cfg()["MQTT_PORT"])), ("broker-secret", "1884"),
+                         "the mask sent back keeps the password")
+        self.assertEqual(owner.post("/api/settings", json={"MQTT_PASSWORD": shown}).status_code, 200)
+        owner.post("/api/settings", json={"MQTT_PASSWORD": "", "MQTT_PORT": "1883"})
+        self.assertEqual(ws.cfg()["MQTT_PASSWORD"], "")
+        self.assertEqual(owner.get("/api/mqtt/status").get_json()["data"]["state"], "off")
+
     def test_an_announcements_volume_is_the_owners(self):
         guest = ws.app.test_client()
         self.assertEqual(guest.get("/api/announcement_volumes").status_code, 401)

@@ -1343,6 +1343,54 @@
           </form>
         </section>
 
+        <section class="card" data-page="homeassistant" data-tab="settings" aria-labelledby="mqttTitle">
+          <h2 data-icon="home" id="mqttTitle"><span data-i18n="mqtt.title">Home Assistant</span></h2>
+          <p class="hint help-text" data-i18n="mqtt.help" hidden>The radio publishes itself to an MQTT broker, where Home Assistant finds it by itself: what plays, the volume, the speaker, and buttons for play/pause, next, previous and standby.</p>
+          <form id="mqttForm" class="settings-form">
+            <div class="field-row">
+              <label for="mqttEnabled" data-i18n="mqtt.enabled">Publish to Home Assistant (MQTT)</label>
+              <input type="checkbox" id="mqttEnabled" data-key="MQTT_ENABLED" class="switch-input" role="switch">
+            </div>
+            <div class="field-row">
+              <label for="mqttHost" data-i18n="mqtt.host">Broker address</label>
+              <input type="text" id="mqttHost" data-key="MQTT_HOST" class="text-input" placeholder="homeassistant.local"
+                     autocapitalize="off" spellcheck="false">
+            </div>
+            <div class="field-row">
+              <label for="mqttPort" data-i18n="mqtt.port">Port</label>
+              <input type="number" id="mqttPort" data-key="MQTT_PORT" class="num-input" min="1" max="65535" inputmode="numeric">
+            </div>
+            <div class="field-row">
+              <label for="mqttUser" data-i18n="mqtt.username">User name</label>
+              <input type="text" id="mqttUser" data-key="MQTT_USERNAME" class="text-input" autocomplete="off"
+                     autocapitalize="off" spellcheck="false">
+            </div>
+            <div class="field-row">
+              <label for="mqttPassword" data-i18n="mqtt.password">Password</label>
+              <input type="password" id="mqttPassword" data-key="MQTT_PASSWORD" class="text-input" autocomplete="new-password">
+            </div>
+            <div class="field-row">
+              <label for="mqttTls" data-i18n="mqtt.tls">TLS (port 8883)</label>
+              <input type="checkbox" id="mqttTls" data-key="MQTT_TLS" class="switch-input" role="switch">
+            </div>
+            <details class="subsection" data-level="detail">
+              <summary data-i18n="mqtt.topics">Topics</summary>
+              <div class="field-row">
+                <label for="mqttTopic" data-i18n="mqtt.topic">Topic</label>
+                <input type="text" id="mqttTopic" data-key="MQTT_TOPIC" class="text-input" autocapitalize="off" spellcheck="false">
+              </div>
+              <div class="field-row">
+                <label for="mqttDiscovery" data-i18n="mqtt.discovery">Discovery prefix</label>
+                <input type="text" id="mqttDiscovery" data-key="MQTT_DISCOVERY_PREFIX" class="text-input" autocapitalize="off" spellcheck="false">
+              </div>
+            </details>
+            <p class="hint" id="mqttStatus" role="status"></p>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
+        </section>
+
         <section class="card" data-page="buttons" data-tab="settings" aria-labelledby="buttonsTitle">
           <h2 data-icon="pointer" id="buttonsTitle"><span data-i18n="settings.buttons_title">Button actions</span></h2>
           <form id="buttonsForm" class="settings-form">

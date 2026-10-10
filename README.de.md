@@ -41,6 +41,9 @@ Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
 - **Licht, das der Musik folgt**: WLED-Lichtstreifen wechseln die Szene,
   wenn die Musik startet, pausiert oder eine Ansage läuft, pulsieren im
   Takt und teilen die Uhrzeit mit dem Radio.
+- **Home Assistant**: über MQTT erscheint das Radio von selbst, mit dem,
+  was läuft, seiner Lautstärke und Tasten für Wiedergabe/Pause, weiter
+  und Standby.
 - **Läuft von allein**: hält den Lautsprecher verbunden, kennt die
   Uhrzeit ohne Internet, überspringt unlesbare Dateien, überwacht seine
   SD-Karte und zeigt an, wenn etwas deine Aufmerksamkeit braucht.

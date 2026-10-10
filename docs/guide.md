@@ -1039,6 +1039,33 @@ sound card - so another USB device's keys are never read, and no name has
 to be set. Many cards change their own volume on those two keys as well:
 set the actions to `off` to let the card alone.
 
+## Home Assistant (MQTT)
+
+**Settings > Home Assistant** publishes the radio to an MQTT broker (the
+Mosquitto add-on of Home Assistant, or any other), where Home Assistant's MQTT
+integration finds it by itself through *MQTT discovery*: one device named like
+the radio (`UPNP_NAME`), with
+
+- sensors: the title, the artist, the state (`music`, `idle`, `stopped`...);
+- binary sensors: playing, and the speaker connected;
+- a volume slider and a mute switch;
+- buttons: play/pause, next, previous, start the music, skip the
+  announcement, standby. Switching the radio off is never offered.
+
+The entities are named in the spoken language. Topics, under `MQTT_TOPIC`
+(`rukebox`) and this radio's host name: `rukebox/rukebox_<host>/state` (one
+retained JSON document), `/availability` (`online`, or `offline` as the
+broker's last will), and `/set/<command>` for what it is asked (`volume` takes
+0-100, `mute` takes `ON`/`OFF`, a button takes anything).
+
+The bridge is its own small process (`src/mqtt_bridge.py`, the unit
+`rukebox-mqtt.service`, a child of the supervisor in Docker), written on the
+standard library alone: MQTT 3.1.1, QoS 0, TLS when asked (the broker's
+certificate must be valid). It waits while the setting is off, reconnects with
+a growing pause when the broker is away, and starts over by itself when one of
+its settings is saved. The card says whether it is connected, or why not.
+The password is written from the page but never shown back.
+
 ## Light strips (WLED)
 
 [WLED](https://kno.wled.ge) is the usual firmware for an ESP32 or ESP8266

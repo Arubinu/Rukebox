@@ -40,6 +40,8 @@ speaker of elke telefoon op de wifi van de Pi is genoeg.
 - **Licht dat de muziek volgt**: WLED-ledstrips wisselen van scène als de
   muziek begint, pauzeert of er een aankondiging speelt, pulseren op de
   maat en delen de tijd met de radio.
+- **Home Assistant**: via MQTT verschijnt de radio vanzelf, met wat er
+  speelt, het volume en knoppen voor afspelen/pauze, volgende en stand-by.
 - **Gemaakt om zelfstandig te draaien**: houdt de speaker verbonden, weet
   hoe laat het is zonder internet, slaat onleesbare bestanden over, houdt
   de SD-kaart in de gaten en meldt op het scherm wanneer iets aandacht
