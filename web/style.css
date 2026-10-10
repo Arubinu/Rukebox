@@ -1594,6 +1594,13 @@ body.lyrics-fullscreen { overflow: hidden; }
 .game-choice.is-right { background: var(--success-soft); color: var(--success-text); border-color: var(--success); opacity: 1; }
 .game-choice.is-wrong { background: var(--danger-soft); border-color: var(--danger); opacity: 1; }
 .game-result { min-height: 1.4em; margin-top: 10px; text-align: center; }
+.game-ask { margin: 0 0 10px; text-align: center; font-weight: 600; font-size: 17px; }
+.game-hint { margin: 0 0 10px; text-align: center; color: var(--accent); font-weight: 600; }
+.game-song { margin: 4px 0 0; text-align: center; }
+.field-row.game-kinds-row { flex-direction: column; align-items: stretch; }
+/* In a column a flex size becomes a height. */
+.field-row.game-kinds-row > .field-text { flex: none; }
+.game-kinds-row .day-chips { justify-content: flex-start; padding-bottom: 0; }
 .game-voice-title { font-size: 1rem; margin: 20px 0 4px; }
 .game-role { margin-bottom: 14px; text-align: center; }
 .game-marks { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0; }
@@ -2140,7 +2147,8 @@ select option.option-inert { text-decoration: line-through; opacity: 0.55; }
   flex: 1 1 10rem;
   min-width: 0;
 }
-.field-text > label {
+.field-text > label,
+.field-text > .field-label {
   display: block;
   font-size: 15px;
   font-weight: 500;

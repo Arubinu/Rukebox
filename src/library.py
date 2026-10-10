@@ -298,9 +298,10 @@ class Library:
     def quiz_tracks(self):
         """The rows a blind test can ask about: read, with a title and an artist."""
         with self._lock:
-            return [{"path": r["path"], "title": r["title"], "artist": r["artist"], "duration": r["duration"]}
+            return [{"path": r["path"], "title": r["title"], "artist": r["artist"], "duration": r["duration"],
+                     "album": r["album"], "genre": r["genre"], "year": r["year"]}
                     for r in self._db.execute(
-                        "SELECT path, title, artist, duration FROM tracks"
+                        "SELECT path, title, artist, duration, album, genre, year FROM tracks"
                         " WHERE probed = 1 AND title IS NOT NULL AND artist IS NOT NULL")]
 
     def status(self):

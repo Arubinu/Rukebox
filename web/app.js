@@ -5116,6 +5116,11 @@ refreshExcluded();
 refreshEvery(refreshExcluded, 120000);
 
 let gameChoicesSignature = "";
+
+/* A choice or an answer as read: a decade comes as its first year (1980). */
+function gameFactLabel(kind, value) {
+  return kind === "year" && value !== null && value !== undefined ? t("game.decade", { n: value }) : String(value ?? "");
+}
 let gameOptionsFilled = false;
 
 async function refreshGame() {
@@ -5165,7 +5170,12 @@ function paintGame(g) {
     fill("gameRounds", g.round_choices, 10);
     fill("gameSeconds", g.second_choices, 20);
   }
-  if (g.owner) paintGameLists(g.lists || []);
+  if (g.owner) {
+    paintGameLists(g.lists || []);
+    const forget = document.getElementById("gameForgetBtn");
+    forget.textContent = t(g.asked === 1 ? "game.forget_one" : "game.forget_n", { n: g.asked || 0 });
+    document.getElementById("gameForgetRow").hidden = !g.asked;
+  }
 
   document.getElementById("gamePlay").hidden = g.state === "none";
   const round = document.getElementById("gameRound");
@@ -5223,8 +5233,17 @@ function paintGame(g) {
     return li;
   }));
 
+  const asking = ["playing", "thinking", "reveal"].includes(g.state) && g.kind;
+  const ask = document.getElementById("gameAsk");
+  ask.hidden = !(asking && (g.kinds || []).join() !== "song");
+  ask.textContent = ask.hidden ? "" : t("game.ask_" + g.kind);
+  const hint = document.getElementById("gameHintText");
+  hint.hidden = !(g.state === "playing" && g.hint);
+  hint.textContent = hint.hidden ? "" : g.hint.letter ? t("game.hint_letter", { l: g.hint.letter })
+    : t(g.hint.era === "before" ? "game.hint_before" : "game.hint_after");
+
   const box = document.getElementById("gameChoices");
-  const signature = JSON.stringify(g.choices || []);
+  const signature = JSON.stringify([g.kind, g.choices || []]);
   if (signature !== gameChoicesSignature) {
     gameChoicesSignature = signature;
     box.innerHTML = "";
@@ -5232,7 +5251,7 @@ function paintGame(g) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn game-choice";
-      btn.textContent = label;
+      btn.textContent = gameFactLabel(g.kind, label);
       btn.addEventListener("click", async () => {
         const r = await apiPost("/api/game/answer", { choice: index });
         if (!r.ok) showError(r.error, t("game.title"));
@@ -5260,12 +5279,18 @@ function paintGame(g) {
     else text = t("game.no_answer");
     if (g.fastest && g.gain < 2) text += " " + t("game.fastest", { name: g.fastest });
   }
+  const revealed = g.answer_label && (g.state === "reveal" || g.state === "over");
+  const fact = revealed && g.kind && g.kind !== "song" ? gameFactLabel(g.kind, g.answer_fact) : "";
   if (g.mode === "oral") {
     text = g.state === "playing" ? t("game.oral_listen") : g.state === "thinking" ? t("game.oral_think")
-      : g.answer_label && (g.state === "reveal" || g.state === "over") ? g.answer_label : "";
+      : revealed ? (fact ? fact + " · " : "") + g.answer_label : "";
   }
   if (g.state === "over" && g.error) text = errorLabel(g.error);
   result.textContent = text;
+  // On the phones the right choice lights up; with another question than the song, the song is named too.
+  const song = document.getElementById("gameSong");
+  song.hidden = !(g.mode !== "oral" && fact);
+  song.textContent = song.hidden ? "" : t("game.it_was", { song: g.answer_label });
 
   // Aloud: the host moves the game on, and marks who found it (the first one marked scores twice).
   const host = g.owner && g.mode === "oral";
@@ -5355,6 +5380,9 @@ document.getElementById("gameStartForm").addEventListener("submit", async (e) =>
   const oral = document.getElementById("gameMode").value === "oral";
   const r = await apiPost("/api/game/start", {
     list: document.getElementById("gameList").value,
+    kinds: gameKinds(),
+    hint: !oral && document.getElementById("gameHint").checked,
+    remember: document.getElementById("gameRemember").checked,
     rounds: Number(document.getElementById("gameRounds").value),
     seconds: Number(document.getElementById("gameSeconds").value),
     mode: oral ? "oral" : "phones",
@@ -5485,8 +5513,53 @@ function paintGameMode() {
   const oral = document.getElementById("gameMode").value === "oral";
   document.getElementById("gamePaceRow").hidden = !oral;
   document.getElementById("gameNamesRow").hidden = !oral;
+  // The hint shows on the phones: aloud, nobody looks at one.
+  document.getElementById("gameHintRow").hidden = oral;
 }
 document.getElementById("gameMode").addEventListener("change", paintGameMode);
+
+/* The questions, the hint and the memory of a game, kept on this device from one game to the next. */
+const GAME_OPTIONS_KEY = "rukebox_game_options";
+const gameKindBoxes = () => [...document.querySelectorAll("#gameKinds input")];
+
+function gameKinds() {
+  return gameKindBoxes().filter((box) => box.checked).map((box) => box.value);
+}
+
+function saveGameOptions() {
+  try {
+    localStorage.setItem(GAME_OPTIONS_KEY, JSON.stringify({ kinds: gameKinds(),
+      hint: document.getElementById("gameHint").checked, remember: document.getElementById("gameRemember").checked }));
+  } catch (e) { /* private window */ }
+}
+
+(function restoreGameOptions() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(GAME_OPTIONS_KEY) || "null"); } catch (e) { /* private window */ }
+  if (saved && Array.isArray(saved.kinds) && saved.kinds.length) {
+    gameKindBoxes().forEach((box) => { box.checked = saved.kinds.includes(box.value); });
+  }
+  if (saved) {
+    document.getElementById("gameHint").checked = !!saved.hint;
+    document.getElementById("gameRemember").checked = !!saved.remember;
+  }
+})();
+
+gameKindBoxes().forEach((box) => box.addEventListener("change", () => {
+  // At least one question: the last one ticked stays.
+  if (!gameKinds().length) box.checked = true;
+  saveGameOptions();
+}));
+["gameHint", "gameRemember"].forEach((id) => document.getElementById(id).addEventListener("change", saveGameOptions));
+
+document.getElementById("gameForgetBtn").addEventListener("click", async () => {
+  const sure = await showConfirm(t("game.forget_confirm"), t("game.forget"));
+  if (!sure) return;
+  const r = await apiDelete("/api/game/asked");
+  if (!r.ok) showToolError(t("common.failed"), r);
+  else showToast(t("game.forgotten"));
+  refreshGame();
+});
 paintGameMode();
 document.getElementById("gameHallKind").addEventListener("change", refreshGame);
 document.getElementById("gameCutBtn").addEventListener("click", async () => {
@@ -9608,7 +9681,7 @@ function formatBytes(n) {
 const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shutdown",
   "clock_ready", "clock_unreliable", "clock_manual_set", "timezone_set", "click", "track_played",
   "meme_played", "announce_played", "playback_error", "playback_stalled",
-  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "skip_voted", "game_started", "game_over", "game_hall_reset", "card_read", "card_saved", "folder_played", "ap_client_connected",
+  "speaker_disconnected", "speaker_reconnected", "speaker_silent", "speaker_battery", "speaker_battery_low", "speech_played", "skip_voted", "game_started", "game_over", "game_hall_reset", "game_asked_reset", "card_read", "card_saved", "folder_played", "ap_client_connected",
   "ap_client_disconnected", "web_session", "music_started", "music_list_stopped",
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",

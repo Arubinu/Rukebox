@@ -287,5 +287,118 @@ class DaemonGameTest(DaemonCase):
         self.assertEqual(self.daemon._game_clip(self.track, 0, 20), "busy")
 
 
+def tagged(n=12):
+    """Songs with an album, a genre ("Rock; Pop" for some) and a year in four decades."""
+    out = []
+    for i in range(n):
+        out.append({"path": "/t/%d.mp3" % i, "title": "Tune %d" % i, "artist": "Band %d" % (i % 5),
+                    "album": "Record %d" % (i % 6), "genre": ["Rock; Pop", "Jazz", "Pop", "Folk", "Soul"][i % 5],
+                    "year": str(1970 + 10 * (i % 4) + i % 7), "duration": 200.0})
+    return out
+
+
+class KindsTest(unittest.TestCase):
+    def test_each_kind_asks_its_own_fact_among_four_different_choices(self):
+        for kind in ("artist", "year", "genre", "album"):
+            game = blind_test.Game(tagged(), rounds=5, rng=random.Random(3), kinds=[kind])
+            q = game.next_question(now=0)
+            track = next(t for t in tagged() if t["path"] == q["path"])
+            with self.subTest(kind=kind):
+                self.assertEqual(q["kind"], kind)
+                self.assertEqual(len(set(q["choices"])), 4)
+                self.assertEqual(q["choices"][q["answer"]], str(blind_test.fact(track, kind)))
+
+    def test_a_genre_the_song_also_has_is_never_a_wrong_answer(self):
+        rock_pop = [t for t in tagged() if t["genre"] == "Rock; Pop"][0]
+        game = blind_test.Game([rock_pop] + [t for t in tagged() if t is not rock_pop], rounds=5,
+                               rng=random.Random(0), kinds=["genre"])
+        game.tracks.sort(key=lambda t: t is not rock_pop)
+        q = game.next_question(now=0)
+        self.assertEqual(q["choices"][q["answer"]], "Rock")
+        self.assertNotIn("Pop", q["choices"])
+
+    def test_decades_are_completed_when_the_library_spans_too_few(self):
+        few = [dict(t, year="1984") for t in tagged()]
+        game = blind_test.Game(few, rounds=5, rng=random.Random(2), kinds=["year"])
+        q = game.next_question(now=0)
+        self.assertIn("1980", q["choices"])
+        self.assertEqual(len(set(q["choices"])), 4)
+
+    def test_mixed_kinds_only_ask_what_a_song_is_tagged_with(self):
+        songs = tagged()
+        for t in songs[:6]:
+            t["year"] = None
+        game = blind_test.Game(songs, rounds=12, rng=random.Random(5), kinds=["year", "artist"])
+        for _ in range(12):
+            q = game.next_question(now=0)
+            track = next(t for t in songs if t["path"] == q["path"])
+            self.assertTrue(q["kind"] == "artist" or track["year"])
+
+    def test_a_game_is_refused_when_tags_are_too_scarce(self):
+        bare = [dict(t, album=None) for t in tagged()]
+        self.assertEqual(blind_test.check(bare, ["song", "album"], 5), (None, "game_too_few_album"))
+        two_genres = [dict(t, genre="Jazz" if i % 2 else "Soul") for i, t in enumerate(tagged())]
+        self.assertEqual(blind_test.check(two_genres, ["genre"], 5)[1], "game_too_few_genre")
+        self.assertEqual(blind_test.check(tagged(), ["year"], 20)[1], "game_not_enough_tracks")
+        kept, problem = blind_test.check(tagged(), ["song", "year"], 5)
+        self.assertEqual((len(kept), problem), (12, None))
+
+
+class HintTest(unittest.TestCase):
+    def setUp(self):
+        self.game = blind_test.Game(tagged(), rounds=5, clip_sec=20, rng=random.Random(1), hint=True)
+        for person in ("early", "late", "first"):
+            self.game.join(person, person, True)
+        self.q = self.game.next_question(now=100)
+
+    def test_the_hint_shows_halfway_through_the_extract(self):
+        self.assertIsNone(self.game.view("early", now=105)["hint"])
+        letter = self.game.view("early", now=111)["hint"]["letter"]
+        self.assertEqual(letter, self.q["title"][0].upper())
+
+    def test_an_answer_after_the_hint_scores_less(self):
+        right = self.q["answer"]
+        self.game.answer("first", "first", right, now=102)
+        self.game.answer("early", "early", right, now=105)
+        self.game.answer("late", "late", right, now=115)
+        reveal = self.game.close_round()
+        self.assertEqual(reveal["gains"], {"first": 3, "early": 2, "late": 1})
+        self.assertEqual(reveal["fastest"], "first")
+
+    def test_nobody_is_fastest_when_everyone_waited_for_the_hint(self):
+        self.game.answer("late", "late", self.q["answer"], now=115)
+        reveal = self.game.close_round()
+        self.assertEqual((reveal["gains"], reveal["fastest"], reveal["right"]), ({"late": 1}, None, ["late"]))
+
+    def test_aloud_there_is_no_hint(self):
+        self.assertFalse(blind_test.Game(tagged(), mode="oral", hint=True).hint)
+
+
+class AskedTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.path = os.path.join(self.dir, "game_asked.json")
+
+    def test_songs_asked_come_last_the_oldest_first_and_can_be_forgotten(self):
+        for path in ("/t/3.mp3", "/t/1.mp3", "/t/3.mp3"):
+            blind_test.remember(self.path, path)
+        self.assertEqual(blind_test.asked(self.path), ["/t/1.mp3", "/t/3.mp3"])
+        game = blind_test.Game(tagged(), rounds=12, rng=random.Random(4), asked_before=blind_test.asked(self.path))
+        self.assertEqual([t["path"] for t in game.tracks[-2:]], ["/t/1.mp3", "/t/3.mp3"])
+        blind_test.forget(self.path)
+        self.assertEqual(blind_test.asked(self.path), [])
+
+
+class KindSpeechTest(unittest.TestCase):
+    def test_aloud_the_question_is_said_and_the_answer_gives_the_fact_asked(self):
+        self.assertEqual(speech.game_parts("ask", [{"kind": "year"}], "en"), [{"text": "Which decade is it from?"}])
+        said = speech.game_parts("answer", [{"title": "Fly", "artist": "Hilary Duff", "kind": "year",
+                                             "year": 2004}], "en")
+        self.assertEqual([p["text"] for p in said], ["That was Fly, by Hilary Duff.", "Released in 2004."])
+        plain = speech.game_parts("answer", [{"title": "Fly", "artist": "Hilary Duff", "kind": "song"}], "en")
+        self.assertEqual(len(plain), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3381,6 +3381,15 @@ def _game_run(game):
             question = game.next_question()
             if question is None:
                 break
+            if game.remember:
+                try:
+                    blind_test.remember(_game_asked_file(), question["path"])
+                except OSError:
+                    log.exception("Could not remember the blind test's song")
+            # Aloud, with more than songs to guess, the room has to hear what is asked.
+            if oral and game.kinds != ["song"]:
+                asked = speech.game_parts("ask", [{"kind": question["kind"]}], cfg().get("SPEECH_LANGUAGE"))
+                _game_wait(game, _game_speak(asked) + 0.2)
             result = control("game_clip", path=question["path"], start=question["start"],
                              seconds=game.clip_sec)
             if not result.get("ok"):
@@ -3424,6 +3433,19 @@ def _game_run(game):
         control("game_end")
 
 
+def _game_asked_file():
+    """The songs the blind test has asked, for games that never ask one again."""
+    return os.path.join(cfg()["STATE_DIR"], "game_asked.json")
+
+
+@app.route("/api/game/asked", methods=["DELETE"])
+def api_game_asked_reset():
+    """The owner lets every song be asked again."""
+    blind_test.forget(_game_asked_file())
+    stats.record("game_asked_reset")
+    return jsonify({"ok": True})
+
+
 def _game_wins_file(oral=False):
     """The wins of games played on phones, or aloud (named as typed): kept apart."""
     return os.path.join(cfg()["STATE_DIR"], "game_wins_oral.json" if oral else "game_wins.json")
@@ -3461,6 +3483,8 @@ def api_game():
                "second_choices": list(blind_test.CLIP_SECONDS), "hall": _game_hall(won), "hall_oral": oral_hall}
     if options["owner"]:
         options["lists"] = [{"id": e["id"], "name": e["name"]} for e in music_lists.load(_lists_path())]
+        options["asked"] = len(blind_test.asked(_game_asked_file()))
+        options["kind_choices"] = list(blind_test.KINDS)
     if game is None or (game.state == "over" and time.monotonic() - game.ended_at > GAME_KEPT_SEC):
         return jsonify({"ok": True, "data": dict(options, state="none")})
     game.seen(person, name)
@@ -3497,6 +3521,10 @@ def api_game_start():
         if name and blind_test.oral_id(name) not in {blind_test.oral_id(n) for n in names}:
             names.append(name)
     names = names[:blind_test.ORAL_NAMES]
+    kinds = body.get("kinds") or ["song"]
+    if not isinstance(kinds, list) or not set(kinds) <= set(blind_test.KINDS):
+        return jsonify({"ok": False, "error": "bad_request"}), 400
+    remember = bool(body.get("remember"))
     list_id, entry = str(body.get("list") or ""), None
     if list_id:
         try:
@@ -3511,16 +3539,22 @@ def api_game_start():
         if entry:
             kept = set(music_lists.resolved(entry, [t["path"] for t in quiz], lib.paths_for_genres))
             quiz = [t for t in quiz if t["path"] in kept]
-        tracks = blind_test.Game.playable(quiz, seconds)
+        tracks, problem = blind_test.check(blind_test.Game.playable(quiz, seconds), kinds, rounds)
+        if problem == "game_not_enough_tracks" and entry:
+            problem = "game_list_not_enough"
+        if problem:
+            return jsonify({"ok": False, "error": problem}), 409
         try:
             join_sec = min(max(int(cfg().get("GAME_JOIN_SEC") or blind_test.JOIN_SEC), 10), 300)
         except (TypeError, ValueError):
             join_sec = blind_test.JOIN_SEC
-        game = blind_test.Game(tracks, rounds, seconds, join_sec=join_sec, mode=mode, pace=pace, names=names)
+        game = blind_test.Game(tracks, rounds, seconds, join_sec=join_sec, mode=mode, pace=pace, names=names,
+                               kinds=kinds, hint=bool(body.get("hint")), remember=remember,
+                               asked_before=blind_test.asked(_game_asked_file()) if remember else None)
         if not game.enough():
             return jsonify({"ok": False, "error": "game_list_not_enough" if entry else "game_not_enough_tracks"}), 409
         _game = game
-    detail = {"rounds": rounds, "mode": mode}
+    detail = {"rounds": rounds, "mode": mode, "kinds": game.kinds}
     if entry:
         detail["list"] = entry["name"]
     stats.record("game_started", label="%d x %ds" % (rounds, seconds), detail=detail)

@@ -172,3 +172,55 @@ test("the host may ask about one list, remembered on this device; no list, no ch
   assert.equal(bare.$("gameListRow").hidden, true);
   await bare.close();
 });
+
+test("the questions, the hint and the memory are sent, kept on the device, and the memory forgotten", async () => {
+  const none = { state: "none", owner: true, round_choices: [5, 10], second_choices: [10, 20], hall: [], hall_oral: [],
+    lists: [], asked: 42 };
+  const host = load({ hash: "#home/game", storage: { rukebox_game_options: JSON.stringify({ kinds: ["year"], hint: true }) },
+    routes: { "GET /api/game": none, "POST /api/game/start": {}, "DELETE /api/game/asked": {} } });
+  await until(() => !host.$("gameStartForm").hidden && !host.$("gameForgetRow").hidden);
+  assert.equal(host.$("gameForgetBtn").textContent, "Forget the 42 songs asked");
+  const boxes = [...host.document.querySelectorAll("#gameKinds input")];
+  assert.deepEqual(boxes.filter((b) => b.checked).map((b) => b.value), ["year"]);
+  boxes[0].checked = true;
+  boxes[0].dispatchEvent(new host.window.Event("change"));
+  boxes[2].checked = false;
+  boxes[2].dispatchEvent(new host.window.Event("change"));
+  boxes[0].checked = false;
+  boxes[0].dispatchEvent(new host.window.Event("change"));
+  assert.equal(boxes[0].checked, true, "the last question ticked stays");
+  host.$("gameRemember").checked = true;
+  host.$("gameRemember").dispatchEvent(new host.window.Event("change"));
+  assert.deepEqual(JSON.parse(host.window.localStorage.getItem("rukebox_game_options")),
+                   { kinds: ["song"], hint: true, remember: true });
+  host.$("gameStartForm").requestSubmit();
+  await until(() => host.sent("POST", "/api/game/start").length);
+  const body = host.sent("POST", "/api/game/start")[0].body;
+  assert.deepEqual([body.kinds, body.hint, body.remember], [["song"], true, true]);
+  host.$("gameMode").value = "oral";
+  host.$("gameMode").dispatchEvent(new host.window.Event("change"));
+  assert.equal(host.$("gameHintRow").hidden, true, "aloud, no hint");
+  await host.close();
+});
+
+test("a round asking the decade says so, shows the hint, and names the song at the reveal", async () => {
+  const playing = Object.assign({}, PLAYING, { kinds: ["song", "year"], kind: "year",
+    choices: ["1970", "1980", "1990", "2000"], hint: { era: "before" } });
+  const page = load({ hash: "#home/game", routes: { "GET /api/status": Object.assign({}, STATUS, { mode: "game" }),
+    "GET /api/game": playing } });
+  await until(() => page.document.querySelectorAll("#gameChoices button").length === 4);
+  assert.equal(page.$("gameAsk").textContent, "Which decade?");
+  assert.equal(page.$("gameHintText").textContent, "Hint: before 2000");
+  assert.deepEqual([...page.document.querySelectorAll("#gameChoices button")].map((b) => b.textContent),
+                   ["1970s", "1980s", "1990s", "2000s"]);
+  await page.close();
+
+  const reveal = Object.assign({}, playing, { state: "reveal", hint: null, answer: 1, answer_fact: 1980,
+    answer_label: "Take On Me - a-ha", gain: 2, mine: 1 });
+  const after = load({ hash: "#home/game", routes: { "GET /api/status": Object.assign({}, STATUS, { mode: "game" }),
+    "GET /api/game": reveal } });
+  await until(() => !after.$("gameSong").hidden);
+  assert.equal(after.$("gameSong").textContent, "It was Take On Me - a-ha");
+  assert.equal(after.$("gameHintText").hidden, true);
+  await after.close();
+});

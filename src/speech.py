@@ -222,6 +222,22 @@ GAME_WORDS = {
     "points": {"en": "points", "fr": "points", "de": "Punkten", "es": "puntos", "it": "punti", "nl": "punten"},
     "answer": {"en": "That was %s, by %s.", "fr": "C'était %s, de %s.", "de": "Das war %s von %s.",
                "es": "Era %s, de %s.", "it": "Era %s, di %s.", "nl": "Dat was %s van %s."},
+    "ask_song": {"en": "Which song is it?", "fr": "Quelle est cette chanson ?", "de": "Welcher Titel ist das?",
+                 "es": "¿Qué canción es?", "it": "Qual è questa canzone?", "nl": "Welk nummer is dit?"},
+    "ask_artist": {"en": "Who is the artist?", "fr": "Qui est l'artiste ?", "de": "Wer ist der Interpret?",
+                   "es": "¿Quién es el artista?", "it": "Chi è l'artista?", "nl": "Wie is de artiest?"},
+    "ask_year": {"en": "Which decade is it from?", "fr": "De quelle décennie ?", "de": "Aus welchem Jahrzehnt?",
+                 "es": "¿De qué década es?", "it": "Di quale decennio è?", "nl": "Uit welk decennium?"},
+    "ask_genre": {"en": "Which genre is it?", "fr": "Quel est le genre ?", "de": "Welches Genre ist das?",
+                  "es": "¿Qué género es?", "it": "Qual è il genere?", "nl": "Welk genre is dit?"},
+    "ask_album": {"en": "Which album is it from?", "fr": "De quel album ?", "de": "Von welchem Album?",
+                  "es": "¿De qué álbum es?", "it": "Da quale album?", "nl": "Van welk album?"},
+    "fact_year": {"en": "Released in %s.", "fr": "Sorti en %s.", "de": "Erschienen %s.",
+                  "es": "Publicada en %s.", "it": "Uscita nel %s.", "nl": "Uitgebracht in %s."},
+    "fact_genre": {"en": "Genre: %s.", "fr": "Genre : %s.", "de": "Genre: %s.", "es": "Género: %s.",
+                   "it": "Genere: %s.", "nl": "Genre: %s."},
+    "fact_album": {"en": "From the album %s.", "fr": "Extrait de l'album %s.", "de": "Vom Album %s.",
+                   "es": "Del álbum %s.", "it": "Dall'album %s.", "nl": "Van het album %s."},
 }
 
 
@@ -241,11 +257,19 @@ def game_parts(kind, people, lang):
         return out
 
     named = names(people)
+    if kind == "ask":
+        # people: [{"kind"}], what the round asks about.
+        asked = (people or [{}])[0].get("kind") or "song"
+        return [{"text": words.get("ask_" + asked, words["ask_song"])}]
     if kind == "answer":
-        # people: [{"title", "artist"}], the song that was playing.
+        # people: [{"title", "artist", "kind", "year", "genre", "album"}], the song that was playing.
         song = (people or [{}])[0]
-        return [{"text": words["answer"] % (clean_text(song.get("title"), 80) or "?",
+        said = [{"text": words["answer"] % (clean_text(song.get("title"), 80) or "?",
                                             clean_text(song.get("artist"), 60) or "?")}]
+        asked = song.get("kind")
+        if asked in ("year", "genre", "album") and song.get(asked):
+            said.append({"text": words["fact_" + asked] % clean_text(str(song[asked]), 80)})
+        return said
     if kind == "podium":
         # people: the places, first place first; said from the last one up, for the suspense.
         said = [{"text": words["end"]}]

@@ -276,6 +276,36 @@
                 </div>
                 <div class="duration-field" id="gameNames"></div>
               </div>
+              <div class="field-row game-kinds-row">
+                <div class="field-text">
+                  <span class="field-label" id="gameKindsLabel" data-i18n="game.kinds">Questions</span>
+                  <p class="field-desc" data-i18n="game.kinds_desc">Each round asks one of the ticked questions, among those the song's tags can answer.</p>
+                </div>
+                <div class="day-chips" id="gameKinds" role="group" aria-labelledby="gameKindsLabel">
+                  <label class="day-chip"><input type="checkbox" value="song" checked><span data-i18n="game.kind_song">Song</span></label>
+                  <label class="day-chip"><input type="checkbox" value="artist"><span data-i18n="game.kind_artist">Artist</span></label>
+                  <label class="day-chip"><input type="checkbox" value="year"><span data-i18n="game.kind_year">Decade</span></label>
+                  <label class="day-chip"><input type="checkbox" value="genre"><span data-i18n="game.kind_genre">Genre</span></label>
+                  <label class="day-chip"><input type="checkbox" value="album"><span data-i18n="game.kind_album">Album</span></label>
+                </div>
+              </div>
+              <div class="field-row" id="gameHintRow">
+                <div class="field-text">
+                  <label for="gameHint" data-i18n="game.hint">A hint halfway</label>
+                  <p class="field-desc" data-i18n="game.hint_desc">Halfway through the extract, a hint shows: a first letter, or before or after 2000 for the decade. A right answer before it scores 2 (3 for the fastest), after it 1.</p>
+                </div>
+                <input type="checkbox" id="gameHint" class="switch-input" role="switch">
+              </div>
+              <div class="field-row" id="gameRememberRow">
+                <div class="field-text">
+                  <label for="gameRemember" data-i18n="game.remember">Do not ask songs again</label>
+                  <p class="field-desc" data-i18n="game.remember_desc">The songs already asked come only once the others are used up.</p>
+                </div>
+                <input type="checkbox" id="gameRemember" class="switch-input" role="switch">
+              </div>
+              <div class="form-actions" id="gameForgetRow" hidden>
+                <button type="button" class="btn" id="gameForgetBtn" data-icon="refresh"></button>
+              </div>
               <div class="field-row" id="gameListRow" hidden>
                 <label for="gameList" data-i18n="game.list">Songs</label>
                 <select id="gameList">
@@ -309,8 +339,11 @@
                 <button type="button" class="btn btn-primary" id="gameGoBtn" data-icon="next" data-i18n="game.go">Start now</button>
               </div>
             </div>
+            <p class="game-ask" id="gameAsk" hidden></p>
+            <p class="game-hint" id="gameHintText" role="status" hidden></p>
             <div class="game-choices" id="gameChoices"></div>
             <p class="hint game-result" id="gameResult" role="status"></p>
+            <p class="hint game-song" id="gameSong" hidden></p>
             <div class="game-marks" id="gameMarks" hidden></div>
             <div class="form-actions" id="gameHostRow" hidden>
               <button type="button" class="btn btn-primary" id="gameCutBtn" data-icon="pause" data-i18n="game.cut">Stop the extract</button>

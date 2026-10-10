@@ -2027,7 +2027,22 @@ suggestion box. Only songs whose tags have been read, with a title and an
 artist, are asked about; a library with fewer than the rounds asked for
 cannot start a game. **Songs** narrows a game to one music list (a manual
 list or a genre list, as it stands when the game starts), the wrong answers
-included; the choice is kept on the device. The extracts never count in the
+included; the choice is kept on the device.
+
+**Questions** picks what the rounds ask: the song (title - artist), the
+artist, the decade, the genre or the album. Each round asks one of the ticked
+questions among those the song's tags answer, at random; a game is refused
+when a ticked question cannot offer four different choices (the decade only
+needs one song with a year: the wrong decades are made up around it), or when
+too few songs are left for the rounds. Aloud, the radio says the question
+before each extract when the game asks more than the song, and the answer
+then adds the year, genre or album. **A hint halfway** (on the phones only)
+shows the answer's first letter halfway through the extract, or "before
+2000" / "2000 or later" for a decade: a right answer before it scores 2 (3 for
+the fastest), after it 1. **Do not ask songs again** keeps the songs asked in
+`game_asked.json` (the last 2000) and asks them only once the others are used
+up, oldest first; the button under it forgets them. Those three choices are
+kept on the device too. The extracts never count in the
 statistics; the event log keeps "Blind test started", the list if any, and
 who won it.
 

@@ -2138,6 +2138,31 @@ class GameRouteTest(unittest.TestCase):
         r = self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20, "list": "deleted"})
         self.assertEqual((r.status_code, r.get_json()["error"]), (404, "game_list_gone"))
 
+    def test_a_game_asks_the_kinds_chosen_when_the_tags_allow_it(self):
+        start = lambda **extra: self.client.post("/api/game/start", json=dict({"rounds": 5, "seconds": 20}, **extra))
+        self.assertEqual(start(kinds=["song", "weather"]).status_code, 400)
+        r = start(kinds=["album"])
+        self.assertEqual((r.status_code, r.get_json()["error"]), (409, "game_too_few_album"))
+        self.assertTrue(start(kinds=["artist", "song"], hint=True).get_json()["ok"])
+        self.assertEqual((ws._game.kinds, ws._game.hint), (["song", "artist"], True))
+
+    def test_songs_asked_are_remembered_only_when_asked_to_and_forgotten_on_demand(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        asked = os.path.join(folder, "game_asked.json")
+        unittest.mock.patch.object(ws, "_game_asked_file", return_value=asked).start()
+        unittest.mock.patch.object(ws, "_is_owner", return_value=True).start()
+        music_lists_path = os.path.join(folder, "lists.json")
+        unittest.mock.patch.object(ws, "_lists_path", return_value=music_lists_path).start()
+        ws.blind_test.remember(asked, "/m/0")
+        self.assertTrue(self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20, "remember": True})
+                        .get_json()["ok"])
+        self.assertTrue(ws._game.remember)
+        self.assertEqual(ws._game.tracks[-1]["path"], "/m/0", "a song already asked comes last")
+        self.assertEqual(self.client.get("/api/game").get_json()["data"]["asked"], 1)
+        self.assertTrue(self.client.delete("/api/game/asked").get_json()["ok"])
+        self.assertEqual(ws.blind_test.asked(asked), [])
+
 
 class SkipVoteTest(unittest.TestCase):
     def setUp(self):

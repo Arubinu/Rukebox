@@ -3,6 +3,7 @@ the right answers score - the fastest one scores twice. Played aloud (mode "oral
 are called out in the room and the host marks, if anyone, who found it."""
 
 import random
+import re
 import threading
 import time
 
@@ -19,10 +20,81 @@ MODES = ("phones", "oral")
 PACES = ("auto", "host")
 ORAL_NAMES = 12
 ORAL_REVEAL_SEC = 10
+# What a round may ask about the extract; "year" is asked as a decade.
+KINDS = ("song", "artist", "year", "genre", "album")
+# With the hint, a right answer before it is worth more than one after it.
+HINT_POINTS = {"before": 2, "fastest": 3, "after": 1}
+ASKED_KEPT = 2000
 
 
 def label(track):
     return "%s - %s" % (track["title"], track["artist"])
+
+
+def genres(track):
+    """The genres a track is tagged with ("Rock; Pop" is both)."""
+    return [g.strip() for g in re.split(r"[;,/]", str(track.get("genre") or "")) if g.strip()]
+
+
+def year_of(track):
+    match = re.match(r"\d{4}", str(track.get("year") or ""))
+    return int(match.group(0)) if match else None
+
+
+def decade(track):
+    year = year_of(track)
+    return year // 10 * 10 if year and 1900 <= year <= 2099 else None
+
+
+def fact(track, kind):
+    """What `kind` asks about `track`, or None when its tags do not say."""
+    if kind == "song":
+        return label(track)
+    if kind == "artist":
+        return track.get("artist") or None
+    if kind == "album":
+        return (track.get("album") or "").strip() or None
+    if kind == "genre":
+        return (genres(track) or [None])[0]
+    if kind == "year":
+        return decade(track)
+    return None
+
+
+def check(tracks, kinds, rounds):
+    """(the tracks a game asking `kinds` can use, None), or (None, an error code): a kind whose
+    tags are too scarce for four different choices, or too few tracks for the rounds."""
+    usable = []
+    for kind in kinds:
+        have = [t for t in tracks if fact(t, kind) is not None]
+        values = {library.fold(str(fact(t, kind))) for t in have}
+        # Decades need only one known year: the wrong ones can be any other decade. Songs are
+        # counted with the rounds below.
+        if kind != "song" and (not have or (kind != "year" and len(values) < CHOICES)):
+            return None, "game_too_few_" + kind
+        usable.append(kind)
+    kept = [t for t in tracks if any(fact(t, kind) is not None for kind in usable)]
+    if len(kept) < max(CHOICES, rounds):
+        return None, "game_not_enough_tracks"
+    return kept, None
+
+
+def asked(path):
+    """The paths of the songs already asked, oldest first."""
+    doc = json_file.read(path) or {}
+    paths = doc.get("paths")
+    return [str(p) for p in paths] if isinstance(paths, list) else []
+
+
+def remember(path, track_path):
+    with json_file.lock(path):
+        paths = [p for p in asked(path) if p != track_path] + [track_path]
+        json_file.write(path, {"paths": paths[-ASKED_KEPT:]})
+
+
+def forget(path):
+    with json_file.lock(path):
+        json_file.write(path, {"paths": []})
 
 
 def oral_id(name):
@@ -32,12 +104,17 @@ def oral_id(name):
 
 class Game:
     def __init__(self, tracks, rounds=10, clip_sec=20, rng=None, join_sec=JOIN_SEC, now=None,
-                 mode="phones", pace="auto", names=None):
+                 mode="phones", pace="auto", names=None, kinds=None, hint=False, asked_before=None,
+                 remember=False):
         self.rng = rng or random.Random()
         self.rounds = rounds
         self.clip_sec = clip_sec
         self.mode = mode if mode in MODES else MODES[0]
         self.pace = pace if pace in PACES else PACES[0]
+        self.kinds = [k for k in KINDS if k in (kinds or ["song"])] or ["song"]
+        # The hint shows on the phones, halfway through the extract.
+        self.hint = bool(hint) and self.mode == "phones"
+        self.remember = bool(remember)
         # The host's taps: cut the extract short, move on, and who found it (in the order marked).
         self.cut = False
         self.advance = False
@@ -51,6 +128,10 @@ class Game:
                 seen.add(key)
                 self.tracks.append(track)
         self.rng.shuffle(self.tracks)
+        if asked_before:
+            # The songs never asked first (still shuffled), then those asked longest ago.
+            rank = {p: i for i, p in enumerate(asked_before)}
+            self.tracks.sort(key=lambda t: rank.get(t["path"], -1))
         # Before the first round, everyone looking says whether they play or watch.
         self.state = "joining"
         self.join_until = (now if now is not None else time.monotonic()) + join_sec
@@ -93,20 +174,22 @@ class Game:
                 return None
             track = self.tracks[self.round]
             self.round += 1
-            decoys = [t for t in self.tracks if t is not track]
-            other_artists = [t for t in decoys if library.fold(t["artist"]) != library.fold(track["artist"])]
-            pool = other_artists if len(other_artists) >= CHOICES - 1 else decoys
-            picked = self.rng.sample(pool, CHOICES - 1) + [track]
-            self.rng.shuffle(picked)
+            kind = self.rng.choice([k for k in self.kinds if fact(track, k) is not None] or ["song"])
+            choices, answer = self._choices(track, kind)
             duration = float(track.get("duration") or 0)
             start = min(max(duration * 0.3, 10.0), max(0.0, duration - self.clip_sec - 10))
             self.question = {
                 "path": track["path"],
                 "start": round(start, 1),
-                "choices": [label(t) for t in picked],
-                "answer": picked.index(track),
+                "kind": kind,
+                "choices": choices,
+                "answer": answer,
+                "fact": fact(track, kind),
                 "title": track["title"],
                 "artist": track["artist"],
+                "album": fact(track, "album"),
+                "genre": fact(track, "genre"),
+                "year": year_of(track),
                 "started": now if now is not None else time.monotonic(),
             }
             self.answers = {}
@@ -116,6 +199,48 @@ class Game:
             self.think_until = None
             self.state = "playing"
             return self.question
+
+    def _choices(self, track, kind):
+        """Four choices for `kind` about `track`, and the index of the right one."""
+        if kind == "song":
+            decoys = [t for t in self.tracks if t is not track]
+            other_artists = [t for t in decoys if library.fold(t["artist"]) != library.fold(track["artist"])]
+            pool = other_artists if len(other_artists) >= CHOICES - 1 else decoys
+            picked = self.rng.sample(pool, CHOICES - 1) + [track]
+            self.rng.shuffle(picked)
+            return [label(t) for t in picked], picked.index(track)
+        right = fact(track, kind)
+        if kind == "year":
+            known = sorted({d for d in (decade(t) for t in self.tracks) if d is not None and d != right})
+            near = [right + step for step in (-10, 10, -20, 20, -30, 30) if 1900 <= right + step <= 2090]
+            pool = known if len(known) >= CHOICES - 1 else sorted(set(known) | set(near))
+            picked = self.rng.sample(pool, CHOICES - 1) + [right]
+            self.rng.shuffle(picked)
+            return [str(d) for d in picked], picked.index(right)
+        # A genre the song also has is no wrong answer: "Rock; Pop" asked as Rock never offers Pop.
+        taken = {library.fold(g) for g in genres(track)} if kind == "genre" else {library.fold(right)}
+        pool, seen = [], set(taken)
+        for other in self.tracks:
+            value = fact(other, kind)
+            if value is not None and library.fold(value) not in seen:
+                seen.add(library.fold(value))
+                pool.append(value)
+        picked = self.rng.sample(pool, min(CHOICES - 1, len(pool))) + [right]
+        self.rng.shuffle(picked)
+        return picked, picked.index(right)
+
+    def hint_text(self, now=None):
+        """The hint, once halfway through the extract: {"letter"} or {"era": "before"|"after"}."""
+        if not self.hint or self.state != "playing" or not self.question:
+            return None
+        now = now if now is not None else time.monotonic()
+        if now - self.question["started"] < self.clip_sec / 2:
+            return None
+        if self.question["kind"] == "year":
+            return {"era": "before" if self.question["fact"] < 2000 else "after"}
+        word = self.question["title"] if self.question["kind"] == "song" else str(self.question["fact"])
+        letter = next((c for c in word if c.isalnum()), "?")
+        return {"letter": letter.upper()}
 
     def think(self, seconds, now=None):
         """Aloud: the extract is over, the room thinks before the answer is said."""
@@ -221,14 +346,24 @@ class Game:
                 return self.reveal
             right = sorted((t, p) for p, (c, t) in self.answers.items() if c == self.question["answer"])
             gains = {p: 0 for p in self.answers}
-            for _, person in right:
-                gains[person] = 1
-            if right:
-                gains[right[0][1]] = 2
+            if self.hint:
+                # Halfway is when the hint shows: from then on a right answer scores less.
+                half = self.clip_sec / 2
+                for t, person in right:
+                    gains[person] = HINT_POINTS["before" if t < half else "after"]
+                if right and right[0][0] < half:
+                    gains[right[0][1]] = HINT_POINTS["fastest"]
+                else:
+                    right = [(None, None)] + right
+            else:
+                for _, person in right:
+                    gains[person] = 1
+                if right:
+                    gains[right[0][1]] = 2
             for person, points in gains.items():
                 self.scores[person] = self.scores.get(person, 0) + points
             self.reveal = {"answer": self.question["answer"], "gains": gains,
-                           "fastest": right[0][1] if right else None, "right": [p for _, p in right]}
+                           "fastest": right[0][1] if right else None, "right": [p for _, p in right if p]}
             self.state = "reveal"
             return self.reveal
 
@@ -281,6 +416,10 @@ class Game:
                 "join_left": max(0, round(self.join_until - now)) if self.state == "joining" else None,
                 "mode": self.mode,
                 "pace": self.pace,
+                "kinds": list(self.kinds),
+                "kind": self.question["kind"] if self.question else None,
+                "hint_on": self.hint,
+                "hint": self.hint_text(now),
                 "think_left": max(0, round(self.think_until - now)) if self.state == "thinking" else None,
                 "round": self.round,
                 "rounds": self.rounds,
@@ -306,6 +445,7 @@ class Game:
                                      for p in sorted(self.players, key=lambda q: (self.names.get(q) or "").casefold())]
             if self.state in ("reveal", "over") and self.reveal and self.question:
                 out["answer_label"] = label(self.question)
+                out["answer_fact"] = self.question["fact"]
             if self.state in ("reveal", "over") and self.reveal:
                 out["answer"] = self.reveal["answer"]
                 out["gain"] = self.reveal["gains"].get(person)
