@@ -57,6 +57,8 @@ echo "  - boot to console instead of the desktop  (headless device)"
 echo "  - don't wait for network connectivity at boot"
 echo "  - disable cloud-init                      (VM provisioning, unused here)"
 echo "  - minimum GPU memory, no boot splash      (no screen attached)"
+echo "  - no daily manual-page index, no daily     (they compete with the radio at boot;"
+echo "    package check                             apt still works when run by hand)"
 if [ -n "${RUKEBOX_BOOT_TWEAKS:-}" ]; then
     BOOT_TWEAKS="$RUKEBOX_BOOT_TWEAKS"
 elif [ -t 0 ]; then
@@ -75,6 +77,9 @@ if [ "$BOOT_TWEAKS" = "yes" ]; then
     if [ -d /etc/cloud ]; then
         touch /etc/cloud/cloud-init.disabled
     fi
+
+    # Back with: systemctl enable --now man-db.timer apt-daily.timer apt-daily-upgrade.timer
+    systemctl disable --now man-db.timer apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
 
     CONFIG_TXT=""
     for candidate in /boot/firmware/config.txt /boot/config.txt; do
@@ -112,6 +117,7 @@ else
     echo "  sudo systemctl set-default multi-user.target"
     echo "  sudo systemctl disable NetworkManager-wait-online.service"
     echo "  sudo touch /etc/cloud/cloud-init.disabled"
+    echo "  sudo systemctl disable --now man-db.timer apt-daily.timer apt-daily-upgrade.timer"
     echo "  echo -e 'disable_splash=1\\ngpu_mem=16' | sudo tee -a /boot/firmware/config.txt"
 fi
 

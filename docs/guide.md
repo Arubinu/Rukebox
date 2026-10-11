@@ -354,8 +354,12 @@ scripted install — sets up the admin access point and an optional web
 interface password. See "Admin access point" below. It also offers a set of
 **optional boot tweaks** (asked once, default yes; `RUKEBOX_BOOT_TWEAKS=yes|no`
 for scripted installs): boot to console instead of the desktop, don't
-wait for network connectivity at boot, disable `cloud-init`, and use
-minimum GPU memory with no boot splash. They change the OS rather than
+wait for network connectivity at boot, disable `cloud-init`, use
+minimum GPU memory with no boot splash, and stop the daily `man-db` index
+and `apt` package check (their timers fire right after a boot and take
+the small processor from the radio; `apt` still works when run by hand,
+and `systemctl enable --now man-db.timer apt-daily.timer
+apt-daily-upgrade.timer` brings them back). They change the OS rather than
 Rukebox, so nothing is applied without saying yes, and the undo
 commands are printed if you decline. Measured on a Pi Zero 2 W:
 **38.6s down to 33.3s** of boot time, almost all of it from `cloud-init`.
