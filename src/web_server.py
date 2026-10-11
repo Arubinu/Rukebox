@@ -197,6 +197,9 @@ app.secret_key = _ensure_session_secret(_startup_cfg)
 _ensure_upnp_identity(_startup_cfg)
 AUTH_MAX_AGE = timedelta(days=8)
 app.permanent_session_lifetime = AUTH_MAX_AGE
+# The login ends AUTH_MAX_AGE after auth_at whatever the cookie says: re-signing it on every
+# answer bought nothing but a Set-Cookie each time.
+app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 
 
 def _is_authenticated():

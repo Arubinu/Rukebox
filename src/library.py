@@ -408,13 +408,25 @@ class Library:
         wanted = {fold(g) for g in (genres or []) if str(g).strip()}
         if not wanted:
             return []
+        # A library holds a few dozen genre tags for thousands of tracks: the tags are folded,
+        # then only the matching tracks are read, in the catalogue's order.
+        order = " ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track, title COLLATE NOCASE"
         with self._lock:
-            rows = self._db.execute(
-                "SELECT path, genre FROM tracks WHERE genre IS NOT NULL AND genre <> ''"
-                " ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track,"
-                " title COLLATE NOCASE").fetchall()
-        return [r["path"] for r in rows
-                if wanted.intersection(fold(g) for g in split_genres(r["genre"]))]
+            tags = [r[0] for r in self._db.execute(
+                "SELECT DISTINCT genre FROM tracks WHERE genre IS NOT NULL AND genre <> ''")]
+        matching = [tag for tag in tags if wanted & {fold(g) for g in split_genres(tag)}]
+        if not matching:
+            return []
+        # SQLite takes at most 999 parameters: past that, every tagged track is read and sorted out here.
+        if len(matching) > 900:
+            keep = set(matching)
+            with self._lock:
+                rows = self._db.execute("SELECT path, genre FROM tracks WHERE genre IS NOT NULL" + order).fetchall()
+            return [r["path"] for r in rows if r["genre"] in keep]
+        with self._lock:
+            rows = self._db.execute("SELECT path FROM tracks WHERE genre IN (%s)" % ",".join("?" * len(matching))
+                                    + order, matching).fetchall()
+        return [r["path"] for r in rows]
 
     def path_for_key(self, key):
         with self._lock:

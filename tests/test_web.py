@@ -144,6 +144,14 @@ class WebTest(unittest.TestCase):
         client.post("/api/auth/login", json={"password": "secret"})
         return client
 
+    def test_the_session_cookie_is_sent_at_login_not_with_every_answer(self):
+        client = ws.app.test_client()
+        login = client.post("/api/auth/login", json={"password": "secret"})
+        self.assertIn("session=", " ".join(login.headers.getlist("Set-Cookie")))
+        answer = client.get("/api/reminders")
+        self.assertEqual(answer.status_code, 200, "still logged in")
+        self.assertNotIn("session=", " ".join(answer.headers.getlist("Set-Cookie")))
+
     def test_a_clock_module_that_was_not_written_is_not_called_written(self):
         owner = self.owner()
         real_exists = os.path.exists
