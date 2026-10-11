@@ -38,6 +38,7 @@ import config_bundle  # noqa: E402
 import duplicates  # noqa: E402
 import hidden_tracks  # noqa: E402
 import json_file  # noqa: E402
+from mpv_controller import LEAN as MPV_LEAN  # noqa: E402
 import game_sounds  # noqa: E402
 import name_voice  # noqa: E402
 import speech  # noqa: E402
@@ -5846,7 +5847,7 @@ def api_audio_test():
         return jsonify({"ok": False, "error": "no_test_sound"}), 404
     try:
         subprocess.Popen(["mpv", "--no-terminal", "--really-quiet", "--no-video",
-                          "--audio-device=" + device, sound],
+                          "--audio-device=" + device] + MPV_LEAN + [sound],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
     except OSError:
         return jsonify({"ok": False, "error": "audio_test_failed"}), 500

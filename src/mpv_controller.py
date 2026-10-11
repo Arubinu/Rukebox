@@ -55,6 +55,11 @@ def audio_env():
     return {**os.environ, "XDG_RUNTIME_DIR": runtime}
 
 
+# Headless: mpv's Lua scripts (on-screen controller, youtube-dl hook, stats) only cost
+# memory and start-up time, which counts for a sound that has to start at once.
+LEAN = ["--load-scripts=no", "--ytdl=no"]
+
+
 class MPVController:
     def __init__(self, socket_path, mpv_binary="mpv", extra_args=None):
         self.socket_path = socket_path
@@ -86,7 +91,7 @@ class MPVController:
             "--no-video",
             "--volume=100",
             f"--input-ipc-server={self.socket_path}",
-        ] + self.extra_args
+        ] + LEAN + self.extra_args
 
         log.info("Starting mpv: %s", " ".join(args))
         self.proc = subprocess.Popen(args, env=audio_env())

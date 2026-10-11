@@ -26,7 +26,7 @@ from config_and_scan import AUDIO_EXTENSIONS, DEFAULTS, get_music_list, load_con
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import hidden_tracks  # noqa: E402
 import library  # noqa: E402
-from mpv_controller import MPVController, audio_chain, audio_env, compression_filter  # noqa: E402
+from mpv_controller import LEAN as MPV_LEAN, MPVController, audio_chain, audio_env, compression_filter  # noqa: E402
 import music_lists  # noqa: E402
 import playlist  # noqa: E402
 import platform as platform_mod  # noqa: E402
@@ -502,7 +502,7 @@ class RadioDaemon:
         command = [
             "mpv", "--no-terminal", "--really-quiet",
             "--audio-device=" + (self._audio_device or "auto"),
-        ]
+        ] + MPV_LEAN
         if volume is not None:
             command.append("--volume=%.1f" % volume)
         command.append(path)
@@ -1586,7 +1586,7 @@ class RadioDaemon:
         start = max(0.0, start)
         graph = ",".join(c for c in (self._audio_chain(),
                                      "afade=t=out:st=%.2f:d=%.2f:curve=qsin" % (start, fade)) if c)
-        command = ["mpv", "--no-terminal", "--msg-level=all=warn", "--no-video", "--pause",
+        command = ["mpv", "--no-terminal", "--msg-level=all=warn", "--no-video", "--pause"] + MPV_LEAN + [
                    "--input-ipc-server=" + self.XFADE_SOCKET,
                    "--audio-device=" + (self._audio_device or "auto"),
                    "--volume=%.1f" % self._mpv_level(),
@@ -3178,7 +3178,7 @@ class RadioDaemon:
 
     def _play_cue_blocking(self, path, volume=None):
         volume = self._capped(volume)
-        command = ["mpv", "--no-terminal", "--really-quiet", "--audio-device=" + (self._audio_device or "auto")]
+        command = ["mpv", "--no-terminal", "--really-quiet", "--audio-device=" + (self._audio_device or "auto")] + MPV_LEAN
         if volume is not None:
             command.append("--volume=%.1f" % volume)
         command.append(path)
