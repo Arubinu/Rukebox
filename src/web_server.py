@@ -1695,11 +1695,17 @@ def _portal_release_time(ip):
     return None
 
 
+def _portal_on(c=None):
+    """The portal holds devices at all: switched on, and not set to "off"."""
+    c = c or cfg()
+    return bool(c.get("CAPTIVE_PORTAL_ENABLED")) and c.get("CAPTIVE_PORTAL_MODE", "release") != "off"
+
+
 def _portal_is_released(ip):
     """Released by a tap on "Finish connecting" (below), or simply not on the
     access point: the portal only ever holds devices that joined the hotspot,
     so a computer on the home network is not asked to finish anything."""
-    if not captive_portal.is_ap_client(ip, cfg().get("AP_INTERFACE", "uap0")):
+    if not _portal_on() or not captive_portal.is_ap_client(ip, cfg().get("AP_INTERFACE", "uap0")):
         return True
     mac = suggestions.mac_for_ip(ip)
     if mac:
@@ -1710,7 +1716,8 @@ def _portal_is_released(ip):
                 return True
             if choice == "always":
                 return False
-            if cfg().get("CAPTIVE_PORTAL_MODE") == "new_only" and box.mac_known(mac):
+            # Finished once, ever: a device merely seen (its first probe makes it known) still sees the page.
+            if cfg().get("CAPTIVE_PORTAL_MODE") == "new_only" and box.portal_released_at(mac) is not None:
                 return True
         except Exception:  # noqa: BLE001
             log.exception("Portal: device lookup failed")
@@ -1752,7 +1759,7 @@ def api_portal_status():
     something to join."""
     c = cfg()
     return jsonify({"ok": True, "data": {
-        "enabled": bool(c.get("CAPTIVE_PORTAL_ENABLED")),
+        "enabled": _portal_on(c),
         "mode": c.get("CAPTIVE_PORTAL_MODE", "release"),
         "on_ap": captive_portal.is_ap_client(_client_ip(), c.get("AP_INTERFACE", "uap0")),
         "released": _portal_is_released(_client_ip()),
@@ -7819,7 +7826,7 @@ def _on_sigterm(signum, frame):
 def main():
     c = load_config()
     signal.signal(signal.SIGTERM, _on_sigterm)
-    if c.get("CAPTIVE_PORTAL_ENABLED") and int(c["WEB_PORT"]) != captive_portal.PORTAL_PORT:
+    if _portal_on(c) and int(c["WEB_PORT"]) != captive_portal.PORTAL_PORT:
         captive_portal.start(c.get("AP_INTERFACE", "uap0"), c["WEB_PORT"])
     _upnp_follow_stream()
     threading.Thread(target=_upnp_watch, name="upnp-watch", daemon=True).start()

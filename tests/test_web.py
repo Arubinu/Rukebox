@@ -2469,3 +2469,36 @@ class StatsLibraryLinkTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class PortalModeTest(unittest.TestCase):
+    """What each captive portal mode does to a device on the access point."""
+
+    def released(self, mode, finished_at=None, recent_tap=False, enabled=True):
+        box = unittest.mock.Mock(portal_for_mac=lambda mac: None,
+                                 portal_released_at=lambda mac: finished_at)
+        values = dict(ws.cfg(), CAPTIVE_PORTAL_MODE=mode, CAPTIVE_PORTAL_ENABLED=enabled)
+        with unittest.mock.patch.object(ws, "cfg", return_value=values), \
+                unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=True), \
+                unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value="aa:bb"), \
+                unittest.mock.patch.object(ws, "_suggestion_box", return_value=box), \
+                unittest.mock.patch.object(ws, "_portal_tap_remembered", return_value=recent_tap):
+            return ws._portal_is_released("10.42.0.5")
+
+    def test_once_a_day_lets_a_device_through_only_while_its_tap_is_recent(self):
+        self.assertFalse(self.released("release", finished_at=time.time() - 86400))
+        self.assertTrue(self.released("release", recent_tap=True))
+
+    def test_once_per_device_holds_a_device_seen_but_never_finished(self):
+        self.assertFalse(self.released("new_only"), "known from its first probe is not finished")
+        self.assertTrue(self.released("new_only", finished_at=time.time() - 30 * 86400),
+                        "finished a month ago: never held again")
+
+    def test_off_holds_nobody_and_says_so(self):
+        self.assertTrue(self.released("off"))
+        self.assertTrue(self.released("hold", enabled=False))
+        self.assertFalse(self.released("hold"))
+        with unittest.mock.patch.object(ws, "cfg", return_value=dict(ws.cfg(), CAPTIVE_PORTAL_MODE="off",
+                                                                     CAPTIVE_PORTAL_ENABLED=True)):
+            self.assertFalse(ws._portal_on())

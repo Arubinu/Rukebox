@@ -842,8 +842,10 @@ network:
   #              gets the answer it is waiting for: it keeps the
   #              network in its "captive" state and drops it after
   #              a few minutes, closing the portal window with it.
-  #   new_only -> like release, and a device that has already opened
-  #              the page once is never intercepted again
+  #   new_only -> like release, and a device that has finished the
+  #              portal once is never intercepted again
+  #   off     -> never intercept: every device is told there is no
+  #              portal, and the page only opens when typed
   #   hold    -> keep intercepting forever, so the portal page
   #              reappears on every connectivity check. The
   #              original behaviour; useful if you WANT the page

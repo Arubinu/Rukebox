@@ -1656,16 +1656,18 @@ already saved on a smartphone).
 > true of hotel and train portals too. What "Finish connecting" buys is
 > that leaving that window no longer costs you the network.
 
-**Three modes**, in Network → Guest access (`CAPTIVE_PORTAL_MODE`):
+**Four modes**, in Network → Guest access (`CAPTIVE_PORTAL_MODE`):
 
-- **Let devices through once they open the page** (default): the
-  behaviour above.
-- **New devices only**: a device that has opened the page once is never
-  held again.
-- **Keep showing the page at every check**: the portal page is pushed
-  again on every connectivity check. Useful if you want it in front of
-  people every time, at the cost of the phone never settling on the
-  network.
+- **Once a day** (`release`, the default): the behaviour above; a device
+  that finished is let through for 12 hours, then sees the page again.
+- **Once per device** (`new_only`): a device that has finished the portal
+  once is never held again. A device the radio has merely seen (its
+  first connectivity check already makes it known) still sees the page.
+- **At every check** (`hold`): the portal page is pushed again on every
+  connectivity check. Useful if you want it in front of people every
+  time, at the cost of the phone never settling on the network.
+- **Off** (`off`): nothing is held; every device is told there is no
+  portal, and the page opens only when its address is typed.
 
 Each device can also have its own rule (Network > Connected devices).
 

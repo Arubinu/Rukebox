@@ -2610,14 +2610,13 @@
                 <p class="field-desc" id="captivePortalDesc" data-i18n="portal.desc">When a phone joins the Rukebox's Wi-Fi, it opens this interface by itself.</p>
               </div>
               <select id="captivePortalMode" data-key="CAPTIVE_PORTAL_MODE" aria-describedby="captivePortalDesc">
-                <option value="release" data-i18n="portal.release">Once: the phone then stays connected</option>
-                <option value="new_only" data-i18n="portal.new_only">New devices only: never again for a known one</option>
-                <option value="hold" data-i18n="portal.hold">Every time: the page comes back at each check</option>
+                <option value="release" data-i18n="portal.release">Once a day: back after 12 hours</option>
+                <option value="new_only" data-i18n="portal.new_only">Once per device: never again after that</option>
+                <option value="hold" data-i18n="portal.hold">At every check: the page keeps coming back</option>
+                <option value="off" data-i18n="portal.off">Off: the page opens only when typed</option>
               </select>
             </div>
-            <p class="hint help-text" data-i18n="portal.help" hidden>
-              "Once": after "Finish connecting", the phone treats the Wi-Fi as a normal network and stays on it. "Every time": the page is shown again at every check, but the phone may drop the Wi-Fi after a few minutes.
-            </p>
+            <p class="hint help-text" data-i18n="portal.help" hidden>"Once a day" and "Once per device": after "Finish connecting", the phone treats the Wi-Fi as a normal network and stays on it - again 12 hours later, or never again. "At every check": the page comes back at every check, but the phone may drop the Wi-Fi after a few minutes. "Off": no page pops up.</p>
             <details class="subsection" id="guestAllowedSection">
               <summary><span data-i18n="guest.group_allowed">What guests may do</span></summary>
               <div class="field-row">
