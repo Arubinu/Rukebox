@@ -950,6 +950,8 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
    quieter tint, since it sits on rows that already carry their own buttons. */
 .excluded-badge { flex: none; background: var(--warning-soft); color: var(--warning-text); }
 .duplicate-same { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.badge.duplicate-done::before { background: var(--success); opacity: 1; }
+.duplicate-actions { margin: 0; padding: 8px 14px 12px; border-top: 1px solid var(--border); }
 .duplicate-copies { list-style: none; margin: 0; padding: 0; }
 .device-list .duplicate-copies li {
   flex-wrap: wrap;

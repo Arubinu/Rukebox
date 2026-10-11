@@ -6454,7 +6454,7 @@ def api_library_duplicates():
     if not path or not os.path.exists(path):
         return jsonify({"ok": False, "error": "library_missing"}), 404
     hidden = hidden_tracks.keys(c.get("HIDDEN_FILE") or "")
-    found = duplicates.groups(path, hidden)
+    found = duplicates.groups(path, hidden, _duplicates_ignored())
     # Where each copy sits, from the music folder (or the storage device played from) down.
     roots = [os.path.normpath(r) for r in _library_roots() if r]
     for group in found:
@@ -6464,6 +6464,40 @@ def api_library_duplicates():
             copy["rel"] = os.path.relpath(full, root).replace(os.sep, "/") if root else copy.get("name")
     return jsonify({"ok": True, "data": {"groups": found,
                                          "summary": duplicates.summary(found)}})
+
+
+def _duplicates_ignored_file():
+    return os.path.join(cfg()["STATE_DIR"], "duplicates_ignored.json")
+
+
+def _duplicates_ignored():
+    """{group key: its copies' keys} of the groups said not to be duplicates."""
+    doc = json_file.read(_duplicates_ignored_file()) or {}
+    groups = doc.get("groups")
+    return groups if isinstance(groups, dict) else {}
+
+
+@app.route("/api/library/duplicates/ignore", methods=["POST"])
+def api_library_duplicates_ignore():
+    """{key, ignored}: these copies are not the same song, or are after all. The copies are kept
+    with it, so a copy added later asks again."""
+    body = request.get_json(silent=True) or {}
+    key = str(body.get("key") or "")
+    path = cfg().get("LIBRARY_DB_FILE") or ""
+    if not path or not os.path.exists(path):
+        return jsonify({"ok": False, "error": "library_missing"}), 404
+    group = next((g for g in duplicates.groups(path) if g["key"] == key), None)
+    if group is None:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    target = _duplicates_ignored_file()
+    with json_file.lock(target):
+        groups = _duplicates_ignored()
+        if body.get("ignored", True):
+            groups[key] = duplicates.copy_keys(group)
+        else:
+            groups.pop(key, None)
+        json_file.write(target, {"groups": groups})
+    return jsonify({"ok": True})
 
 
 @app.route("/api/library/hide", methods=["POST"])

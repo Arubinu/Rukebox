@@ -66,10 +66,17 @@ def _entry(row, hidden):
     }
 
 
-def groups(db_path, hidden=()):
-    """Every song the library holds more than once, the copies of one file
-    first and then the most room to win, with what each copy weighs."""
+def copy_keys(group):
+    """What a group is made of: a new copy, or one gone, makes it another group."""
+    return sorted(one["key"] for one in group["tracks"] if one["key"])
+
+
+def groups(db_path, hidden=(), ignored=None):
+    """Every song the library holds more than once, the ones still to look at first, then the
+    copies of one file and the most room to win, with what each copy weighs. `ignored` is
+    {group key: copy_keys()} of the groups said not to be duplicates."""
     hidden = set(hidden or ())
+    ignored = ignored or {}
     by_song = {}
     for row in rows(db_path):
         if (row["size"] or 0) < MIN_SIZE:
@@ -98,9 +105,12 @@ def groups(db_path, hidden=()):
         group["same_file"] = any(one["same_file"] for one in group["tracks"])
         group["reclaimable"] = sum(one["size"] for one in group["tracks"]) - max(
             one["size"] for one in group["tracks"])
+        group["ignored"] = ignored.get(group["key"]) == copy_keys(group)
+        # Looked at: said not to be duplicates, or a copy set aside.
+        group["done"] = group["ignored"] or any(one["hidden"] for one in group["tracks"])
         out.append(group)
 
-    out.sort(key=lambda group: (not group["same_file"], -group["reclaimable"],
+    out.sort(key=lambda group: (group["done"], not group["same_file"], -group["reclaimable"],
                                 -len(group["tracks"])))
     return out[:MAX_GROUPS]
 

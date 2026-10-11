@@ -2563,3 +2563,20 @@ class DuplicatePathTest(unittest.TestCase):
                 unittest.mock.patch.object(ws.duplicates, "summary", return_value={}):
             data = ws.app.test_client().get("/api/library/duplicates").get_json()["data"]
         self.assertEqual([c["rel"] for c in data["groups"][0]["tracks"]], ["80s/a.mp3", "Best/b.mp3", "c.mp3"])
+
+    def test_a_group_said_not_to_be_duplicates_is_kept_with_its_copies(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        db = os.path.join(folder, "library.db")
+        open(db, "w").close()
+        group = {"key": "a|song", "tracks": [{"key": "k1"}, {"key": "k2"}]}
+        values = dict(ws.cfg(), LIBRARY_DB_FILE=db, STATE_DIR=folder)
+        with unittest.mock.patch.object(ws, "cfg", return_value=values), \
+                unittest.mock.patch.object(ws, "_require_auth", return_value=None), \
+                unittest.mock.patch.object(ws.duplicates, "groups", return_value=[group]):
+            client = ws.app.test_client()
+            self.assertTrue(client.post("/api/library/duplicates/ignore", json={"key": "a|song"}).get_json()["ok"])
+            self.assertEqual(ws._duplicates_ignored(), {"a|song": ["k1", "k2"]})
+            self.assertEqual(client.post("/api/library/duplicates/ignore", json={"key": "gone"}).status_code, 404)
+            client.post("/api/library/duplicates/ignore", json={"key": "a|song", "ignored": False})
+            self.assertEqual(ws._duplicates_ignored(), {})

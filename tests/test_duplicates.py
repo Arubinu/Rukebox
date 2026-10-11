@@ -119,6 +119,33 @@ class GroupTest(unittest.TestCase):
         self.assertFalse(found[0]["tracks"][0]["hidden"])
         self.assertTrue(found[0]["tracks"][1]["hidden"])
 
+    def songs(self):
+        make_db(self.db, [
+            {"path": "A/Twin.opus", "size": 5000000, "duration": 300.0, "title": "Twin", "artist": "A", "album": "One"},
+            {"path": "B/Twin.opus", "size": 5000000, "duration": 300.0, "title": "Twin", "artist": "A", "album": "Two"},
+            {"path": "A/Song.opus", "size": 4000000, "duration": 200.0, "title": "Song", "artist": "A", "album": "One"},
+            {"path": "B/Song.opus", "size": 2000000, "duration": 200.0, "title": "Song", "artist": "A", "album": "Two"},
+        ], self.dir)
+        return duplicates.groups(self.db)
+
+    def test_a_song_looked_at_is_done_and_goes_below_the_others(self):
+        before = self.songs()
+        self.assertEqual([g["title"] for g in before], ["Twin", "Song"])
+        self.assertEqual([g["done"] for g in before], [False, False])
+        twin_copy = before[0]["tracks"][1]["key"]
+        after = duplicates.groups(self.db, hidden={twin_copy})
+        self.assertEqual([(g["title"], g["done"]) for g in after], [("Song", False), ("Twin", True)],
+                         "a copy set aside: looked at, and the songs still to see come first")
+
+    def test_a_song_said_not_to_be_duplicates_is_done_until_its_copies_change(self):
+        song = [g for g in self.songs() if g["title"] == "Song"][0]
+        ignored = {song["key"]: duplicates.copy_keys(song)}
+        found = {g["title"]: g for g in duplicates.groups(self.db, ignored=ignored)}
+        self.assertTrue(found["Song"]["ignored"] and found["Song"]["done"])
+        self.assertFalse(found["Twin"]["done"])
+        stale = {song["key"]: duplicates.copy_keys(song)[:1]}
+        self.assertFalse(duplicates.groups(self.db, ignored=stale)[0]["ignored"], "another copy: asked again")
+
     def test_the_copies_of_one_file_come_first(self):
         make_db(self.db, [
             {"path": "A/Song.opus", "size": 4000000, "duration": 200.0,

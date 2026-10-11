@@ -5861,52 +5861,55 @@ function duplicateCopy(copy, group) {
   facts.className = "recent-artist";
   facts.textContent = duplicateFacts(copy);
   main.append(title, facts);
-  li.append(main);
-  if (copy.hidden) {
-    const badge = document.createElement("span");
-    badge.className = "badge duplicate-badge";
-    badge.textContent = t("duplicates.hidden_badge");
-    li.append(badge);
-  }
-  li.append(libraryButton(copy, false), duplicateKeepButton(copy, group));
+  li.append(main, libraryButton(copy, false), duplicateKeepButton(copy, group));
   return li;
 }
 
 function duplicateKeepButton(copy, group) {
+  // Each copy on its own: several versions of a song may all be kept, never none of them.
+  const kept = group.tracks.filter((one) => !one.hidden).length;
   const b = document.createElement("button");
   b.type = "button";
-  b.className = "btn btn-small duplicate-keep";
-  b.dataset.icon = copy.hidden ? "refresh" : "check";
+  b.className = "btn btn-small duplicate-keep" + (copy.hidden ? "" : " is-kept");
+  b.dataset.icon = copy.hidden ? "x" : "check";
   const label = document.createElement("span");
-  label.textContent = t(copy.hidden ? "duplicates.restore" : "duplicates.keep");
+  label.textContent = t(copy.hidden ? "duplicates.set_aside" : "duplicates.kept_state");
   b.append(label);
-  b.title = t(copy.hidden ? "duplicates.restore_aria" : "duplicates.keep_aria",
-    { name: copy.name });
+  b.title = t(copy.hidden ? "duplicates.restore_aria" : "duplicates.set_aside_aria", { name: copy.name });
   b.setAttribute("aria-label", b.title);
+  b.setAttribute("aria-pressed", copy.hidden ? "false" : "true");
   b.dataset.costAction = "";
+  if (!copy.hidden && kept <= 1) {
+    b.disabled = true;
+    b.title = t("duplicates.last_kept");
+  }
   b.addEventListener("click", async () => {
     b.disabled = true;
-    let failed = null;
-    if (copy.hidden) {
-      const asked = await apiPost("/api/library/hide",
-        { key: copy.key, hidden: false, path: copy.path });
-      if (!asked.ok) failed = asked;
-    } else {
-      for (const other of group.tracks) {
-        if (other.key === copy.key) continue;
-        const asked = await apiPost("/api/library/hide",
-          { key: other.key, hidden: true, path: other.path });
-        if (!asked.ok) failed = asked;
-      }
-    }
+    const asked = await apiPost("/api/library/hide", { key: copy.key, hidden: !copy.hidden, path: copy.path });
     b.disabled = false;
-    if (failed) {
-      showToolError(t("duplicates.failed"), failed);
+    if (!asked.ok) {
+      showToolError(t("duplicates.failed"), asked);
       return;
     }
-    showToast(copy.hidden
-      ? t("duplicates.restored", { name: copy.name })
-      : t("duplicates.kept", { name: copy.name }));
+    refreshDuplicates();
+  });
+  return b;
+}
+
+function duplicateIgnoreButton(group) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn btn-small";
+  b.dataset.icon = group.ignored ? "refresh" : "ban";
+  b.textContent = t(group.ignored ? "duplicates.unignore" : "duplicates.ignore");
+  b.addEventListener("click", async () => {
+    b.disabled = true;
+    const asked = await apiPost("/api/library/duplicates/ignore", { key: group.key, ignored: !group.ignored });
+    b.disabled = false;
+    if (!asked.ok) {
+      showToolError(t("duplicates.failed"), asked);
+      return;
+    }
     refreshDuplicates();
   });
   return b;
@@ -5940,15 +5943,19 @@ function renderDuplicates() {
     const name = document.createElement("strong");
     name.textContent = [group.artist, group.title].filter(Boolean).join(" \u2014 ");
     const badge = document.createElement("span");
-    badge.className = "badge" + (group.same_file ? " duplicate-same" : "");
-    badge.textContent = group.same_file
-      ? t("duplicates.same_file")
-      : t("duplicates.copies", { n: group.tracks.length });
+    // Green once looked at: said not to be duplicates, or a copy set aside.
+    badge.className = "badge" + (group.done ? " duplicate-done" : group.same_file ? " duplicate-same" : "");
+    badge.textContent = group.ignored ? t("duplicates.ignored_badge")
+      : group.same_file ? t("duplicates.same_file")
+        : t("duplicates.copies", { n: group.tracks.length });
     head.append(name, badge);
     const copies = document.createElement("ul");
     copies.className = "duplicate-copies";
     copies.replaceChildren(...group.tracks.map((copy) => duplicateCopy(copy, group)));
-    fold.append(head, copies);
+    const actions = document.createElement("div");
+    actions.className = "form-actions duplicate-actions";
+    actions.append(duplicateIgnoreButton(group));
+    fold.append(head, copies, actions);
     li.append(fold);
     return li;
   }));
