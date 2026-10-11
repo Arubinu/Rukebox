@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Captive portal: makes a phone joining the access point open the web interface."""
 
-import http.server
 import ipaddress
 import logging
 import re
@@ -159,6 +158,9 @@ _last_ap_network = {}
 
 
 def _handler_class(target_url):
+    # Imported here: the boot's "refresh" has no use for a server and it costs half a second there.
+    import http.server
+
     class PortalHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(302)
@@ -176,9 +178,14 @@ def _handler_class(target_url):
     return PortalHandler
 
 
-class _Server(http.server.ThreadingHTTPServer):
-    allow_reuse_address = True
-    daemon_threads = True
+def _server_class():
+    import http.server
+
+    class _Server(http.server.ThreadingHTTPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    return _Server
 
 
 def start(ap_interface, web_port):
@@ -193,7 +200,7 @@ def start(ap_interface, web_port):
 
     target_url = "http://%s:%s/" % (ip, web_port)
     try:
-        server = _Server(("0.0.0.0", PORTAL_PORT), _handler_class(target_url))
+        server = _server_class()(("0.0.0.0", PORTAL_PORT), _handler_class(target_url))
     except OSError as e:
         log.warning(
             "Captive portal: could not listen on port %s (%s). The web "
