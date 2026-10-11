@@ -115,8 +115,8 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Until `check` answers something truthy, or the time is up.
-async function until(check, ms = 3000) {
+// Until `check` answers something truthy, or the time is up: generous, the test files run side by side.
+async function until(check, ms = 8000) {
   const end = Date.now() + ms;
   for (;;) {
     const value = check();
