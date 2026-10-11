@@ -1170,6 +1170,25 @@ class WebTest(unittest.TestCase):
             ws.bt_link.locate, ws._bt_controllers, ws._audio_output_state = original
             ws._status_probes.clear()
 
+    def test_polling_the_status_asks_the_controllers_and_capabilities_once_in_a_while(self):
+        asked = []
+        link = {"connected": False, "controller": None, "expected": None, "paired_here": False,
+                "known_here": False, "name": None, "unknown": False}
+        with unittest.mock.patch.object(ws.bt_link, "locate", lambda mac, adapter="": dict(link, mac=mac)), \
+                unittest.mock.patch.object(ws, "_bt_controllers", lambda: asked.append("hci") or []), \
+                unittest.mock.patch.object(ws, "_audio_output_state", lambda: {}), \
+                unittest.mock.patch.object(ws, "capabilities",
+                                           lambda: asked.append("caps") or ws.platform_mod.caps()), \
+                unittest.mock.patch.object(ws, "_status_probes", {}):
+            owner = self.owner()
+            for _ in range(3):
+                owner.get("/api/status")
+            self.assertEqual(sorted(asked), ["caps", "hci"], "one hciconfig and one capability check, not six")
+            ws.platform_mod.override(access_point=False)
+            self.addCleanup(ws.platform_mod.override, access_point=None)
+            data = owner.get("/api/status").get_json()["data"]
+            self.assertFalse(data["capabilities"]["access_point"], "a pinned capability is seen at once")
+
     def test_the_speaker_status_says_where_it_is(self):
         dongle, builtin = "00:A7:50:72:14:C4", "B8:27:EB:62:82:CB"
         data = self.status_of(

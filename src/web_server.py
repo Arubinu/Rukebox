@@ -3147,9 +3147,11 @@ def api_status():
     data["speaker_controller"] = link["controller"] if link["connected"] else None
     data["speaker_battery"] = link.get("battery") if link["connected"] else None
     data["speaker_battery_low"] = int(cfg().get("SPEAKER_BATTERY_LOW", 0) or 0)
-    data["speaker_controller_kind"] = _controller_kind(link["controller"])
+    # hciconfig is a process to start: asked once for both, and kept like the other probes.
+    controllers = _status_probe("bt_controllers", _bt_controllers)
+    data["speaker_controller_kind"] = _controller_kind(link["controller"], controllers)
     data["speaker_expected"] = link["expected"]
-    data["speaker_expected_kind"] = _controller_kind(link["expected"])
+    data["speaker_expected_kind"] = _controller_kind(link["expected"], controllers)
     data["audio_output"] = _audio_output_state()
     data["timezone"] = _timezone_name()
     data["ssh_active"] = _status_probe("ssh_active", lambda: _service_is_active("ssh"))
@@ -3159,7 +3161,9 @@ def api_status():
     data["guest_locked"] = _guest_locked() if _quota_applies() else []
     # What this machine can do, so the page hides the cards that lead nowhere
     # rather than offering buttons that answer unsupported_here.
-    data["capabilities"] = capabilities()
+    # Hardware does not come and go between two polls; a pinned capability is part of the key.
+    data["capabilities"] = _status_probe(("capabilities", tuple(sorted(platform_mod.pinned().items()))),
+                                         capabilities)
     # The network output, when there is one: the player's "Listen here" button
     # is the reason it is here rather than only on /api/stream.
     data["stream"] = _stream_status()

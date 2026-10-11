@@ -235,6 +235,11 @@ def override(**capabilities):
             _overrides[key] = bool(value)
 
 
+def pinned():
+    """The capabilities override() pins, as {name: value}."""
+    return dict(_overrides)
+
+
 def has(capability):
     """Whether the feature is there."""
     if capability in _overrides:
