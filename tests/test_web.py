@@ -2502,3 +2502,43 @@ class PortalModeTest(unittest.TestCase):
         with unittest.mock.patch.object(ws, "cfg", return_value=dict(ws.cfg(), CAPTIVE_PORTAL_MODE="off",
                                                                      CAPTIVE_PORTAL_ENABLED=True)):
             self.assertFalse(ws._portal_on())
+
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class FlicControllerTest(unittest.TestCase):
+    """The Flic button's controller when the one set is gone (a dongle replaced, a board reinstalled)."""
+
+    BUILTIN = {"name": "hci0", "bus": "uart", "address": "B8:27:EB:D7:FC:3A"}
+    DONGLE = {"name": "hci1", "bus": "usb", "address": "00:1A:7D:DA:71:13"}
+
+    def pick(self, controllers, output="usb", flic="00:A7:50:72:14:C4", speaker="B8:27:EB:62:82:CB"):
+        c = {"FLIC_HCI_DEVICE": flic, "SPEAKER_BT_ADAPTER": speaker, "AUDIO_OUTPUT": output}
+        return ws._flic_controller(c, controllers)
+
+    def test_a_controller_still_there_is_kept(self):
+        self.assertIs(self.pick([self.BUILTIN, self.DONGLE], flic=self.BUILTIN["address"]), self.BUILTIN)
+
+    def test_a_gone_one_is_replaced_by_a_usb_one_first(self):
+        self.assertIs(self.pick([self.BUILTIN, self.DONGLE]), self.DONGLE)
+        self.assertIs(self.pick([self.BUILTIN]), self.BUILTIN, "a wired output: the built-in one is free")
+
+    def test_never_the_speakers_while_it_plays_on_bluetooth(self):
+        self.assertIsNone(self.pick([self.BUILTIN], output="bluetooth", speaker=""))
+        self.assertIs(self.pick([self.BUILTIN, self.DONGLE], output="bluetooth", speaker=self.DONGLE["address"]),
+                      self.BUILTIN)
+
+    def test_switching_it_on_writes_the_controller_found_before_flicd_starts(self):
+        values = dict(ws.cfg(), FLIC_HCI_DEVICE="00:A7:50:72:14:C4", AUDIO_OUTPUT="usb", SPEAKER_BT_ADAPTER="")
+        written, started = [], []
+        with unittest.mock.patch.object(ws, "cfg", return_value=values), \
+                unittest.mock.patch.object(ws, "_require_auth", return_value=None), \
+                unittest.mock.patch.object(ws.os.path, "isdir", return_value=True), \
+                unittest.mock.patch.object(ws, "_bt_controllers", return_value=[self.BUILTIN]), \
+                unittest.mock.patch.object(ws, "update_config_file", side_effect=written.append), \
+                unittest.mock.patch.object(ws.system_actions, "service_action",
+                                           side_effect=lambda action, name, **kw: started.append((action, name)) or True), \
+                unittest.mock.patch.object(ws, "stats"):
+            answer = ws.app.test_client().post("/api/flic/enable", json={"on": True})
+        self.assertEqual(answer.status_code, 200, answer.get_json())
+        self.assertEqual(written, [{"FLIC_HCI_DEVICE": self.BUILTIN["address"]}])
+        self.assertIn(("start", "flicd"), started)

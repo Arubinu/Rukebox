@@ -4742,6 +4742,20 @@ def _flic_enabled():
     return _service_is_enabled("flicd")
 
 
+def _flic_controller(c, controllers):
+    """The controller the Flic button gets: the one set, or - when that one is gone (a dongle
+    replaced, a board reinstalled) - a USB one first, never the speaker's while it plays on Bluetooth."""
+    flic = _resolve_controller(c.get("FLIC_HCI_DEVICE") or "hci0", controllers)
+    if flic is not None:
+        return flic
+    usable = [x for x in controllers if x.get("address")]
+    if (c.get("AUDIO_OUTPUT") or "bluetooth") == "bluetooth":
+        speaker = _resolve_controller(c.get("SPEAKER_BT_ADAPTER"), controllers)
+        usable = [x for x in usable if x is not speaker] if speaker else usable[1:]
+    usable.sort(key=lambda x: x.get("bus") != "usb")
+    return usable[0] if usable else None
+
+
 def _flic_availability(controllers=None):
     """Whether a Flic button can be used here, and why not: flicd takes a
     controller for itself - unless the sound goes to a wired output. The rule
@@ -4758,7 +4772,7 @@ def api_bt_controllers():
     c = cfg()
     controllers = _bt_controllers()
     speaker = _resolve_controller(c.get("SPEAKER_BT_ADAPTER"), controllers)
-    flic = _resolve_controller(c.get("FLIC_HCI_DEVICE") or "hci0", controllers)
+    flic = _flic_controller(c, controllers)
     if speaker is None and controllers:
         # "Automatic": the first controller flicd does not hold.
         free = [x for x in controllers if not (_flic_enabled() and x is flic)]
@@ -4845,10 +4859,14 @@ def _flic_button_count():
 def api_flic_status():
     sdk = os.path.isfile(os.path.join(FLIC_SDK_DIR, "clientlib", "python", "fliclib.py"))
     active = _service_is_active("flicd")
-    usable, reason = _flic_availability()
+    controllers = _bt_controllers()
+    usable, reason = _flic_availability(controllers)
     enabled = _flic_enabled()
+    flic = _flic_controller(cfg(), controllers)
     return jsonify({"ok": True, "data": {
         "sdk": sdk,
+        # The Flic button would take the only controller: Bluetooth is then its alone.
+        "takes_only_controller": bool(flic) and len([x for x in controllers if x.get("address")]) == 1,
         "usable": usable,
         "unusable_reason": reason,
         "enabled": enabled,
@@ -4888,12 +4906,16 @@ def api_flic_enable():
         usable, reason = _flic_availability(controllers)
         if not usable:
             return jsonify({"ok": False, "error": "flic_" + reason}), 400
-        flic = _resolve_controller(c.get("FLIC_HCI_DEVICE") or "hci0", controllers)
+        flic = _flic_controller(c, controllers)
         speaker = _resolve_controller(c.get("SPEAKER_BT_ADAPTER"), controllers)
         if flic is None:
             return jsonify({"ok": False, "error": "flic_no_controller"}), 400
         if (c.get("AUDIO_OUTPUT") or "bluetooth") == "bluetooth" and speaker is flic:
             return jsonify({"ok": False, "error": "bt_adapter_conflict"}), 400
+        if flic["address"] and flic["address"] != str(c.get("FLIC_HCI_DEVICE") or "").upper():
+            # flicd reads the setting when it starts: the controller found is written down first.
+            update_config_file({"FLIC_HCI_DEVICE": flic["address"]})
+            log.info("Flic button: controller set to %s, the one set before is gone", flic["address"])
     enable_ok = system_actions.service_action("enable" if on else "disable", "flicd")
     run_ok = system_actions.service_action("start" if on else "stop", "flicd")
     bridge_ok = system_actions.service_action("enable" if on else "disable", "flic-bridge")

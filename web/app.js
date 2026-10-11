@@ -6097,6 +6097,11 @@ document.getElementById("btnFlicInstall").addEventListener("click", async (e) =>
 
 document.getElementById("flicEnabled").addEventListener("change", async (e) => {
   const on = e.target.checked;
+  if (on && flicState && flicState.takes_only_controller
+      && !(await showConfirm(t("btctl.flic_only_controller"), t("btctl.flic_only_controller_title")))) {
+    e.target.checked = false;
+    return;
+  }
   const r = await apiPost("/api/flic/enable", { on });
   if (!r.ok) {
     e.target.checked = !on;
