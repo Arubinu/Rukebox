@@ -1594,6 +1594,9 @@ body.lyrics-fullscreen { overflow: hidden; }
 .game-choice.is-right { background: var(--success-soft); color: var(--success-text); border-color: var(--success); opacity: 1; }
 .game-choice.is-wrong { background: var(--danger-soft); border-color: var(--danger); opacity: 1; }
 .game-result { min-height: 1.4em; margin-top: 10px; text-align: center; }
+/* The forget button sits between two rows: the one after it still needs its line. */
+#gameForgetRow + .field-row { border-top: 1px solid var(--border); }
+#gameForgetRow { margin-bottom: 8px; }
 #mqttStatus { text-align: center; }
 #mqttStatus:empty { display: none; }
 .game-ask { margin: 0 0 10px; text-align: center; font-weight: 600; font-size: 17px; }
