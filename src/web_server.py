@@ -6455,6 +6455,13 @@ def api_library_duplicates():
         return jsonify({"ok": False, "error": "library_missing"}), 404
     hidden = hidden_tracks.keys(c.get("HIDDEN_FILE") or "")
     found = duplicates.groups(path, hidden)
+    # Where each copy sits, from the music folder (or the storage device played from) down.
+    roots = [os.path.normpath(r) for r in _library_roots() if r]
+    for group in found:
+        for copy in group.get("tracks") or []:
+            full = os.path.normpath(copy.get("path") or "")
+            root = next((r for r in roots if full.startswith(r + os.sep)), None)
+            copy["rel"] = os.path.relpath(full, root).replace(os.sep, "/") if root else copy.get("name")
     return jsonify({"ok": True, "data": {"groups": found,
                                          "summary": duplicates.summary(found)}})
 

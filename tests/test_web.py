@@ -2542,3 +2542,24 @@ class FlicControllerTest(unittest.TestCase):
         self.assertEqual(answer.status_code, 200, answer.get_json())
         self.assertEqual(written, [{"FLIC_HCI_DEVICE": self.BUILTIN["address"]}])
         self.assertIn(("start", "flicd"), started)
+
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class DuplicatePathTest(unittest.TestCase):
+    def test_each_copy_says_where_it_sits_from_the_music_folder_down(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        db = os.path.join(folder, "library.db")
+        open(db, "w").close()
+        music = os.path.join(folder, "music")
+        usb = os.path.join(folder, "usb")
+        found = [{"tracks": [{"path": os.path.join(music, "80s", "a.mp3"), "name": "a.mp3"},
+                             {"path": os.path.join(usb, "Best", "b.mp3"), "name": "b.mp3"},
+                             {"path": "/elsewhere/c.mp3", "name": "c.mp3"}]}]
+        with unittest.mock.patch.object(ws, "cfg", return_value=dict(ws.cfg(), LIBRARY_DB_FILE=db)), \
+                unittest.mock.patch.object(ws, "_require_auth", return_value=None), \
+                unittest.mock.patch.object(ws, "_library_roots", return_value=(music, usb)), \
+                unittest.mock.patch.object(ws.duplicates, "groups", return_value=found), \
+                unittest.mock.patch.object(ws.duplicates, "summary", return_value={}):
+            data = ws.app.test_client().get("/api/library/duplicates").get_json()["data"]
+        self.assertEqual([c["rel"] for c in data["groups"][0]["tracks"]], ["80s/a.mp3", "Best/b.mp3", "c.mp3"])

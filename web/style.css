@@ -963,6 +963,8 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 .device-list .duplicate-copies li:first-child { border-top: 0; }
 .duplicate-copy .recent-main { flex: 1 1 12rem; }
 .duplicate-copy.is-hidden { opacity: 0.6; }
+/* A tap shows the path instead: it wraps rather than losing its end. */
+.duplicate-name { cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
 .duplicate-copy.is-hidden .recent-title { text-decoration: line-through; }
 
 /* Clipped, not removed, on a phone: the words stay the accessible name. */

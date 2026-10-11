@@ -5824,6 +5824,7 @@ window.LANG_CHANGE_LISTENERS.push(() => {
 /* Duplicate tracks: the same song catalogued more than once, grouped by title and artist. */
 let duplicateGroups = [];
 let duplicatesAsked = false;
+let duplicatesShowPath = false;
 
 function duplicateFacts(copy) {
   return [copy.album, formatBytes(copy.size), formatClock(copy.duration),
@@ -5836,8 +5837,26 @@ function duplicateCopy(copy, group) {
   const main = document.createElement("span");
   main.className = "recent-main";
   const title = document.createElement("span");
-  title.className = "recent-title";
-  title.textContent = copy.name;
+  title.className = "recent-title duplicate-name";
+  title.setAttribute("role", "button");
+  title.tabIndex = 0;
+  title.dataset.name = copy.name;
+  title.dataset.rel = copy.rel || copy.name;
+  title.textContent = duplicatesShowPath ? title.dataset.rel : copy.name;
+  // One tap on any name shows every copy's place in the music folder; another, the names again.
+  const flip = () => {
+    duplicatesShowPath = !duplicatesShowPath;
+    document.querySelectorAll("#duplicatesList .duplicate-name").forEach((el) => {
+      el.textContent = duplicatesShowPath ? el.dataset.rel : el.dataset.name;
+    });
+  };
+  title.addEventListener("click", flip);
+  title.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      flip();
+    }
+  });
   const facts = document.createElement("span");
   facts.className = "recent-artist";
   facts.textContent = duplicateFacts(copy);
