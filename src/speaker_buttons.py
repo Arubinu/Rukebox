@@ -41,6 +41,9 @@ EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
 
 REPEAT_GUARD_SEC = 0.4
 RESCAN_SEC = 3.0
+# Asking bluetoothctl for the speaker's name costs a process; the name hardly ever changes.
+ALIAS_KEEP_SEC = 60.0
+_aliases = {}
 
 
 def parse_input_devices(text):
@@ -197,11 +200,22 @@ class Listener:
             pass
 
 
+def kept_alias(mac, now=None):
+    """speaker_alias(), asked again only once a minute for the same speaker."""
+    now = time.monotonic() if now is None else now
+    alias, at = _aliases.get(mac, (None, None))
+    if at is None or now - at >= ALIAS_KEEP_SEC:
+        alias = speaker_alias(mac)
+        _aliases.clear()
+        _aliases[mac] = (alias, now)
+    return alias
+
+
 def targets(cfg):
     """{path: where its presses come from} of the devices to read."""
     mac = cfg.get("SPEAKER_MAC", "")
     found = {}
-    path = find_event_device(mac) or find_event_device(mac, alias=speaker_alias(mac))
+    path = find_event_device(mac) or find_event_device(mac, alias=kept_alias(mac))
     if path:
         found[path] = "speaker"
     path = find_usb_button_device()

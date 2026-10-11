@@ -198,6 +198,16 @@ class SpeakerButtonsTest(unittest.TestCase):
             self.assertIsNone(speaker_buttons.speaker_alias("7C:E9"))
         self.assertIsNone(speaker_buttons.speaker_alias(""))
 
+    def test_the_speakers_name_is_asked_once_a_minute_per_speaker(self):
+        speaker_buttons._aliases.clear()
+        self.addCleanup(speaker_buttons._aliases.clear)
+        with mock.patch.object(speaker_buttons, "speaker_alias", side_effect=["Salon", "Cuisine", "Bureau"]) as asked:
+            self.assertEqual(speaker_buttons.kept_alias("A", now=0), "Salon")
+            self.assertEqual(speaker_buttons.kept_alias("A", now=59), "Salon")
+            self.assertEqual(speaker_buttons.kept_alias("A", now=60), "Cuisine")
+            self.assertEqual(speaker_buttons.kept_alias("B", now=61), "Bureau", "another speaker is asked at once")
+        self.assertEqual(asked.call_count, 3)
+
     def test_a_gesture_is_sent_as_the_speakers(self):
         with mock.patch.object(speaker_buttons, "send_control_command", return_value={"ok": True}) as sent:
             speaker_buttons.send("/tmp/sock", "next")
