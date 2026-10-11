@@ -621,7 +621,7 @@
       wifi_country: $("wzCountry").value.toUpperCase(),
       access_point: { ssid: $("wzApSsid").value.trim(), password: $("wzApPw").value },
       web_password: same ? $("wzApPw").value : $("wzWebPw").value,
-      boot_tweaks: true,
+      boot_tweaks: $("wzBootTweaks").checked,
       system_upgrade: false,
     };
   }
