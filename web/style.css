@@ -2195,8 +2195,9 @@ select option.option-inert { text-decoration: line-through; opacity: 0.55; }
   .field-row > .time-input,
   .field-row > .pin-field { margin-inline: auto; }
 
-  .field-row > .codec-field { flex: 1 1 100%; }
-  .codec-open { max-width: 100%; }
+  /* A picker reads "2 of 5": short enough to stay beside its label. */
+  .field-row:has(> .codec-field) { flex-wrap: nowrap; }
+  .field-row > .codec-field { flex: 0 1 auto; max-width: 50%; }
 
   .card .device-list .device-actions.btn-split:not(:has(.btn:not(.btn-icon))) { flex: 1 1 100%; }
 
