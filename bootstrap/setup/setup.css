@@ -68,4 +68,5 @@ textarea.text-input { resize: vertical; font: 13px ui-monospace, monospace; }
 .wz-nav > .btn-group:has(> #wzBack[hidden]),
 .wz-nav > .btn-group:has(> #wzNext[hidden]) { display: none; }
 .wz-center { text-align: center; white-space: pre-line; }
+.wz-tweaks { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
 .wz-summary ul { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
