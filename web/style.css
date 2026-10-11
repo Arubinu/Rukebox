@@ -1597,7 +1597,8 @@ body.lyrics-fullscreen { overflow: hidden; }
 /* The forget button sits between two rows: the one after it still needs its line. */
 #gameForgetRow + .field-row { border-top: 1px solid var(--border); }
 #gameForgetRow { margin-bottom: 8px; }
-#mqttStatus { text-align: center; }
+#mqttStatus, #wledStatus { text-align: center; }
+#wledStatus:empty { display: none; }
 #mqttStatus:empty { display: none; }
 .game-ask { margin: 0 0 10px; text-align: center; font-weight: 600; font-size: 17px; }
 .game-hint { margin: 0 0 10px; text-align: center; color: var(--accent); font-weight: 600; }
