@@ -66,10 +66,17 @@ def status_file(cfg):
     return os.path.join(cfg["STATE_DIR"], "mqtt_status.json")
 
 
+_written = {}
+
+
 def write_status(cfg, state, error=None):
-    """What the interface shows: connected, or why not."""
+    """What the interface shows: connected, or why not. Only a change is written (an SD card wears)."""
+    path = status_file(cfg)
+    if _written.get(path) == (state, error) and os.path.exists(path):
+        return
     try:
-        json_file.write(status_file(cfg), {"state": state, "error": error, "at": int(time.time())})
+        json_file.write(path, {"state": state, "error": error, "at": int(time.time())})
+        _written[path] = (state, error)
     except OSError:
         log.debug("Could not write the MQTT status")
 

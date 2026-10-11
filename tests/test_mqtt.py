@@ -154,6 +154,11 @@ class BridgeTest(unittest.TestCase):
         with open(os.path.join(folder, "mqtt_status.json"), encoding="utf-8") as f:
             doc = json.load(f)
         self.assertEqual((doc["state"], doc["error"]), ("error", "auth_refused"))
+        with mock.patch.object(mqtt_bridge.json_file, "write") as written:
+            mqtt_bridge.write_status(cfg, "error", "auth_refused")
+            written.assert_not_called()
+            mqtt_bridge.write_status(cfg, "off")
+            written.assert_called_once()
 
     def test_it_only_runs_when_switched_on_with_a_broker(self):
         self.assertFalse(mqtt_bridge.wanted({"MQTT_ENABLED": True, "MQTT_HOST": " "}))
