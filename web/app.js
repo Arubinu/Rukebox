@@ -11572,9 +11572,11 @@ function refreshMusicLibrary() {
       return;
     }
     const count = (data.files || []).length;
+    // The songs, as the radio counts them (src/config_and_scan.py): lyrics and covers are files too.
+    const tracks = (data.files || []).filter((f) => /\.(mp3|flac|ogg|m4a|wav|opus)$/i.test(f.path || "")).length;
     const bytes = (data.files || []).reduce((sum, f) => sum + (Number(f.size) || 0), 0);
     line.textContent = t("music.library_line", {
-      count: count, size: formatBytes(bytes), free: formatBytes(musicManifestFree),
+      tracks: tracks, count: count, size: formatBytes(bytes), free: formatBytes(musicManifestFree),
     });
 
     if (pendingMusicFiles.length) buildMusicPlan(pendingMusicFiles, true);
