@@ -2154,6 +2154,21 @@ class GameRouteTest(unittest.TestCase):
         r = self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20, "list": "deleted"})
         self.assertEqual((r.status_code, r.get_json()["error"]), (404, "game_list_gone"))
 
+    def test_linking_mid_game_and_mid_vote_counts_the_person_once(self):
+        self.assertTrue(self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20}).get_json()["ok"])
+        ws._game.join("dev-b", "Fox", True)
+        box = unittest.mock.Mock(person_id=lambda device_id: "dev-a" if device_id == "dev-b" else device_id,
+                                 link=lambda device_id, to_id: "dev-a", device_by_id=lambda person: {})
+        with ws._skip_votes_lock:
+            ws._skip_votes.update(key="k", persons={"dev-b", "dev-c"})
+        self.addCleanup(ws._skip_votes.update, key=None, persons=set())
+        box.person_id = lambda device_id: device_id
+        with unittest.mock.patch.object(ws.name_voice, "carry"),                 unittest.mock.patch.object(ws.blind_test, "carry_wins"):
+            ws._devices_linked(box, "dev-b", "dev-a", "code")
+        self.assertIn("dev-a", ws._game.players)
+        self.assertNotIn("dev-b", ws._game.players)
+        self.assertEqual(ws._skip_votes["persons"], {"dev-a", "dev-c"})
+
     def test_a_game_asks_the_kinds_chosen_when_the_tags_allow_it(self):
         start = lambda **extra: self.client.post("/api/game/start", json=dict({"rounds": 5, "seconds": 20}, **extra))
         self.assertEqual(start(kinds=["song", "weather"]).status_code, 400)

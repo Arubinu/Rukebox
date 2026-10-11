@@ -2875,6 +2875,14 @@ def _devices_linked(box, device_id, to_id, by):
         blind_test.carry_wins(_game_wins_file(), was, person)
     except OSError:
         log.warning("Could not keep the name recording or the wins", exc_info=True)
+    # A game or a vote under way counts the person once from now on.
+    game = _game
+    if game is not None and game.state != "over":
+        game.merge(was, person)
+    with _skip_votes_lock:
+        if was in _skip_votes["persons"]:
+            _skip_votes["persons"].discard(was)
+            _skip_votes["persons"].add(person)
     with _quota_lock:
         _quota_load(time.time())
         if _quota.pop(was, None) is not None:

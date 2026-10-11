@@ -294,6 +294,41 @@ class Game:
                 self.players.discard(person)
                 self.spectators.add(person)
 
+    def merge(self, was, now):
+        """Two devices just became one person: `was` goes on under `now`, its points added,
+        a single answer kept for the round (the first one given)."""
+        if not was or not now or was == now:
+            return
+        with self._lock:
+            if was in self.players:
+                self.players.discard(was)
+                self.spectators.discard(now)
+                self.players.add(now)
+            elif was in self.spectators:
+                self.spectators.discard(was)
+                if now not in self.players:
+                    self.spectators.add(now)
+            if was in self.scores:
+                self.scores[now] = self.scores.get(now, 0) + self.scores.pop(was)
+            if was in self.names:
+                name = self.names.pop(was)
+                if not self.names.get(now):
+                    self.names[now] = name
+            if was in self.answers:
+                given = self.answers.pop(was)
+                if now not in self.answers or given[1] < self.answers[now][1]:
+                    self.answers[now] = given
+            if was in self.viewers:
+                self.viewers[now] = max(self.viewers.pop(was), self.viewers.get(now, 0))
+            if self.reveal:
+                gains = self.reveal.get("gains") or {}
+                if was in gains:
+                    gains[now] = max(gains.pop(was), gains.get(now, 0))
+                right = [now if p == was else p for p in self.reveal.get("right") or []]
+                self.reveal["right"] = list(dict.fromkeys(right))
+                if self.reveal.get("fastest") == was:
+                    self.reveal["fastest"] = now
+
     def _looking(self, now):
         return {p for p, at in self.viewers.items() if now - at <= VIEWER_SEC}
 

@@ -400,5 +400,46 @@ class KindSpeechTest(unittest.TestCase):
         self.assertEqual(len(plain), 1)
 
 
+class MergeTest(unittest.TestCase):
+    def setUp(self):
+        self.game = blind_test.Game(tracks(), rounds=3, clip_sec=20, rng=random.Random(1), now=0)
+
+    def test_two_devices_linked_mid_game_play_on_as_one_person(self):
+        g = self.game
+        g.join("phone", "Fox", True)
+        g.join("tablet", None, True)
+        q = g.next_question(now=0)
+        g.answer("phone", "Fox", q["answer"], now=2)
+        g.close_round()
+        q = g.next_question(now=10)
+        g.answer("tablet", None, (q["answer"] + 1) % 4, now=11)
+        g.answer("phone", "Fox", q["answer"], now=13)
+        g.merge("phone", "tablet")
+        self.assertEqual((g.players, g.spectators), ({"tablet"}, set()))
+        self.assertEqual(g.scores, {"tablet": 2})
+        self.assertEqual(g.names["tablet"], "Fox")
+        self.assertEqual(g.answers["tablet"][0], (q["answer"] + 1) % 4, "the first answer given stands")
+        self.assertNotIn("phone", g.answers)
+        self.assertEqual(g.view("tablet", now=14)["role"], "player")
+
+    def test_a_watcher_linked_to_a_player_plays(self):
+        self.game.join("phone", "Fox", True)
+        self.game.join("tablet", None, False)
+        self.game.merge("phone", "tablet")
+        self.assertEqual((self.game.players, self.game.spectators), ({"tablet"}, set()))
+
+    def test_a_merge_after_the_reveal_moves_the_round_too(self):
+        g = self.game
+        g.join("phone", "Fox", True)
+        q = g.next_question(now=0)
+        g.answer("phone", "Fox", q["answer"], now=1)
+        g.close_round()
+        g.merge("phone", "tablet")
+        self.assertEqual((g.reveal["gains"], g.reveal["right"], g.reveal["fastest"]), ({"tablet": 2}, ["tablet"], "tablet"))
+        g.merge("x", "x")
+        g.merge(None, "tablet")
+        self.assertEqual(g.scores, {"tablet": 2})
+
+
 if __name__ == "__main__":
     unittest.main()
