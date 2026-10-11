@@ -180,15 +180,22 @@ test("the questions, the hint and the memory are sent, kept on the device, and t
     routes: { "GET /api/game": none, "POST /api/game/start": {}, "DELETE /api/game/asked": {} } });
   await until(() => !host.$("gameStartForm").hidden && !host.$("gameForgetRow").hidden);
   assert.equal(host.$("gameForgetBtn").textContent, "Forget the 42 songs asked");
-  const boxes = [...host.document.querySelectorAll("#gameKinds input")];
-  assert.deepEqual(boxes.filter((b) => b.checked).map((b) => b.value), ["year"]);
-  boxes[0].checked = true;
-  boxes[0].dispatchEvent(new host.window.Event("change"));
-  boxes[2].checked = false;
-  boxes[2].dispatchEvent(new host.window.Event("change"));
-  boxes[0].checked = false;
-  boxes[0].dispatchEvent(new host.window.Event("change"));
-  assert.equal(boxes[0].checked, true, "the last question ticked stays");
+  const summary = host.document.querySelector("#gameKinds .codec-open");
+  assert.equal(summary.textContent, "1 of 5");
+  summary.click();
+  await until(() => !host.$("modalOverlay").hidden);
+  const box = (kind) => host.document.querySelector('#modalBody input[value="' + kind + '"]');
+  assert.deepEqual([...host.document.querySelectorAll("#modalBody input")].map((b) => b.value),
+                   ["song", "artist", "year", "genre", "album"]);
+  const tick = (kind, on) => {
+    box(kind).checked = on;
+    box(kind).dispatchEvent(new host.window.Event("change"));
+  };
+  tick("song", true);
+  tick("year", false);
+  assert.equal(box("song").disabled, true, "the last question ticked stays");
+  assert.equal(summary.textContent, "1 of 5");
+  assert.deepEqual(JSON.parse(host.window.localStorage.getItem("rukebox_game_options")).kinds, ["song"]);
   host.$("gameRemember").checked = true;
   host.$("gameRemember").dispatchEvent(new host.window.Event("change"));
   assert.deepEqual(JSON.parse(host.window.localStorage.getItem("rukebox_game_options")),

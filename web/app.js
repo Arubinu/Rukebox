@@ -2853,6 +2853,8 @@ const BT_CODEC_LABELS = {
 };
 
 // The guest commands that can be locked, named after their prices.
+// What a blind test round may ask, in the order the picker offers them.
+const GAME_KINDS = ["song", "artist", "year", "genre", "album"];
 const GUEST_LOCK_LABELS = {
   next: "quota.cost_next", previous: "quota.cost_previous", start: "quota.cost_start",
   pause: "quota.cost_pause", sound: "quota.cost_sound", announce: "quota.cost_announce",
@@ -2867,6 +2869,9 @@ const GUEST_PAGE_LABELS = {
 };
 
 function choiceLabels(el) {
+  if (el.dataset.choices === "game_kinds") {
+    return Object.fromEntries(GAME_KINDS.map((kind) => [kind, t("game.kind_" + kind)]));
+  }
   if (el.dataset.key === "GUEST_PAGES_OFF") {
     return Object.fromEntries(Object.entries(GUEST_PAGE_LABELS).map(([k, key]) => [k, t(key)]));
   }
@@ -2885,8 +2890,9 @@ function codecValues(el) {
 function codecSummary(el) {
   const chosen = codecValues(el);
   const labels = choiceLabels(el);
+  // How many, not which: the dialog lists them.
   return chosen.length
-    ? chosen.map((codec) => labels[codec] || codec).join(", ")
+    ? t("common.picked_of", { n: chosen.length, total: Object.keys(labels).length })
     : t(el.dataset.empty || "audioout.codecs_none");
 }
 
@@ -2919,6 +2925,7 @@ function codecList(el) {
       el.value = kept.join(",");
       paintCodecField(el);
       list.replaceWith(codecList(el));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
     });
     label.append(box, text);
     list.appendChild(label);
@@ -5560,10 +5567,9 @@ document.getElementById("gameMode").addEventListener("change", paintGameMode);
 
 /* The questions, the hint and the memory of a game, kept on this device from one game to the next. */
 const GAME_OPTIONS_KEY = "rukebox_game_options";
-const gameKindBoxes = () => [...document.querySelectorAll("#gameKinds input")];
 
 function gameKinds() {
-  return gameKindBoxes().filter((box) => box.checked).map((box) => box.value);
+  return codecValues(document.getElementById("gameKinds"));
 }
 
 function saveGameOptions() {
@@ -5576,20 +5582,18 @@ function saveGameOptions() {
 (function restoreGameOptions() {
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(GAME_OPTIONS_KEY) || "null"); } catch (e) { /* private window */ }
-  if (saved && Array.isArray(saved.kinds) && saved.kinds.length) {
-    gameKindBoxes().forEach((box) => { box.checked = saved.kinds.includes(box.value); });
-  }
+  const kinds = document.getElementById("gameKinds");
+  const known = (saved && Array.isArray(saved.kinds) ? saved.kinds : []).filter((kind) => GAME_KINDS.includes(kind));
+  kinds.value = (known.length ? GAME_KINDS.filter((kind) => known.includes(kind)) : ["song"]).join(",");
+  paintCodecField(kinds);
   if (saved) {
     document.getElementById("gameHint").checked = !!saved.hint;
     document.getElementById("gameRemember").checked = !!saved.remember;
   }
 })();
 
-gameKindBoxes().forEach((box) => box.addEventListener("change", () => {
-  // At least one question: the last one ticked stays.
-  if (!gameKinds().length) box.checked = true;
-  saveGameOptions();
-}));
+document.getElementById("gameKinds").addEventListener("change", saveGameOptions);
+window.LANG_CHANGE_LISTENERS.push(() => paintCodecField(document.getElementById("gameKinds")));
 ["gameHint", "gameRemember"].forEach((id) => document.getElementById(id).addEventListener("change", saveGameOptions));
 
 document.getElementById("gameForgetBtn").addEventListener("click", async () => {

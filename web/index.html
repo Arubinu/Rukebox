@@ -276,18 +276,12 @@
                 </div>
                 <div class="duration-field" id="gameNames"></div>
               </div>
-              <div class="field-row game-kinds-row">
+              <div class="field-row">
                 <div class="field-text">
-                  <span class="field-label" id="gameKindsLabel" data-i18n="game.kinds">Questions</span>
-                  <p class="field-desc" data-i18n="game.kinds_desc">Each round asks one of the ticked questions, among those the song's tags can answer.</p>
+                  <label data-i18n="game.kinds">Questions</label>
+                  <p class="field-desc" id="gameKindsDesc" data-i18n="game.kinds_desc">Each round asks one of the ticked questions, among those the song's tags can answer.</p>
                 </div>
-                <div class="day-chips" id="gameKinds" role="group" aria-labelledby="gameKindsLabel">
-                  <label class="day-chip"><input type="checkbox" value="song" checked><span data-i18n="game.kind_song">Song</span></label>
-                  <label class="day-chip"><input type="checkbox" value="artist"><span data-i18n="game.kind_artist">Artist</span></label>
-                  <label class="day-chip"><input type="checkbox" value="year"><span data-i18n="game.kind_year">Decade</span></label>
-                  <label class="day-chip"><input type="checkbox" value="genre"><span data-i18n="game.kind_genre">Genre</span></label>
-                  <label class="day-chip"><input type="checkbox" value="album"><span data-i18n="game.kind_album">Album</span></label>
-                </div>
+                <div class="codec-field" id="gameKinds" data-choices="game_kinds" aria-describedby="gameKindsDesc"></div>
               </div>
               <div class="field-row" id="gameHintRow">
                 <div class="field-text">
