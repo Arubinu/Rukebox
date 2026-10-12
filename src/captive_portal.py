@@ -225,8 +225,8 @@ def dnsmasq_config(address, hostname=None):
     device's own names - at this Pi."""
     lines = [
         "# Rukebox captive portal - generated, see src/captive_portal.py",
-        "# Only these probe hostnames are redirected, so devices on the",
-        "# hotspot keep normal internet access when the Pi has some.",
+        "# Only these probe hostnames and this device's names are answered",
+        "# here; the access point routes nowhere else.",
     ]
     lines += ["address=/%s/%s" % (domain, address) for domain in PROBE_DOMAINS]
     if hostname and _HOSTNAME_RE.match(hostname):

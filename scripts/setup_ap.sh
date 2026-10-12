@@ -49,6 +49,10 @@ if systemctl is-active --quiet NetworkManager; then
         python3 "$PROJECT_SRC/captive_portal.py" dnsmasq "$AP_IP" > "$PORTAL_CONF"
         echo "Captive portal DNS entries written to $PORTAL_CONF (pointing at $AP_IP)."
     fi
+    ISOLATE_HOOK=/etc/NetworkManager/dispatcher.d/90-rukebox-ap-isolate
+    install -D -m 755 -o root -g root "$(dirname "${BASH_SOURCE[0]}")/ap_isolate.sh" "$ISOLATE_HOOK"
+    "$ISOLATE_HOOK" uap0 up
+    echo "The access point reaches this device only: nothing is routed to the internet."
     echo ""
     echo "Access point '$SSID' active on uap0."
     echo "Pi's IP address on this network: usually 10.42.0.1 (check with: nmcli device show uap0 | grep IP4.ADDRESS)"

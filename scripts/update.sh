@@ -504,6 +504,11 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
         systemctl enable rukebox-act-led.service 2>/dev/null || true
         systemctl enable --now rukebox-bt-radio.service 2>/dev/null || true
+        if [ -d /etc/NetworkManager/dispatcher.d ] && [ -f "$SOURCE_DIR/scripts/ap_isolate.sh" ]; then
+            install -m 755 -o root -g root "$SOURCE_DIR/scripts/ap_isolate.sh" \
+                /etc/NetworkManager/dispatcher.d/90-rukebox-ap-isolate 2>/dev/null || true
+            /etc/NetworkManager/dispatcher.d/90-rukebox-ap-isolate uap0 up 2>/dev/null || true
+        fi
     else
         # The container's own sound server, for an installation made before it
         # existed: the null sink, where its sockets live, and the three units.

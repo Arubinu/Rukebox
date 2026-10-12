@@ -1792,6 +1792,10 @@ def _unknown_path(_error):
     if captive_portal.is_probe_path(request.path):
         # The portal probe is the only sign of life from a device that never opens a page.
         _seen_on_the_network(_suggestion_box(), suggestions.mac_for_ip(_client_ip()), _client_ip())
+        # The access point leads nowhere: an "online" answer leaves Android half-validated, and
+        # its browser then sends the page over mobile data.
+        if not _portal_on() and captive_portal.is_ap_client(_client_ip(), cfg().get("AP_INTERFACE", "uap0")):
+            return Response("", status=503, headers={"Cache-Control": "no-store"})
     if captive_portal.is_probe_path(request.path) and _portal_is_released(_client_ip()):
         status, content_type, body = captive_portal.probe_response(request.path)
         return Response(body, status=status, mimetype=content_type,
