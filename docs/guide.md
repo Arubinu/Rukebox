@@ -739,6 +739,17 @@ network"** to remove it instead. Changing either briefly disconnects
 anyone currently connected, the same as changing the Wi-Fi password on
 an ordinary router.
 
+**Internet through the radio** (`AP_GATEWAY_ENABLED`, same card, off by
+default): the access point reaches the radio only, a NetworkManager hook
+(`scripts/ap_isolate.sh`) dropping every forwarded packet. The catch: a
+phone keeps a Wi-Fi as its default network only once it has checked that
+it reaches the internet. With mobile data on, it sends its browser over
+mobile data instead, and the radio's address leads nowhere. Turned on,
+the radio shares its own connection (personal Wi-Fi or USB cable), the
+phone keeps the Wi-Fi, and the connectivity checks get the "online"
+answer while the radio has a way out. Off, with the portal off too, they
+are told "no internet", so the phone offers to stay connected anyway.
+
 Equivalent from the command line, if you'd rather not use the web
 interface (same script `install.sh` already calls):
 

@@ -2504,17 +2504,21 @@ class PortalModeTest(unittest.TestCase):
             self.assertFalse(ws._portal_on())
 
     def test_off_tells_a_hotspot_device_there_is_no_internet(self):
-        def probe(mode, on_ap=True):
-            values = dict(ws.cfg(), CAPTIVE_PORTAL_MODE=mode, CAPTIVE_PORTAL_ENABLED=True)
+        def probe(mode, on_ap=True, gateway=False, uplink=False):
+            values = dict(ws.cfg(), CAPTIVE_PORTAL_MODE=mode, CAPTIVE_PORTAL_ENABLED=True,
+                          AP_GATEWAY_ENABLED=gateway)
             box = unittest.mock.Mock(portal_for_mac=lambda mac: None, portal_released_at=lambda mac: None)
             with unittest.mock.patch.object(ws, "cfg", return_value=values), \
                     unittest.mock.patch.object(ws.captive_portal, "is_ap_client", return_value=on_ap), \
                     unittest.mock.patch.object(ws.suggestions, "mac_for_ip", return_value="aa:bb"), \
                     unittest.mock.patch.object(ws, "_suggestion_box", return_value=box), \
                     unittest.mock.patch.object(ws, "_seen_on_the_network"), \
+                    unittest.mock.patch.object(ws.captive_portal, "has_uplink", return_value=uplink), \
                     unittest.mock.patch.object(ws, "_portal_tap_remembered", return_value=False):
                 return ws.app.test_client().get("/generate_204", headers={"Host": "connectivitycheck.gstatic.com"})
         self.assertEqual(probe("off").status_code, 503)
+        self.assertEqual(probe("off", gateway=True).status_code, 503, "a gateway with no way out")
+        self.assertEqual(probe("off", gateway=True, uplink=True).status_code, 204)
         self.assertEqual(probe("hold").status_code, 302, "the portal itself still opens the page")
         self.assertEqual(probe("off", on_ap=False).status_code, 204)
 

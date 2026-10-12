@@ -1030,9 +1030,20 @@ SETTINGS = [
         "\"connect to the Wi-Fi and the page appears\" is the difference\n"
         "between usable and not. It works by answering the handful of \"am I\n"
         "behind a portal?\" URLs every OS checks (see src/captive_portal.py)\n"
-        "- only those hostnames, so devices keep normal internet access.\n"
+        "- only those hostnames (internet itself: see ap_gateway).\n"
         "Needs the dnsmasq drop-in that scripts/setup_ap.sh installs.",
         "Captive portal",
+    ),
+    Setting(
+        "AP_GATEWAY_ENABLED", "network", "ap_gateway", "bool", "false",
+        "Lets the devices on the admin access point reach the internet through\n"
+        "the radio's own connection (the personal Wi-Fi or the USB cable). Off\n"
+        "(default): the access point reaches the radio only. A phone then sees\n"
+        "a Wi-Fi without internet and, with mobile data on, sends its browser\n"
+        "over mobile data, where the radio's address leads nowhere. On: the\n"
+        "phone sees a working Wi-Fi and keeps it, as long as the radio itself\n"
+        "has internet. Applied by scripts/ap_isolate.sh.",
+        "Internet through the access point",
     ),
     Setting(
         "AP_INTERFACE", "network", "ap_interface", "str", "uap0",

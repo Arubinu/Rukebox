@@ -2519,6 +2519,19 @@
               <button type="submit" class="btn btn-primary" id="apSaveBtn" data-icon="check" data-i18n="common.save">Save</button>
             </div>
           </form>
+          <form id="apGatewayForm" class="settings-form">
+            <div class="field-row">
+              <div class="field-text">
+                <label for="apGatewayToggle" data-i18n="ap.gateway">Internet through the radio</label>
+                <p class="field-desc" id="apGatewayDesc" data-i18n="ap.gateway_desc">Devices on this Wi-Fi reach the internet through the radio's own connection.</p>
+              </div>
+              <input type="checkbox" id="apGatewayToggle" data-key="AP_GATEWAY_ENABLED" class="switch-input" role="switch" aria-describedby="apGatewayDesc">
+            </div>
+            <p class="hint help-text" data-i18n="ap.gateway_help" hidden>Why: a phone keeps a Wi-Fi only if it has internet. Without it, with mobile data on, the phone sends its browser over mobile data and the radio's address no longer opens. On: the radio passes on its own connection (personal Wi-Fi or USB cable), the phone keeps the Wi-Fi and the page opens. This only helps while the radio itself has internet, and every device on this Wi-Fi can then browse through it. Off: the Wi-Fi leads to the radio only; turn mobile data off, or answer "Stay connected" when the phone says the Wi-Fi has no internet.</p>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
         </section>
 
         <section class="card" id="shareCard" data-page="share" data-tab="network" data-needs="access_point"

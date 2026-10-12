@@ -52,6 +52,7 @@ pi ALL=(ALL) NOPASSWD: /usr/sbin/iw dev uap0 station dump
 pi ALL=(ALL) NOPASSWD: /sbin/iw dev uap0 station dump
 pi ALL=(ALL) NOPASSWD: /usr/sbin/iw dev uap0 station del *
 pi ALL=(ALL) NOPASSWD: /sbin/iw dev uap0 station del *
+pi ALL=(ALL) NOPASSWD: /etc/NetworkManager/dispatcher.d/90-rukebox-ap-isolate uap0 up
 
 pi ALL=(ALL) NOPASSWD: /usr/local/sbin/rukebox-update --from-git
 pi ALL=(ALL) NOPASSWD: /usr/local/sbin/rukebox-update --from-git --quiet

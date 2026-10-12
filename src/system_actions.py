@@ -86,6 +86,17 @@ def _run(command, timeout=15, sudo=False):
         return None
 
 
+AP_GATEWAY_HOOK = "/etc/NetworkManager/dispatcher.d/90-rukebox-ap-isolate"
+
+
+def apply_ap_gateway(interface="uap0"):
+    """Opens or closes the access point's route to the internet, as AP_GATEWAY_ENABLED now says."""
+    if not os.path.exists(AP_GATEWAY_HOOK):
+        return False
+    result = _run([AP_GATEWAY_HOOK, interface, "up"], timeout=15, sudo=True)
+    return bool(result is not None and result.returncode == 0)
+
+
 def service_action(action, unit, sudo=True, timeout=20):
     """`start`, `stop`, `restart`, `enable`, `disable` on one unit."""
     suffix = unit if unit.endswith((".service", ".target")) else unit + ".service"

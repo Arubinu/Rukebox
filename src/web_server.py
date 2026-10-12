@@ -1793,9 +1793,10 @@ def _unknown_path(_error):
     if captive_portal.is_probe_path(request.path):
         # The portal probe is the only sign of life from a device that never opens a page.
         _seen_on_the_network(_suggestion_box(), suggestions.mac_for_ip(_client_ip()), _client_ip())
-        # The access point leads nowhere: an "online" answer leaves Android half-validated, and
-        # its browser then sends the page over mobile data.
-        if not _portal_on() and captive_portal.is_ap_client(_client_ip(), cfg().get("AP_INTERFACE", "uap0")):
+        # Without a way out, an "online" answer leaves Android half-validated, and its browser
+        # then sends the page over mobile data.
+        if (not _portal_on() and captive_portal.is_ap_client(_client_ip(), cfg().get("AP_INTERFACE", "uap0"))
+                and not (cfg().get("AP_GATEWAY_ENABLED") and captive_portal.has_uplink())):
             return Response("", status=503, headers={"Cache-Control": "no-store"})
     if captive_portal.is_probe_path(request.path) and _portal_is_released(_client_ip()):
         status, content_type, body = captive_portal.probe_response(request.path)
@@ -4289,6 +4290,8 @@ def api_set_settings():
             log.exception("Could not apply the Bluetooth codec list")
         if not audio_reloaded:
             log.warning("The new codecs apply at the next start of WirePlumber")
+    if "AP_GATEWAY_ENABLED" in body and not system_actions.apply_ap_gateway(cfg().get("AP_INTERFACE", "uap0")):
+        log.warning("Could not apply the access point gateway setting")
     reboot_needed = False
     if "USB_PORT_MODE" in body:
         if not system_actions.service_action("restart", "rukebox-usb-gadget", timeout=30):

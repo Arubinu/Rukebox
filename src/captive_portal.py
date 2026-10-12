@@ -65,6 +65,24 @@ def redirect_url_for(remote_ip, ap_interface="uap0", web_port=80):
     return None
 
 
+_uplink_cache = {"at": float("-inf"), "value": False}
+
+
+def has_uplink(cache_seconds=30):
+    """Whether this machine has a default route, the way out a gateway would hand on."""
+    now = time.monotonic()
+    if now - _uplink_cache["at"] < cache_seconds:
+        return _uplink_cache["value"]
+    try:
+        result = subprocess.run(["ip", "-4", "route", "show", "default"],
+                                capture_output=True, text=True, timeout=5)
+        value = bool(result.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        value = False
+    _uplink_cache.update(at=now, value=value)
+    return value
+
+
 def _local_networks(cache_seconds=30):
     """[(address, ip_network)] for every IPv4 address on this machine."""
     now = time.monotonic()

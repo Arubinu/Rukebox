@@ -861,9 +861,18 @@ network:
   # "connect to the Wi-Fi and the page appears" is the difference
   # between usable and not. It works by answering the handful of "am I
   # behind a portal?" URLs every OS checks (see src/captive_portal.py)
-  # - only those hostnames, so devices keep normal internet access.
+  # - only those hostnames (internet itself: see ap_gateway).
   # Needs the dnsmasq drop-in that scripts/setup_ap.sh installs.
   captive_portal: true
+
+  # Lets the devices on the admin access point reach the internet through
+  # the radio's own connection (the personal Wi-Fi or the USB cable). Off
+  # (default): the access point reaches the radio only. A phone then sees
+  # a Wi-Fi without internet and, with mobile data on, sends its browser
+  # over mobile data, where the radio's address leads nowhere. On: the
+  # phone sees a working Wi-Fi and keeps it, as long as the radio itself
+  # has internet. Applied by scripts/ap_isolate.sh.
+  ap_gateway: false
 
   # Admin access point interface, created by scripts/create_uap0.sh.
   # NOTE: if you change this, update the matching 'iw' entry in
