@@ -3237,7 +3237,7 @@ async function restartDaemon() {
   if (result.ok) showToast(t("alert.service_restarted")); else showError(result.error);
 }
 
-const SETTINGS_FORMS = ["gameVoiceForm", "apGatewayForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "mqttForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
+const SETTINGS_FORMS = ["gameVoiceForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "mqttForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
   .map((id) => document.getElementById(id))
   .filter(Boolean);
 
@@ -9541,6 +9541,9 @@ function updateApPasswordRowVisibility() {
 
 document.getElementById("apOpen").addEventListener("change", updateApPasswordRowVisibility);
 
+// What the access point holds now: a save that leaves it as it is must not restart it.
+let apShown = null;
+
 async function refreshApCard() {
   const result = await apiGet("/api/wifi/ap");
   const statusBox = document.getElementById("apStatus");
@@ -9548,6 +9551,7 @@ async function refreshApCard() {
     statusBox.textContent = t("ap.status_none");
     return;
   }
+  apShown = { ssid: result.data.ssid, open: !result.data.password_set };
   const ssidField = document.getElementById("apSsid");
 
   if (document.activeElement !== ssidField) {
@@ -9576,8 +9580,27 @@ document.getElementById("apForm").addEventListener("submit", async (e) => {
   const btn = document.getElementById("apSaveBtn");
 
   if (btn.disabled) return;
+  const updates = collectChangedSettings(e.target);
+  const apChanged = !apShown || ssid !== apShown.ssid || open !== apShown.open || password !== "";
+  if (!apChanged && Object.keys(updates).length === 0) {
+    showToast(t("alert.no_changes"));
+    return;
+  }
   btn.disabled = true;
   try {
+    // The settings first: saving the access point may cut this very connection.
+    if (Object.keys(updates).length) {
+      const saved = await apiPost("/api/settings", updates);
+      if (!saved.ok) {
+        showError(saved.error);
+        return;
+      }
+      Object.assign(settingsBaseline, updates);
+      if (!apChanged) {
+        showToast(t("alert.settings_applied"));
+        return;
+      }
+    }
     const result = await apiPost("/api/wifi/ap", { ssid, open, password });
     if (!result.ok) {
       const messages = {
