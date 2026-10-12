@@ -30,6 +30,7 @@ from flask import Flask, Response, g, jsonify, redirect, request, send_file, sen
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import announce_level  # noqa: E402
 import announcements  # noqa: E402
 import audio_diag  # noqa: E402
 import net_diag  # noqa: E402
@@ -1961,6 +1962,23 @@ def _library_roots():
     return planned, (current if current and current != planned else None)
 
 
+def _announce_folders(c):
+    """The folders whose files are announcements, brought to the music's loudness by the radio."""
+    folders = [c.get("CUTOFF_ANNOUNCE_DIR"), c.get("MEME_DIR")]
+    folders += [item.get("folder") for item in announcements.read_items(c["ANNOUNCEMENTS_FILE"]) or []]
+    return [f for f in folders if f]
+
+
+_levels = None
+
+
+def _announce_levels():
+    global _levels
+    if _levels is None:
+        _levels = announce_level.Levels(os.path.join(cfg()["STATE_DIR"], "announce_levels.json"))
+    return _levels
+
+
 def _library_loop():
     time.sleep(20)
     while True:
@@ -1990,6 +2008,7 @@ def _library_loop():
                     break
                 for path, duration in batch:
                     _library.store_tail(path, library.read_tail(path, duration))
+            _announce_levels().warm(_announce_folders(c), same)
             # After the tags, which the page needs first: one ffmpeg pass per file, once.
             while same():
                 batch = _library.unmeasured(5)

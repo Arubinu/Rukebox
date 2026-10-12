@@ -19,6 +19,9 @@ from state import RadioState
 
 
 class FakeMpv:
+    def set_volume_gain(self, db):
+        self.volume_gain = db
+
     scale = 1.0
 
     def __init__(self):

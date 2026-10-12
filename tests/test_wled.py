@@ -179,6 +179,9 @@ class BeatTest(unittest.TestCase):
 
 
 class FakeMpv:
+    def set_volume_gain(self, db):
+        self.volume_gain = db
+
     def __getattr__(self, name):
         return lambda *args, **kwargs: None
 

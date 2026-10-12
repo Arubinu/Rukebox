@@ -22,6 +22,9 @@ import track_media
 
 class FakeMpv:
     """Records what the daemon asked mpv to do."""
+    def set_volume_gain(self, db):
+        self.volume_gain = db
+
 
     def __init__(self):
         self.files = []

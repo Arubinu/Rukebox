@@ -20,6 +20,9 @@ OTHER = dict(KEY, device="/dev/sdb1", label="AUTRE", uuid="9Z8Y-7X6W")
 
 
 class FakeMpv:
+    def set_volume_gain(self, db):
+        self.volume_gain = db
+
     def __init__(self):
         self.files = []
 

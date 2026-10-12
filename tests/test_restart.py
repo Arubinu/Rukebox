@@ -13,6 +13,9 @@ import rukebox_daemon
 
 
 class FakeMpv:
+    def set_volume_gain(self, db):
+        self.volume_gain = db
+
     def set_volume(self, volume):
         pass
 

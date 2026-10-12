@@ -13,6 +13,9 @@ from mpv_controller import MPVController, compression_filter
 
 class FakeMpv:
     """Answers on the other end of a socket pair, the way mpv does."""
+    def set_volume_gain(self, db):
+        self.volume_gain = db
+
 
     def __init__(self, errors=("success",), silent=False):
         self.controller_end, self.mpv_end = socket.socketpair()

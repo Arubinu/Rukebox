@@ -1290,6 +1290,17 @@ above.
   already present in your files (`REPLAYGAIN_MODE=track`), no
   re-encoding — light on the Pi Zero. If you ever need to re-tag,
   `scripts/tag_replaygain.sh` targets -14 LUFS with `rsgain`.
+- **Announcement loudness**: each announcement file (custom types, cutoff,
+  memes) is measured once by the library pass, after the songs' endings and
+  before their loudness (`ffmpeg ebur128`, kept in
+  `STATE_DIR/announce_levels.json` until the file changes; a file the pass
+  has not reached yet is measured by the radio itself) and played with
+  the gain that brings it to `REPLAYGAIN_TARGET_LUFS`: at most +12 dB, and
+  never past -1 dBFS at its peak. Spoken texts are left as they are.
+- **Fades around an announcement**: the music fades out before a paused
+  announcement and fades back in after it (the interactive fade). Kept under
+  the announcement, it goes down while the announcement's player starts, and
+  back up once it ends; the announcement itself is never faded.
 - **Morning announcement**: a custom announcement like any other (see
   "Adding your own announcement types"), created for a new radio at 05:58
   with the folder `/home/pi/audio/morning_announcements`. At its time:

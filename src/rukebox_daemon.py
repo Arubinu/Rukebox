@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import announce_level  # noqa: E402
 import announcements  # noqa: E402
 import audio_diag  # noqa: E402
 import audio_output  # noqa: E402
@@ -323,6 +324,7 @@ class RadioDaemon:
         self._custom_announcements = announcements.load(cfg["ANNOUNCEMENTS_FILE"])
         self._announce_volumes = announcements.volumes(cfg["ANNOUNCEMENTS_FILE"])
         self._announcements_stamp = None
+        self._announce_levels = announce_level.Levels(os.path.join(cfg["STATE_DIR"], "announce_levels.json"))
         self._sound_volume = None
         self._music_lists = music_lists.load(cfg["MUSIC_LISTS_FILE"])
         self._lists_stamp = None
@@ -883,6 +885,25 @@ class RadioDaemon:
                 self._announce_volumes = announcements.volumes(path)
             self._announcements_stamp = stamp
         return self._custom_announcements
+
+    def _leveled(self, kind, path):
+        """Whether a file is an announcement, brought to the music's loudness (a spoken text is not)."""
+        return (kind not in ("music", "speech", "restart_cue", "game")
+                and os.path.dirname(path) != self._speech_dir())
+
+    def _announce_gain(self, path, wait=False):
+        """The dB an announcement file is played with to sound as loud as the music."""
+        try:
+            target = float(self.cfg.get("REPLAYGAIN_TARGET_LUFS") or -14)
+        except (TypeError, ValueError):
+            target = -14.0
+        if wait:
+            level = self._announce_levels.measure(path)
+        else:
+            level = self._announce_levels.known(path)
+            if level is None:
+                self._announce_levels.measure_later(path)
+        return announce_level.gain_for(level, target)
 
     def _reload_announcements(self):
         """Re-reads them whatever the file's date says."""
@@ -1822,6 +1843,7 @@ class RadioDaemon:
             self._last_sound = {"path": path, "kind": kind, "at": time.monotonic()}
         self._play_kind = kind
         self._play_path = path
+        self.mpv.set_volume_gain(self._announce_gain(path) if self._leveled(kind, path) else 0.0)
         self.mpv.loadfile(path)
         # A sound with a volume of its own: the music keeps its fade-in volume.
         if self._sound_volume is not None and kind != "music":
@@ -2423,9 +2445,10 @@ class RadioDaemon:
         if self._resume_mode == "stopped":
             self._enter_stopped_mode()
         elif resume and resume[0] and os.path.exists(resume[0]):
-            self._play_track(resume[0], start=resume[1])
+            self._faded_in(lambda: self._play_track(resume[0], start=resume[1]),
+                           self._interactive_fade(), music_only=True)
         else:
-            self._play_next_track()
+            self._faded_in(self._play_next_track, self._interactive_fade(), music_only=True)
 
     def _after_announce_finished(self, mode_name):
         if mode_name == "cutoff_announce":
@@ -3127,7 +3150,7 @@ class RadioDaemon:
         """Brings the music's level to `factor` of itself, in small steps."""
         linked = self._speaker_volume_linked()
         start = self._duck_factor
-        steps = 8
+        steps = max(8, int(seconds * 20))
         for i in range(1, steps + 1):
             self._duck_factor = start + (factor - start) * i / steps
             base = self._music_gain() if linked else (self._current_volume or self._target_volume())
@@ -3146,16 +3169,20 @@ class RadioDaemon:
         self._duck_proc = "starting"
         self._stop_tail()
 
+        fade = max(0.8, self._interactive_fade())
+
         def run():
             try:
-                self._set_duck(level / 100.0)
-                for path in files:
+                for index, path in enumerate(files):
                     if self._duck_proc is None:
                         break
+                    gain = self._announce_gain(path, wait=True) if self._leveled(kind, path) else 0.0
                     self._last_sound = {"path": path, "kind": kind, "at": time.monotonic()}
                     self._bump_state()
                     started = time.monotonic()
-                    self._play_cue_blocking(path, volume)
+                    # The music goes down while mpv starts (a second or more on a Pi Zero), not before.
+                    self._play_cue_blocking(path, volume, gain,
+                                            on_start=(lambda: self._set_duck(level / 100.0, fade)) if index == 0 else None)
                     if os.path.dirname(path) != self._speech_dir():
                         seconds = time.monotonic() - started
                         name = os.path.basename(path)
@@ -3166,7 +3193,7 @@ class RadioDaemon:
                             daily={"seconds_announce": seconds}, item=(kind, name), seconds=seconds)
             finally:
                 self._duck_proc = None
-                self._set_duck(1.0)
+                self._set_duck(1.0, fade)
             if after and after != "none":
                 with self._command_lock:
                     log.info("After the announcement: %s", after)
@@ -3176,11 +3203,13 @@ class RadioDaemon:
         threading.Thread(target=run, daemon=True).start()
         return True
 
-    def _play_cue_blocking(self, path, volume=None):
+    def _play_cue_blocking(self, path, volume=None, gain=0.0, on_start=None):
         volume = self._capped(volume)
         command = ["mpv", "--no-terminal", "--really-quiet", "--audio-device=" + (self._audio_device or "auto")] + MPV_LEAN
         if volume is not None:
             command.append("--volume=%.1f" % volume)
+        if gain:
+            command.append("--volume-gain=%.1f" % gain)
         command.append(path)
         try:
             proc = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -3189,6 +3218,8 @@ class RadioDaemon:
             log.exception("Could not launch mpv for a sound over the music")
             return
         self._duck_proc = proc
+        if on_start:
+            on_start()
         try:
             proc.wait(timeout=600)
         except subprocess.TimeoutExpired:

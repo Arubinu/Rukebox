@@ -20,6 +20,9 @@ MAC = "7C:E9:13:69:66:55"
 
 class FakeMpv:
     """Records what the daemon asked mpv to do."""
+    def set_volume_gain(self, db):
+        self.volume_gain = db
+
 
     scale = 1.0
 

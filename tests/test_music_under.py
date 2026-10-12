@@ -15,8 +15,14 @@ class MusicUnderTest(DaemonCase):
         self.daemon.mode = "music"
         self.played = []
         self.factors = []
-        self.daemon._play_cue_blocking = lambda path, volume=None: self.played.append((path, volume))
+        self.daemon._play_cue_blocking = self.cue
         self.daemon._set_duck = lambda factor, seconds=0.8: self.factors.append(factor)
+
+    def cue(self, path, volume=None, gain=0.0, on_start=None):
+        self.played.append((path, volume))
+        self.factors.append("voice")
+        if on_start:
+            on_start()
 
     def wait(self):
         deadline = time.monotonic() + 3
@@ -28,7 +34,7 @@ class MusicUnderTest(DaemonCase):
         self.assertTrue(self.daemon._play_ducked("custom:morning", ["/a/jingle.mp3"]))
         self.wait()
         self.assertEqual(self.played, [("/a/jingle.mp3", None)])
-        self.assertEqual(self.factors, [0.2, 1.0], "down to 20 %, then back")
+        self.assertEqual(self.factors, ["voice", 0.2, 1.0], "the voice starting, the music down to 20 %, then back")
         self.assertEqual(self.daemon.mode, "music")
         self.assertNotEqual(self.daemon.mpv.paused, True, "the music never paused")
 

@@ -209,6 +209,10 @@ class MPVController:
         self._asked_volume = max(0, min(100, volume))
         self._send(["set_property", "volume", round(self._asked_volume * self.scale, 1)])
 
+    def set_volume_gain(self, db: float):
+        """A gain in dB for the files loaded from now on (announcements brought to the music's loudness)."""
+        self._send(["set_property", "volume-gain", round(float(db), 1)])
+
     def set_scale(self, scale: float):
         """A new cap: the level last asked is played at it at once."""
         scale = max(0.0, min(1.0, float(scale)))
