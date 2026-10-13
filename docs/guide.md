@@ -2674,16 +2674,22 @@ after a test.
 
 One button, one confirmation, and three things go back:
 
-- **the rotation** — the songs the radio played by itself are forgotten, and
-  the pass starts over from the whole library, so they come back soon instead
-  of waiting for the next pass;
+- **the rotation** — the pass goes back to what it was when the run started, so
+  the songs it played by itself are the next ones again, and the run before
+  keeps the progress it had made. The song the run found cut short is taken up
+  where it had stopped;
 - **the day** — the announcements and the sounds already played today can play
-  again, and the song that was going to be resumed is forgotten;
+  again, and the day's marks are those of the moment the run started;
 - **the journal** — the entries of that run go, and every total they had moved
   (listening time, counts, most played songs, the recap) goes back to what it
   was before the first of them. This is the one place where the totals *are*
   rewritten, unlike deleting a single row; the blind test's hall of fame of
   that run goes back with them.
+
+To be able to put that back, every start keeps what the run begins with — the
+pass, the day's marks, the song left off — in `run_memory.json` in the state
+folder; the run before keeps its own there too, which is how a run that ended
+before a restart is still offered.
 
 What you decided stays: likes, the lists, the cards, the excluded tracks, the
 suggestions, the settings, the schedules, the guest credits. So does the run
@@ -2694,7 +2700,9 @@ shutdown again, nor drop one already waiting for the end of a track.
 A run is what the radio did between two starts of the daemon, so the button is
 still there the next morning: a fresh boot holds nothing yet, and it then
 offers the run before, dated and in figures ("Last run: 42 songs and 3 h 12 of
-music, since ..."). Nothing is offered when nothing has played.
+music, since ..."). Nothing is offered when nothing has played, and the pass is
+drawn again from the whole library only when no memory was kept for the run
+being erased — erasing a journal written before this feature, for instance.
 
 ### Exporting and resetting
 
@@ -2739,6 +2747,11 @@ last run be erased exactly (see "Erasing the last run" above). It is written
 with the event itself, in the same row and the same transaction, so the number
 of writes and checkpoints is unchanged; the note is a little over a hundred
 bytes, and the two guards below cap what the journal can hold.
+
+One more small file is written at each start, `run_memory.json` in the state
+folder: the memory a run begins with (the pass, the day's marks, the song left
+off). It is never touched while the music plays, and it is what lets the last
+run be put back.
 
 Set `enabled: false` under `statistics:` in `/etc/rukebox/rukebox.yaml` to turn the whole
 thing off; the radio behaves exactly as before.

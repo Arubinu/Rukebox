@@ -62,6 +62,67 @@ class StateTest(unittest.TestCase):
         self.assertEqual(self.s.reminders(), [{"id": "1"}],
                          "a reminder is a person's, not the radio's doing")
 
+    def test_the_memory_of_a_run_goes_back_exactly_as_it_was(self):
+        from datetime import date
+
+        today = date.today().isoformat()
+        self.s.data.update({
+            "play_queue": ["a", "b", "c"], "last_track": "a", "requests": ["b"],
+            "request_by": {"b": "Al"}, "recent": [{"path": "a", "at": 1}],
+            "click_bags": {"x": ["s1"]},
+            "chance_bags": {"auto:x": {"ratio": "1/2", "draws": [True]}},
+            "resume_point": {"path": "a", "seconds": 12},
+            "last_music_start": today, "last_cutoff_trigger": today,
+        })
+        memory = self.s.run_memory()
+
+        # What a run does by itself: it plays, it draws, it says, it is cut short.
+        self.s.pop_next_track_or_none()
+        self.s.add_recent("/music/z.mp3", 5)
+        self.s.chance_allows("auto:x", "1/2")
+        self.s.next_click_sound("x", lambda: ["s2"])
+        self.s.mark_triggered_today("custom_new")
+        self.s.set_resume_point("/music/z.mp3", 30)
+        self.assertEqual(self.s.data["play_queue"], ["b", "c"])
+
+        self.assertTrue(self.s.restore_run(memory))
+
+        self.assertEqual(self.s.data["play_queue"], ["a", "b", "c"],
+                         "the pass starts again with the songs the run played")
+        self.assertEqual(self.s.recent_paths(), ["a"])
+        self.assertEqual(self.s.data["request_by"], {"b": "Al"})
+        self.assertEqual(self.s.resume_point(), ("a", 12.0),
+                         "and the song it found cut short is taken up again")
+        self.assertEqual(self.s.data["click_bags"], {"x": ["s1"]})
+        self.assertEqual(self.s.data["chance_bags"],
+                         {"auto:x": {"ratio": "1/2", "draws": [True]}},
+                         "the draw of the run is not the one kept")
+        self.assertTrue(self.s.already_triggered_today("last_music_start"))
+        self.assertFalse(self.s.already_triggered_today("custom_new"),
+                         "an announcement the run said can be said again")
+
+    def test_restoring_leaves_the_days_cutoff_where_it_is(self):
+        from datetime import date
+
+        today = date.today().isoformat()
+        self.s.data["last_cutoff_trigger"] = today
+        self.s.data["last_music_start"] = today
+        memory = self.s.run_memory()
+        self.s.data.pop("last_music_start", None)
+        self.s.data["pending_cutoff"] = True
+
+        self.assertTrue(self.s.restore_run(memory))
+
+        self.assertTrue(self.s.already_triggered_today("last_music_start"),
+                        "the day's marker comes back")
+        self.assertTrue(self.s.already_triggered_today("last_cutoff_trigger"))
+        self.assertTrue(self.s.is_pending_cutoff(),
+                      "and a shutdown already waiting for the end of a track stays")
+
+    def test_a_memory_that_was_never_kept_is_refused(self):
+        self.assertFalse(self.s.restore_run(None))
+        self.assertFalse(self.s.restore_run({}))
+
     def test_take_from_queue(self):
         self.s.data["play_queue"] = ["a", "b"]
         self.s.enqueue_request("b")

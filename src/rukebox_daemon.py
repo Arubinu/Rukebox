@@ -26,6 +26,7 @@ import dj_intro  # noqa: E402
 from config_and_scan import AUDIO_EXTENSIONS, DEFAULTS, get_music_list, load_config  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import hidden_tracks  # noqa: E402
+import json_file  # noqa: E402
 import library  # noqa: E402
 from mpv_controller import LEAN as MPV_LEAN, MPVController, audio_chain, audio_env, compression_filter  # noqa: E402
 import music_lists  # noqa: E402
@@ -222,6 +223,11 @@ class RadioDaemon:
         self._waiting_for_tracks = False
         self.cfg = cfg
         self.state = RadioState(os.path.join(cfg["STATE_DIR"], "state.json"))
+        # What this run started with, and what the run before it started with:
+        # erasing either of the two puts its memory back (see _erase_run).
+        self._run_memory = None
+        self._run_memory_before = None
+        self._run_memory_file = os.path.join(cfg["STATE_DIR"], "run_memory.json")
         self.mpv = MPVController(cfg["MPV_SOCKET"])
         self.mode = "music"
         self._announce_queue = []
@@ -780,6 +786,11 @@ class RadioDaemon:
             custom_order=music_lists.custom_order(self._active_list_entry()),
         )
         self._resume_armed = bool(self.cfg["MUSIC_KEEP_PROGRESS"])
+        # Taken once the pass is the one this run will play, and before its first
+        # song is taken: it is what erasing this run puts back.
+        self._run_memory = self.state.run_memory()
+        self._run_memory_before = self._read_run_memory()
+        self._keep_run_memory()
 
         if self._start_mode() == "boot":
             self._music_started_mono = time.monotonic()
@@ -1269,20 +1280,50 @@ class RadioDaemon:
         run = self.stats.run_to_erase(wanted)
         if not run:
             return {"ok": False, "error": "nothing_to_erase"}
+        memory = self._memory_of_run(run["session"])
         erased = self.stats.erase_run(run)
         if erased is None:
             return {"ok": False, "error": "erase_failed"}
-        self.state.forget_run()
-        self.state.rebuild_queue(
-            self._playable_tracks(), self.cfg["MUSIC_ORDER_MODE"], self._music_dir(),
-            custom_order=music_lists.custom_order(self._active_list_entry()),
-        )
+        if memory and self.state.restore_run(memory):
+            # The song this run found cut short is taken up again, as after a start.
+            self._resume_armed = bool(self.cfg["MUSIC_KEEP_PROGRESS"])
+        else:
+            # No memory was kept for that run: the pass is drawn again, rather
+            # than left holding what the run played.
+            self.state.forget_run()
+            self.state.rebuild_queue(
+                self._playable_tracks(), self.cfg["MUSIC_ORDER_MODE"], self._music_dir(),
+                custom_order=music_lists.custom_order(self._active_list_entry()),
+            )
         if self._play_kind:
             # What plays now was not part of what was erased.
             self._play_since = time.monotonic()
         log.info("Erased the run of session %s: %s entries, %s songs",
                  run["session"], erased.get("events"), erased.get("tracks"))
         return {"ok": True, "data": erased}
+
+    def _memory_of_run(self, session):
+        """What that run started with, or None when it was not kept."""
+        try:
+            wanted = int(session)
+        except (TypeError, ValueError):
+            return None
+        if self.stats.session_id is not None and wanted == int(self.stats.session_id):
+            return self._run_memory
+        return self._run_memory_before
+
+    def _read_run_memory(self):
+        """What the run before this one started with, kept on the card: a run
+        that ended before a restart is still offered for erasing."""
+        return json_file.read(self._run_memory_file) or None
+
+    def _keep_run_memory(self):
+        """Keeps this run's memory where the run after it will look for it: one
+        small file per start, never written to as the music plays."""
+        try:
+            json_file.write(self._run_memory_file, self._run_memory or {})
+        except OSError:
+            log.warning("Could not keep the memory of this run", exc_info=True)
 
     def _music_dir(self):
         """Where the library reads from: the USB key in use, or the folder the

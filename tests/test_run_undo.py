@@ -218,20 +218,30 @@ class DaemonEraseTest(unittest.TestCase):
         })
         self.daemon = rukebox_daemon.RadioDaemon(cfg)
         self.daemon.stats.open_session(clock_ok=True, clock_source="rtc")
-        self.daemon.stats.record(
-            "track_played", label="a.mp3", detail={"kind": "music", "seconds": 60},
-            counters={"tracks_played": 1, "seconds_music": 60},
-            daily={"tracks_played": 1, "seconds_music": 60},
-            item=("music", "a.mp3"), seconds=60)
+
+        # What a start takes and keeps (RadioDaemon.start()), then what the run
+        # does by itself: it plays, it draws a sound, it says an announcement.
         self.daemon.state.data.update({
-            "play_queue": ["z"], "last_track": "z", "requests": ["z"],
-            "recent": [{"path": "z", "at": 1}],
-            "click_bags": {"x": ["s1"]},
-            "resume_point": {"path": "z", "seconds": 3},
+            "play_queue": ["x", "y", "z"], "last_track": "x",
+            "recent": [{"path": "x", "at": 1}], "click_bags": {"a": ["s1"]},
+            "resume_point": {"path": "x", "seconds": 30},
             "last_music_start": date.today().isoformat(),
             "last_cutoff_trigger": date.today().isoformat(),
         })
-        self.daemon.state._save()
+        self.before = self.daemon.state.run_memory()
+        self.daemon._run_memory = self.before
+        self.daemon._keep_run_memory()
+
+        self.daemon.state.pop_next_track_or_none()
+        self.daemon.state.add_recent("/music/played.mp3", 10)
+        self.daemon.state.next_click_sound("a", lambda: ["s2"])
+        self.daemon.state.mark_triggered_today("custom_new")
+        self.daemon.state.set_resume_point("/music/played.mp3", 12)
+        self.daemon.stats.record(
+            "track_played", label="played.mp3", detail={"kind": "music", "seconds": 60},
+            counters={"tracks_played": 1, "seconds_music": 60},
+            daily={"tracks_played": 1, "seconds_music": 60},
+            item=("music", "played.mp3"), seconds=60)
 
     def tearDown(self):
         self.daemon.stats.close()
@@ -241,21 +251,50 @@ class DaemonEraseTest(unittest.TestCase):
         with mock.patch.object(self.daemon, "_playable_tracks", return_value=["b", "a"]):
             return self.daemon._erase_run()
 
-    def test_erasing_forgets_what_played_and_starts_the_pass_over(self):
+    def test_erasing_puts_the_memory_back_where_it_was(self):
         result = self.erase()
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["data"]["tracks"], 1)
 
+        self.assertEqual(self.daemon.state.data["play_queue"], ["x", "y", "z"],
+                         "the pass starts again with the song the run took")
+        self.assertEqual(self.daemon.state.run_memory(), self.before,
+                         "and everything else is exactly as it was")
+        self.assertEqual(self.daemon.state.resume_point(), ("x", 30.0),
+                         "the song it found cut short is taken up again")
+        self.assertTrue(self.daemon._resume_armed)
+        self.assertFalse(self.daemon.state.already_triggered_today("custom_new"),
+                         "an announcement the run said can be said again")
+        self.assertTrue(self.daemon.state.already_triggered_today("last_cutoff_trigger"),
+                         "the day's cutoff stays")
+        self.assertEqual(self.daemon.stats.run_to_erase(), None)
+
+    def test_the_run_before_is_put_back_after_a_restart(self):
+        # A restart, then a run that does nothing yet: erasing offers the one
+        # before, whose memory is the one the card kept.
+        self.daemon.stats.open_session(clock_ok=True, clock_source="rtc")
+        self.daemon._run_memory_before = self.daemon._read_run_memory()
+        self.daemon._run_memory = self.daemon.state.run_memory()
+        self.daemon._keep_run_memory()
+
+        result = self.erase()
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["data"]["session"], 1, "the run before this one")
+        self.assertEqual(self.daemon.state.data["play_queue"], ["x", "y", "z"])
+        self.assertEqual(self.daemon.state.resume_point(), ("x", 30.0))
+
+    def test_a_run_with_no_memory_kept_starts_the_pass_over(self):
+        self.daemon._run_memory = None
+        self.daemon._run_memory_before = None
+
+        result = self.erase()
+
+        self.assertTrue(result["ok"], result)
         self.assertEqual(self.daemon.state.data["play_queue"], ["a", "b"],
                          "the whole library again, in the order mode's order")
-        self.assertEqual(self.daemon.state.recent_paths(), [])
-        self.assertIsNone(self.daemon.state.value("last_track"))
         self.assertIsNone(self.daemon.state.resume_point())
-        self.assertEqual(self.daemon.state.data["click_bags"], {})
-        self.assertFalse(self.daemon.state.already_triggered_today("last_music_start"))
-        self.assertTrue(self.daemon.state.already_triggered_today("last_cutoff_trigger"),
-                        "the day's cutoff stays")
-        self.assertEqual(self.daemon.stats.run_to_erase(), None)
+        self.assertEqual(self.daemon.state.recent_paths(), [])
 
     def test_what_plays_now_is_counted_from_the_erase(self):
         self.daemon._play_kind = "music"
@@ -274,5 +313,6 @@ class DaemonEraseTest(unittest.TestCase):
     def test_a_blind_test_is_never_cut_short(self):
         self.daemon.mode = "game"
         self.assertEqual(self.daemon._erase_run(), {"ok": False, "error": "game_running"})
-        self.assertEqual(self.daemon.state.data["play_queue"], ["z"],
+        self.assertEqual(self.daemon.state.data["play_queue"], ["y", "z"],
                          "and nothing was touched")
+

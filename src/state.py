@@ -330,25 +330,62 @@ class RadioState:
                 bags.pop(source_id, None)
             self._save()
 
-    def forget_run(self, keep_day_keys=("last_cutoff_trigger",)):
-        """Puts the memory of what the radio played by itself back to nothing, as
-        if this run had not happened; the caller starts a fresh pass. The day's
-        cutoff is kept: erasing must not arm it again, nor drop one already
-        waiting for the end of a track."""
+    # What the radio works out by itself, as opposed to what a person asked for:
+    # the pass it is in, what it played, the sounds it drew, and the song it left
+    # off. A run being erased puts these back where they were when it started.
+    RUN_MEMORY = (("play_queue", list), ("requests", list), ("recent", list),
+                  ("request_by", dict), ("click_bags", dict), ("chance_bags", dict),
+                  ("last_track", None), ("resume_point", None))
+    # The day's cutoff is neither put back nor taken away: erasing must not arm it
+    # again, nor drop one already waiting for the end of a track.
+    RUN_KEEP = ("last_cutoff_trigger",)
+
+    def _day_markers(self):
+        """The keys holding today's date: what the radio did once today, so far."""
         today = date.today().isoformat()
+        return {key: value for key, value in self.data.items()
+                if value == today and key not in self.RUN_KEEP}
+
+    def run_memory(self):
+        """A copy of what the radio worked out by itself, for a run that may have
+        to be erased: it is put back to this, exactly."""
         with self._lock:
-            self.data["play_queue"] = []
-            self.data["requests"] = []
-            self.data["request_by"] = {}
-            self.data["recent"] = []
-            self.data["click_bags"] = {}
-            self.data["chance_bags"] = {}
-            self.data["last_track"] = None
-            self.data.pop("resume_point", None)
-            # A day marker is a key holding today's date; nothing else here is one.
-            for key, value in list(self.data.items()):
-                if value == today and key not in keep_day_keys:
-                    self.data.pop(key)
+            memory = {}
+            for key, empty in self.RUN_MEMORY:
+                value = self.data.get(key)
+                if value is None and empty is not None:
+                    value = empty()
+                memory[key] = value
+            return json.loads(json.dumps({"memory": memory, "days": self._day_markers()}))
+
+    def restore_run(self, memory):
+        """Puts the memory of what the radio played by itself back to `memory`
+        (run_memory()), as if that run had not happened. False when there is
+        nothing to put back."""
+        if not isinstance(memory, dict) or "memory" not in memory:
+            return False
+        with self._lock:
+            doc = json.loads(json.dumps(memory))  # well apart from the live one
+            for key, empty in self.RUN_MEMORY:
+                value = doc["memory"].get(key)
+                if value is None and empty is not None:
+                    value = empty()
+                self.data[key] = value
+            for key in self._day_markers():
+                self.data.pop(key, None)
+            self.data.update(doc.get("days") or {})
+            self._save()
+        return True
+
+    def forget_run(self):
+        """Puts the memory of what the radio played by itself back to nothing, as
+        if nothing had ever played; the caller starts a fresh pass. For a run
+        whose memory was never kept."""
+        with self._lock:
+            for key, empty in self.RUN_MEMORY:
+                self.data[key] = empty() if empty is not None else None
+            for key in self._day_markers():
+                self.data.pop(key, None)
             self._save()
 
     def already_triggered_today(self, key):
