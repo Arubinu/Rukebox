@@ -29,6 +29,39 @@ class StateTest(unittest.TestCase):
         self.s.enqueue_request("b")
         self.assertEqual(self.s.data["play_queue"][:2], ["e", "b"])
 
+    def test_forgetting_a_run_keeps_the_days_cutoff(self):
+        from datetime import date
+
+        today = date.today().isoformat()
+        self.s.data.update({
+            "play_queue": ["a", "b"], "last_track": "a", "requests": ["b"],
+            "request_by": {"b": "Al"}, "recent": [{"path": "a", "at": 1}],
+            "click_bags": {"x": ["s1"]},
+            "chance_bags": {"auto:x": {"ratio": "1/2", "draws": [True]}},
+            "resume_point": {"path": "a", "seconds": 12},
+            "last_music_start": today, "custom_abc": today, "cutoff_warning": today,
+            "last_cutoff_trigger": today, "pending_cutoff": True,
+            "reminders": [{"id": "1"}],
+        })
+        self.s.forget_run()
+
+        self.assertEqual(self.s.data["play_queue"], [])
+        self.assertEqual(self.s.data["requests"], [])
+        self.assertEqual(self.s.data["recent"], [])
+        self.assertEqual(self.s.data["click_bags"], {})
+        self.assertEqual(self.s.data["chance_bags"], {})
+        self.assertIsNone(self.s.data["last_track"])
+        self.assertIsNone(self.s.resume_point())
+        self.assertFalse(self.s.already_triggered_today("last_music_start"))
+        self.assertFalse(self.s.already_triggered_today("custom_abc"))
+        self.assertFalse(self.s.already_triggered_today("cutoff_warning"))
+        self.assertTrue(self.s.already_triggered_today("last_cutoff_trigger"),
+                        "the day's cutoff stays: erasing must not arm it again")
+        self.assertTrue(self.s.is_pending_cutoff(),
+                        "nor drop a shutdown already waiting for the end of a track")
+        self.assertEqual(self.s.reminders(), [{"id": "1"}],
+                         "a reminder is a person's, not the radio's doing")
+
     def test_take_from_queue(self):
         self.s.data["play_queue"] = ["a", "b"]
         self.s.enqueue_request("b")

@@ -11,7 +11,7 @@ from datetime import date
 
 log = logging.getLogger("stats")
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 PENDING_DAY = "pending"
 DAILY_KEEP_DAYS = 1100
@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS events (
     clock_ok   INTEGER NOT NULL DEFAULT 0,
     type       TEXT NOT NULL,
     label      TEXT,
-    detail     TEXT              -- small JSON blob, optional
+    detail     TEXT,             -- small JSON blob, optional
+    undo       TEXT              -- what this event moved, so its run can be erased
 );
 CREATE INDEX IF NOT EXISTS idx_events_ts   ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
@@ -137,6 +138,7 @@ class StatsRecorder:
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA auto_vacuum=INCREMENTAL")
         self._conn.executescript(SCHEMA)
+        self._migrate()
         self._conn.execute(
             "INSERT INTO schema_info(key, value) VALUES('version', ?) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -147,6 +149,16 @@ class StatsRecorder:
             (str(time.time()),),
         )
         self._fill_monthly_from_events()
+
+    def _migrate(self):
+        """An events table written before a run could be erased has no note of
+        what each event moved."""
+        try:
+            columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(events)")}
+            if "undo" not in columns:
+                self._conn.execute("ALTER TABLE events ADD COLUMN undo TEXT")
+        except sqlite3.Error:
+            log.exception("Could not add the events table's undo column")
 
     @property
     def clock_source(self):
@@ -233,38 +245,80 @@ class StatsRecorder:
 
     def record(self, event_type, label=None, detail=None, counters=None, daily=None,
                item=None, seconds=0.0):
-        """Single entry point for "something happened"."""
+        """Single entry point for "something happened": the entry, and what it
+        moves, so the run it belongs to can be erased later."""
         if not self.enabled:
             return
         try:
             with self._lock:
                 now = time.time()
+                day = self._today()
+                counters = dict(counters or {})
+                daily = dict(daily or {})
                 self._conn.execute("BEGIN")
                 try:
-                    self._conn.execute(
-                        "INSERT INTO events(session_id, ts, clock_ok, type, label, detail) "
-                        "VALUES(?, ?, ?, ?, ?, ?)",
+                    cursor = self._conn.execute(
+                        "INSERT INTO events(session_id, ts, clock_ok, type, label, detail, undo) "
+                        "VALUES(?, ?, ?, ?, ?, ?, NULL)",
                         (
                             self._session_id, now, 1 if self._clock_ok else 0,
                             event_type, label,
                             json.dumps(detail, ensure_ascii=False) if detail else None,
                         ),
                     )
+                    undo = self._undo_payload(item, seconds, counters, daily, day)
                     if counters:
                         self._bump_counters(counters)
                     if daily:
-                        self._bump_daily(daily)
+                        self._bump_daily(daily, day)
                     if item:
                         kind, name = item
                         self._bump_item(kind, name, count=1.0, seconds=seconds, ts=now)
                         if kind == "music" and name and self._clock_ok:
                             self._bump_monthly(name, seconds, daily)
+                    if undo:
+                        self._conn.execute(
+                            "UPDATE events SET undo = ? WHERE id = ?",
+                            (json.dumps(undo, ensure_ascii=False), cursor.lastrowid),
+                        )
                     self._conn.execute("COMMIT")
                 except Exception:
                     self._conn.execute("ROLLBACK")
                     raise
         except Exception:  # noqa: BLE001
             log.exception("Could not record the event '%s'", event_type)
+
+    def _undo_payload(self, item, seconds, counters, daily, day):
+        """What erasing this event has to put back. Every total here is a sum
+        but the item's `last_at`, which is why the value it had is kept."""
+        payload = {}
+        if counters:
+            payload["counters"] = {key: float(amount) for key, amount in counters.items()}
+        if daily:
+            payload["daily"] = {day: {key: float(amount) for key, amount in daily.items()}}
+        if not item:
+            return payload or None
+
+        kind, name = item
+        row = self._conn.execute(
+            "SELECT last_at FROM items WHERE kind = ? AND name = ?", (kind, name)).fetchone()
+        payload["item"] = {
+            "kind": kind, "name": name, "seconds": float(seconds or 0.0),
+            "last_at": row["last_at"] if row else None,
+        }
+        if kind == "music" and name and self._clock_ok:
+            # The song that opened the day is recorded too, and which one it is
+            # depends on what this very call is about to add.
+            played = self._conn.execute(
+                "SELECT value FROM daily WHERE day = ? AND key = 'tracks_played'",
+                (date.today().isoformat(),)).fetchone()
+            after = (played["value"] if played else 0.0) + float(daily.get("tracks_played") or 0.0)
+            payload["monthly"] = {
+                "month": date.today().strftime("%Y-%m"), "name": name,
+                "count": 1.0, "seconds": float(seconds or 0.0),
+                "first": bool(daily.get("tracks_played") and after <= 1),
+            }
+        return payload
 
     def open_session(self, clock_ok=False, clock_source=None):
         """Called once at daemon startup."""
@@ -681,6 +735,145 @@ class StatsRecorder:
             self.open_session(clock_ok=self._clock_ok, clock_source=self._clock_source)
         self.record("stats_reset", label=scope)
         return True
+
+    def run_to_erase(self, session_id=None):
+        """The run erasing would take back: the one in progress, or the one
+        before it when this one holds nothing yet. A run is a session - what the
+        radio did between two starts of the daemon."""
+        if not self.enabled:
+            return None
+        try:
+            where, params = (" WHERE s.id = ?", (int(session_id),)) if session_id else ("", ())
+        except (TypeError, ValueError):
+            return None
+        try:
+            rows = self._rows(
+                "SELECT s.id, s.started_at, s.ended_at, s.clock_source, "
+                "       MIN(e.ts) AS first_ts, MAX(e.ts) AS last_ts, COUNT(*) AS events, "
+                "       SUM(CASE WHEN e.type = 'track_played' THEN 1 ELSE 0 END) AS tracks, "
+                "       SUM(CASE WHEN e.type = 'track_played' THEN "
+                "                COALESCE(json_extract(e.detail, '$.seconds'), 0) ELSE 0 END) AS seconds "
+                "FROM sessions s JOIN events e ON e.session_id = s.id" + where +
+                # A session that holds only its own start is not a run to erase:
+                # the one before it - what played before a restart - is offered.
+                " GROUP BY s.id HAVING SUM(CASE WHEN e.undo IS NOT NULL THEN 1 ELSE 0 END) > 0"
+                " ORDER BY s.id DESC LIMIT 1", params)
+        except Exception:  # noqa: BLE001
+            log.exception("Could not read the run to erase")
+            return None
+        if not rows:
+            return None
+        row = rows[0]
+        return {
+            "session": row["id"],
+            "started_at": row["started_at"],
+            "ended_at": row["ended_at"],
+            "open": row["ended_at"] is None,
+            "clock_source": row["clock_source"],
+            "events": row["events"],
+            "tracks": int(row["tracks"] or 0),
+            "seconds": float(row["seconds"] or 0.0),
+            "first_ts": row["first_ts"],
+            "last_ts": row["last_ts"],
+        }
+
+    def run_events(self, session_id, event_type=None):
+        """One run's entries, newest first."""
+        if not self.enabled:
+            return []
+        sql = "SELECT id, ts, clock_ok, type, label, detail FROM events WHERE session_id = ?"
+        params = [int(session_id)]
+        if event_type:
+            sql += " AND type = ?"
+            params.append(event_type)
+        try:
+            rows = self._rows(sql + " ORDER BY id DESC", tuple(params))
+        except Exception:  # noqa: BLE001
+            log.exception("Could not read a run's entries")
+            return []
+        for row in rows:
+            if row["detail"]:
+                try:
+                    row["detail"] = json.loads(row["detail"])
+                except json.JSONDecodeError:
+                    pass
+        return rows
+
+    def erase_run(self, run):
+        """Erases one run: its entries go, and every total they had already
+        moved goes back to what it was before the first of them. The session
+        stays - the radio is running, it just has nothing behind it."""
+        if not self.enabled or not run or not run.get("session"):
+            return None
+        session_id = int(run["session"])
+        try:
+            with self._lock:
+                self._conn.execute("BEGIN")
+                try:
+                    rows = [dict(row) for row in self._conn.execute(
+                        "SELECT id, undo FROM events WHERE session_id = ? ORDER BY id DESC",
+                        (session_id,)).fetchall()]
+                    # Newest first: the value the oldest entry of the run found wins.
+                    for row in rows:
+                        if not row["undo"]:
+                            continue
+                        try:
+                            self._reverse(json.loads(row["undo"]))
+                        except (TypeError, ValueError):
+                            log.warning("Unreadable undo note on event %s", row["id"])
+                    removed = self._conn.execute(
+                        "DELETE FROM events WHERE session_id = ?", (session_id,)).rowcount or 0
+                    self._drop_emptied()
+                    self._conn.execute("COMMIT")
+                except Exception:
+                    self._conn.execute("ROLLBACK")
+                    raise
+                self._conn.execute("PRAGMA incremental_vacuum")
+        except Exception:  # noqa: BLE001
+            log.exception("Could not erase the run")
+            return None
+        return dict(run, events=removed)
+
+    def _reverse(self, payload):
+        """Puts back what one entry moved."""
+        for key, amount in (payload.get("counters") or {}).items():
+            self._conn.execute("UPDATE counters SET value = value - ? WHERE key = ?",
+                               (float(amount), key))
+        for day, values in (payload.get("daily") or {}).items():
+            # Before the time is known the day is "pending", and those rows move
+            # to the real day as soon as it is: it is in one of the two.
+            days = (day, date.today().isoformat()) if day == PENDING_DAY else (day,)
+            for key, amount in values.items():
+                self._conn.execute(
+                    "UPDATE daily SET value = value - ? WHERE key = ? AND day IN (%s)"
+                    % ", ".join("?" * len(days)), (float(amount), key) + days)
+        item = payload.get("item")
+        if item:
+            self._conn.execute(
+                "UPDATE items SET count = count - 1, seconds = seconds - ?, last_at = ? "
+                "WHERE kind = ? AND name = ?",
+                (float(item.get("seconds") or 0.0), item.get("last_at"),
+                 item.get("kind"), item.get("name")))
+        monthly = payload.get("monthly")
+        if monthly:
+            self._conn.execute(
+                "UPDATE monthly SET count = count - ?, seconds = seconds - ? "
+                "WHERE month = ? AND kind = 'track' AND name = ?",
+                (float(monthly.get("count") or 1.0), float(monthly.get("seconds") or 0.0),
+                 monthly.get("month"), monthly.get("name")))
+            if monthly.get("first"):
+                self._conn.execute(
+                    "UPDATE monthly SET count = count - 1 "
+                    "WHERE month = ? AND kind = 'first' AND name = ?",
+                    (monthly.get("month"), monthly.get("name")))
+
+    def _drop_emptied(self):
+        """A list of things the erased run was alone in filling loses its row
+        rather than keeping a zero the interface would still show. A lifetime
+        counter stays, at zero: those are never pruned."""
+        for table, where in (("daily", "value <= 0"), ("items", "count <= 0 AND seconds <= 0"),
+                             ("monthly", "count <= 0")):
+            self._conn.execute("DELETE FROM %s WHERE %s" % (table, where))
 
     def _rows(self, sql, params=()):
         with self._lock:

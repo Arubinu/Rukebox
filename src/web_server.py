@@ -3463,16 +3463,18 @@ def _game_run(game):
                 _game_wait(game, max(reveal, spoken + 0.5))
             game.score_marks()
         game.finish()
-        if not game.stopped:
+        winners = [] if game.stopped else game.winners()
+        if winners:
             try:
-                blind_test.record_wins(_game_wins_file(oral), game.winners())
+                blind_test.record_wins(_game_wins_file(oral), winners)
             except OSError:
                 log.exception("Could not keep the blind test's winners")
         # The end is said even after Stop: the radio goes back to its music after it.
         _game_wait(game, _game_say(game, "podium", game.podium()) + 0.3, stop_counts=False)
         best = game.view(None)["scores"][:1]
         stats.record("game_over", label=best[0]["name"] if best else "-",
-                     detail={"rounds": game.round, "players": len(game.scores)})
+                     detail={"rounds": game.round, "players": len(game.scores),
+                             "winners": winners, "oral": bool(oral)})
     except Exception:  # noqa: BLE001
         log.exception("Blind test failed")
         game.finish("game_failed")
@@ -7464,6 +7466,56 @@ def api_backup_restore():
         "sounds": (done.get("sounds") or {}).get("restored", 0),
         "daemon_restarted": bool(done.get("stats")),
     }})
+
+
+@app.route("/api/journal/run")
+def api_journal_run():
+    """The run erasing would take back, and what it holds."""
+    run = stats.run_to_erase()
+    return jsonify({"ok": True, "data": run})
+
+
+def _run_wins(run):
+    """{wins file: [{"person", "name"}, ...]}: the games that run won, read
+    before the daemon takes its entries away."""
+    every = {}
+    for event in stats.run_events(run["session"], "game_over"):
+        detail = event.get("detail") if isinstance(event.get("detail"), dict) else {}
+        winners = detail.get("winners") or []
+        if winners:
+            every.setdefault(_game_wins_file(bool(detail.get("oral"))), []).extend(winners)
+    return every
+
+
+@app.route("/api/journal/erase_run", methods=["POST"])
+def api_journal_erase_run():
+    """Puts the radio back where it was when it started: what it played by
+    itself comes back into the rotation, and the journal and scores of that run
+    go. What a person chose - likes, lists, cards, settings - stays."""
+    body = request.get_json(silent=True) or {}
+    run = stats.run_to_erase(body.get("session"))
+    if not run:
+        return jsonify({"ok": False, "error": "nothing_to_erase"}), 400
+    wins = _run_wins(run)
+    try:
+        result = control("erase_run", session=run["session"])
+    except Exception:  # noqa: BLE001
+        log.exception("Could not reach the daemon to erase the run")
+        result = {"ok": False, "error": "daemon_unreachable"}
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error") or "erase_failed"}), 500
+
+    taken = 0
+    for path, people in wins.items():
+        try:
+            taken += blind_test.remove_wins(path, people)
+        except OSError:
+            log.exception("Could not take back the blind test's winners")
+    stats.attach_current_session()
+    stats.record("run_erased", label="session %s" % run["session"],
+                 detail=dict(_device_detail() or {}, wins=taken,
+                             tracks=run.get("tracks"), events=run.get("events")))
+    return jsonify({"ok": True, "data": dict(result.get("data") or run, wins=taken)})
 
 
 @app.route("/api/journal/export")

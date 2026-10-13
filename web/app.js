@@ -9784,7 +9784,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",
   "daemon_restart", "ssh_toggle", "home_wifi_toggle", "bluetooth_connect",
-  "bluetooth_disconnect", "stats_reset",
+  "bluetooth_disconnect", "stats_reset", "run_erased",
 
   "update_started", "update_applied", "update_rolled_back",
   "announcement_type_added", "announcement_type_updated",
@@ -11280,6 +11280,43 @@ document.getElementById("btnStatsExport").addEventListener("click", () => {
   window.location.href = "/api/journal/export";
 });
 
+/* Since the last start: what the radio did by itself can be taken back. */
+let lastRun = null;
+const runSummaryBox = document.getElementById("runSummary");
+const btnEraseRun = document.getElementById("btnEraseRun");
+
+function describeRun(run) {
+  return t("run.summary", {
+    tracks: run.tracks,
+    time: formatDuration(run.seconds || 0),
+    at: formatDateTime(run.started_at),
+  });
+}
+
+async function refreshRun() {
+  const result = await apiGet("/api/journal/run");
+  lastRun = result.ok ? result.data : null;
+  btnEraseRun.hidden = !lastRun;
+  runSummaryBox.textContent = lastRun ? describeRun(lastRun) : t("run.none");
+}
+
+btnEraseRun.addEventListener("click", async () => {
+  if (!lastRun) return;
+  if (!(await showConfirm(t("run.confirm", { at: formatDateTime(lastRun.started_at) })))) return;
+
+  const result = await apiPost("/api/journal/erase_run", { session: lastRun.session });
+  if (!result.ok) {
+    showError(result.error);
+    return;
+  }
+  oldestEventId = null;
+  await refreshRun();
+  await refreshStats();
+  await loadEvents(false);
+  showToast(t("run.done"), t("run.done_detail", {
+    tracks: result.data.tracks || 0, events: result.data.events || 0 }));
+});
+
 document.getElementById("btnStatsReset").addEventListener("click", async () => {
   const clean = await showChoice(t("stats.reset_prompt"), [
     { value: "events", label: t("stats.reset_events") },
@@ -11317,8 +11354,10 @@ document.addEventListener("page-shown", (event) => {
 });
 
 refreshStats();
+refreshRun();
 
 refreshEvery(refreshStats, 30000, ["stats/"]);
+refreshEvery(refreshRun, 60000, ["stats/overview"]);
 
 let updatePollTimer = null;
 

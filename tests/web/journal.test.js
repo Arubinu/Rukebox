@@ -104,3 +104,67 @@ test("a search that matches nothing says so", async (t) => {
   await page.close();
 });
 
+
+/* Erasing the last run (web/app.js): what it holds is said before anything
+   goes, and nothing goes before the confirmation. */
+const RUN = { session: 4, started_at: 1790928000, ended_at: null, open: true,
+              clock_source: "rtc", tracks: 12, seconds: 3720, events: 40,
+              first_ts: 1790924000, last_ts: 1790928000 };
+
+function withRun() {
+  let erased = false;
+  return load({
+    routes: {
+      "GET /api/status": STATUS,
+      "GET /api/journal/summary": { enabled: true, days: 14, totals: {}, chart: [] },
+      "GET /api/journal/run": () => (erased ? null : RUN),
+      "POST /api/journal/erase_run": () => {
+        erased = true;
+        return { session: 4, tracks: 12, events: 40, wins: 1 };
+      },
+    },
+  });
+}
+
+test("the last run is described, and waits for a confirmation", async (t) => {
+  const page = withRun();
+  const summary = await until(() => page.$("runSummary").textContent || null);
+  t.diagnostic("the page says: " + summary);
+  assert.match(summary, /12/, "how many songs it played");
+  assert.equal(page.$("btnEraseRun").hidden, false, "the button is offered");
+
+  page.$("btnEraseRun").click();
+  await until(() => !page.$("modalOverlay").hidden);
+  assert.equal(page.sent("POST", "/api/journal/erase_run").length, 0,
+               "nothing is erased before the answer");
+  assert.match(page.$("modalBody").textContent, /\d/, "and the dialog says since when");
+
+  page.$("modalOk").click();
+  const sent = await until(() => {
+    const calls = page.sent("POST", "/api/journal/erase_run");
+    return calls.length ? calls[0] : null;
+  });
+  assert.deepEqual(sent.body, { session: 4 }, "the run the page read is the one erased");
+
+  await until(() => page.$("btnEraseRun").hidden);
+  assert.match(page.$("runSummary").textContent, /nothing/i,
+               "and the page says there is nothing left to erase");
+  await until(() => page.document.querySelector(".toast"));
+  t.diagnostic("the toast says: " + page.document.querySelector(".toast").textContent);
+  await page.close();
+});
+
+test("a start that did nothing yet offers nothing", async (t) => {
+  const page = load({
+    routes: {
+      "GET /api/status": STATUS,
+      "GET /api/journal/summary": { enabled: true, days: 14, totals: {}, chart: [] },
+      "GET /api/journal/run": null,
+    },
+  });
+  const summary = await until(() => page.$("runSummary").textContent || null);
+  t.diagnostic("with no run, the page says: " + summary);
+  assert.equal(page.$("btnEraseRun").hidden, true, "no button to press");
+  assert.match(summary, /nothing/i);
+  await page.close();
+});

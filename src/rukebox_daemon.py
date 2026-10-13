@@ -1256,6 +1256,34 @@ class RadioDaemon:
             self._start_or_restart_playback(log_label="library")
         return self._track_count
 
+    def _erase_run(self, session=None):
+        """Puts the radio back where it was when this run started: what it
+        played and said by itself, the journal of that run, and its scores. What
+        is playing now keeps playing, and is counted from here."""
+        if self.mode == "game":
+            return {"ok": False, "error": "game_running"}
+        try:
+            wanted = int(session) if session is not None else None
+        except (TypeError, ValueError):
+            wanted = None
+        run = self.stats.run_to_erase(wanted)
+        if not run:
+            return {"ok": False, "error": "nothing_to_erase"}
+        erased = self.stats.erase_run(run)
+        if erased is None:
+            return {"ok": False, "error": "erase_failed"}
+        self.state.forget_run()
+        self.state.rebuild_queue(
+            self._playable_tracks(), self.cfg["MUSIC_ORDER_MODE"], self._music_dir(),
+            custom_order=music_lists.custom_order(self._active_list_entry()),
+        )
+        if self._play_kind:
+            # What plays now was not part of what was erased.
+            self._play_since = time.monotonic()
+        log.info("Erased the run of session %s: %s entries, %s songs",
+                 run["session"], erased.get("events"), erased.get("tracks"))
+        return {"ok": True, "data": erased}
+
     def _music_dir(self):
         """Where the library reads from: the USB key in use, or the folder the
         settings name. Everything that walks the library goes through here."""
@@ -4653,6 +4681,9 @@ class RadioDaemon:
                         self.stats.mark_used()
                         self._session_marked_used = True
                 return {"ok": bool(ok)}
+
+            if cmd == "erase_run":
+                return self._erase_run(msg.get("session"))
 
             return {"ok": False, "error": "unknown_command"}
 

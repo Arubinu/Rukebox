@@ -2960,6 +2960,20 @@
           <div class="chart" id="dailyChart"></div>
           <div class="chart-day" id="chartDay" hidden></div>
 
+          <div class="chart-head">
+            <span class="chart-title" id="runTitle" data-i18n="run.title">Since the last start</span>
+          </div>
+          <p class="hint help-text" data-i18n="run.help" hidden>
+            Puts the radio's memory back to what it was when it started: the songs it played by itself come
+            back into the rotation, and the journal and the scores of that run go. What you chose - likes,
+            lists, cards, settings - stays.
+          </p>
+          <p class="hint" id="runSummary" role="status"></p>
+          <div class="form-actions">
+            <button type="button" class="btn btn-danger-outline" id="btnEraseRun" data-icon="history"
+                    data-i18n="run.erase" hidden>Erase this run</button>
+          </div>
+
           <div class="form-actions btn-split">
             <div class="btn-group">
               <button type="button" class="btn" id="btnStatsRefresh" data-icon="refresh" data-i18n="common.refresh">Refresh</button>

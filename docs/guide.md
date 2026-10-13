@@ -2389,8 +2389,9 @@ itself and keeps them in `game-sounds/` in the state folder.
   "Backing up the configuration" below.
 - **System**: enable/disable the SSH server, trigger a music library
   rescan.
-- **Statistics**: everything the radio has actually done — see the
-  section below.
+- **Statistics**: everything the radio has actually done, and one button to
+  **erase the last run** — what the radio did by itself since it started, for
+  the times it played to nobody. See the section below.
 
 ### Covers and lyrics
 
@@ -2663,6 +2664,37 @@ Two things are worth knowing before using it:
   running; it is the row the daemon is currently writing to. It has no
   checkbox, and the interface says so if you select it through some
   other route.
+
+### Erasing the last run
+
+**Since the last start**, above the buttons of the summary page, puts the
+radio back where it was when it started, for the times it played to nobody:
+while the music was being copied over, while a visitor was fiddling with it,
+after a test.
+
+One button, one confirmation, and three things go back:
+
+- **the rotation** — the songs the radio played by itself are forgotten, and
+  the pass starts over from the whole library, so they come back soon instead
+  of waiting for the next pass;
+- **the day** — the announcements and the sounds already played today can play
+  again, and the song that was going to be resumed is forgotten;
+- **the journal** — the entries of that run go, and every total they had moved
+  (listening time, counts, most played songs, the recap) goes back to what it
+  was before the first of them. This is the one place where the totals *are*
+  rewritten, unlike deleting a single row; the blind test's hall of fame of
+  that run goes back with them.
+
+What you decided stays: likes, the lists, the cards, the excluded tracks, the
+suggestions, the settings, the schedules, the guest credits. So does the run
+itself — the radio is on, and whatever plays at that moment keeps playing,
+counted from then on. The day's cutoff is kept too: erasing must not arm the
+shutdown again, nor drop one already waiting for the end of a track.
+
+A run is what the radio did between two starts of the daemon, so the button is
+still there the next morning: a fresh boot holds nothing yet, and it then
+offers the run before, dated and in figures ("Last run: 42 songs and 3 h 12 of
+music, since ..."). Nothing is offered when nothing has played.
 
 ### Exporting and resetting
 

@@ -508,6 +508,23 @@ def record_wins(path, people):
         json_file.write(path, {"people": everyone})
 
 
+def remove_wins(path, people):
+    """Takes back the wins of a run being erased ([{"person", "name"}])."""
+    if not people:
+        return 0
+    with json_file.lock(path):
+        everyone = wins(path)
+        taken = 0
+        for one in people:
+            entry = everyone.get(str(one["person"]))
+            if not entry:
+                continue
+            entry["wins"] = max(0, int(entry.get("wins") or 0) - 1)
+            taken += 1
+        json_file.write(path, {"people": everyone})
+    return taken
+
+
 def carry_wins(path, was, now):
     """Linking two devices adds up their wins under the person that stays."""
     if not was or not now or was == now:

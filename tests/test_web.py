@@ -2599,3 +2599,78 @@ class DuplicatePathTest(unittest.TestCase):
             self.assertEqual(client.post("/api/library/duplicates/ignore", json={"key": "gone"}).status_code, 404)
             client.post("/api/library/duplicates/ignore", json={"key": "a|song", "ignored": False})
             self.assertEqual(ws._duplicates_ignored(), {})
+
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class EraseRunRouteTest(unittest.TestCase):
+    """Erasing the last run (src/web_server.py): the run is read before the
+    daemon takes its entries away, and the points won during it go back."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.wins = os.path.join(self.dir, "game_wins.json")
+        self.recorder = ws.stats.__class__(
+            os.path.join(self.dir, "stats.db"), enabled=True)
+        self.addCleanup(self.recorder.close)
+        self.recorder.open_session(clock_ok=True, clock_source="rtc")
+        self.recorder.record("track_played", label="a.mp3",
+                             detail={"kind": "music", "seconds": 60},
+                             counters={"tracks_played": 1, "seconds_music": 60},
+                             daily={"tracks_played": 1, "seconds_music": 60},
+                             item=("music", "a.mp3"), seconds=60)
+        ws.blind_test.record_wins(self.wins, [{"person": "a", "name": "Al"}])
+        self.recorder.record("game_over", label="Al",
+                             detail={"rounds": 3, "players": 1, "oral": False,
+                                     "winners": [{"person": "a", "name": "Al"}]})
+        self.calls = []
+
+        def fake(cmd, **kw):
+            self.calls.append((cmd, kw))
+            if cmd == "erase_run":
+                run = self.recorder.run_to_erase(kw.get("session"))
+                return {"ok": True, "data": self.recorder.erase_run(run)}
+            return {"ok": True}
+
+        for target, value in (("stats", self.recorder), ("control", fake),
+                              ("_game_wins_file", lambda oral=False: self.wins),
+                              ("_require_auth", lambda *a, **k: None),
+                              ("_device_detail", lambda: None)):
+            patch = unittest.mock.patch.object(ws, target, value)
+            patch.start()
+            self.addCleanup(patch.stop)
+        values = dict(ws.cfg(), STATE_DIR=self.dir)
+        self.cfg_patch = unittest.mock.patch.object(ws, "cfg", return_value=values)
+        self.cfg_patch.start()
+        self.addCleanup(self.cfg_patch.stop)
+        self.client = ws.app.test_client()
+
+    def test_the_run_is_read_with_its_figures(self):
+        data = self.client.get("/api/journal/run").get_json()["data"]
+        self.assertEqual((data["tracks"], data["events"]), (1, 3),
+                         "one song, one game over, and the session's own start")
+        self.assertAlmostEqual(data["seconds"], 60, places=1)
+
+    def test_erasing_sends_the_run_and_takes_the_points_back(self):
+        answer = self.client.post("/api/journal/erase_run", json={}).get_json()
+        self.assertTrue(answer["ok"], answer)
+        self.assertEqual(self.calls[-1][0], "erase_run")
+        self.assertEqual(ws.blind_test.wins(self.wins)["a"]["wins"], 0,
+                         "the blind test's point of that run goes back")
+        self.assertEqual(self.recorder.run_to_erase(), None)
+        self.assertIn("run_erased", [e["type"] for e in self.recorder.events(limit=5)],
+                      "and the erase itself is on the record")
+
+    def test_a_second_erase_says_there_is_nothing(self):
+        self.client.post("/api/journal/erase_run", json={})
+        second = self.client.post("/api/journal/erase_run", json={})
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(second.get_json()["error"], "nothing_to_erase")
+
+    def test_a_body_that_names_no_run_is_refused(self):
+        answer = self.client.post("/api/journal/erase_run", json={"session": "nope"})
+        self.assertEqual(answer.status_code, 400)
+        self.assertEqual(answer.get_json()["error"], "nothing_to_erase")
+        self.assertEqual(self.calls, [], "and the daemon is not asked to erase anything")
+
+

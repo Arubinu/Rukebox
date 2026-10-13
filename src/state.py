@@ -330,6 +330,27 @@ class RadioState:
                 bags.pop(source_id, None)
             self._save()
 
+    def forget_run(self, keep_day_keys=("last_cutoff_trigger",)):
+        """Puts the memory of what the radio played by itself back to nothing, as
+        if this run had not happened; the caller starts a fresh pass. The day's
+        cutoff is kept: erasing must not arm it again, nor drop one already
+        waiting for the end of a track."""
+        today = date.today().isoformat()
+        with self._lock:
+            self.data["play_queue"] = []
+            self.data["requests"] = []
+            self.data["request_by"] = {}
+            self.data["recent"] = []
+            self.data["click_bags"] = {}
+            self.data["chance_bags"] = {}
+            self.data["last_track"] = None
+            self.data.pop("resume_point", None)
+            # A day marker is a key holding today's date; nothing else here is one.
+            for key, value in list(self.data.items()):
+                if value == today and key not in keep_day_keys:
+                    self.data.pop(key)
+            self._save()
+
     def already_triggered_today(self, key):
         today = date.today().isoformat()
         return self.data.get(key) == today
