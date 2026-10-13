@@ -2733,6 +2733,13 @@ per notable event. Volume changes are debounced (dragging the slider
 does not write once per pixel), and the web interface only records one
 "session" per client per 15 minutes.
 
+Each event also carries a small note of what it moved — the counters and the
+day's totals it added to, and the file it counts for — which is what lets the
+last run be erased exactly (see "Erasing the last run" above). It is written
+with the event itself, in the same row and the same transaction, so the number
+of writes and checkpoints is unchanged; the note is a little over a hundred
+bytes, and the two guards below cap what the journal can hold.
+
 Set `enabled: false` under `statistics:` in `/etc/rukebox/rukebox.yaml` to turn the whole
 thing off; the radio behaves exactly as before.
 
