@@ -2748,10 +2748,11 @@ with the event itself, in the same row and the same transaction, so the number
 of writes and checkpoints is unchanged; the note is a little over a hundred
 bytes, and the two guards below cap what the journal can hold.
 
-One more small file is written at each start, `run_memory.json` in the state
-folder: the memory a run begins with (the pass, the day's marks, the song left
-off). It is never touched while the music plays, and it is what lets the last
-run be put back.
+One more file is written at each start, `run_memory.json` in the state folder:
+the memory a run begins with (the pass, the day's marks, the song left off). It
+is never touched while the music plays, and it is only written when it differs
+from the one already kept - a start where nothing played leaves it alone. It is
+what lets the last run be put back.
 
 Set `enabled: false` under `statistics:` in `/etc/rukebox/rukebox.yaml` to turn the whole
 thing off; the radio behaves exactly as before.

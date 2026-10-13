@@ -1319,7 +1319,10 @@ class RadioDaemon:
 
     def _keep_run_memory(self):
         """Keeps this run's memory where the run after it will look for it: one
-        small file per start, never written to as the music plays."""
+        small file per start, never written to as the music plays. A start that
+        found the same memory as the one before leaves the file alone."""
+        if self._run_memory == self._run_memory_before:
+            return
         try:
             json_file.write(self._run_memory_file, self._run_memory or {})
         except OSError:

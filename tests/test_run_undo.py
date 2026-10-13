@@ -296,6 +296,12 @@ class DaemonEraseTest(unittest.TestCase):
         self.assertIsNone(self.daemon.state.resume_point())
         self.assertEqual(self.daemon.state.recent_paths(), [])
 
+    def test_a_start_that_finds_the_same_memory_leaves_the_file_alone(self):
+        self.daemon._run_memory_before = self.daemon._run_memory
+        with mock.patch.object(rukebox_daemon.json_file, "write") as write:
+            self.daemon._keep_run_memory()
+        self.assertFalse(write.called, "the same memory is already kept")
+
     def test_what_plays_now_is_counted_from_the_erase(self):
         self.daemon._play_kind = "music"
         self.daemon._play_since = time.monotonic() - 300
