@@ -78,6 +78,59 @@ class StatsEraseTest(unittest.TestCase):
         self.assertEqual(recap["tracks"], [])
         self.assertIsNone(recap["morning"], "nor is it the song that opened the day")
 
+    def test_erasing_gives_the_tables_back_as_they_were(self):
+        """A song played twice in the run, and totals it moved ten times: the
+        tables must read exactly what they read before the first of them."""
+        self.play("a.mp3", 60)
+        self.recorder.record("click", label="single", counters={"clicks_single": 1})
+        def tables():
+            return {
+                "counters": self.recorder.counters(),
+                "items": self.recorder._rows("SELECT kind, name, count, seconds, last_at"
+                                             " FROM items ORDER BY kind, name"),
+                "daily": self.recorder._rows("SELECT day, key, value FROM daily ORDER BY day, key"),
+                "monthly": self.recorder._rows("SELECT month, kind, name, count, seconds"
+                                               " FROM monthly ORDER BY month, kind, name"),
+            }
+
+        self.recorder.open_session(clock_ok=True, clock_source="rtc")
+        before = tables()
+        self.play("a.mp3", 90)
+        self.play("a.mp3", 30)
+        self.play("b.mp3", 120)
+        self.recorder.record("click", label="single", counters={"clicks_single": 1})
+        self.assertNotEqual(tables(), before, "the run did move something")
+
+        self.recorder.erase_run(self.recorder.run_to_erase())
+
+        self.assertEqual(tables(), before)
+        self.assertEqual(self.recorder._rows("SELECT name, last_at FROM items WHERE kind = 'music'"),
+                         [{"name": "a.mp3", "last_at": before["items"][0]["last_at"]}],
+                         "and the played song kept the date it had before the run")
+
+    def test_a_note_from_the_first_shape_still_goes_back(self):
+        """The undo note first kept a whole monthly line; a journal written then
+        still reverses, the month being read from either shape."""
+        import json
+
+        self.play("a.mp3", 60)
+        month = date.today().strftime("%Y-%m")
+        self.recorder._conn.execute(
+            "UPDATE events SET undo = ? WHERE id = (SELECT MAX(id) FROM events)",
+            (json.dumps({
+                "counters": {"tracks_played": 1.0, "seconds_music": 60.0},
+                "daily": {date.today().isoformat(): {"tracks_played": 1.0, "seconds_music": 60.0}},
+                "item": {"kind": "music", "name": "a.mp3", "seconds": 60.0, "last_at": None},
+                "monthly": {"month": month, "name": "a.mp3", "count": 1.0,
+                            "seconds": 60.0, "first": True},
+            }),))
+
+        self.recorder.erase_run(self.recorder.run_to_erase())
+
+        recap = self.recorder.recap(date.today(), date.today())
+        self.assertEqual(recap["tracks"], [])
+        self.assertIsNone(recap["morning"])
+
     def test_nothing_is_left_to_erase_twice(self):
         self.play("a.mp3", 60)
         self.recorder.erase_run(self.recorder.run_to_erase())

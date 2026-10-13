@@ -11357,7 +11357,9 @@ refreshStats();
 refreshRun();
 
 refreshEvery(refreshStats, 30000, ["stats/"]);
-refreshEvery(refreshRun, 60000, ["stats/overview"]);
+/* The run's figures move slowly, and reading them walks the whole log: five
+   minutes, plus the refresh a page opening already triggers. */
+refreshEvery(refreshRun, 300000, ["stats/overview"]);
 
 let updatePollTimer = null;
 

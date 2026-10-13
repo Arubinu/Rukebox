@@ -255,18 +255,21 @@ class StatsRecorder:
                 day = self._today()
                 counters = dict(counters or {})
                 daily = dict(daily or {})
+                # What the entry moves is worked out first: it goes in with the
+                # entry itself, rather than in a second write of the same row.
+                undo = self._undo_payload(item, seconds, counters, daily, day)
                 self._conn.execute("BEGIN")
                 try:
-                    cursor = self._conn.execute(
+                    self._conn.execute(
                         "INSERT INTO events(session_id, ts, clock_ok, type, label, detail, undo) "
-                        "VALUES(?, ?, ?, ?, ?, ?, NULL)",
+                        "VALUES(?, ?, ?, ?, ?, ?, ?)",
                         (
                             self._session_id, now, 1 if self._clock_ok else 0,
                             event_type, label,
                             json.dumps(detail, ensure_ascii=False) if detail else None,
+                            json.dumps(undo, ensure_ascii=False) if undo else None,
                         ),
                     )
-                    undo = self._undo_payload(item, seconds, counters, daily, day)
                     if counters:
                         self._bump_counters(counters)
                     if daily:
@@ -276,11 +279,6 @@ class StatsRecorder:
                         self._bump_item(kind, name, count=1.0, seconds=seconds, ts=now)
                         if kind == "music" and name and self._clock_ok:
                             self._bump_monthly(name, seconds, daily)
-                    if undo:
-                        self._conn.execute(
-                            "UPDATE events SET undo = ? WHERE id = ?",
-                            (json.dumps(undo, ensure_ascii=False), cursor.lastrowid),
-                        )
                     self._conn.execute("COMMIT")
                 except Exception:
                     self._conn.execute("ROLLBACK")
@@ -308,16 +306,14 @@ class StatsRecorder:
         }
         if kind == "music" and name and self._clock_ok:
             # The song that opened the day is recorded too, and which one it is
-            # depends on what this very call is about to add.
+            # depends on what this very call is about to add. The month is kept
+            # rather than the whole line: the name and the seconds are the item's.
             played = self._conn.execute(
                 "SELECT value FROM daily WHERE day = ? AND key = 'tracks_played'",
                 (date.today().isoformat(),)).fetchone()
             after = (played["value"] if played else 0.0) + float(daily.get("tracks_played") or 0.0)
-            payload["monthly"] = {
-                "month": date.today().strftime("%Y-%m"), "name": name,
-                "count": 1.0, "seconds": float(seconds or 0.0),
-                "first": bool(daily.get("tracks_played") and after <= 1),
-            }
+            payload["month"] = date.today().strftime("%Y-%m")
+            payload["first"] = bool(daily.get("tracks_played") and after <= 1)
         return payload
 
     def open_session(self, clock_ok=False, clock_source=None):
@@ -813,14 +809,7 @@ class StatsRecorder:
                     rows = [dict(row) for row in self._conn.execute(
                         "SELECT id, undo FROM events WHERE session_id = ? ORDER BY id DESC",
                         (session_id,)).fetchall()]
-                    # Newest first: the value the oldest entry of the run found wins.
-                    for row in rows:
-                        if not row["undo"]:
-                            continue
-                        try:
-                            self._reverse(json.loads(row["undo"]))
-                        except (TypeError, ValueError):
-                            log.warning("Unreadable undo note on event %s", row["id"])
+                    self._put_back(rows)
                     removed = self._conn.execute(
                         "DELETE FROM events WHERE session_id = ?", (session_id,)).rowcount or 0
                     self._drop_emptied()
@@ -834,38 +823,66 @@ class StatsRecorder:
             return None
         return dict(run, events=removed)
 
-    def _reverse(self, payload):
-        """Puts back what one entry moved."""
-        for key, amount in (payload.get("counters") or {}).items():
-            self._conn.execute("UPDATE counters SET value = value - ? WHERE key = ?",
-                               (float(amount), key))
-        for day, values in (payload.get("daily") or {}).items():
+    def _put_back(self, rows):
+        """Puts back every total the run's entries had moved, each one once:
+        the notes are gathered first, since a long run moves the same counter
+        hundreds of times. Read newest first, so the value the oldest entry of
+        the run found is the one that stays."""
+        counters, daily, items, months = {}, {}, {}, {}
+        for row in rows:
+            if not row["undo"]:
+                continue
+            try:
+                note = json.loads(row["undo"])
+            except ValueError:
+                log.warning("Unreadable undo note on event %s", row["id"])
+                continue
+            for key, amount in (note.get("counters") or {}).items():
+                counters[key] = counters.get(key, 0.0) + float(amount)
+            for day, values in (note.get("daily") or {}).items():
+                for key, amount in values.items():
+                    daily[(day, key)] = daily.get((day, key), 0.0) + float(amount)
+            item = note.get("item")
+            if not item:
+                continue
+            entry = items.setdefault((item.get("kind"), item.get("name")),
+                                     {"count": 0.0, "seconds": 0.0, "last_at": None})
+            entry["count"] += 1.0
+            entry["seconds"] += float(item.get("seconds") or 0.0)
+            entry["last_at"] = item.get("last_at")
+            month, first = note.get("month"), note.get("first")
+            earlier = note.get("monthly")
+            if earlier:  # a note written before the month was kept on its own
+                month, first = earlier.get("month"), earlier.get("first")
+            if month:
+                line = months.setdefault((month, "track", item.get("name")),
+                                         {"count": 0.0, "seconds": 0.0})
+                line["count"] += 1.0
+                line["seconds"] += float(item.get("seconds") or 0.0)
+                if first:
+                    opened = months.setdefault((month, "first", item.get("name")),
+                                               {"count": 0.0, "seconds": 0.0})
+                    opened["count"] += 1.0
+
+        self._conn.executemany("UPDATE counters SET value = value - ? WHERE key = ?",
+                               [(amount, key) for key, amount in counters.items()])
+        for (day, key), amount in daily.items():
             # Before the time is known the day is "pending", and those rows move
-            # to the real day as soon as it is: it is in one of the two.
+            # to the real day as soon as it is: the value is in one of the two.
             days = (day, date.today().isoformat()) if day == PENDING_DAY else (day,)
-            for key, amount in values.items():
-                self._conn.execute(
-                    "UPDATE daily SET value = value - ? WHERE key = ? AND day IN (%s)"
-                    % ", ".join("?" * len(days)), (float(amount), key) + days)
-        item = payload.get("item")
-        if item:
             self._conn.execute(
-                "UPDATE items SET count = count - 1, seconds = seconds - ?, last_at = ? "
-                "WHERE kind = ? AND name = ?",
-                (float(item.get("seconds") or 0.0), item.get("last_at"),
-                 item.get("kind"), item.get("name")))
-        monthly = payload.get("monthly")
-        if monthly:
-            self._conn.execute(
-                "UPDATE monthly SET count = count - ?, seconds = seconds - ? "
-                "WHERE month = ? AND kind = 'track' AND name = ?",
-                (float(monthly.get("count") or 1.0), float(monthly.get("seconds") or 0.0),
-                 monthly.get("month"), monthly.get("name")))
-            if monthly.get("first"):
-                self._conn.execute(
-                    "UPDATE monthly SET count = count - 1 "
-                    "WHERE month = ? AND kind = 'first' AND name = ?",
-                    (monthly.get("month"), monthly.get("name")))
+                "UPDATE daily SET value = value - ? WHERE key = ? AND day IN (%s)"
+                % ", ".join("?" * len(days)), (amount, key) + days)
+        self._conn.executemany(
+            "UPDATE items SET count = count - ?, seconds = seconds - ?, last_at = ? "
+            "WHERE kind = ? AND name = ?",
+            [(entry["count"], entry["seconds"], entry["last_at"], kind, name)
+             for (kind, name), entry in items.items()])
+        self._conn.executemany(
+            "UPDATE monthly SET count = count - ?, seconds = seconds - ? "
+            "WHERE month = ? AND kind = ? AND name = ?",
+            [(entry["count"], entry["seconds"], month, kind, name)
+             for (month, kind, name), entry in months.items()])
 
     def _drop_emptied(self):
         """A list of things the erased run was alone in filling loses its row
