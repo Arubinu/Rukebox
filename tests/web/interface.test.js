@@ -1350,3 +1350,29 @@ test("a guest can close the login dialog, the login at the door cannot be closed
   assert.equal(page.$("loginOverlay").hidden, true);
   assert.deepEqual(page.errors, []);
 });
+
+/* Stopping the music (web/app.js): the timer's own heads rather than a pair of
+   framed buttons, and the legend under them saying what each one leaves behind. */
+test("stopping the music offers the timer's own heads", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/status": STATUS,
+    "POST /api/action/standby": () => ({ ok: true }),
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  page.$("btnLongPress").click();
+  await until(() => !page.$("modalOverlay").hidden);
+
+  const heads = [...page.document.querySelectorAll(".choice-btn")];
+  assert.deepEqual(heads.map((b) => b.querySelector(".timer-symbol").dataset.icon),
+                   ["moon", "power"], "standby wears the timer's moon, off its power");
+  assert.deepEqual(heads.map((b) => b.querySelector(".timer-group-title").textContent.trim()),
+                   ["Standby", "Switch off"], "the name of each under its icon");
+  assert.equal(page.document.querySelectorAll("#modalLegend .timer-legend-line").length, 2,
+               "and the legend explains both");
+  t.diagnostic("the buttons say: " + heads.map((b) => b.textContent.trim()).join(", "));
+
+  heads[0].click();
+  await until(() => page.sent("POST", "/api/action/standby").length === 1);
+  assert.equal(page.$("modalOverlay").hidden, true, "the dialog is gone");
+  assert.deepEqual(page.errors, []);
+});

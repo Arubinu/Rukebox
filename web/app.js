@@ -2138,10 +2138,29 @@ function legendLines(pairs) {
   return legend;
 }
 
+/* Icon buttons that read as the timer's own heads: a round icon, the name of
+   what it leaves behind, and no frame. The two dialogs below share them. */
+function choiceButtons(choices) {
+  const row = document.createElement("div");
+  row.className = "choice-row";
+  choices.forEach(([icon, value, key]) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "timer-group-head choice-btn";
+    const label = document.createElement("span");
+    label.className = "timer-group-title";
+    label.textContent = t(key);
+    btn.append(timerSymbol(icon, false), label);
+    btn.addEventListener("click", () => closeModal(value));
+    row.appendChild(btn);
+  });
+  return row;
+}
+
 /* What the two ways of stopping the music do, under the buttons that do them:
    the same legend as the timer's, with the icon each action carries. */
 function stopChoiceBody() {
-  return legendLines([["pause", t("home.legend_standby")],
+  return legendLines([["moon", t("home.legend_standby")],
                       ["power", t("home.legend_poweroff")]]);
 }
 
@@ -2668,17 +2687,17 @@ document.getElementById("btnDouble").addEventListener("click", async () => {
 });
 document.getElementById("btnStart").addEventListener("click", () => apiPost("/api/action/start_music"));
 
+const STOP_CHOICES = [["moon", "standby", "home.brief_standby"],
+                      ["power", "poweroff", "home.brief_poweroff"]];
+
 document.getElementById("btnLongPress").addEventListener("click", async () => {
   // Closing is the cross (Esc, or a tap outside): "off" is the only thing here
   // that cannot be taken back, and neither way of stopping is a mistake to undo.
   const choice = await openModal({
     title: t("home.stop_title"),
+    bodyNode: choiceButtons(STOP_CHOICES),
     legend: stopChoiceBody(),
     actions: false,
-    choices: [
-      { value: "standby", label: t("home.standby") },
-      { value: "poweroff", label: t("home.poweroff"), danger: true },
-    ],
   });
   if (choice === "standby") {
     const r = await apiPost("/api/action/standby");
@@ -11323,20 +11342,7 @@ function runChoiceBody(at) {
     line.textContent = t(key);
     list.appendChild(line);
   });
-  const row = document.createElement("div");
-  row.className = "run-choices";
-  RUN_CHOICES.forEach(([icon, value, key]) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "timer-group-head run-choice";
-    const label = document.createElement("span");
-    label.className = "timer-group-title";
-    label.textContent = t(key);
-    btn.append(timerSymbol(icon, false), label);
-    btn.addEventListener("click", () => closeModal(value));
-    row.appendChild(btn);
-  });
-  box.append(intro, list, row);
+  box.append(intro, list, choiceButtons(RUN_CHOICES));
   return box;
 }
 

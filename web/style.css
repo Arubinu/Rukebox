@@ -3857,12 +3857,10 @@ select {
 /* Erasing a run: what goes first, then the timer's own heads side by side. */
 .run-intro { margin: 0 0 8px; }
 .run-list { margin: 0 0 14px; padding-left: 18px; }
-.run-choices {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  align-items: start;
-}
+/* The ways out of a dialog: the timer's own heads, side by side, whatever the
+   count - two to stop the music, three to erase a run. */
+.choice-row { display: flex; gap: 14px; align-items: flex-start; }
+.choice-row > * { flex: 1 1 0; min-width: 0; }
 
 #modalBody { white-space: pre-line; }
 

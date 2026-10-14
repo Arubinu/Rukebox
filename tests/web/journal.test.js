@@ -146,7 +146,7 @@ test("the last run is described, and erasing it asks what the radio does next", 
   assert.equal(page.document.querySelectorAll("#modalLegend .timer-legend-line").length, 3,
                "and the legend explains the three ways out");
 
-  const ways = [...page.document.querySelectorAll(".run-choice")];
+  const ways = [...page.document.querySelectorAll(".choice-btn")];
   assert.deepEqual(ways.map((b) => b.querySelector(".timer-symbol").dataset.icon),
                    ["moon", "play", "power"], "standby, music, off: an icon each");
   assert.deepEqual(ways.map((b) => b.querySelector(".timer-group-title").textContent.trim()),
