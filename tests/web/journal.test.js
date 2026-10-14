@@ -148,7 +148,7 @@ test("the last run is described, and erasing it asks what the radio does next", 
 
   const ways = [...page.document.querySelectorAll(".run-choice")];
   assert.deepEqual(ways.map((b) => b.querySelector(".timer-symbol").dataset.icon),
-                   ["pause", "play", "power"], "standby, music, off: an icon each");
+                   ["moon", "play", "power"], "standby, music, off: an icon each");
   assert.deepEqual(ways.map((b) => b.querySelector(".timer-group-title").textContent.trim()),
                    ["Standby", "Music", "Off"], "named under the icon, as in the timer");
   t.diagnostic("the buttons say: " + ways.map((b) => b.textContent.trim()).join(", "));

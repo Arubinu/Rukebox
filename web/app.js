@@ -11307,7 +11307,7 @@ async function refreshRun() {
 
 /* The state the radio is left in once the run is gone: the timer's own heads,
    side by side, and the legend under them saying what each one leaves behind. */
-const RUN_CHOICES = [["pause", "standby", "run.choice_standby"],
+const RUN_CHOICES = [["moon", "standby", "run.choice_standby"],
                      ["play", "music", "run.choice_music"],
                      ["power", "poweroff", "run.choice_poweroff"]];
 
@@ -11341,9 +11341,10 @@ function runChoiceBody(at) {
 }
 
 /* The legend of the timer and of the switch-off dialog, saying what the run
-   leaves behind: nothing to undo either way, the music simply goes on from there. */
+   leaves behind: nothing to undo either way, the music simply goes on from there.
+   Standby carries the moon, the one the timer gives it. */
 function runChoiceLegend() {
-  return legendLines([["pause", t("run.legend_standby")],
+  return legendLines([["moon", t("run.legend_standby")],
                       ["play", t("run.legend_music")],
                       ["power", t("run.legend_poweroff")]]);
 }
