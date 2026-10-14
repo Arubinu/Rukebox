@@ -642,6 +642,34 @@ test("Android is given a document it can scroll up, so its portal window lets go
   calls.length = 0;
   page.window.dispatchEvent(new page.window.Event("scroll"));
   assert.deepEqual(calls, [[0, 1]], "a browser that put it back is pinned again");
+
+  function gesture(target, moves) {
+    const start = new page.window.Event("touchstart", { bubbles: true });
+    start.touches = [{ clientY: 100 }];
+    target.dispatchEvent(start);
+    const prevented = moves.map((y) => {
+      const move = new page.window.Event("touchmove", { bubbles: true, cancelable: true });
+      move.touches = [{ clientY: y }];
+      target.dispatchEvent(move);
+      return move.defaultPrevented;
+    });
+    const end = new page.window.Event("touchend", { bubbles: true });
+    target.dispatchEvent(end);
+    return prevented;
+  }
+
+  assert.deepEqual(gesture(page.document.querySelector(".topbar"), [80, 60]), [true, true],
+                   "a drag on the title bar has nothing to scroll, so the page keeps it");
+  assert.deepEqual(gesture(page.$("loginPassword"), [80]), [false], "a field keeps its own drags");
+
+  const main = page.$("main");
+  main.style.overflowY = "auto";
+  Object.defineProperty(main, "scrollHeight", { value: 2000, configurable: true });
+  Object.defineProperty(main, "clientHeight", { value: 600, configurable: true });
+  const child = page.document.createElement("div");
+  main.appendChild(child);
+  assert.deepEqual(gesture(child, [80, 120]), [false, false], "the one scroller keeps its own too");
+
   assert.equal(refuse("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"), false,
                "an iPhone keeps its own");
   assert.equal(refuse("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0"), false,

@@ -53,12 +53,32 @@ function holdDocumentDown() {
   if (Math.abs(window.scrollY - 1) > 0.5) window.scrollTo(0, 1);
 }
 
+/* Whether what was touched uses the drag itself: what it does not use moves the document,
+   and the window above the WebView then takes that drag for its own refresh. */
+function handlesTheDrag(node) {
+  if (node.closest && node.closest("input, textarea, select, [contenteditable]")) return true;
+  for (let el = node; el && el !== document.documentElement; el = el.parentElement) {
+    const style = getComputedStyle(el);
+    if (/auto|scroll/.test(style.overflowY) && el.scrollHeight > el.clientHeight) return true;
+  }
+  return false;
+}
+
 function refusePullToRefresh(ua) {
   const name = ua === undefined ? navigator.userAgent || "" : ua;
   if (!/Android/.test(name)) return false;
   document.documentElement.classList.add("pull-guard");
   window.addEventListener("scroll", holdDocumentDown, { passive: true });
   holdDocumentDown();
+  const stop = (event) => { if (event.touches.length === 1) event.preventDefault(); };
+  const release = () => document.removeEventListener("touchmove", stop);
+  document.addEventListener("touchstart", (event) => {
+    if (event.touches.length === 1 && !handlesTheDrag(event.target)) {
+      document.addEventListener("touchmove", stop, { passive: false });
+    }
+  }, { passive: true });
+  document.addEventListener("touchend", release, { passive: true });
+  document.addEventListener("touchcancel", release, { passive: true });
   return true;
 }
 refusePullToRefresh();
