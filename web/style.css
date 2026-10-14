@@ -339,6 +339,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The pixel app.js holds the document down by, the only lever left against Android's native
+   pull-to-refresh: it intercepts the drag until the WebView can itself scroll up. */
+html.pull-guard { overflow-y: auto; overflow-x: hidden; }
+html.pull-guard body { overflow: visible; }
+html.pull-guard::after { content: ""; display: block; height: 1px; }
+
 h1, h2, h3, p { margin: 0; }
 a { color: var(--accent); }
 strong { font-weight: 650; }

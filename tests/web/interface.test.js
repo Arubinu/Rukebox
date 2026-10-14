@@ -629,6 +629,25 @@ test("only a captive window is sent to its system's probe after the release", as
                "http://connectivitycheck.gstatic.com/generate_204", "Android is as before");
 });
 
+test("Android is given a document it can scroll up, so its portal window lets go", async (t) => {
+  const page = open(t, { expose: ["refusePullToRefresh"] });
+  await until(() => page.$("bootOverlay").hidden);
+  const calls = [];
+  page.window.scrollTo = (x, y) => calls.push([x, y]);
+  const refuse = page.window.__exposed.refusePullToRefresh;
+  const webview = "Mozilla/5.0 (Linux; Android 16; wv) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36";
+  assert.equal(refuse(webview), true, "the portal window is a WebView");
+  assert.deepEqual(calls, [[0, 1]], "the document goes and stays one pixel down");
+  assert.ok(page.document.documentElement.classList.contains("pull-guard"), "and the rule that allows it");
+  calls.length = 0;
+  page.window.dispatchEvent(new page.window.Event("scroll"));
+  assert.deepEqual(calls, [[0, 1]], "a browser that put it back is pinned again");
+  assert.equal(refuse("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"), false,
+               "an iPhone keeps its own");
+  assert.equal(refuse("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0"), false,
+               "a desktop browser too");
+});
+
 test("the side menu says what plays, and leads to the player", async (t) => {
   const page = open(t, { hash: "#settings/playback" });
   await until(() => !page.$("navNow").hidden);
