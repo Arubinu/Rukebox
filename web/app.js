@@ -2152,12 +2152,17 @@ function timerChoiceBody(groups, intro) {
   groups.forEach((group) => {
     const box = document.createElement("div");
     box.className = "timer-group";
-    const head = document.createElement("div");
+    // The head is a button: it applies the shortest delay of its own group.
+    const head = document.createElement("button");
+    head.type = "button";
     head.className = "timer-group-head";
     const title = document.createElement("span");
     title.className = "timer-group-title";
     title.textContent = group.title;
     head.append(timerSymbol(group.icon, false), title);
+    if (group.options.length) {
+      head.addEventListener("click", () => closeModal(group.options[0].value));
+    }
     box.appendChild(head);
     group.options.forEach((option) => {
       const btn = document.createElement("button");
@@ -11300,29 +11305,38 @@ async function refreshRun() {
   runSummaryBox.textContent = lastRun ? describeRun(lastRun) : t("run.none");
 }
 
-/* The state the radio is left in once the run is gone: an icon each, the
-   legend under them saying what each one leaves behind. */
-const RUN_CHOICES = [["pause", "standby", "home.standby"],
-                     ["play", "music", "home.start_music"],
-                     ["power", "poweroff", "home.poweroff"]];
+/* The state the radio is left in once the run is gone: the timer's own heads,
+   side by side, and the legend under them saying what each one leaves behind. */
+const RUN_CHOICES = [["pause", "standby", "run.choice_standby"],
+                     ["play", "music", "run.choice_music"],
+                     ["power", "poweroff", "run.choice_poweroff"]];
 
 function runChoiceBody(at) {
   const box = document.createElement("div");
   const intro = document.createElement("p");
   intro.className = "run-intro";
   intro.textContent = t("run.confirm", { at });
+  const list = document.createElement("ul");
+  list.className = "run-list";
+  ["run.erase_rotation", "run.erase_day", "run.erase_journal"].forEach((key) => {
+    const line = document.createElement("li");
+    line.textContent = t(key);
+    list.appendChild(line);
+  });
   const row = document.createElement("div");
   row.className = "run-choices";
-  RUN_CHOICES.forEach(([icon, value, label]) => {
+  RUN_CHOICES.forEach(([icon, value, key]) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "btn run-choice";
-    btn.dataset.icon = icon;
-    btn.setAttribute("aria-label", t(label));
+    btn.className = "timer-group-head run-choice";
+    const label = document.createElement("span");
+    label.className = "timer-group-title";
+    label.textContent = t(key);
+    btn.append(timerSymbol(icon, false), label);
     btn.addEventListener("click", () => closeModal(value));
     row.appendChild(btn);
   });
-  box.append(intro, row);
+  box.append(intro, list, row);
   return box;
 }
 
