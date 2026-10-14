@@ -47,6 +47,22 @@ function leaveCaptiveWindow() {
   if (target) window.location.assign(target);
 }
 
+/* Android's captive-portal window is a native pull-to-refresh around its WebView: it steals
+   the drag unless the WebView can itself scroll up, so the document stays one pixel down. */
+function holdDocumentDown() {
+  if (Math.abs(window.scrollY - 1) > 0.5) window.scrollTo(0, 1);
+}
+
+function refusePullToRefresh(ua) {
+  const name = ua === undefined ? navigator.userAgent || "" : ua;
+  if (!/Android/.test(name)) return false;
+  document.documentElement.classList.add("pull-guard");
+  window.addEventListener("scroll", holdDocumentDown, { passive: true });
+  holdDocumentDown();
+  return true;
+}
+refusePullToRefresh();
+
 async function offerPortalReleaseOnLogin() {
   const btn = document.getElementById("loginPortalRelease");
   try {
