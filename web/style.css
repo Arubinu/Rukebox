@@ -3858,6 +3858,8 @@ select {
   cursor: pointer;
 }
 .timer-group-head:active .timer-symbol { transform: scale(0.96); }
+/* The head carries no frame: the round is the whole button, so it answers the pointer. */
+.timer-group-head:hover .timer-symbol { background: var(--accent-ring); }
 .timer-symbol {
   display: flex;
   align-items: center;
