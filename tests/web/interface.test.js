@@ -654,6 +654,7 @@ test("Android is given a document it can scroll up, so its portal window lets go
       return move.defaultPrevented;
     });
     const end = new page.window.Event("touchend", { bubbles: true });
+    end.changedTouches = [{ clientY: moves.length ? moves[moves.length - 1] : 100 }];
     target.dispatchEvent(end);
     return prevented;
   }
@@ -674,6 +675,50 @@ test("Android is given a document it can scroll up, so its portal window lets go
                "an iPhone keeps its own");
   assert.equal(refuse("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0"), false,
                "a desktop browser too");
+});
+
+test("the title bar gives the pull back, and only there", async (t) => {
+  const page = open(t, { expose: ["refusePullToRefresh"] });
+  await until(() => page.$("bootOverlay").hidden);
+  page.window.__exposed.refusePullToRefresh(
+    "Mozilla/5.0 (Linux; Android 16; wv) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36");
+  const reloads = () => page.navigations.length;
+  const pill = page.$("pullRefresh");
+
+  function pull(target, moves) {
+    const start = new page.window.Event("touchstart", { bubbles: true });
+    start.touches = [{ clientY: 100 }];
+    target.dispatchEvent(start);
+    moves.forEach((y) => {
+      const move = new page.window.Event("touchmove", { bubbles: true, cancelable: true });
+      move.touches = [{ clientY: y }];
+      target.dispatchEvent(move);
+    });
+  }
+  function release(target, y) {
+    const end = new page.window.Event("touchend", { bubbles: true });
+    end.changedTouches = [{ clientY: y }];
+    target.dispatchEvent(end);
+  }
+
+  const bar = page.document.querySelector(".topbar");
+  pull(bar, [130]);
+  assert.equal(pill.hidden, false, "a short pull still shows the pill");
+  assert.equal(pill.classList.contains("ready"), false, "not yet ready");
+  release(bar, 130);
+  assert.equal(pill.hidden, true, "released short, the pill goes away");
+  assert.equal(reloads(), 0, "and nothing reloads");
+
+  pull(bar, [180]);
+  assert.equal(pill.classList.contains("ready"), true, "pulled past the threshold, the pill is ready");
+  assert.equal(pill.style.getPropertyValue("--pull"), "1.00", "and filled");
+  release(bar, 180);
+  assert.equal(reloads(), 1, "released there, the page reloads");
+  assert.ok(pill.classList.contains("spinning"), "with the pill turning");
+
+  pull(bar, [130]);
+  release(bar, 130);
+  assert.equal(reloads(), 1, "a short pull after that reloads nothing");
 });
 
 test("the side menu says what plays, and leads to the player", async (t) => {

@@ -64,12 +64,57 @@ function handlesTheDrag(node) {
   return false;
 }
 
+/* That gesture is not lost: pulled down from the title bar, the page reloads itself. */
+const PULL_REFRESH_PX = 64;
+
+function refreshFromTheTitleBar() {
+  const bar = document.querySelector(".topbar");
+  const pill = document.getElementById("pullRefresh");
+  let startY = null;
+  const show = (pull) => {
+    pill.hidden = false;
+    pill.classList.add("shown");
+    pill.classList.toggle("ready", pull >= 1);
+    pill.style.setProperty("--pull", pull.toFixed(2));
+  };
+  const away = () => {
+    pill.hidden = true;
+    pill.classList.remove("shown", "ready", "spinning");
+    pill.style.removeProperty("--pull");
+  };
+  bar.addEventListener("touchstart", (event) => {
+    startY = event.touches.length === 1 && !handlesTheDrag(event.target) ? event.touches[0].clientY : null;
+  }, { passive: true });
+  bar.addEventListener("touchmove", (event) => {
+    if (startY === null || event.touches.length !== 1) return;
+    const pulled = event.touches[0].clientY - startY;
+    if (pulled > 8) show(Math.min(pulled / PULL_REFRESH_PX, 1));
+  }, { passive: true });
+  bar.addEventListener("touchend", (event) => {
+    if (startY === null) return;
+    const last = event.changedTouches && event.changedTouches[0];
+    const pulled = (last ? last.clientY : startY) - startY;
+    startY = null;
+    if (pulled < PULL_REFRESH_PX) {
+      away();
+      return;
+    }
+    pill.classList.add("spinning");
+    window.location.reload();
+  }, { passive: true });
+  bar.addEventListener("touchcancel", () => {
+    startY = null;
+    away();
+  }, { passive: true });
+}
+
 function refusePullToRefresh(ua) {
   const name = ua === undefined ? navigator.userAgent || "" : ua;
   if (!/Android/.test(name)) return false;
   document.documentElement.classList.add("pull-guard");
   window.addEventListener("scroll", holdDocumentDown, { passive: true });
   holdDocumentDown();
+  refreshFromTheTitleBar();
   const stop = (event) => { if (event.touches.length === 1) event.preventDefault(); };
   const release = () => document.removeEventListener("touchmove", stop);
   document.addEventListener("touchstart", (event) => {

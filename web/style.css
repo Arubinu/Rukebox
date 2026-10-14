@@ -345,6 +345,33 @@ html.pull-guard { overflow-y: auto; overflow-x: hidden; }
 html.pull-guard body { overflow: visible; }
 html.pull-guard::after { content: ""; display: block; height: 1px; }
 
+/* The pull the page takes back for itself, on the title bar only: a native window that keeps
+   the whole gesture would reload on any drag. Android's own circle, --pull is the drag, 0 to 1. */
+.pull-refresh {
+  position: fixed;
+  top: var(--topbar-h, 68px);
+  left: 50%;
+  z-index: 29;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  line-height: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--accent);
+  box-shadow: 0 3px 3px -2px rgb(0 0 0 / 0.2), 0 3px 4px 0 rgb(0 0 0 / 0.14), 0 1px 8px 0 rgb(0 0 0 / 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(var(--pull, 0) * 22px - 6px)) scale(calc(0.7 + var(--pull, 0) * 0.3));
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.pull-refresh.shown { opacity: 1; }
+.pull-refresh.ready { transform: translate(-50%, calc(var(--pull, 0) * 22px - 6px)) scale(1.06); }
+.pull-refresh span { display: grid; place-items: center; transform: rotate(calc(var(--pull, 0) * 180deg)); }
+.pull-refresh.spinning span { animation: pull-refresh-spin 0.7s linear infinite; }
+@keyframes pull-refresh-spin { to { transform: rotate(360deg); } }
+
 h1, h2, h3, p { margin: 0; }
 a { color: var(--accent); }
 strong { font-weight: 650; }

@@ -4,7 +4,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { JSDOM } = require("jsdom");
+const { JSDOM, VirtualConsole } = require("jsdom");
 
 const WEB = path.join(__dirname, "..", "..", "web");
 const read = (name) => fs.readFileSync(path.join(WEB, name), "utf8");
@@ -37,10 +37,16 @@ function load(options = {}) {
   const requests = [];
   let closed = false;
   const html = read("index.html").replace(/<script src="[^"]+"><\/script>/g, "");
+  // A reload is a navigation jsdom refuses to make: it is kept here, not shouted at.
+  const navigations = [];
   const dom = new JSDOM(html, {
     url: "http://rukebox.local/" + (options.hash || ""),
     runScripts: "outside-only",
     pretendToBeVisual: true,
+    virtualConsole: new VirtualConsole().on("jsdomError", (error) => {
+      if (/navigation/.test(error.message)) navigations.push(error.message);
+      else console.error(error.message);
+    }),
   });
   const { window } = dom;
 
@@ -99,6 +105,7 @@ function load(options = {}) {
     document: window.document,
     requests,
     errors,
+    navigations,
     $: (id) => window.document.getElementById(id),
     sent: (method, pathname) => requests.filter((r) => r.method === method && r.path === pathname),
     // Nothing new is answered, what is under way settles, then the window goes:
