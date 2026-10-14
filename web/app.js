@@ -11315,10 +11315,10 @@ function runChoiceBody(at) {
   const box = document.createElement("div");
   const intro = document.createElement("p");
   intro.className = "run-intro";
-  intro.textContent = t("run.confirm", { at });
+  intro.textContent = t("run.erase_intro", { at });
   const list = document.createElement("ul");
   list.className = "run-list";
-  ["run.erase_rotation", "run.erase_day", "run.erase_journal"].forEach((key) => {
+  ["run.erase_played", "run.erase_points", "run.erase_journal"].forEach((key) => {
     const line = document.createElement("li");
     line.textContent = t(key);
     list.appendChild(line);
