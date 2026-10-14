@@ -11300,9 +11300,49 @@ async function refreshRun() {
   runSummaryBox.textContent = lastRun ? describeRun(lastRun) : t("run.none");
 }
 
+/* The state the radio is left in once the run is gone: an icon each, the
+   legend under them saying what each one leaves behind. */
+const RUN_CHOICES = [["pause", "standby", "home.standby"],
+                     ["play", "music", "home.start_music"],
+                     ["power", "poweroff", "home.poweroff"]];
+
+function runChoiceBody(at) {
+  const box = document.createElement("div");
+  const intro = document.createElement("p");
+  intro.className = "run-intro";
+  intro.textContent = t("run.confirm", { at });
+  const row = document.createElement("div");
+  row.className = "run-choices";
+  RUN_CHOICES.forEach(([icon, value, label]) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn run-choice";
+    btn.dataset.icon = icon;
+    btn.setAttribute("aria-label", t(label));
+    btn.addEventListener("click", () => closeModal(value));
+    row.appendChild(btn);
+  });
+  box.append(intro, row);
+  return box;
+}
+
+/* The legend of the timer and of the switch-off dialog, saying what the run
+   leaves behind: nothing to undo either way, the music simply goes on from there. */
+function runChoiceLegend() {
+  return legendLines([["pause", t("run.legend_standby")],
+                      ["play", t("run.legend_music")],
+                      ["power", t("run.legend_poweroff")]]);
+}
+
 btnEraseRun.addEventListener("click", async () => {
   if (!lastRun) return;
-  if (!(await showConfirm(t("run.confirm", { at: formatDateTime(lastRun.started_at) })))) return;
+  const choice = await openModal({
+    title: t("run.erase"),
+    bodyNode: runChoiceBody(formatDateTime(lastRun.started_at)),
+    legend: runChoiceLegend(),
+    actions: false,
+  });
+  if (!choice) return;
 
   const result = await apiPost("/api/journal/erase_run", { session: lastRun.session });
   if (!result.ok) {
@@ -11315,6 +11355,16 @@ btnEraseRun.addEventListener("click", async () => {
   await loadEvents(false);
   showToast(t("run.done"), t("run.done_detail", {
     tracks: result.data.tracks || 0, events: result.data.events || 0 }));
+
+  // Off ends the page's own business: the radio is not there to answer any more.
+  if (choice === "poweroff") {
+    apiPost("/api/action/poweroff");
+    return;
+  }
+  const answer = await apiPost(choice === "standby" ? "/api/action/standby"
+                                                   : "/api/action/start_music");
+  if (!answer.ok) showToolError(t("home.transport_failed"), answer);
+  refreshStatus();
 });
 
 document.getElementById("btnStatsReset").addEventListener("click", async () => {

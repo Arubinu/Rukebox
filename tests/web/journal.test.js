@@ -106,7 +106,7 @@ test("a search that matches nothing says so", async (t) => {
 
 
 /* Erasing the last run (web/app.js): what it holds is said before anything
-   goes, and nothing goes before the confirmation. */
+   goes, and the three ways out of it leave the radio where they say. */
 const RUN = { session: 4, started_at: 1790928000, ended_at: null, open: true,
               clock_source: "rtc", tracks: 12, seconds: 3720, events: 40,
               first_ts: 1790924000, last_ts: 1790928000 };
@@ -122,11 +122,12 @@ function withRun() {
         erased = true;
         return { session: 4, tracks: 12, events: 40, wins: 1 };
       },
+      "POST /api/action/start_music": () => ({ ok: true }),
     },
   });
 }
 
-test("the last run is described, and waits for a confirmation", async (t) => {
+test("the last run is described, and erasing it asks what the radio does next", async (t) => {
   const page = withRun();
   const summary = await until(() => page.$("runSummary").textContent || null);
   t.diagnostic("the page says: " + summary);
@@ -139,12 +140,21 @@ test("the last run is described, and waits for a confirmation", async (t) => {
                "nothing is erased before the answer");
   assert.match(page.$("modalBody").textContent, /\d/, "and the dialog says since when");
 
-  page.$("modalOk").click();
+  const ways = [...page.document.querySelectorAll(".run-choice")];
+  assert.deepEqual(ways.map((b) => b.dataset.icon), ["pause", "play", "power"],
+                   "standby, music, off: an icon each");
+  assert.equal(page.document.querySelectorAll("#modalLegend .timer-legend-line").length, 3,
+               "and the legend explains all three");
+  t.diagnostic("the buttons say: " + ways.map((b) => b.getAttribute("aria-label")).join(", "));
+
+  ways[1].click();
   const sent = await until(() => {
     const calls = page.sent("POST", "/api/journal/erase_run");
     return calls.length ? calls[0] : null;
   });
   assert.deepEqual(sent.body, { session: 4 }, "the run the page read is the one erased");
+  await until(() => page.sent("POST", "/api/action/start_music").length);
+  t.diagnostic("and the radio was asked to play what the run had played");
 
   await until(() => page.$("btnEraseRun").hidden);
   assert.match(page.$("runSummary").textContent, /nothing/i,
