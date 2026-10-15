@@ -49,6 +49,9 @@ BLOCKS = {
     "schedules": ("SCHEDULES_FILE", "schedules_file", "schedules.json"),
     "cards": ("CARDS_FILE", "cards_file", "cards.json"),
     "track_order": ("TRACK_ORDER_FILE", "track_order_file", "track_order.json"),
+    # The accounts were never a file of their own: nothing to take in, but the
+    # document holds them like the other lists.
+    "people": (None, "people", "people.json"),
 }
 
 # What a block added to the end of a document is introduced by.
@@ -58,6 +61,7 @@ COMMENTS = {
     "schedules": "# The schedules: when the radio starts, stops, and with what settings.",
     "cards": "# The RFID cards and what each one starts.",
     "track_order": "# The play order saved for an announcement folder, when one was chosen.",
+    "people": "# The people who may log in: name, role, and the password they chose.",
 }
 
 # What a new document shows of each block, so that the shape is there to read.
@@ -67,6 +71,7 @@ EMPTY = {
     "schedules": {"schedules": []},
     "cards": {"cards": []},
     "track_order": {},
+    "people": {"items": []},
 }
 
 DESCRIPTIONS = {
@@ -75,6 +80,7 @@ DESCRIPTIONS = {
     "schedules": "When the radio starts and stops by itself",
     "cards": "The cards, and what each one starts",
     "track_order": "The play order chosen for an announcement folder",
+    "people": "Who may log in, and as what",
 }
 
 _cache = {}
@@ -124,7 +130,7 @@ def legacy_path(name, path=None):
     """The file this block lived in before it was a block: beside the document,
     unless the environment or an older `paths:` key names another place."""
     env_name, key, filename = BLOCKS[name]
-    forced = os.environ.get("RUKEBOX_" + env_name)
+    forced = os.environ.get("RUKEBOX_" + env_name) if env_name else None
     if forced:
         return forced
     document = document_path(path)
@@ -231,6 +237,9 @@ def write(name, doc, path=None):
     if name not in BLOCKS:
         raise ValueError("unknown block: %s" % name)
     if config_file._yaml_module() is None:
+        if BLOCKS[name][0] is None:
+            log.warning("%s needs PyYAML: nothing was written", name)
+            return
         json_file.write(legacy_path(name, path), doc)
         return
     document = document_path(path)
@@ -299,6 +308,8 @@ def import_legacy(path=None):
     document = document_path(path)
     waiting = []
     for name in BLOCKS:
+        if BLOCKS[name][0] is None:
+            continue          # never a file of its own: nothing to take in
         data = _parsed(document) if os.path.exists(document) else {}
         block = (data or {}).get(name)
         # A block the document already fills is not taken over; one that is

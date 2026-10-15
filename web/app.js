@@ -9892,6 +9892,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "ap_client_disconnected", "web_session", "music_started", "music_list_stopped",
   "music_rescan", "track_order_changed", "track_order_reset",
   "cutoff_triggered", "volume_set", "settings_changed",
+  "account_added", "account_changed", "account_removed",
   "daemon_restart", "ssh_toggle", "home_wifi_toggle", "bluetooth_connect",
   "bluetooth_disconnect", "stats_reset", "run_erased",
 

@@ -17,6 +17,21 @@ def hash_password(password):
     return "%s$%d$%s$%s" % (ALGORITHM, ITERATIONS, salt.hex(), digest.hex())
 
 
+def is_hash(stored_hash):
+    """Whether this text is a hash this module wrote: checked before storing
+    one, so that a hand-written line cannot replace it with something else."""
+    try:
+        algorithm, iterations_str, salt_hex, digest_hex = str(stored_hash).split("$")
+        if algorithm != ALGORITHM:
+            return False
+        int(iterations_str)
+        bytes.fromhex(salt_hex)
+        bytes.fromhex(digest_hex)
+    except (ValueError, AttributeError):
+        return False
+    return True
+
+
 def verify_password(password, stored_hash):
     """Constant-time comparison - a plain `==` on the final hash would leak how
     many leading bytes matched via timing."""

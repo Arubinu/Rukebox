@@ -31,6 +31,7 @@ from flask import Flask, Response, g, jsonify, redirect, request, send_file, sen
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import announce_level  # noqa: E402
+import accounts  # noqa: E402
 import announcements  # noqa: E402
 import audio_diag  # noqa: E402
 import net_diag  # noqa: E402
@@ -56,6 +57,7 @@ import stream as stream_mod  # noqa: E402
 import system_actions  # noqa: E402
 import upnp  # noqa: E402
 import web_auth  # noqa: E402
+import roles  # noqa: E402
 from config_and_scan import (DEFAULTS, get_music_list, load_config, scan_audio_dir,  # noqa: E402
                              update_config_file)
 from control_client import send_control_command  # noqa: E402
@@ -205,69 +207,64 @@ app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 
 
 def _is_authenticated():
-    """Logged in, and less than AUTH_MAX_AGE ago."""
-    if not session.get("authenticated"):
-        return False
-    try:
-        logged_in_at = float(session.get("auth_at", 0))
-    except (TypeError, ValueError):
-        logged_in_at = 0
-    if time.time() - logged_in_at > AUTH_MAX_AGE.total_seconds():
-        session.pop("authenticated", None)
-        session.pop("auth_at", None)
-        return False
-    return True
+    """Logged in as an account, less than AUTH_MAX_AGE ago."""
+    return _session_account() is not None
 
 
-def _mark_authenticated():
+def _session_account():
+    """The account this browser logged in as, or None.
+
+    Read again from the file at every request: a role changed in the interface
+    applies to the browsers already open, and deleting an account logs it out.
+    """
+    if "account_cache" in g:
+        return g.account_cache
+    account = None
+    if session.get("authenticated"):
+        try:
+            logged_in_at = float(session.get("auth_at", 0))
+        except (TypeError, ValueError):
+            logged_in_at = 0
+        if time.time() - logged_in_at > AUTH_MAX_AGE.total_seconds():
+            _log_out()
+        else:
+            account = accounts.by_id(session.get("account_id")) or _legacy_owner()
+    g.account_cache = account
+    return account
+
+
+def _legacy_owner():
+    """The session an older version opened with the single password.
+
+    Nothing named it: it is the owner, as long as that password is still the
+    one the configuration holds."""
+    if not session.get("legacy_owner") or not cfg().get("WEB_PASSWORD_HASH"):
+        return None
+    if accounts.owner() is not None:
+        return None          # an account holds the password now
+    return {"id": "owner", "name": "Owner", "role": "owner", "legacy": True}
+
+
+def _log_out():
+    for key in ("authenticated", "auth_at", "account_id", "legacy_owner"):
+        session.pop(key, None)
+
+
+def _mark_authenticated(account):
     session.permanent = True
     session["authenticated"] = True
     session["auth_at"] = time.time()
+    if account.get("legacy"):
+        session["legacy_owner"] = True
+    else:
+        session["account_id"] = account["id"]
 
 _AUTH_EXEMPT_PREFIX = "/api/auth/"
 
 
 # Paths a guest may call without the password; long_press (power off) never.
-_GUEST_PATHS = frozenset({
-    "/api/dedications/voice",
-    "/api/suggestions/name_voice",
-    "/api/status",
-    "/api/status/wait",
-    "/api/vote/skip",
-    "/api/game",
-    "/api/game/answer",
-    "/api/game/join",
-    "/api/volume",
-    "/api/action/single_click",
-    "/api/action/double_click",
-    "/api/action/start_music",
-    "/api/action/next_track",
-    "/api/action/previous_track",
-    "/api/action/toggle_pause",
-    "/api/action/skip_sound",
-    "/api/action/announce",
-    "/api/announcements",
-    "/api/portal/status",
-    "/api/portal/release",
-    "/api/now/cover",
-    "/api/now/lyrics",
-    "/api/recent",
-    "/api/queue",
-    "/api/today",
-    "/api/library",
-    "/api/library/facets",
-    "/api/library/queue",
-    "/api/library/play",
-    "/api/audio/fallback",
-    "/api/device",
-    "/api/suggestions",
-    "/api/suggestions/vote",
-    "/api/suggestions/delete",
-    "/api/suggestions/name",
-    "/api/devices/link_code",
-    "/api/devices/link_join",
-    "/api/devices/link_leave",
-})
+# The whole ladder lives in src/roles.py: guest, member, operator, owner.
+_GUEST_PATHS = roles.GUEST_PATHS
 
 
 # A guest page and what it asks for: hiding the page refuses those too.
@@ -297,6 +294,36 @@ def _guest_allowed(path, method):
     if path == "/api/announcements" and method != "GET":
         return False
     return True
+
+
+def _role():
+    """The role this request is answered as: who logged in, or the guest.
+
+    With no owner account holding a password - which is how this project
+    started, and how it stays for whoever wants no account - there is no door
+    to stand behind, and everyone on the access point is the owner.
+    """
+    if "role_cache" in g:
+        return g.role_cache
+    account = _session_account()
+    if account is not None:
+        role = account.get("role") or "guest"
+    elif not accounts.owner_has_password() and not cfg().get("WEB_PASSWORD_HASH"):
+        role = "owner"
+    else:
+        role = "guest"
+    g.role_cache = role
+    return role
+
+
+def _needed_role():
+    """The role this path needs, the owner for anything nobody listed."""
+    rule = request.url_rule.rule if request.url_rule is not None else None
+    needed = roles.needed_role(request.path, rule)
+    if needed == "guest" and not _guest_allowed(request.path, request.method):
+        # Guest access off, or that page is one the owner keeps: the door.
+        return "owner"
+    return needed
 
 
 @app.route("/api/stream")
@@ -571,13 +598,10 @@ def _require_auth():
         return None
     if request.path == "/api/portal/release" and request.method == "POST":
         return None
-    if not cfg().get("WEB_PASSWORD_HASH"):
+    needed = _needed_role()
+    if roles.allows(_role(), needed):
         return None
-    if _is_authenticated():
-        return None
-    if _guest_allowed(request.path, request.method):
-        return None
-    return jsonify({"ok": False, "error": "auth_required"}), 401
+    return jsonify({"ok": False, "error": "auth_required", "needs": needed}), 401
 
 
 @app.before_request
@@ -601,10 +625,19 @@ def _refuse_what_this_machine_cannot_do():
 
 @app.route("/api/auth/status")
 def api_auth_status():
-    password_hash = cfg().get("WEB_PASSWORD_HASH")
+    """Who this browser is answered as, and whether a login is asked for."""
+    account = _session_account()
+    people = accounts.load()
+    closed = accounts.owner_has_password() or bool(cfg().get("WEB_PASSWORD_HASH"))
     return jsonify({"ok": True, "data": {
-        "auth_required": bool(password_hash),
-        "authenticated": _is_authenticated() if password_hash else True,
+        "auth_required": closed,
+        "authenticated": account is not None or not closed,
+        "role": _role(),
+        "account": None if account is None else {
+            "id": account["id"], "name": account["name"], "role": account["role"]},
+        # The names the login form offers; no hash, no date, nothing else.
+        "accounts": [{"id": one["id"], "name": one["name"], "role": one["role"]}
+                     for one in people],
     }})
 
 
@@ -655,36 +688,109 @@ def _too_many_attempts(wait):
     return jsonify({"ok": False, "error": "too_many_attempts", "retry_after": wait}), 429
 
 
+def _account_for_login(name, password):
+    """The account a name and a password open, or None.
+
+    No name means the owner: that is the single password this interface had
+    before accounts, and the page it serves still sends only that."""
+    people = accounts.load()
+    if name:
+        found = accounts.by_name(name, people) if False else accounts.by_name(name)
+        return found if accounts.verify(found, password) else None
+    found = accounts.owner()
+    if accounts.verify(found, password):
+        return found
+    legacy = cfg().get("WEB_PASSWORD_HASH") if not found else ""
+    if legacy and web_auth.verify_password(password, legacy):
+        return {"id": "owner", "name": "Owner", "role": "owner", "legacy": True}
+    return None
+
+
 @app.route("/api/auth/login", methods=["POST"])
 def api_auth_login():
     body = request.get_json(silent=True) or {}
-    password_hash = cfg().get("WEB_PASSWORD_HASH")
-    if not password_hash:
+    if not accounts.owner_has_password() and not cfg().get("WEB_PASSWORD_HASH"):
         return jsonify({"ok": True})
     wait = _login_wait()
     if wait > 0:
         return _too_many_attempts(wait)
-    if not web_auth.verify_password(body.get("password", ""), password_hash):
+    account = _account_for_login(str(body.get("name") or "").strip(), body.get("password", ""))
+    if account is None:
         wait = _login_failed()
         return jsonify({"ok": False, "error": "wrong_password", "retry_after": wait}), 401
     _login_succeeded()
-    _mark_authenticated()
-    stats.record("web_login", label=request.remote_addr or "unknown", detail=_device_detail())
+    _mark_authenticated(account)
+    stats.record("web_login", label=account.get("name") or "unknown",
+                 detail=_device_detail())
+    return jsonify({"ok": True, "data": {"name": account.get("name"),
+                                         "role": account.get("role")}})
+
+
+@app.route("/api/auth/accounts", methods=["GET"])
+def api_auth_accounts():
+    """Who may log in, and as what: never a hash, never a date."""
+    if _role() != "owner":
+        return jsonify({"ok": False, "error": "auth_required", "needs": "owner"}), 401
+    return jsonify({"ok": True, "data": {
+        "accounts": [{"id": one["id"], "name": one["name"], "role": one["role"],
+                      "password": bool(one.get("hash")), "created_at": one.get("created_at")}
+                     for one in accounts.load()],
+        "roles": list(roles.ROLES[1:]),
+    }})
+
+
+@app.route("/api/auth/accounts", methods=["POST"])
+def api_auth_account_add():
+    """Creates an account, or changes one when it carries an id."""
+    if _role() != "owner":
+        return jsonify({"ok": False, "error": "auth_required", "needs": "owner"}), 401
+    body = request.get_json(silent=True) or {}
+    account_id = str(body.get("id") or "").strip()
+    try:
+        if account_id:
+            account = accounts.update(account_id, body)
+            stats.record("account_changed", label=account["name"], detail={"role": account["role"]})
+        else:
+            account = accounts.add(body)
+            stats.record("account_added", label=account["name"], detail={"role": account["role"]})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "account_not_found"}), 404
+    return jsonify({"ok": True, "data": {"id": account["id"], "name": account["name"],
+                                         "role": account["role"]}})
+
+
+@app.route("/api/auth/accounts/<account_id>", methods=["DELETE"])
+def api_auth_account_delete(account_id):
+    """Removes an account; everything it owned stays where it is."""
+    if _role() != "owner":
+        return jsonify({"ok": False, "error": "auth_required", "needs": "owner"}), 401
+    if _session_account() is not None and _session_account()["id"] == account_id:
+        return jsonify({"ok": False, "error": "cannot_delete_self"}), 400
+    if account_id == "owner" and not any(
+            one["role"] == "owner" and one["id"] != account_id for one in accounts.load()):
+        return jsonify({"ok": False, "error": "last_owner"}), 400
+    try:
+        accounts.delete(account_id)
+    except KeyError:
+        return jsonify({"ok": False, "error": "account_not_found"}), 404
+    stats.record("account_removed", label=account_id)
     return jsonify({"ok": True})
 
 
 @app.route("/api/auth/logout", methods=["POST"])
 def api_auth_logout():
-    session.pop("authenticated", None)
-    session.pop("auth_at", None)
+    _log_out()
     return jsonify({"ok": True})
 
 
 @app.route("/api/auth/set_password", methods=["POST"])
 def api_auth_set_password():
-    """Sets, changes, or clears (new_password="") the web password."""
+    """Sets, changes, or clears (new_password="") the owner's password."""
     body = request.get_json(silent=True) or {}
-    current_hash = cfg().get("WEB_PASSWORD_HASH")
+    owner = accounts.owner()
+    current_hash = (owner or {}).get("hash") or cfg().get("WEB_PASSWORD_HASH")
     if current_hash:
         wait = _login_wait()
         if wait > 0:
@@ -701,8 +807,16 @@ def api_auth_set_password():
         new_hash = web_auth.hash_password(new_password)
     else:
         new_hash = ""
-    update_config_file({"WEB_PASSWORD_HASH": new_hash})
-    _mark_authenticated()
+    if owner is None:
+        owner = accounts.add({"name": body.get("name") or "Owner", "role": "owner",
+                              "hash": new_hash})
+    else:
+        accounts.update(owner["id"], {"hash": new_hash})
+    # The single password this interface had is now the owner's account: keep
+    # the key it lived in from closing a door that is already closed.
+    if cfg().get("WEB_PASSWORD_HASH"):
+        update_config_file({"WEB_PASSWORD_HASH": ""})
+    _mark_authenticated(owner)
     stats.record("web_password_changed", label="set" if new_hash else "removed")
     return jsonify({"ok": True, "password_set": bool(new_hash)})
 
@@ -732,7 +846,7 @@ def _suggestion_box():
 
 
 def _is_owner():
-    return not cfg().get("WEB_PASSWORD_HASH") or _is_authenticated()
+    return _role() == "owner"
 
 
 def _this_device(box):
@@ -786,7 +900,7 @@ def _refuse_banned():
         return None
     if not _bans_active():
         return None
-    if cfg().get("WEB_PASSWORD_HASH") and _is_authenticated():
+    if _session_account() is not None:
         return None
     box = _suggestion_box()
     device = _this_device(box)
@@ -1007,7 +1121,7 @@ def _quota_cost(entry, action, s):
 
 
 def _quota_applies():
-    return bool(cfg().get("WEB_PASSWORD_HASH")) and not _is_authenticated()
+    return _role() == "guest"
 
 
 def _guest_locked():
@@ -1766,7 +1880,7 @@ def api_portal_status():
         "released": _portal_is_released(_client_ip()),
         "released_at": _portal_release_time(_client_ip()),
         "guest_mode": bool(c.get("GUEST_MODE_ENABLED")),
-        "auth_required": bool(c.get("WEB_PASSWORD_HASH")),
+        "auth_required": accounts.owner_has_password() or bool(c.get("WEB_PASSWORD_HASH")),
         "authenticated": _is_authenticated(),
     }})
 
@@ -6735,7 +6849,7 @@ def api_setup_pending():
     status = control("get_status")
     if status.get("ok") and (status.get("data") or {}).get("track_count") == 0:
         pending.append("music")
-    if not c.get("WEB_PASSWORD_HASH"):
+    if not accounts.owner_has_password() and not c.get("WEB_PASSWORD_HASH"):
         pending.append("password")
     if _ap_is_open():
         pending.append("ap_open")

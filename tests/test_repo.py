@@ -351,8 +351,8 @@ class PlatformCardsTest(unittest.TestCase):
 class GuestPathsTest(unittest.TestCase):
     def test_the_two_guest_lists_agree(self):
         # A path the server allows and app.js forgets is a button that does nothing.
-        source = _path.read("src", "web_server.py")
-        start = source.index("_GUEST_PATHS = frozenset({")
+        source = _path.read("src", "roles.py")
+        start = source.index("GUEST_PATHS = frozenset({")
         server = set(re.findall(r'"(/api/[^"]*)"', source[start:source.index("})", start)]))
 
         app = _path.read("web", "app.js")

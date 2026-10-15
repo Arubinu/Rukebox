@@ -528,6 +528,12 @@ def ensure_file(yaml_path=None, env_path=None):
     # offered would bury a list waiting in a file.
     for name in config_document.import_legacy(yaml_path):
         log.info("The %s list moved into %s", name, yaml_path)
+    # The password this radio already had becomes its first owner account, so
+    # that an installation that updates logs in with the same password.
+    import accounts  # noqa: E402
+
+    accounts.migrate_legacy(read_values(yaml_path, env_path).get("WEB_PASSWORD_HASH"),
+                            yaml_path)
     added = merge_missing(yaml_path, env_path)
     write_env_file(yaml_path, env_path)
     secure_file(yaml_path, os.path.dirname(yaml_path) or ".")

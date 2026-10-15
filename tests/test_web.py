@@ -1934,7 +1934,7 @@ class GuestLockTest(unittest.TestCase):
         self.assertNotEqual(self.client.post("/api/action/previous_track").status_code, 403)
 
     def test_the_owner_is_never_locked(self):
-        unittest.mock.patch.object(ws, "_is_authenticated", return_value=True).start()
+        unittest.mock.patch.object(ws, "_role", return_value="owner").start()
         self.assertNotEqual(self.client.post("/api/action/next_track").status_code, 403)
 
     def test_a_page_hidden_from_guests_refuses_what_it_asks_for(self):
@@ -1943,7 +1943,7 @@ class GuestLockTest(unittest.TestCase):
         self.assertIn(self.client.get("/api/game").status_code, (401, 403))
         self.assertIn(self.client.get("/api/today").status_code, (401, 403))
         self.assertNotIn(self.client.get("/api/recent").status_code, (401, 403))
-        unittest.mock.patch.object(ws, "_is_authenticated", return_value=True).start()
+        unittest.mock.patch.object(ws, "_role", return_value="owner").start()
         self.assertNotIn(self.client.get("/api/today").status_code, (401, 403), "the owner sees every page")
 
 
