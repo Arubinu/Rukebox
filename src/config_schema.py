@@ -990,9 +990,9 @@ SETTINGS = [
         "announcement, start the music, volume - without knowing the web\n"
         "interface password. Shutting the Pi down, and every setting, stay\n"
         "behind the password.\n"
-        "Only does anything when web_password_hash is set: with no\n"
-        "password the whole interface is already open to anyone on the\n"
-        "access point (see docs/guide.md, Web interface section).\n"
+        "Only does anything while an owner account holds a password: with\n"
+        "none the whole interface is already open to anyone on the access\n"
+        "point (see docs/guide.md, Security section).\n"
         "Off by default because turning it on is a deliberate widening of\n"
         "what an unauthenticated visitor can do - decide it yourself\n"
         "rather than have an update decide it for you.",

@@ -970,9 +970,9 @@ security:
   # announcement, start the music, volume - without knowing the web
   # interface password. Shutting the Pi down, and every setting, stay
   # behind the password.
-  # Only does anything when web_password_hash is set: with no
-  # password the whole interface is already open to anyone on the
-  # access point (see docs/guide.md, Web interface section).
+  # Only does anything while an owner account holds a password: with
+  # none the whole interface is already open to anyone on the access
+  # point (see docs/guide.md, Security section).
   # Off by default because turning it on is a deliberate widening of
   # what an unauthenticated visitor can do - decide it yourself
   # rather than have an update decide it for you.

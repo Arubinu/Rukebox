@@ -2486,7 +2486,10 @@ radio already had when it updates, so the same password keeps working.
 
 **Without an owner account holding a password, the interface is open** to
 whoever reaches the access point — this project's original model, kept for
-whoever wants no account, and the first owner password is what closes it. That
+whoever wants no account, and the first owner password is what closes it. A
+radio that updated keeps the password it had: the first owner account takes
+that hash, and the `password_hash` line under `security:` is ignored from then
+on (setting a new password from the card clears it). That
 is why the access point stays the perimeter: anyone who can reach the page
 could stop the music, shut the radio down or enable SSH. **Never expose it** on
 a shared network (work Wi-Fi, shared home network) or the Internet. What the
