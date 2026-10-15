@@ -44,6 +44,7 @@ const DEFAULTS = {
                               guest_mode: false, auth_required: false, authenticated: false,
                               role: "owner", paths: [], accounts: [] },
   "GET /api/auth/status": { auth_required: false, authenticated: false, role: "owner" },
+  "GET /api/auth/accounts": { accounts: [], roles: ["member", "operator", "owner"] },
   "GET /api/status": STATUS,
   "GET /api/settings": {},
   "GET /api/announcements": [],

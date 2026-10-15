@@ -2431,6 +2431,34 @@
           </details>
         </section>
 
+        <section class="card" data-page="people" data-tab="system" aria-labelledby="peopleTitle">
+          <h2 data-icon="users" id="peopleTitle"><span data-i18n="people.title">People</span></h2>
+          <p class="hint" data-i18n="people.help">Who may log in, and what each of them may do. Without an owner account with a password, the interface is open to anyone on the access point.</p>
+          <ul class="device-list" id="peopleList"></ul>
+          <form id="peopleForm" class="settings-form">
+            <div class="field-row">
+              <label for="personName" data-i18n="people.name">Name</label>
+              <input type="text" id="personName" class="text-input" maxlength="40" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="field-row">
+              <label for="personRole" data-i18n="people.role">What they may do</label>
+              <select id="personRole" class="text-input">
+                <option value="member" data-i18n="people.role_member">Lives here: the music, their lists</option>
+                <option value="operator" data-i18n="people.role_operator">Keeps the radio: the settings too</option>
+                <option value="owner" data-i18n="people.role_owner">Everything, the machine included</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label for="personPassword" data-i18n="people.password">Password</label>
+              <input type="password" id="personPassword" class="text-input" autocomplete="new-password">
+            </div>
+            <p class="hint help-text" data-i18n="people.password_hint" hidden>Eight characters at least. Only the owner may have none: that leaves the interface open to everyone.</p>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="people.add">Add</button>
+            </div>
+          </form>
+        </section>
+
         <section class="card" data-page="security" data-tab="system" aria-labelledby="securityTitle">
           <h2 data-icon="shield" id="securityTitle"><span data-i18n="security.title">Security</span></h2>
           <p class="hint" id="securityStatus"></p>

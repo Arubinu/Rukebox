@@ -7,8 +7,8 @@ const { test } = require("node:test");
 const { load, until, wait, STATUS, GUEST_PATHS } = require("./harness");
 
 // Two accounts: the names the login form offers, and a role to test with.
-const OWNER = { id: "owner", name: "Le patron", role: "owner" };
-const MARIE = { id: "marie", name: "Marie", role: "member" };
+const OWNER = { id: "owner", name: "Le patron", role: "owner", password: true };
+const MARIE = { id: "marie", name: "Marie", role: "member", password: true };
 
 // The page is closed whatever the test does: its timers would keep the run alive.
 function open(t, options) {
@@ -112,6 +112,46 @@ test("someone who lives here gets the music, not the settings", async (t) => {
   const tile = (name) => page.document.querySelector('.page-tile[data-page="' + name + '"]');
   assert.ok(!tile("security") || tile("security").hidden, "the password is not");
   assert.deepEqual(page.errors, []);
+});
+
+test("the people card lists who may log in, and adds one", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/auth/accounts": { accounts: [OWNER, { id: "marie", name: "Marie", role: "member",
+                                                    password: true }],
+                                roles: ["member", "operator", "owner"] },
+    "POST /api/auth/accounts": { id: "lucie", name: "Lucie", role: "operator" },
+  }, hash: "#system/people" });
+  await until(() => page.$("bootOverlay").hidden);
+  const rows = await until(() => {
+    const found = page.$("peopleList").querySelectorAll(".device-row");
+    return found.length === 2 && found;
+  });
+  assert.equal(rows[0].querySelector(".device-name").textContent, "Le patron");
+  assert.match(rows[0].querySelector(".device-badge").textContent, /Everything/);
+  assert.match(rows[1].querySelector(".device-badge").textContent, /Lives here/);
+  assert.equal(rows[0].querySelector(".device-note").textContent, "",
+               "an owner with a password says nothing");
+
+  page.$("personName").value = "Lucie";
+  page.$("personRole").value = "operator";
+  page.$("personPassword").value = "huit-caracteres";
+  page.$("peopleForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
+  const sent = (await until(() => page.sent("POST", "/api/auth/accounts").length
+    && page.sent("POST", "/api/auth/accounts")))[0];
+  assert.deepEqual(sent.body, { name: "Lucie", role: "operator", password: "huit-caracteres" });
+  assert.deepEqual(page.errors, []);
+});
+
+test("a guest is never told who may log in", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
+                                guest_mode: true, auth_required: true, authenticated: false,
+                                role: "guest", paths: GUEST_PATHS, accounts: [OWNER, MARIE] },
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  assert.equal(page.sent("GET", "/api/auth/accounts").length, 0, "the accounts are the owner's");
+  const tile = page.document.querySelector('.page-tile[data-page="people"]');
+  assert.ok(!tile || tile.hidden, "and so is the card");
 });
 
 test("the login form offers the names, and sends the one chosen", async (t) => {
