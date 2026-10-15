@@ -106,6 +106,18 @@ class SuggestionError(Exception):
         self.detail = detail
 
 
+ACCOUNT_PREFIX = "acct:"
+
+
+def account_person(account_id):
+    """The person row an account owns: its devices are linked to this."""
+    return ACCOUNT_PREFIX + str(account_id)
+
+
+def is_account_person(person):
+    return str(person or "").startswith(ACCOUNT_PREFIX)
+
+
 def mac_for_ip(ip, arp_path="/proc/net/arp"):
     """The MAC address the Pi has for this client, from its ARP table, or None."""
     if not ip:
@@ -308,6 +320,8 @@ class SuggestionBox:
         with self._lock:
             if not self.device_by_id(device_id) or not self.device_by_id(to_id):
                 raise SuggestionError("not_found")
+            if is_account_person(self.person_id(device_id)) or is_account_person(self.person_id(to_id)):
+                raise SuggestionError("account_signed_in")
             src, dst = self.person_id(device_id), self.person_id(to_id)
             if src == dst:
                 raise SuggestionError("already_linked")
@@ -317,6 +331,43 @@ class SuggestionBox:
                 self._set_state(member, linked_to=dst)
             self._db.commit()
             return dst
+
+    def follow_account(self, device_id, account):
+        """A device that logged in goes by the account; one that is not logged
+        in any more goes back to its own name.
+
+        Nothing is moved, unlike linking two devices: the guest's credits,
+        votes and name wait for the device to come back to them. Answers
+        whether the device's person changed.
+        """
+        with self._lock:
+            state = self._state(device_id)
+            was = state.get("linked_to")
+            if not account:
+                if not is_account_person(was):
+                    return False
+                self._set_state(device_id, linked_to=None)
+                self._db.commit()
+                return True
+            person = account_person(account.get("id") or account.get("name"))
+            self._remember_account_person(person, account.get("name") or account.get("id"))
+            if was == person:
+                return False
+            self._set_state(device_id, linked_to=person)
+            self._db.commit()
+            return True
+
+    def _remember_account_person(self, person, name):
+        """Caller holds the lock and commits. The row that carries an account's
+        name: never seen (no address, no date), so it is not a device."""
+        row = self._db.execute("SELECT id FROM devices WHERE id = ?", (person,)).fetchone()
+        if row is None:
+            self._db.execute(
+                "INSERT INTO devices (id, token, mac, name, first_seen, last_seen, last_ip)"
+                " VALUES (?, ?, NULL, ?, ?, NULL, NULL)",
+                (person, secrets.token_hex(16), name, time.time()))
+        elif self._name_of(person) != name:
+            self._db.execute("UPDATE devices SET name = ? WHERE id = ?", (name, person))
 
     def unlink(self, device_id):
         """Takes one device out of its person: it leaves with nothing, as a
@@ -355,6 +406,10 @@ class SuggestionBox:
         return max(0, int(round(last + interval_sec - time.time())))
 
     def set_name(self, device, name, interval_sec=0, generated=False, by_owner=False):
+        # A device that logged in goes by its account: renaming it here would
+        # put the row and the account out of step.
+        if is_account_person(self._pid(device)) and not by_owner:
+            raise SuggestionError("name_is_account")
         """Takes a name for a device; interval_sec is the minimum time between
         two changes. by_owner is the owner naming it from the interface, which
         the lock does not stop."""

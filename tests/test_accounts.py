@@ -4,6 +4,7 @@ The store is the `people` block of rukebox.yaml, the ladder is src/roles.py,
 and the gate that reads them is the web server's. src/web_auth.py holds the
 hashing, unchanged.
 """
+import os
 import shutil
 import tempfile
 import unittest
@@ -174,7 +175,10 @@ class GateTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.path = _path.document(self.dir)
         self.values = {"WEB_PASSWORD_HASH": "", "GUEST_MODE_ENABLED": True,
-                       "GUEST_QUOTA_ENABLED": False, "ACTION_REPEAT_SEC": 0}
+                       "GUEST_QUOTA_ENABLED": False, "ACTION_REPEAT_SEC": 0,
+                       # Devices and names of its own: a name taken by another
+                       # test must not follow this one.
+                       "SUGGESTIONS_DB_FILE": os.path.join(self.dir, "suggestions.db")}
         real = ws.cfg
 
         def fake_cfg():
@@ -317,6 +321,45 @@ class GateTest(unittest.TestCase):
         # Another one goes, and the one logged in stays.
         self.assertEqual(self.client.delete("/api/auth/accounts/marie").status_code, 200)
         self.assertEqual(self.client.get("/api/auth/status").get_json()["data"]["role"], "owner")
+
+    def name_the_visitor(self, name="Renard bleu"):
+        """What the page does for a visitor that has no name yet."""
+        r = self.client.post("/api/suggestions/name", json={"name": name, "generated": True})
+        self.assertEqual(r.status_code, 200, r.get_json())
+
+    def test_the_browser_goes_by_the_name_of_the_account(self):
+        self.people()
+        self.name_the_visitor()
+        self.assertEqual(self.client.get("/api/suggestions").get_json()["data"]["me"]["name"],
+                         "Renard bleu")
+        self.login("Marie", "mot-de-passe-marie")
+        me = self.client.get("/api/suggestions").get_json()["data"]["me"]
+        self.assertEqual(me["name"], "Marie", "the account is the name it goes by now")
+
+    def test_logging_out_gives_the_device_its_own_name_back(self):
+        self.people()
+        self.name_the_visitor()
+        self.login("Marie", "mot-de-passe-marie")
+        self.client.post("/api/auth/logout")
+        me = self.client.get("/api/suggestions").get_json()["data"]["me"]
+        self.assertEqual(me["name"], "Renard bleu")
+
+    def test_an_account_does_not_rename_itself_from_the_page(self):
+        self.people()
+        self.login("Marie", "mot-de-passe-marie")
+        r = self.client.post("/api/suggestions/name", json={"name": "Autre chose"})
+        self.assertEqual((r.status_code, r.get_json()["error"]), (400, "name_is_account"))
+
+    def test_a_signed_in_browser_does_not_link_devices(self):
+        self.people()
+        self.login("Marie", "mot-de-passe-marie")
+        for path in ("/api/devices/link_code", "/api/devices/link_join"):
+            r = self.client.post(path, json={"code": "123456"})
+            self.assertEqual((r.status_code, r.get_json()["error"]), (400, "account_signed_in"),
+                             path)
+        self.client.post("/api/auth/logout")
+        self.assertEqual(self.client.post("/api/devices/link_code").status_code, 200,
+                         "a visitor still does")
 
     def test_a_member_pays_no_credits(self):
         self.values["GUEST_QUOTA_ENABLED"] = True

@@ -26,6 +26,64 @@ class LinkTest(unittest.TestCase):
     def again(self, token):
         return self.box.resolve_device(token, None, "10.42.0.9")[0]
 
+    def test_a_device_that_logs_in_goes_by_the_account(self):
+        (phone, phone_token) = self.device("aa:00:00:00:00:01", "Renard bleu")
+        self.assertTrue(self.box.follow_account(phone["id"], {"id": "marie", "name": "Marie"}))
+        self.assertEqual(self.again(phone_token)["name"], "Marie")
+        self.assertEqual(self.box.person_id(phone["id"]), "acct:marie")
+        self.assertFalse(self.box.follow_account(phone["id"], {"id": "marie", "name": "Marie"}),
+                         "nothing to do the second time")
+
+    def test_logging_out_gives_the_device_its_name_back(self):
+        (phone, phone_token) = self.device("aa:00:00:00:00:01", "Renard bleu")
+        self.box.follow_account(phone["id"], {"id": "marie", "name": "Marie"})
+        self.assertTrue(self.box.follow_account(phone["id"], None))
+        self.assertEqual(self.again(phone_token)["name"], "Renard bleu")
+        self.assertEqual(self.box.person_id(phone["id"]), phone["id"])
+
+    def test_two_devices_of_one_account_are_one_person(self):
+        phone, phone_token = self.device("aa:00:00:00:00:01")
+        laptop, laptop_token = self.device("aa:00:00:00:00:02")
+        for device in (phone, laptop):
+            self.box.follow_account(device["id"], {"id": "marie", "name": "Marie"})
+        self.assertEqual(self.box.person_id(phone["id"]), self.box.person_id(laptop["id"]))
+        vote = self.box.add(self.again(laptop_token), "music", "un morceau")
+        with self.assertRaises(suggestions.SuggestionError) as refused:
+            self.box.vote(self.again(phone_token), vote, 1)
+        self.assertIn(refused.exception.code, ("own_suggestion", "already_voted"))
+
+    def test_the_guest_keeps_what_was_theirs(self):
+        (phone, _) = self.device("aa:00:00:00:00:01", "Renard bleu")
+        self.box.set_free_credits(phone["id"], True)
+        self.box.follow_account(phone["id"], {"id": "marie", "name": "Marie"})
+        self.assertFalse(self.box.has_free_credits(phone["id"]), "the account is not the guest")
+        self.box.follow_account(phone["id"], None)
+        self.assertTrue(self.box.has_free_credits(phone["id"]), "and the guest finds it again")
+
+    def test_an_account_is_not_a_device(self):
+        (phone, _) = self.device("aa:00:00:00:00:01", "Renard bleu")
+        self.box.follow_account(phone["id"], {"id": "marie", "name": "Marie"})
+        self.assertEqual([one["device_id"] for one in self.box.seen_devices(0)], [phone["id"]],
+                         "the account's row has never been seen")
+        self.assertEqual([one["device_id"] for one in self.box.people()], [phone["id"]],
+                         "and it took no name of its own")
+
+    def test_an_accounts_name_is_not_the_pages_to_change(self):
+        (phone, _) = self.device("aa:00:00:00:00:01")
+        self.box.follow_account(phone["id"], {"id": "marie", "name": "Marie"})
+        with self.assertRaises(suggestions.SuggestionError) as refused:
+            self.box.set_name(self.box.device_by_id(phone["id"]), "Autre chose")
+        self.assertEqual(refused.exception.code, "name_is_account")
+        self.assertEqual(self.box.device_by_id(phone["id"])["name"], "Marie")
+
+    def test_a_signed_in_device_does_not_link_devices(self):
+        (phone, _) = self.device("aa:00:00:00:00:01")
+        (laptop, _) = self.device("aa:00:00:00:00:02")
+        self.box.follow_account(phone["id"], {"id": "marie", "name": "Marie"})
+        with self.assertRaises(suggestions.SuggestionError) as refused:
+            self.box.link(phone["id"], laptop["id"])
+        self.assertEqual(refused.exception.code, "account_signed_in")
+
     def test_a_linked_device_goes_by_the_name_of_the_other(self):
         (phone, _), (laptop, laptop_token) = self.device("aa:00:00:00:00:01", "Renard bleu"), \
             self.device("aa:00:00:00:00:02", "Loutre verte")

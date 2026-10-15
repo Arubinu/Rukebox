@@ -856,6 +856,9 @@ def _this_device(box):
     header = (request.headers.get(DEVICE_HEADER) or "").strip()[:64] or None
     device, token = box.resolve_device(request.cookies.get(DEVICE_COOKIE), suggestions.mac_for_ip(ip), ip,
                                        alt_token=header)
+    # Who is logged in on this browser owns the name this device goes by.
+    if box.follow_account(device["id"], _session_account()):
+        device = box.device_by_id(device["id"]) or device
     if token:
         g.device_cookie = token
     g.this_device = device
@@ -3033,10 +3036,20 @@ def _devices_linked(box, device_id, to_id, by):
     return person
 
 
+def _signed_in_answer():
+    """Refuses linking a device when an account already says who this is."""
+    if _session_account() is None:
+        return None
+    return jsonify({"ok": False, "error": "account_signed_in"}), 400
+
+
 @app.route("/api/devices/link_code", methods=["POST"])
 def api_device_link_code():
     """A one-time code this device shows, for another device of the same
     person to type: that one then takes this one's name, votes and credits."""
+    refused = _signed_in_answer()
+    if refused:
+        return refused
     box = _suggestion_box()
     device = _this_device(box)
     now = time.time()
@@ -3053,6 +3066,9 @@ def api_device_link_code():
 @app.route("/api/devices/link_join", methods=["POST"])
 def api_device_link_join():
     """{code}: links this device to the one showing that code."""
+    refused = _signed_in_answer()
+    if refused:
+        return refused
     box = _suggestion_box()
     device = _this_device(box)
     code = re.sub(r"\D", "", str((request.get_json(silent=True) or {}).get("code") or ""))
