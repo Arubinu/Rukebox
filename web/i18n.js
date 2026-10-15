@@ -2423,6 +2423,7 @@ const I18N = {
     "footer.pi_time": "Radio time: {time}",
 
     "login.subtitle": "This interface is password-protected.",
+    "login.account": "Who is logging in",
     "login.password_placeholder": "Password",
     "login.wrong_password": "Incorrect password.",
     "login.connection_error": "Could not reach the server. Try again.",
@@ -4897,6 +4898,7 @@ const I18N = {
     "footer.pi_time": "Heure de la radio : {time}",
 
     "login.subtitle": "Cette interface est protégée par un mot de passe.",
+    "login.account": "Qui se connecte",
     "login.password_placeholder": "Mot de passe",
     "login.wrong_password": "Mot de passe incorrect.",
     "login.connection_error": "Impossible de joindre le serveur. Réessaie.",
@@ -7371,6 +7373,7 @@ const I18N = {
     "footer.pi_time": "Radiozeit: {time}",
 
     "login.subtitle": "Diese Oberfläche ist passwortgeschützt.",
+    "login.account": "Wer meldet sich an",
     "login.password_placeholder": "Passwort",
     "login.wrong_password": "Falsches Passwort.",
     "login.connection_error": "Server nicht erreichbar. Erneut versuchen.",
@@ -9845,6 +9848,7 @@ const I18N = {
     "footer.pi_time": "Hora de la radio: {time}",
 
     "login.subtitle": "Esta interfaz está protegida por contraseña.",
+    "login.account": "Quién inicia sesión",
     "login.password_placeholder": "Contraseña",
     "login.wrong_password": "Contraseña incorrecta.",
     "login.connection_error": "No se pudo contactar con el servidor. Vuelve a intentarlo.",
@@ -12319,6 +12323,7 @@ const I18N = {
     "footer.pi_time": "Ora della radio: {time}",
 
     "login.subtitle": "Questa interfaccia è protetta da password.",
+    "login.account": "Chi accede",
     "login.password_placeholder": "Password",
     "login.wrong_password": "Password errata.",
     "login.connection_error": "Impossibile contattare il server. Riprova.",
@@ -14793,6 +14798,7 @@ const I18N = {
     "footer.pi_time": "Radiotijd: {time}",
 
     "login.subtitle": "Deze interface is beveiligd met een wachtwoord.",
+    "login.account": "Wie meldt zich aan",
     "login.password_placeholder": "Wachtwoord",
     "login.wrong_password": "Onjuist wachtwoord.",
     "login.connection_error": "Kon de server niet bereiken. Probeer opnieuw.",

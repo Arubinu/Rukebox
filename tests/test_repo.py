@@ -349,19 +349,26 @@ class PlatformCardsTest(unittest.TestCase):
 
 
 class GuestPathsTest(unittest.TestCase):
-    def test_the_two_guest_lists_agree(self):
-        # A path the server allows and app.js forgets is a button that does nothing.
-        source = _path.read("src", "roles.py")
-        start = source.index("GUEST_PATHS = frozenset({")
-        server = set(re.findall(r'"(/api/[^"]*)"', source[start:source.index("})", start)]))
+    def paths_of(self, source, start_marker, end_marker):
+        start = source.index(start_marker)
+        return set(re.findall(r'"(/api/[^"]*)"', source[start:source.index(end_marker, start)]))
 
+    def test_the_page_keeps_no_list_of_its_own(self):
+        # The server says what a role may call (roles.allowed_paths): a list
+        # here as well is one that falls out of step with it.
         app = _path.read("web", "app.js")
-        start = app.index("GUEST_API_PATHS = [")
-        client = set(re.findall(r'"(/api/[^"]*)"', app[start:app.index("];", start)]))
-        client = {path for path in client if not path.endswith("/")}
+        self.assertNotIn("GUEST_API_PATHS", app)
+        self.assertIn("mayCallPaths", app)
 
-        self.assertTrue(server and client)
-        self.assertEqual(server ^ client, set())
+    def test_the_guest_fixture_agrees_with_the_policy(self):
+        # A path the server allows and the fixture forgets is a test that
+        # pretends the page may not do what it does.
+        source = _path.read("src", "roles.py")
+        server = self.paths_of(source, "GUEST_PATHS = frozenset({", "})")
+        harness = _path.read("tests", "web", "harness.js")
+        fixture = self.paths_of(harness, "const GUEST_PATHS = [", "];")
+        self.assertTrue(server and fixture)
+        self.assertEqual(server ^ fixture, set())
 
 
 if __name__ == "__main__":

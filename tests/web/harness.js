@@ -21,10 +21,29 @@ const STATUS = {
                   set_clock: true, usb_gadget: true, wireless: true },
 };
 
+// What src/roles.py lists for a guest: the fixture has to agree with the
+// policy, and tests/test_repo.py checks that it still does.
+const GUEST_PATHS = [
+  "/api/dedications/voice", "/api/suggestions/name_voice", "/api/status", "/api/status/wait",
+  "/api/vote/skip", "/api/game", "/api/game/answer", "/api/game/join", "/api/volume",
+  "/api/action/single_click", "/api/action/double_click", "/api/action/start_music",
+  "/api/action/next_track", "/api/action/previous_track", "/api/action/toggle_pause",
+  "/api/action/skip_sound", "/api/action/announce", "/api/announcements",
+  "/api/portal/status", "/api/portal/release", "/api/now/cover", "/api/now/lyrics",
+  "/api/recent", "/api/queue", "/api/today", "/api/library", "/api/library/facets",
+  "/api/library/queue", "/api/library/play", "/api/audio/fallback", "/api/device",
+  "/api/suggestions", "/api/suggestions/vote", "/api/suggestions/delete",
+  "/api/suggestions/name", "/api/devices/link_code", "/api/devices/link_join",
+  "/api/devices/link_leave",
+];
+
+// No owner account and no password: the page is the owner, and may ask for
+// anything (its three.js? no: the owner needs no list).
 const DEFAULTS = {
   "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
-                              guest_mode: false, auth_required: false, authenticated: false },
-  "GET /api/auth/status": { auth_required: false, authenticated: false },
+                              guest_mode: false, auth_required: false, authenticated: false,
+                              role: "owner", paths: [], accounts: [] },
+  "GET /api/auth/status": { auth_required: false, authenticated: false, role: "owner" },
   "GET /api/status": STATUS,
   "GET /api/settings": {},
   "GET /api/announcements": [],
@@ -136,4 +155,4 @@ async function until(check, ms = 8000) {
   }
 }
 
-module.exports = { load, until, wait, STATUS };
+module.exports = { load, until, wait, STATUS, GUEST_PATHS };

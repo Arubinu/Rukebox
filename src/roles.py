@@ -194,3 +194,35 @@ def needed_role(path, rule=None):
 def allows(role, needed):
     """Whether a role may do what another one needs."""
     return RANK.get(role, -1) >= RANK.get(needed, len(ROLES))
+
+
+# A guest page and what it asks for: hiding the page refuses those too.
+GUEST_PAGE_PATHS = {
+    "upnext": {"/api/queue"},
+    "recent": {"/api/recent"},
+    "today": {"/api/today"},
+    "library": {"/api/library", "/api/library/facets"},
+    "game": {"/api/game", "/api/game/answer", "/api/game/join"},
+    "suggest": {"/api/suggestions", "/api/suggestions/vote", "/api/suggestions/delete",
+                "/api/suggestions/name"},
+}
+
+
+def allowed_paths(role, guest_access=True, pages_off=()):
+    """Every path a role may call, for the interface to know before it asks.
+
+    The page holds no list of its own: it is told this one at boot, so a path
+    added here is one the page may use without being told twice.
+    """
+    rank = RANK.get(role, -1)
+    hidden = set()
+    for page in pages_off or ():
+        hidden |= GUEST_PAGE_PATHS.get(page, set())
+    paths = set()
+    if rank >= RANK["member"]:
+        paths |= GUEST_PATHS | MEMBER_PATHS
+    elif rank >= RANK["guest"] and guest_access:
+        paths |= {path for path in GUEST_PATHS if path not in hidden}
+    if rank >= RANK["operator"]:
+        paths |= OPERATOR_PATHS
+    return sorted(paths)

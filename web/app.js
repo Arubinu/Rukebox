@@ -210,9 +210,27 @@ function lockLogin(seconds) {
   loginLockTimer = setInterval(tick, 1000);
 }
 
+/* The names the login form offers: never a hash, never a date. */
+function fillLoginAccounts(list) {
+  const select = document.getElementById("loginAccount");
+  if (!select) return;
+  const wanted = Array.isArray(list) ? list : [];
+  select.replaceChildren(...wanted.map((one) => {
+    const option = document.createElement("option");
+    option.value = one.name;
+    option.textContent = one.name;
+    return option;
+  }));
+  const single = wanted.length <= 1;
+  select.hidden = single;
+  document.getElementById("loginAccountRow").hidden = single;
+}
+
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const password = document.getElementById("loginPassword").value;
+  const account = document.getElementById("loginAccount");
+  const name = account && !account.hidden ? account.value : "";
   const btn = document.getElementById("loginSubmit");
   let lockFor = 0;
   btn.disabled = true;
@@ -220,7 +238,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ name, password }),
     });
     const result = await res.json();
     if (result.ok) {
@@ -247,57 +265,20 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 let guestMode = false;
 // The pages the owner keeps from guests, read in every status.
 let guestPagesOff = [];
+// What the server answers this browser as, and every path that role may call:
+// the one table of who may do what lives in src/roles.py, so the page keeps
+// none of its own to fall out of step with it.
+let myRole = "guest";
+let mayCallPaths = null;
 
-// Guest-allowed paths: keep in step with web_server.py's _GUEST_PATHS (a test compares them).
-const GUEST_API_PATHS = [
-  "/api/dedications/voice",
-  "/api/suggestions/name_voice",
-  "/api/status",
-  "/api/status/wait",
-  "/api/vote/skip",
-  "/api/game",
-  "/api/game/answer",
-  "/api/game/join",
-  "/api/volume",
-  "/api/action/single_click",
-  "/api/action/double_click",
-  "/api/action/start_music",
-
-  "/api/action/next_track",
-  "/api/action/previous_track",
-  "/api/action/toggle_pause",
-  "/api/action/skip_sound",
-  "/api/action/announce",
-  "/api/announcements",
-  "/api/portal/status",
-  "/api/portal/release",
-
-  "/api/now/cover",
-  "/api/now/lyrics",
-  "/api/recent",
-
-  "/api/queue",
-  "/api/today",
-  "/api/library",
-  "/api/library/facets",
-  "/api/library/queue",
-  "/api/library/play",
-  "/api/audio/fallback",
-  "/api/device",
-
-  "/api/suggestions",
-  "/api/suggestions/vote",
-  "/api/suggestions/delete",
-  "/api/suggestions/name",
-  "/api/devices/link_code",
-  "/api/devices/link_join",
-  "/api/devices/link_leave",
-  "/api/auth/",
-];
-
-function guestMayCall(path) {
+function mayCall(path) {
+  if (myRole === "owner" || !mayCallPaths) return true;
   const clean = path.split("?")[0];
-  return GUEST_API_PATHS.some((p) => clean === p || clean.startsWith("/api/auth/"));
+  if (clean.startsWith("/api/auth/")) return true;
+  return mayCallPaths.some((one) => {
+    const cut = one.indexOf("<");
+    return cut === -1 ? clean === one : clean.startsWith(one.slice(0, cut));
+  });
 }
 
 const BOOT_ASK_TIMEOUT_MS = 6000;
@@ -453,16 +434,21 @@ async function boot() {
       showLoginOverlay();
       return;
     }
-    setLogoutVisible(!!(result.data && result.data.auth_required && result.data.authenticated));
-    if (result.data && result.data.auth_required && !result.data.authenticated) {
-      if (result.data.guest_mode) {
-        guestMode = true;
-        document.body.dataset.access = "guest";
-      } else {
-        hideBootOverlay();
-        showLoginOverlay();
-        return;
-      }
+    const identity = (result && result.data) || {};
+    // A radio that answers no role is one before the accounts: no password
+    // means the whole interface, a password and no guest access means the door.
+    if (identity.role) myRole = identity.role;
+    else if (!identity.auth_required || identity.authenticated) myRole = "owner";
+    else myRole = "guest";
+    if (identity.paths) mayCallPaths = identity.paths;
+    fillLoginAccounts(identity.accounts);
+    guestMode = myRole === "guest";
+    document.body.dataset.access = myRole;
+    setLogoutVisible(!!(identity.auth_required && identity.authenticated));
+    if (identity.auth_required && !identity.authenticated && !identity.guest_mode) {
+      hideBootOverlay();
+      showLoginOverlay();
+      return;
     }
     const hash = window.location.hash.replace(/^#/, "");
     bootHolding = !hash || hash === "home/player";
@@ -651,16 +637,28 @@ function capabilityHidden(card) {
   return !canDo(card.dataset.needs);
 }
 
-/* Must agree with src/web_server.py's _GUEST_PATHS: any other page would open
-   onto an empty shell. */
-const GUEST_PAGES = new Set(["player", "upnext", "recent", "today",
-                             "library", "suggest", "game"]);
+/* The pages each role is offered. A page is a place, not a right: the server
+   refuses what a role may not call whatever the page shows. */
+const ROLE_PAGES = {
+  guest: ["player", "upnext", "recent", "today", "library", "suggest", "game"],
+  member: ["player", "upnext", "recent", "today", "library", "lists", "suggest", "game"],
+};
+// The accounts and the password: the owner's own, even of an operator.
+const OWNER_ONLY_PAGES = ["people", "security"];
+
+function pageIsOffered(card) {
+  const page = card.dataset.page;
+  if (myRole === "operator" && OWNER_ONLY_PAGES.includes(page)) return false;
+  if (myRole === "owner" || myRole === "operator") return true;
+  const offered = ROLE_PAGES[myRole] || [];
+  if (!offered.includes(page)) return false;
+  return !(myRole === "guest" && guestPagesOff.includes(page));
+}
 
 function pageIsAvailable(card) {
   if (!card || card.hasAttribute("hidden")) return false;
   if (capabilityHidden(card)) return false;
-  if (guestMode && !GUEST_PAGES.has(card.dataset.page)) return false;
-  if (guestMode && guestPagesOff.includes(card.dataset.page)) return false;
+  if (!pageIsOffered(card)) return false;
   return !(card.dataset.level === "detail" && currentView() === "simple");
 }
 
@@ -1011,7 +1009,7 @@ function handleUnauthorized(res) {
 }
 
 async function apiFetch(path, options) {
-  if (guestMode && path.startsWith("/api/") && !guestMayCall(path)) {
+  if (path.startsWith("/api/") && !mayCall(path)) {
     return { ok: false, error: "auth_required" };
   }
   if (bootWaits(path)) await bootGate;
@@ -12799,7 +12797,7 @@ document.dispatchEvent(new CustomEvent("page-shown", {
 function searchEntries() {
   const out = [];
   document.querySelectorAll(".card[data-page]").forEach((card) => {
-    if (card.hasAttribute("hidden") || (guestMode && !GUEST_PAGES.has(card.dataset.page))) return;
+    if (card.hasAttribute("hidden") || !pageIsOffered(card)) return;
     const titleEl = card.querySelector("h2 [data-i18n]");
     const cardTitle = titleEl ? titleEl.textContent.trim() : "";
     const where = t("tab." + card.dataset.tab) + " \u203a " + cardTitle;

@@ -267,16 +267,7 @@ _AUTH_EXEMPT_PREFIX = "/api/auth/"
 _GUEST_PATHS = roles.GUEST_PATHS
 
 
-# A guest page and what it asks for: hiding the page refuses those too.
-GUEST_PAGE_PATHS = {
-    "upnext": {"/api/queue"},
-    "recent": {"/api/recent"},
-    "today": {"/api/today"},
-    "library": {"/api/library", "/api/library/facets"},
-    "game": {"/api/game", "/api/game/answer", "/api/game/join"},
-    "suggest": {"/api/suggestions", "/api/suggestions/vote", "/api/suggestions/delete",
-                "/api/suggestions/name"},
-}
+GUEST_PAGE_PATHS = roles.GUEST_PAGE_PATHS
 
 
 def _guest_pages_off():
@@ -1885,6 +1876,13 @@ def api_portal_status():
         "guest_mode": bool(c.get("GUEST_MODE_ENABLED")),
         "auth_required": accounts.owner_has_password() or bool(c.get("WEB_PASSWORD_HASH")),
         "authenticated": _is_authenticated(),
+        # What the page is answered as, the paths it may call, and the names
+        # the login form offers: no hash, no date, nothing else.
+        "role": _role(),
+        "paths": roles.allowed_paths(_role(), guest_access=bool(c.get("GUEST_MODE_ENABLED")),
+                                     pages_off=_guest_pages_off()),
+        "accounts": [{"id": one["id"], "name": one["name"], "role": one["role"]}
+                     for one in accounts.load()],
     }})
 
 

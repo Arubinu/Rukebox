@@ -65,6 +65,12 @@
         <!-- Not shown: browser password managers file a password under a user name, so this field gives them one. -->
         <input type="text" id="loginUsername" name="username" class="sr-only" value="rukebox"
                autocomplete="username" tabindex="-1" aria-hidden="true">
+        <!-- Who is logging in. Hidden while there is only one account: then the
+             name says nothing the password does not. -->
+        <div class="field-row" id="loginAccountRow" hidden>
+          <label for="loginAccount" data-i18n="login.account">Who is logging in</label>
+          <select id="loginAccount" name="account" class="text-input"></select>
+        </div>
         <input type="password" id="loginPassword" name="password" class="text-input" autocomplete="current-password"
                data-i18n-placeholder="login.password_placeholder" placeholder="Password" required>
         <p class="hint login-error" id="loginError" role="alert" hidden></p>

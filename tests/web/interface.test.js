@@ -4,7 +4,11 @@
 
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { load, until, wait, STATUS } = require("./harness");
+const { load, until, wait, STATUS, GUEST_PATHS } = require("./harness");
+
+// Two accounts: the names the login form offers, and a role to test with.
+const OWNER = { id: "owner", name: "Le patron", role: "owner" };
+const MARIE = { id: "marie", name: "Marie", role: "member" };
 
 // The page is closed whatever the test does: its timers would keep the run alive.
 function open(t, options) {
@@ -71,7 +75,8 @@ test("a menu is built from the cards: one tile per page that has something to sh
 test("with a password and no guest access, only the login is shown", async (t) => {
   const page = open(t, { routes: {
     "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
-                                guest_mode: false, auth_required: true, authenticated: false },
+                                guest_mode: false, auth_required: true, authenticated: false,
+                                role: "guest", paths: [], accounts: [OWNER, MARIE] },
   } });
   await until(() => !page.$("loginOverlay").hidden);
   assert.equal(page.$("loginClose").hidden, true, "nothing behind it to go back to");
@@ -79,10 +84,70 @@ test("with a password and no guest access, only the login is shown", async (t) =
   assert.equal(page.sent("GET", "/api/settings").length, 0);
 });
 
+// What a member may ask for: a guest's paths, and the house's music.
+const MEMBER_PATHS = GUEST_PATHS.concat([
+  "/api/likes", "/api/likes/toggle", "/api/excluded", "/api/excluded/filter",
+  "/api/excluded/restore", "/api/lists", "/api/lists/active", "/api/loop", "/api/mute",
+  "/api/memories", "/api/reminders",
+]);
+
+test("someone who lives here gets the music, not the settings", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
+                                guest_mode: false, auth_required: true, authenticated: true,
+                                role: "member", paths: MEMBER_PATHS, accounts: [OWNER, MARIE] },
+    "GET /api/lists": { lists: [] },
+    "GET /api/library/facets": { artists: [], albums: [], genres: [] },
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  assert.equal(page.document.body.dataset.access, "member");
+  for (const tab of ["settings", "network", "system", "stats"]) {
+    const button = page.document.querySelector('.tab-btn[data-tab="' + tab + '"]');
+    assert.ok(button.hidden, tab + " is not a member's");
+  }
+  assert.equal(page.sent("GET", "/api/settings").length, 0, "the settings are not theirs");
+  assert.ok(page.sent("GET", "/api/status").length > 0, "the player is");
+  await until(() => !page.$("listsCard").hidden);
+  assert.equal(page.$("listsCard").hidden, false, "the lists they build are theirs");
+  const tile = (name) => page.document.querySelector('.page-tile[data-page="' + name + '"]');
+  assert.ok(!tile("security") || tile("security").hidden, "the password is not");
+  assert.deepEqual(page.errors, []);
+});
+
+test("the login form offers the names, and sends the one chosen", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
+                                guest_mode: false, auth_required: true, authenticated: false,
+                                role: "guest", paths: [], accounts: [OWNER, MARIE] },
+    "POST /api/auth/login": {},
+  } });
+  await until(() => !page.$("loginOverlay").hidden);
+  assert.equal(page.$("loginAccountRow").hidden, false, "two names to choose from");
+  const names = [...page.$("loginAccount").querySelectorAll("option")].map((one) => one.value);
+  assert.deepEqual(names, ["Le patron", "Marie"]);
+  page.$("loginAccount").value = "Marie";
+  page.$("loginPassword").value = "mot-de-passe-marie";
+  page.$("loginForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
+  const sent = (await until(() => page.sent("POST", "/api/auth/login").length
+    && page.sent("POST", "/api/auth/login")))[0];
+  assert.deepEqual(sent.body, { name: "Marie", password: "mot-de-passe-marie" });
+});
+
+test("one account needs no name at the door: the password says it", async (t) => {
+  const page = open(t, { routes: {
+    "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
+                                guest_mode: false, auth_required: true, authenticated: false,
+                                role: "guest", paths: [], accounts: [OWNER] },
+  } });
+  await until(() => !page.$("loginOverlay").hidden);
+  assert.equal(page.$("loginAccountRow").hidden, true, "nothing to choose");
+});
+
 test("a guest is only offered the pages they are served", async (t) => {
   const guestRoutes = {
     "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
-                                guest_mode: true, auth_required: true, authenticated: false },
+                                guest_mode: true, auth_required: true, authenticated: false,
+                                role: "guest", paths: GUEST_PATHS, accounts: [OWNER] },
   };
   const page = open(t, { routes: guestRoutes, hash: "#system/security" });
   await until(() => page.$("bootOverlay").hidden);
@@ -114,7 +179,8 @@ test("a guest is only offered the pages they are served", async (t) => {
 test("a guest never asks for what a guest may not have", async (t) => {
   const page = open(t, { routes: {
     "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
-                                guest_mode: true, auth_required: true, authenticated: false },
+                                guest_mode: true, auth_required: true, authenticated: false,
+                                role: "guest", paths: GUEST_PATHS, accounts: [OWNER] },
   } });
   await until(() => page.$("bootOverlay").hidden);
   assert.equal(page.document.body.dataset.access, "guest");
@@ -874,7 +940,8 @@ test("a command locked for guests shows a padlock and cannot be pressed", async 
   const { STATUS } = require("./harness");
   const page = open(t, { routes: {
     "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
-                                guest_mode: true, auth_required: true, authenticated: false },
+                                guest_mode: true, auth_required: true, authenticated: false,
+                                role: "guest", paths: GUEST_PATHS, accounts: [OWNER] },
     "GET /api/status": Object.assign({}, STATUS, { guest_locked: ["next", "volume"] }),
   } });
   await until(() => page.$("btnNext").hasAttribute("data-locked"));
@@ -1027,7 +1094,8 @@ test("a page the owner hid from guests gets no tile on the guest's menu", async 
   const { STATUS } = require("./harness");
   const page = open(t, { hash: "#home", routes: {
     "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
-                                guest_mode: true, auth_required: true, authenticated: false },
+                                guest_mode: true, auth_required: true, authenticated: false,
+                                role: "guest", paths: GUEST_PATHS, accounts: [OWNER] },
     "GET /api/status": Object.assign({}, STATUS, { guest_pages_off: ["game"] }),
   } });
   await until(() => page.$("bootOverlay").hidden);
@@ -1477,7 +1545,8 @@ test("the Bluetooth list offers each device only the roles it can take", async (
 test("a guest can close the login dialog, the login at the door cannot be closed", async (t) => {
   const page = open(t, { routes: {
     "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
-                                guest_mode: true, auth_required: true, authenticated: false },
+                                guest_mode: true, auth_required: true, authenticated: false,
+                                role: "guest", paths: GUEST_PATHS, accounts: [OWNER] },
     "POST /api/auth/login": { __raw: { ok: false, error: "wrong_password" } },
   } });
   await until(() => page.$("bootOverlay").hidden);
