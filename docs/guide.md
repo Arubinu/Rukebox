@@ -1004,7 +1004,10 @@ portal choice and its ban, so it is greeted as a complete stranger if it
 comes back - which is why it always asks first. **Banned** keeps the bans
 on their own page, with **Lift** to undo one and the date it was last seen
 - a banned device appears in neither of the other two lists, and a banned
-device that opens the interface anyway is told it is not allowed here. All
+device that opens the interface anyway is told it is not allowed here. A ban
+follows the device as a visitor: someone who logs in with an account is
+answering for themselves, and the ban no longer applies to that browser.
+All
 three pages have the same search box (name, address or MAC), which filters
 what is on the page as you type and says how many it found.
 
