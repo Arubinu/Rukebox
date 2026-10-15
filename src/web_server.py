@@ -3149,6 +3149,9 @@ def api_status():
     powering_off = data.pop("powering_off", False)
     data["going_down"] = _going_down or (powering_off if isinstance(powering_off, str)
                                          else ("poweroff" if powering_off else None))
+    # The daemon says the machine is going down: the pages waiting on the long poll
+    # hear it at once, rather than each of them finding out by polling.
+    _note_going_down(data["going_down"])
     data["updating"] = update_in_progress(cfg())
     data["epoch"] = time.time()
     track_path = data.pop("current_track_path", None)
@@ -7952,18 +7955,25 @@ _going_down = None
 _going_down_event = threading.Event()
 
 
+def _note_going_down(kind):
+    """Tells every page waiting on the long poll that the machine is going down."""
+    global _going_down
+    if not kind or _going_down:
+        return
+    _going_down = kind
+    _going_down_event.set()
+
+
 def _system_going_down():
     """"poweroff" / "reboot" when systemd has that job queued."""
     return system_actions.going_down()
 
 
 def _on_sigterm(signum, frame):
-    global _going_down
     kind = _system_going_down()
     if kind:
         log.info("The Pi is going down (%s): telling the open pages", kind)
-        _going_down = kind
-        _going_down_event.set()
+        _note_going_down(kind)
         time.sleep(1.5)
     os._exit(0)
 

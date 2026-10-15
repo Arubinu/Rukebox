@@ -28,6 +28,24 @@ test("the interface starts without an error and lands on the player", async (t) 
   assert.equal(page.window.location.hash, "#home/player");
 });
 
+test("a page the radio tells it is switching off says so, without having asked", async (t) => {
+  // The long poll carries it: every page is told, not only the one that asked.
+  let calls = 0;
+  let release;
+  const booted = new Promise((resolve) => { release = resolve; });
+  const page = open(t, { routes: {
+    "GET /api/status/wait": () => {
+      calls += 1;
+      return calls === 1 ? booted.then(() => ({ version: 1 }))
+                         : { version: 1, going_down: "poweroff" };
+    },
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  release();
+  await until(() => /switched off/i.test(page.$("bootMessage").textContent));
+  assert.equal(page.$("bootOverlay").hidden, false);
+});
+
 test("an address with a page opens that page", async (t) => {
   const page = open(t, { hash: "#settings/announcements" });
   await until(() => page.document.body.dataset.page === "announcements");

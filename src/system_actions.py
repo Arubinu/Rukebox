@@ -241,10 +241,11 @@ def going_down():
         return None
     targets = {"poweroff.target": "poweroff", "halt.target": "poweroff",
                "reboot.target": "reboot", "kexec.target": "reboot"}
+    # "JOB UNIT TYPE STATE": the unit is the second column, the last one is the state.
     for line in result.stdout.splitlines():
         parts = line.split()
-        if parts and parts[-1] in targets:
-            return targets[parts[-1]]
+        if len(parts) > 1 and parts[1] in targets:
+            return targets[parts[1]]
     return None
 
 
