@@ -9,6 +9,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import _path  # noqa: F401
 import announcements
@@ -131,15 +132,16 @@ class ImportTest(unittest.TestCase):
         json_file.write(path, doc)
         return path
 
-    def test_the_five_lists_move_in_and_their_files_go(self):
-        paths = [
-            self.legacy("announcements.json", {"items": [{"id": "matin", "name": "Matin"}],
-                                               "volumes": {"meme": {"on": True, "volume": 80}}}),
-            self.legacy("music_lists.json", {"lists": [{"id": "soir", "name": "Soir"}]}),
-            self.legacy("schedules.json", {"schedules": [{"id": "weekend", "name": "Weekend"}]}),
-            self.legacy("cards.json", {"cards": [{"id": "abcd1234", "name": "Bleue"}]}),
-            self.legacy("track_order.json", {"meme": ["b.mp3", "a.mp3"]}),
-        ]
+    def test_the_five_lists_move_in_and_their_files_are_kept(self):
+        contents = {
+            "announcements.json": {"items": [{"id": "matin", "name": "Matin"}],
+                                   "volumes": {"meme": {"on": True, "volume": 80}}},
+            "music_lists.json": {"lists": [{"id": "soir", "name": "Soir"}]},
+            "schedules.json": {"schedules": [{"id": "weekend", "name": "Weekend"}]},
+            "cards.json": {"cards": [{"id": "abcd1234", "name": "Bleue"}]},
+            "track_order.json": {"meme": ["b.mp3", "a.mp3"]},
+        }
+        paths = {name: self.legacy(name, doc) for name, doc in contents.items()}
         moved = config_document.import_legacy(self.path)
         self.assertEqual(sorted(moved), ["announcements", "cards", "music_lists", "schedules",
                                          "track_order"])
@@ -149,9 +151,23 @@ class ImportTest(unittest.TestCase):
         self.assertEqual([item["id"] for item in schedules.load(self.path)], ["weekend"])
         self.assertEqual(sorted(cards.load(self.path)), ["abcd1234"])
         self.assertEqual(track_order.get("meme", self.path), ["b.mp3", "a.mp3"])
-        for path in paths:
-            self.assertFalse(os.path.exists(path), "%s was taken" % os.path.basename(path))
+        for name, path in paths.items():
+            self.assertFalse(os.path.exists(path), "%s was taken" % name)
+            # A copy stays beside it, under a name a version before this one
+            # does not read: putting the file back is a rename.
+            kept = path + config_document.BACKUP_SUFFIX
+            with open(kept, encoding="utf-8") as f:
+                self.assertEqual(json.load(f), contents[name],
+                                 "%s is kept as it was" % os.path.basename(kept))
         self.assertEqual(config_document.import_legacy(self.path), [], "nothing left to take")
+
+    def test_a_file_we_cannot_copy_stays_where_it_is(self):
+        path = self.legacy("cards.json", {"cards": [{"id": "abcd1234", "name": "Bleue"}]})
+        with mock.patch.object(config_document, "_keep_a_copy", side_effect=OSError("no room")):
+            self.assertEqual(config_document.import_legacy(self.path), ["cards"])
+        self.assertTrue(os.path.exists(path), "a file no copy could be made of is left alone")
+        self.assertEqual(sorted(cards.load(self.path)), ["abcd1234"], "the block holds it")
+        self.assertFalse(os.path.exists(path + config_document.BACKUP_SUFFIX))
 
     def test_a_file_that_cannot_be_read_is_left_where_it_is(self):
         path = os.path.join(self.dir, "cards.json")

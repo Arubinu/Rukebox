@@ -9,6 +9,7 @@ the file are untouched.
 
 import logging
 import os
+import shutil
 import threading
 
 import config_file
@@ -16,6 +17,10 @@ import json_file
 import paths
 
 log = logging.getLogger("config_document")
+
+# What the file a list came from is kept as: putting it back is a rename, and a
+# version before the blocks reads that name.
+BACKUP_SUFFIX = ".before-yaml"
 
 # Every block: the name it had as a setting, the key it had in `paths:`, and
 # the file it lived in before this version.
@@ -231,12 +236,21 @@ def write(name, doc, path=None):
     forget(document)
 
 
+def _keep_a_copy(path):
+    """A copy of a file beside it, for a version that read that name: putting
+    it back is a rename."""
+    target = path + BACKUP_SUFFIX
+    shutil.copyfile(path, target)
+    config_file.secure_file(target, os.path.dirname(path) or ".")
+    return target
+
+
 def import_legacy(path=None):
     """Moves the lists kept in their own files into the document, once.
 
-    Each file is written into its block, read back to be sure, and only then
-    removed: an unreadable file is left alone, and so is one with nothing to
-    take. Answers the blocks that moved.
+    Each file is written into its block, read back to be sure, copied beside
+    itself, and only then removed: an unreadable file is left alone, and so is
+    one with nothing to take. Answers the blocks that moved.
     """
     if config_file._yaml_module() is None:
         log.warning("PyYAML is not installed: the lists stay in their own files")
@@ -261,9 +275,17 @@ def import_legacy(path=None):
             log.error("Could not move %s into %s: the file is kept", legacy, document)
             continue
         try:
+            kept = _keep_a_copy(legacy)
+        except OSError:
+            # No copy, no removal: the list is in the document either way, and
+            # this file is what a version before this one reads.
+            log.warning("Could not copy %s: it is left where it is", legacy)
+            moved.append(name)
+            continue
+        try:
             os.remove(legacy)
         except OSError:
             log.warning("Could not remove %s, it is no longer read", legacy)
         moved.append(name)
-        log.info("The %s list moved into %s, %s removed", name, document, legacy)
+        log.info("The %s list moved into %s; %s kept as %s", name, document, legacy, kept)
     return moved

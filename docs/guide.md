@@ -2608,11 +2608,23 @@ announcements:
 Until this version those lists were five files of their own in `/etc/rukebox`
 (`announcements.json`, `music_lists.json`, `schedules.json`, `cards.json`,
 `track_order.json`). The first start after the update takes each one into its
-block, checks it is there, and **removes the file it came from**; the update,
-the installation and every boot run that same step, and it only ever runs
-once. A file that cannot be read is left where it is, and so is one with
-nothing in it. Rolling back to an older version after that does not find the
-lists again: an older Rukebox reads the files, not the blocks.
+block, checks it is there, keeps a **copy beside it** — `announcements.json.
+before-yaml` and so on — and removes the file itself; the update, the
+installation and every boot run that same step, and it only ever runs once. A
+file that cannot be read is left where it is, and so is one with nothing in
+it; a file no copy could be made of is left where it is too.
+
+The copies are what a version before this one reads. Putting one back is a
+rename, and the interface then finds that list again:
+
+```bash
+sudo mv /etc/rukebox/announcements.json.before-yaml /etc/rukebox/announcements.json
+```
+
+Once you are sure you will not go back, they can go:
+`sudo rm /etc/rukebox/*.json.before-yaml`. Rolling back with them in place is
+still not the same as before the update: a version before this one ignores the
+blocks, so any change made since lives in `rukebox.yaml` alone.
 
 An older file also keeps the five lines that named those files, under `paths:`
 (`announcements_file` and the rest). Nothing reads them any more; they are only
@@ -3178,7 +3190,7 @@ If something fails partway through, it **restores the previous version
 by itself** and restarts the services, leaving the failed attempt in
 `/opt/rukebox.failed` for inspection. The configuration is not part of that
 backup: a version that stops after the step above leaves the configuration
-as the new version wrote it, lists included.
+as the new version wrote it, lists included and their old files kept.
 
 ### Rolling back
 
@@ -3189,8 +3201,8 @@ sudo rukebox-update --rollback          # restores the most recent backup
 
 `updates.backup_keep` (3 by default) sets how many are kept. A rollback
 restores the program, not the configuration: a version before 2.0.0 would not
-find the lists that moved into `rukebox.yaml` (see "The lists are in the same
-file"), so keep a copy of the file before rolling back that far.
+find the lists that moved into `rukebox.yaml` unless the copies left beside
+their old files are put back first (see "The lists are in the same file").
 
 ### Which version is installed?
 
