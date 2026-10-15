@@ -171,11 +171,11 @@ class NumberFieldsTest(unittest.TestCase):
         bad = []
         for tag in re.findall(r'<input[^>]*type="number"[^>]*>', html):
             key = re.search(r'data-key="([^"]+)"', tag)
-            if not key or key.group(1) not in config_schema.DEFAULTS:
+            if not key or key.group(1) not in config_schema.BY_PATH:
                 continue
             attr = lambda name: (re.search(r'\b%s="([^"]+)"' % name, tag) or [None, None])[1]
             low, high, step = attr("min"), attr("max"), attr("step")
-            value = float(config_schema.DEFAULTS[key.group(1)])
+            value = float(config_schema.DEFAULTS[config_schema.BY_PATH[key.group(1)].env])
             if low is not None and value < float(low) or high is not None and value > float(high):
                 bad.append(key.group(1))
             elif step not in (None, "any"):

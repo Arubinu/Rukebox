@@ -33,6 +33,7 @@ TMP = tempfile.mkdtemp()
 if flask:
     # Read by web_server at import time; nothing of the real installation is opened for writing.
     os.environ["STATS_DB_FILE"] = os.path.join(TMP, "stats.db")
+    import config_file
     import library
     import music_lists
     import track_media
@@ -353,11 +354,21 @@ class WebTest(unittest.TestCase):
             del type(self).extra["WEB_EXTRA_HOSTS"]
 
     def test_the_domain_list_holds_names_only(self):
-        body = {"WEB_EXTRA_HOSTS": "Radio.Example ,  x.org radio.example"}
+        body = {"network.web_extra_hosts": "Radio.Example ,  x.org radio.example"}
         self.assertIsNone(ws._check_extra_hosts(body))
-        self.assertEqual(body["WEB_EXTRA_HOSTS"], "radio.example, x.org")
-        self.assertEqual(ws._check_extra_hosts({"WEB_EXTRA_HOSTS": "bad_name!"}), "bad_host_name")
-        self.assertIsNone(ws._check_extra_hosts({"WEB_EXTRA_HOSTS": ""}))
+        self.assertEqual(body["network.web_extra_hosts"], "radio.example, x.org")
+        self.assertEqual(ws._check_extra_hosts({"network.web_extra_hosts": "bad_name!"}),
+                         "bad_host_name")
+        self.assertIsNone(ws._check_extra_hosts({"network.web_extra_hosts": ""}))
+
+    def test_an_old_settings_name_is_still_saved(self):
+        """A page, a script or a bundle written before the settings were named
+        after their place in the file still works: the name it had is read."""
+        answer = self.owner().post("/api/settings",
+                                   json={"WEB_EXTRA_HOSTS": "Radio.Example , x.org radio.example"})
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(config_file.read_values().get("WEB_EXTRA_HOSTS"),
+                         "radio.example, x.org", "saved under the name it has")
 
     def test_a_refused_name_can_be_taken_off_the_list(self):
         owner = self.owner()
@@ -880,9 +891,9 @@ class WebTest(unittest.TestCase):
 
         owner = self.owner()
         listed = owner.get("/api/schedules").get_json()["data"]
-        self.assertIn("MUSIC_LOOP", listed["settings"])
-        self.assertNotIn("WEB_PORT", listed["settings"])
-        self.assertNotIn("WEB_PASSWORD_HASH", listed["settings"])
+        self.assertIn("playback.loop", listed["settings"])
+        self.assertNotIn("network.web_port", listed["settings"])
+        self.assertNotIn("security.password_hash", listed["settings"])
 
         refused = owner.post("/api/schedules", json={"name": "A", "start": "07:00",
                                                      "settings": {"WEB_PASSWORD_HASH": ""}})
@@ -894,7 +905,8 @@ class WebTest(unittest.TestCase):
                                                   "settings": {"BASE_VOLUME": "35"}})
         self.assertEqual(made.status_code, 200)
         entry = made.get_json()["data"]
-        self.assertEqual((entry["id"], entry["settings"]), ("le-matin", {"BASE_VOLUME": "35"}))
+        self.assertEqual((entry["id"], entry["settings"]),
+                         ("le-matin", {"playback.base_volume": "35"}))
         off = owner.post("/api/schedules/le-matin", json={"enabled": False}).get_json()["data"]
         self.assertFalse(off["enabled"])
         self.assertEqual(off["stop"], "09:00", "a partial change keeps the rest")
@@ -924,17 +936,21 @@ class WebTest(unittest.TestCase):
 
     def test_the_mqtt_password_is_written_but_never_read_back(self):
         owner = self.owner()
-        self.assertEqual(owner.get("/api/settings").get_json()["data"]["MQTT_PASSWORD"], "")
-        self.assertEqual(owner.post("/api/settings", json={"MQTT_PASSWORD": "broker-secret"}).status_code, 200)
+        self.assertEqual(owner.get("/api/settings").get_json()["data"]["home_assistant.password"], "")
+        self.assertEqual(owner.post("/api/settings",
+                                    json={"home_assistant.password": "broker-secret"}).status_code, 200)
         self.assertEqual(ws.cfg()["MQTT_PASSWORD"], "broker-secret")
-        shown = owner.get("/api/settings").get_json()["data"]["MQTT_PASSWORD"]
+        shown = owner.get("/api/settings").get_json()["data"]["home_assistant.password"]
         self.assertNotIn("secret", shown)
         self.assertTrue(shown)
-        owner.post("/api/settings", json={"MQTT_PASSWORD": shown, "MQTT_PORT": "1884"})
+        owner.post("/api/settings",
+                   json={"home_assistant.password": shown, "home_assistant.port": "1884"})
         self.assertEqual((ws.cfg()["MQTT_PASSWORD"], str(ws.cfg()["MQTT_PORT"])), ("broker-secret", "1884"),
                          "the mask sent back keeps the password")
-        self.assertEqual(owner.post("/api/settings", json={"MQTT_PASSWORD": shown}).status_code, 200)
-        owner.post("/api/settings", json={"MQTT_PASSWORD": "", "MQTT_PORT": "1883"})
+        self.assertEqual(owner.post("/api/settings",
+                                    json={"home_assistant.password": shown}).status_code, 200)
+        owner.post("/api/settings",
+                   json={"home_assistant.password": "", "home_assistant.port": "1883"})
         self.assertEqual(ws.cfg()["MQTT_PASSWORD"], "")
         self.assertEqual(owner.get("/api/mqtt/status").get_json()["data"]["state"], "off")
 
@@ -1749,7 +1765,7 @@ class UpnpRouteTest(unittest.TestCase):
         """A save is enough: turning the stream on adds the radio to a player
         that is already open, without restarting anything."""
         with unittest.mock.patch.object(ws, "_upnp_follow_stream") as followed:
-            self.client.post("/api/settings", json={"STREAM_ENABLED": True})
+            self.client.post("/api/settings", json={"audio.stream_enabled": True})
         self.assertTrue(followed.called)
 
     def test_a_stream_that_is_off_is_not_announced_at_all(self):
@@ -1758,7 +1774,7 @@ class UpnpRouteTest(unittest.TestCase):
         with unittest.mock.patch.object(ws, "_stream_available", return_value=False):
             with unittest.mock.patch.object(ws.upnp, "start") as started:
                 with unittest.mock.patch.object(ws.upnp, "stop") as stopped:
-                    self.client.post("/api/settings", json={"STREAM_ENABLED": True})
+                    self.client.post("/api/settings", json={"audio.stream_enabled": True})
         self.assertTrue(stopped.called)
         self.assertFalse(started.called)
 

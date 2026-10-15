@@ -78,7 +78,7 @@ test("the log names applied settings as their page does", async () => {
   const page = withStats({
     "GET /api/journal/entries": { events: [
       { id: 1, ts: 1790928000, clock_ok: true, type: "config_reloaded", label: "WEB_BEHIND_PROXY, NOT_A_FIELD",
-        detail: { applied: ["WEB_BEHIND_PROXY", "NOT_A_FIELD"], restart: [] } }],
+        detail: { applied: ["network.web_behind_proxy", "NOT_A_FIELD"], restart: [] } }],
       types: ["config_reloaded"], total: 1 },
   }, "#stats/events");
   await shown(page, "stats", "events");

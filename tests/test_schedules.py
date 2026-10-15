@@ -55,8 +55,14 @@ class RulesTest(unittest.TestCase):
     def test_settings_are_kept_as_text_and_read_typed(self):
         clean = schedules.validate({"name": "A", "start": "07:00",
                                     "settings": {"BASE_VOLUME": 35, "MUSIC_LOOP": False}})
-        self.assertEqual(clean["settings"], {"BASE_VOLUME": "35", "MUSIC_LOOP": "false"})
-        self.assertEqual(schedules.overrides(clean), {"BASE_VOLUME": 35, "MUSIC_LOOP": False})
+        self.assertEqual(clean["settings"],
+                         {"playback.base_volume": "35", "playback.loop": "false"})
+        self.assertEqual(schedules.overrides(clean), {"BASE_VOLUME": 35, "MUSIC_LOOP": False},
+                         "read back under the name the radio's config holds")
+        self.assertEqual(
+            schedules.validate({"name": "A", "start": "07:00",
+                                "settings": {"playback.base_volume": 35}})["settings"],
+            {"playback.base_volume": "35"}, "the name a setting has is what is kept")
 
     def test_an_opening_announcement_needs_a_start(self):
         self.assertEqual(schedules.validate({"name": "A", "start": "07:00", "announcement": "hello"})

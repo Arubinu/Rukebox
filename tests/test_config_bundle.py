@@ -103,9 +103,9 @@ class BundleTest(unittest.TestCase):
         bundle = config_bundle.export_bundle(self.cfg, {"tree_hash_short": "abc123"})
         self.assertEqual((bundle["format"], bundle["version"], bundle["app_version"]),
                          ("rukebox-config", 1, "abc123"))
-        self.assertEqual(bundle["settings"]["BASE_VOLUME"], "42")
-        self.assertNotIn("WEB_PASSWORD_HASH", bundle["settings"])
-        self.assertNotIn("WEB_SESSION_SECRET", bundle["settings"])
+        self.assertEqual(bundle["settings"]["playback.base_volume"], "42")
+        self.assertNotIn("security.password_hash", bundle["settings"])
+        self.assertNotIn("security.session_secret", bundle["settings"])
         self.assertNotIn("pbkdf2$secret", json.dumps(bundle))
         self.assertEqual([item["id"] for item in bundle["announcements"]], ["lunch"])
         self.assertEqual(bundle["track_order"], {"meme": ["b.mp3", "a.mp3"]})

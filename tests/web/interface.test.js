@@ -168,17 +168,50 @@ test("saving a settings card sends only what was changed", async (t) => {
   field.dispatchEvent(new page.window.Event("change", { bubbles: true }));
   submit(page);
   const saved = await saved_by(page);
-  assert.deepEqual(Object.keys(saved.body), ["BASE_VOLUME"]);
-  assert.equal(String(saved.body.BASE_VOLUME), "55");
+  assert.deepEqual(Object.keys(saved.body), ["playback.base_volume"]);
+  assert.equal(String(saved.body["playback.base_volume"]), "55");
+});
+
+test("every settings card is sent under the name the file gives it", async (t) => {
+  const page = open(t, { routes: { "POST /api/settings": {} } });
+  await until(() => page.$("bootOverlay").hidden);
+  page.document.querySelectorAll("form").forEach((form) => form.dispatchEvent(
+    new page.window.Event("submit", { bubbles: true, cancelable: true })));
+  await until(() => page.sent("POST", "/api/settings").length > 0);
+  await wait(200);
+  const sent = page.sent("POST", "/api/settings");
+  const keys = new Set();
+  sent.forEach((one) => Object.keys(one.body).forEach((key) => keys.add(key)));
+  assert.ok(keys.size > 100, "the whole settings page is covered: " + keys.size);
+  keys.forEach((key) => assert.match(key, /^[a-z][a-z0-9_]*\.[a-z0-9_]+$/,
+                                     key + " is not a section.name"));
+  assert.deepEqual(page.errors, []);
+});
+
+test("a refused mode change leaves the switch where the radio was", async (t) => {
+  const page = open(t, { routes: { "GET /api/settings": { "hardware.act_led": "default",
+                                                           "hardware.usb_port_mode": "host" },
+                                   "POST /api/settings": {} } });
+  await until(() => page.$("bootOverlay").hidden);
+  const select = page.$("usbPortMode");
+  assert.equal(select.value, "host", "the switch shows the mode the radio is in");
+  select.value = "gadget";
+  select.dispatchEvent(new page.window.Event("change", { bubbles: true }));
+  await until(() => page.$("modalOverlay").hidden === false);
+  page.$("modalCancel").click();
+  await wait(50);
+  assert.equal(select.value, "host", "the switch goes back, it is not left on the other mode");
+  assert.equal(page.sent("POST", "/api/settings").length, 0, "nothing was sent");
+  assert.deepEqual(page.errors, []);
 });
 
 test("the network stream is a switch of the audio card", async (t) => {
   // The whole card as a Pi holds it, so that the switch is the only thing this
   // test changes.
-  const held = { AUDIO_OUTPUT: "bluetooth", AUDIO_FALLBACK_OUTPUT: "", BT_AUDIO_CODECS: "",
-                 TRANSFER_LIMIT_MODE: "auto", TRANSFER_LIMIT_KBPS: "64", TRANSFER_LIMIT_USB: "false",
-                 STREAM_ENABLED: "false", STREAM_ENCODER: "", STREAM_SOURCE: "", STREAM_VOLUME: "100",
-                 UPNP_NAME: "Rukebox 4821", SNAPCAST_CODEC: "opus" };
+  const held = { "audio.output": "bluetooth", "audio.fallback_output": "", "bluetooth.bt_audio_codecs": "",
+                 "hardware.transfer_limit": "auto", "hardware.transfer_limit_kbps": "64", "hardware.transfer_limit_usb": "false",
+                 "audio.stream_enabled": "false", "audio.stream_encoder": "", "audio.stream_source": "", "audio.stream_volume": "100",
+                 "audio.upnp_name": "Rukebox 4821", "audio.snapcast_codec": "opus" };
   const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
   await until(() => page.$("bootOverlay").hidden);
   assert.equal(page.$("streamEnabled").checked, false, "the stream is off on a Pi");
@@ -191,7 +224,7 @@ test("the network stream is a switch of the audio card", async (t) => {
     new page.window.Event("submit", { bubbles: true, cancelable: true }));
   const saved = (await until(() => page.sent("POST", "/api/settings").length
     && page.sent("POST", "/api/settings")))[0].body;
-  assert.deepEqual(saved, { STREAM_ENABLED: "true", STREAM_ENCODER: "mp3" });
+  assert.deepEqual(saved, { "audio.stream_enabled": "true", "audio.stream_encoder": "mp3" });
   assert.deepEqual(page.errors, []);
 });
 
@@ -213,7 +246,7 @@ test("the virtual output is only offered by a machine that has one", async (t) =
 });
 
 test("the Bluetooth codecs row only shows for a Bluetooth speaker", async (t) => {
-  const held = { AUDIO_OUTPUT: "jack", AUDIO_FALLBACK_OUTPUT: "", BT_AUDIO_CODECS: "sbc_xq,sbc" };
+  const held = { "audio.output": "jack", "audio.fallback_output": "", "bluetooth.bt_audio_codecs": "sbc_xq,sbc" };
   const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
   await until(() => page.$("bootOverlay").hidden);
   await until(() => page.$("audioOutputSelect").value === "jack");
@@ -228,10 +261,10 @@ test("the Bluetooth codecs row only shows for a Bluetooth speaker", async (t) =>
 });
 
 test("the announcement name only shows while the stream is on", async (t) => {
-  const held = { AUDIO_OUTPUT: "bluetooth", STREAM_ENABLED: "false", STREAM_ENCODER: "",
-                 STREAM_SOURCE: "", STREAM_VOLUME: "100",
-                 UPNP_NAME: "Rukebox 4821", TRANSFER_LIMIT_MODE: "auto", TRANSFER_LIMIT_KBPS: "64",
-                 TRANSFER_LIMIT_USB: "false" };
+  const held = { "audio.output": "bluetooth", "audio.stream_enabled": "false", "audio.stream_encoder": "",
+                 "audio.stream_source": "", "audio.stream_volume": "100",
+                 "audio.upnp_name": "Rukebox 4821", "hardware.transfer_limit": "auto", "hardware.transfer_limit_kbps": "64",
+                 "hardware.transfer_limit_usb": "false" };
   const page = open(t, { routes: { "GET /api/settings": held, "POST /api/settings": {} } });
   await until(() => page.$("bootOverlay").hidden);
   await until(() => page.$("upnpNeedsStream").hidden === false);
@@ -298,11 +331,11 @@ test("the settings that belong together are folded together", async (t) => {
   // The visible rows of the volume card, in the order the owner asked for.
   const rows = Array.from(page.$("volumeForm").querySelectorAll(":scope > .field-row"));
   assert.deepEqual(rows.map((row) => row.querySelector("[data-key]").dataset.key),
-                   ["BASE_VOLUME", "AUDIO_EQUALIZER", "AUDIO_COMPRESSION"]);
+                   ["playback.base_volume", "playback.audio_equalizer", "playback.audio_compression"]);
 });
 
 test("the covers folder is named with what it holds", async (t) => {
-  const page = open(t, { routes: { "GET /api/settings": { COVER_PRIORITY: "files" },
+  const page = open(t, { routes: { "GET /api/settings": { "playback.cover_priority": "files" },
                                    "GET /api/covers": { dir: "/home/pi/audio/covers", files: 46,
                                                         covered: 312, tracks: 1175 } } });
   await until(() => page.$("bootOverlay").hidden);
@@ -472,12 +505,12 @@ test("the owner links a device to another person's, and may unlink it", async (t
 
 test("a schedule is saved with its days, its times and the settings it holds", async (t) => {
   const page = open(t, { hash: "#settings/settings", routes: {
-    "GET /api/settings": { MUSIC_LOOP: "true", SINGLE_CLICK_ACTION: "next", CUTOFF_HOUR: "23", CUTOFF_MINUTE: "30",
-                           SHUTDOWN_AFTER_CUTOFF: "false" },
+    "GET /api/settings": { "playback.loop": "true", "buttons.single_click_action": "next", "schedule.cutoff_hour": "23", "schedule.cutoff_minute": "30",
+                           "schedule.shutdown_after_cutoff": "false" },
     "GET /api/schedules": { schedules: [
       { id: "soir", name: "Le soir", enabled: true, date: null, days: [4, 5], start: "20:00", stop: "23:00",
-        stop_action: "standby", list: null, settings: { BASE_VOLUME: "40", MUSIC_LOOP: "false" } },
-    ], settings: ["BASE_VOLUME", "CUTOFF_HOUR", "CUTOFF_MINUTE", "MUSIC_LOOP", "SINGLE_CLICK_ACTION"] },
+        stop_action: "standby", list: null, settings: { "playback.base_volume": "40", "playback.loop": "false" } },
+    ], settings: ["playback.base_volume", "schedule.cutoff_hour", "schedule.cutoff_minute", "playback.loop", "buttons.single_click_action"] },
     "POST /api/schedules": (request) => Object.assign({ id: "matin" }, request.body),
     "POST /api/schedules/soir": (request) => Object.assign({ id: "soir", name: "Le soir" }, request.body),
   } });
@@ -498,18 +531,18 @@ test("a schedule is saved with its days, its times and the settings it holds", a
   page.$("schedVolume").value = "30";
 
   const choices = [...page.$("schedAddSetting").options].map((option) => option.value);
-  assert.ok(choices.includes("MUSIC_LOOP") && choices.includes("CUTOFF_HOUR"));
-  assert.ok(!choices.includes("BASE_VOLUME"), "the volume has a field of its own");
-  assert.ok(!choices.includes("CUTOFF_MINUTE"), "the cutoff is one time, not two numbers");
-  page.$("schedAddSetting").value = "MUSIC_LOOP";
+  assert.ok(choices.includes("playback.loop") && choices.includes("schedule.cutoff_hour"));
+  assert.ok(!choices.includes("playback.base_volume"), "the volume has a field of its own");
+  assert.ok(!choices.includes("schedule.cutoff_minute"), "the cutoff is one time, not two numbers");
+  page.$("schedAddSetting").value = "playback.loop";
   page.$("schedAddSetting").dispatchEvent(new page.window.Event("change", { bubbles: true }));
-  const loop = page.$("schedOverrides").querySelector('[data-override="MUSIC_LOOP"]');
+  const loop = page.$("schedOverrides").querySelector('[data-override="playback.loop"]');
   assert.equal(loop.checked, true, "it starts from the usual value");
   loop.checked = false;
-  page.$("schedAddSetting").value = "CUTOFF_HOUR";
+  page.$("schedAddSetting").value = "schedule.cutoff_hour";
   page.$("schedAddSetting").dispatchEvent(new page.window.Event("change", { bubbles: true }));
-  assert.equal(page.$("schedOverrides").querySelector('[data-override="CUTOFF_HOUR"]').value, "23:30");
-  assert.equal(page.document.querySelectorAll('#main [data-key="MUSIC_LOOP"]').length, 1,
+  assert.equal(page.$("schedOverrides").querySelector('[data-override="schedule.cutoff_hour"]').value, "23:30");
+  assert.equal(page.document.querySelectorAll('#main [data-key="playback.loop"]').length, 1,
                "a copy is not a settings field");
 
   page.$("scheduleForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
@@ -517,20 +550,20 @@ test("a schedule is saved with its days, its times and the settings it holds", a
     && page.sent("POST", "/api/schedules")))[0].body;
   assert.deepEqual(made, { name: "Le matin", days: [0, 2], date: null, start: "07:00", stop: null,
                            stop_action: "pause", list: null, announcement: null,
-                           settings: { MUSIC_LOOP: "false", CUTOFF_HOUR: "23", CUTOFF_MINUTE: "30",
-                                       BASE_VOLUME: "30" } });
+                           settings: { "playback.loop": "false", "schedule.cutoff_hour": "23", "schedule.cutoff_minute": "30",
+                                       "playback.base_volume": "30" } });
 
   (await until(() => page.$("scheduleList").querySelector(".sched-edit"))).click();
   assert.equal(page.$("schedName").value, "Le soir");
   assert.equal(page.$("schedVolume").value, "40");
   assert.equal(page.$("schedStopOn").checked, true);
   assert.equal(page.$("schedActionRow").hidden, false);
-  assert.equal(page.$("schedOverrides").querySelector('[data-override="MUSIC_LOOP"]').checked, false);
+  assert.equal(page.$("schedOverrides").querySelector('[data-override="playback.loop"]').checked, false);
   page.$("schedOverrides").querySelector(".override-remove").click();
   page.$("scheduleForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
   const changed = (await until(() => page.sent("POST", "/api/schedules/soir").length
     && page.sent("POST", "/api/schedules/soir")))[0].body;
-  assert.deepEqual(changed.settings, { BASE_VOLUME: "40" });
+  assert.deepEqual(changed.settings, { "playback.base_volume": "40" });
   assert.deepEqual(changed.days, [4, 5]);
   assert.deepEqual(page.errors, []);
 });
@@ -538,17 +571,17 @@ test("a schedule is saved with its days, its times and the settings it holds", a
 test("schedules can be reordered and copied, and the week shows them", async (t) => {
   const schedules = [
     { id: "matin", name: "Le matin", enabled: true, date: null, days: [], start: "07:00", stop: "09:00",
-      stop_action: "pause", list: null, announcement: "reveil", settings: { BASE_VOLUME: "30" } },
+      stop_action: "pause", list: null, announcement: "reveil", settings: { "playback.base_volume": "30" } },
     { id: "nuit", name: "La nuit", enabled: true, date: null, days: [], start: "22:00", stop: "01:30",
       stop_action: "standby", list: null, announcement: null, settings: {} },
     { id: "off", name: "Coupee", enabled: false, date: null, days: [], start: "12:00", stop: "13:00",
       stop_action: "pause", list: null, announcement: null, settings: {} },
   ];
   const page = open(t, { hash: "#settings/settings", routes: {
-    "GET /api/settings": { CUTOFF_ENABLED: "true", CUTOFF_HOUR: "23", CUTOFF_MINUTE: "30" },
+    "GET /api/settings": { "schedule.cutoff_enabled": "true", "schedule.cutoff_hour": "23", "schedule.cutoff_minute": "30" },
     "GET /api/announcements": [{ id: "reveil", name: "Reveil", enabled: true, trigger: "manual", hour: 7,
                                  minute: 0, file_count: 2, folder: "/home/pi/audio/reveil" }],
-    "GET /api/schedules": { schedules, settings: ["BASE_VOLUME"] },
+    "GET /api/schedules": { schedules, settings: ["playback.base_volume"] },
     "POST /api/schedule_order": (request) => ({
       schedules: request.body.order.map((id) => schedules.find((one) => one.id === id)) }),
     "POST /api/schedules": (request) => Object.assign({ id: "copie" }, request.body),
@@ -581,7 +614,7 @@ test("schedules can be reordered and copied, and the week shows them", async (t)
     && page.sent("POST", "/api/schedules")))[0].body;
   assert.equal(copy.name, "Le matin (copy)");
   assert.equal(copy.announcement, "reveil");
-  assert.deepEqual(copy.settings, { BASE_VOLUME: "30" });
+  assert.deepEqual(copy.settings, { "playback.base_volume": "30" });
   assert.equal(page.sent("POST", "/api/schedules/matin").length, 0, "a copy is a new schedule, not a change");
 
   const cutoff = page.$("cutoffEnabled");
@@ -852,7 +885,7 @@ test("a command locked for guests shows a padlock and cannot be pressed", async 
 
 test("the owner picks the locked commands in a list, and may lock none", async (t) => {
   const page = open(t, { hash: "#network/guest", routes: {
-    "GET /api/settings": { GUEST_LOCKED: "volume" },
+    "GET /api/settings": { "security.guest_locked": "volume" },
   } });
   const field = await until(() => page.$("guestLocked").querySelector(".codec-open"));
   await until(() => page.$("guestLocked").value === "volume");
@@ -1327,7 +1360,7 @@ test("a USB key is offered, taken and given back", async (t) => {
 
 test("the storage card carries the change-on-take setting", async (t) => {
   const page = open(t, { hash: "#system/usb", routes: {
-    "GET /api/settings": { USB_MUSIC_SWITCH: "after" },
+    "GET /api/settings": { "hardware.usb_music_switch": "after" },
     "POST /api/settings": {},
   } });
   await until(() => page.$("bootOverlay").hidden);
@@ -1335,7 +1368,7 @@ test("the storage card carries the change-on-take setting", async (t) => {
   page.$("usbSwitch").value = "now";
   page.$("usbSwitch").dispatchEvent(new page.window.Event("change"));
   const saved = await until(() => page.sent("POST", "/api/settings")[0]);
-  assert.deepEqual(saved.body, { USB_MUSIC_SWITCH: "now" },
+  assert.deepEqual(saved.body, { "hardware.usb_music_switch": "now" },
                    "chosen once, applied to every take after that");
   assert.deepEqual(page.errors, []);
 });

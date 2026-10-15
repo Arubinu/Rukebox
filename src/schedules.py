@@ -23,7 +23,6 @@ _NOT_OVERRIDABLE = frozenset({
     "UPCOMING_TRACKS_COUNT", "RECENT_TRACKS_COUNT", "MUSIC_KEEP_PROGRESS", "MUSIC_RESUME_MODE",
 }) | config_schema.RESTART_REQUIRED | config_schema.GPIO_BUTTON_SETTINGS
 
-_BY_ENV = {s.env: s for s in config_schema.SETTINGS}
 OVERRIDABLE = frozenset(s.env for s in config_schema.SETTINGS
                         if s.section in _SECTIONS and s.env not in _NOT_OVERRIDABLE)
 
@@ -69,7 +68,7 @@ def _settings(raw):
         raise ValueError("schedule_bad_setting")
     clean = {}
     for key, value in raw.items():
-        setting = _BY_ENV.get(str(key))
+        setting = config_schema.find_setting(str(key))
         if setting is None or setting.env not in OVERRIDABLE:
             raise ValueError("schedule_bad_setting")
         text = config_schema.to_raw(setting, value)
@@ -80,7 +79,7 @@ def _settings(raw):
                 float(text)
             except ValueError:
                 raise ValueError("schedule_bad_setting")
-        clean[setting.env] = text
+        clean[setting.path] = text
     return clean
 
 
@@ -289,9 +288,9 @@ def overrides(item):
     """The schedule's settings as the typed values the daemon's config holds."""
     out = {}
     for key, raw in ((item or {}).get("settings") or {}).items():
-        setting = _BY_ENV.get(key)
-        if setting is not None and key in OVERRIDABLE:
-            out[key] = config_schema.coerce(setting, raw)
+        setting = config_schema.find_setting(key)
+        if setting is not None and setting.env in OVERRIDABLE:
+            out[setting.env] = config_schema.coerce(setting, raw)
     return out
 
 

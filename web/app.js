@@ -2977,10 +2977,10 @@ function choiceLabels(el) {
   if (el.dataset.choices === "game_kinds") {
     return Object.fromEntries(GAME_KINDS.map((kind) => [kind, t("game.kind_" + kind)]));
   }
-  if (el.dataset.key === "GUEST_PAGES_OFF") {
+  if (el.dataset.key === "security.guest_pages_off") {
     return Object.fromEntries(Object.entries(GUEST_PAGE_LABELS).map(([k, key]) => [k, t(key)]));
   }
-  if (el.dataset.key === "GUEST_LOCKED") {
+  if (el.dataset.key === "security.guest_locked") {
     return Object.fromEntries(Object.entries(GUEST_LOCK_LABELS).map(([k, key]) => [k, t(key)]));
   }
   return BT_CODEC_LABELS;
@@ -3142,9 +3142,9 @@ async function loadSettingsIntoForm() {
   loadDjIntroFiles();
   loadCoverFiles();
 
-  if ("ACT_LED" in result.data) {
-    document.getElementById("actLedToggle").checked = result.data.ACT_LED !== "off";
-    if (result.data.USB_PORT_MODE) document.getElementById("usbPortMode").value = result.data.USB_PORT_MODE;
+  if ("hardware.act_led" in result.data) {
+    document.getElementById("actLedToggle").checked = result.data["hardware.act_led"] !== "off";
+    if (result.data["hardware.usb_port_mode"]) document.getElementById("usbPortMode").value = result.data["hardware.usb_port_mode"];
   }
 }
 
@@ -3214,23 +3214,24 @@ async function offerReboot(title) {
 document.getElementById("usbPortMode").addEventListener("change", async (e) => {
   const select = e.target;
   const value = select.value;
-  const previous = settingsBaseline.USB_PORT_MODE || "gadget";
+  const previous = settingsBaseline["hardware.usb_port_mode"] || "gadget";
   const ok = await showConfirm(t(value === "host" ? "system.usb_host_confirm" : "system.usb_gadget_confirm"));
   if (!ok) {
     select.value = previous;
     return;
   }
-  const r = await apiPost("/api/settings", { USB_PORT_MODE: value });
+  const r = await apiPost("/api/settings", { "hardware.usb_port_mode": value });
   if (!r.ok) {
     select.value = previous;
     showError(r.error);
     return;
   }
-  settingsBaseline.USB_PORT_MODE = value;
+  settingsBaseline["hardware.usb_port_mode"] = value;
   offerReboot(t(value === "host" ? "system.usb_host_done" : "system.usb_gadget_done"));
 });
 
-[["usbPlug", "USB_MUSIC_ON_PLUG", "offer"], ["usbSwitch", "USB_MUSIC_SWITCH", "after"]].forEach(([id, key, fallback]) => {
+[["usbPlug", "hardware.usb_music_on_plug", "offer"],
+ ["usbSwitch", "hardware.usb_music_switch", "after"]].forEach(([id, key, fallback]) => {
   document.getElementById(id).addEventListener("change", async (e) => {
     const select = e.target;
     const value = select.value;
@@ -3248,25 +3249,25 @@ document.getElementById("usbPortMode").addEventListener("change", async (e) => {
 
 document.getElementById("actLedToggle").addEventListener("change", async (e) => {
   const value = e.target.checked ? "default" : "off";
-  const r = await apiPost("/api/settings", { ACT_LED: value });
+  const r = await apiPost("/api/settings", { "hardware.act_led": value });
   if (!r.ok) {
     e.target.checked = !e.target.checked;
     showError(r.error);
     return;
   }
-  settingsBaseline.ACT_LED = value;
+  settingsBaseline["hardware.act_led"] = value;
   showToast(t(value === "off" ? "system.act_led_off" : "system.act_led_on"));
 });
 
 document.getElementById("updateAllowWeb").addEventListener("change", async (e) => {
   const value = e.target.checked ? "true" : "false";
-  const r = await apiPost("/api/settings", { UPDATE_ALLOW_WEB: value });
+  const r = await apiPost("/api/settings", { "updates.allow_from_web": value });
   if (!r.ok) {
     e.target.checked = !e.target.checked;
     showError(r.error);
     return;
   }
-  settingsBaseline.UPDATE_ALLOW_WEB = value;
+  settingsBaseline["updates.allow_from_web"] = value;
   showToast(t(value === "true" ? "update.allow_web_on" : "update.allow_web_off"));
   checkRelease(false);
 });
@@ -3366,7 +3367,7 @@ SETTINGS_FORMS.forEach((form) => {
       showToast(t("alert.settings_saved"), t("alert.restart_reminder"), {
         action: { label: t("settings.restart_now"), icon: "restart", run: restartDaemon },
       });
-    } else if ("BT_AUDIO_CODECS" in updates) {
+    } else if ("bluetooth.bt_audio_codecs" in updates) {
       showToast(t("alert.settings_applied"),
         t(d.audio_reloaded === false ? "alert.audio_later" : "alert.audio_reloaded"));
     } else if (d.applied_live === false) {
@@ -4233,8 +4234,10 @@ function renderScheduleWeek() {
       if (end > 1440 && day + 1 < 7) rows[day + 1].segments.push({ from: 0, to: end - 1440, item });
     });
   }
-  const cutoff = settingsBaseline.CUTOFF_ENABLED !== "false" && settingsBaseline.CUTOFF_HOUR !== undefined
-    ? Number(settingsBaseline.CUTOFF_HOUR) * 60 + Number(settingsBaseline.CUTOFF_MINUTE || 0) : null;
+  const cutoff = settingsBaseline["schedule.cutoff_enabled"] !== "false"
+    && settingsBaseline["schedule.cutoff_hour"] !== undefined
+    ? Number(settingsBaseline["schedule.cutoff_hour"]) * 60
+      + Number(settingsBaseline["schedule.cutoff_minute"] || 0) : null;
   const dayName = new Intl.DateTimeFormat(currentLang, { weekday: "short", day: "numeric", timeZone: "UTC" });
   const clock = (minutes) => formatHM(Math.floor(minutes / 60) % 24, minutes % 60);
 
@@ -4462,7 +4465,7 @@ function fillScheduleSettingChoices() {
   const used = new Set(Array.from(schedOverrides.querySelectorAll("[data-override]"))
     .map((el) => el.dataset.override));
   const choices = schedulesAllowed
-    .filter((key) => key !== "BASE_VOLUME" && !used.has(key) && overrideSource(key))
+    .filter((key) => key !== "playback.base_volume" && !used.has(key) && overrideSource(key))
     .map((key) => [key, settingName(key)])
     .sort((a, b) => a[1].localeCompare(b[1]));
   schedAddSetting.replaceChildren();
@@ -4493,7 +4496,7 @@ function collectScheduleSettings() {
     }
   });
   const volume = document.getElementById("schedVolume").value.trim();
-  if (volume !== "") out.BASE_VOLUME = volume;
+  if (volume !== "") out["playback.base_volume"] = volume;
   return out;
 }
 
@@ -4510,12 +4513,13 @@ function fillScheduleForm(item) {
   document.getElementById("schedStop").value = data.stop || "09:00";
   document.getElementById("schedAction").value = data.stop_action || "pause";
   const settings = data.settings || {};
-  document.getElementById("schedVolume").value = "BASE_VOLUME" in settings ? settings.BASE_VOLUME : "";
+  document.getElementById("schedVolume").value =
+    "playback.base_volume" in settings ? settings["playback.base_volume"] : "";
   fillScheduleLists(data.list);
   fillScheduleAnnouncements(data.announcement);
   schedOverrides.replaceChildren();
   Object.keys(settings).forEach((key) => {
-    if (key === "BASE_VOLUME") return;
+    if (key === "playback.base_volume") return;
     const row = overrideRow(key, settings);
     if (row) schedOverrides.appendChild(row);
   });
@@ -6152,14 +6156,14 @@ document.getElementById("btControllersForm").addEventListener("submit", async (e
     showError("bt_adapter_conflict");
     return;
   }
-  const r = await apiPost("/api/settings", { SPEAKER_BT_ADAPTER: speaker, FLIC_HCI_DEVICE: flic });
+  const r = await apiPost("/api/settings", { "bluetooth.adapter": speaker, "bluetooth.flic_hci_device": flic });
   if (!r.ok) {
     showToolError(t("common.failed"), r);
     return;
   }
   btControllersDirty = false;
-  settingsBaseline.SPEAKER_BT_ADAPTER = speaker;
-  settingsBaseline.FLIC_HCI_DEVICE = flic;
+  settingsBaseline["bluetooth.adapter"] = speaker;
+  settingsBaseline["bluetooth.flic_hci_device"] = flic;
   showToast(t("alert.settings_saved"), t("btctl.saved_detail"), {
     action: { label: t("settings.restart_now"), icon: "restart", run: restartDaemon },
   });
@@ -9076,7 +9080,7 @@ document.getElementById("btnSaveBtClock").addEventListener("click", async () => 
     return;
   }
 
-  if (updates.BT_CLOCK_MAC && !isCompleteMac(updates.BT_CLOCK_MAC)) {
+  if (updates["clock.bluetooth_mac"] && !isCompleteMac(updates["clock.bluetooth_mac"])) {
     showToast(t("clock.mac_incomplete"));
     return;
   }
@@ -10537,7 +10541,7 @@ function goToCard(tab, titleId) {
 }
 
 async function saveSetupHidden(list) {
-  const result = await apiPost("/api/settings", { SETUP_HIDDEN: list.join(",") });
+  const result = await apiPost("/api/settings", { "network.setup_hidden": list.join(",") });
   if (!result.ok) showError(result.error);
   refreshSetup();
 }
@@ -12220,10 +12224,10 @@ function renderPinHeader(data) {
 
   const current = parseInt(gpioTargetInput && gpioTargetInput.value, 10);
 
-  const otherKey = gpioTargetInput && gpioTargetInput.dataset.key === "GPIO_BUTTON_PIN"
-    ? "GPIO_RESET_PIN" : "GPIO_BUTTON_PIN";
+  const otherKey = gpioTargetInput && gpioTargetInput.dataset.key === "buttons.gpio_button_pin"
+    ? "security.gpio_reset_pin" : "buttons.gpio_button_pin";
   const otherPin = data.assigned ? parseInt(data.assigned[otherKey], 10) : NaN;
-  const otherName = otherKey === "GPIO_RESET_PIN"
+  const otherName = otherKey === "security.gpio_reset_pin"
     ? t("security.gpio_pin") : t("settings.gpio_button_pin");
 
   data.pins.forEach((pin) => {
@@ -12746,14 +12750,14 @@ async function refreshDomains() {
       if (!names.includes(one.host)) names.push(one.host);
       const value = names.join(", ");
       allow.disabled = true;
-      const r = await apiPost("/api/settings", { WEB_EXTRA_HOSTS: value });
+      const r = await apiPost("/api/settings", { "network.web_extra_hosts": value });
       allow.disabled = false;
       if (!r.ok) {
         showError(r.error);
         return;
       }
       field.value = value;
-      settingsBaseline.WEB_EXTRA_HOSTS = value;
+      settingsBaseline["network.web_extra_hosts"] = value;
       showToast(t("domain.allowed", { host: one.host }), t("domain.allowed_hint"));
       refreshDomains();
     });

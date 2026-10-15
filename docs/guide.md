@@ -2545,19 +2545,25 @@ it is overwritten every time `rukebox.yaml` changes, and says so at the top.
 ### One name per setting
 
 A setting's name is where it sits in the file: `audio.output` is the output,
-`folders.music` the music folder. The environment calls it the same name, a dot
-spelled as an underscore — `audio.output`, `FOLDERS_MUSIC` — so a systemd
-drop-in, a `docker-compose.yml` `environment:` block or a script of your own
-overrides a setting by that one name:
+`folders.music` the music folder. The environment uses the same name, with the
+dot spelled as an underscore — `audio.output` is `AUDIO_OUTPUT`,
+`folders.music` is `FOLDERS_MUSIC` — so a systemd drop-in, a
+`docker-compose.yml` `environment:` block or a script of your own overrides a
+setting by that one name:
 
 ```yaml
 environment:
   audio.output: "jack"
 ```
 
-The names settings used to have (`folders.music`, `bluetooth.speaker_mac`, `network.web_port`...) are
+The names settings used to have (`MUSIC_DIR`, `SPEAKER_MAC`, `WEB_PORT`...) are
 still read, with a line in the log, so an override written before this version
 keeps working; write them the new way the next time you touch one.
+
+The interface, the configuration file, the exported bundle and the command line
+all use that name, so a setting has one spelling wherever it is written. A
+configuration exported before this version is still read: the names a setting
+had before are accepted on the way in.
 
 The command line speaks those names too:
 

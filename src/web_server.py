@@ -2378,7 +2378,7 @@ def api_schedules():
     """Every schedule, and the settings one may hold for itself."""
     return jsonify({"ok": True, "data": {
         "schedules": schedules.load(_schedules_path()),
-        "settings": sorted(schedules.OVERRIDABLE),
+        "settings": sorted(config_schema.BY_ENV[key].path for key in schedules.OVERRIDABLE),
     }})
 
 
@@ -4232,16 +4232,17 @@ def api_clear_track_order(source_id):
 
 
 # Only /api/auth/set_password may write these (it checks the current one).
-_SETTINGS_HIDDEN_KEYS = {"WEB_PASSWORD_HASH", "WEB_SESSION_SECRET"}
+_SETTINGS_HIDDEN_KEYS = {"security.password_hash", "security.session_secret"}
 # Written from the page, never read back: a set one shows as this mask, which a save leaves alone.
-_SETTINGS_WRITE_ONLY = {"MQTT_PASSWORD"}
+_SETTINGS_WRITE_ONLY = {"home_assistant.password"}
 _SECRET_MASK = "\u2022" * 8
 
 
 @app.route("/api/settings")
 def api_get_settings():
     c = cfg()
-    data = {k: c[k] for k in DEFAULTS if k in c and k not in _SETTINGS_HIDDEN_KEYS}
+    data = {config_schema.BY_ENV[k].path: c[k] for k in DEFAULTS
+            if k in c and config_schema.BY_ENV[k].path not in _SETTINGS_HIDDEN_KEYS}
     for key in _SETTINGS_WRITE_ONLY & set(data):
         data[key] = _SECRET_MASK if data[key] else ""
     return jsonify({"ok": True, "data": data})
@@ -4252,12 +4253,26 @@ def api_set_settings():
     body = request.get_json(silent=True) or {}
     if not body:
         return jsonify({"ok": False, "error": "no_data"}), 400
+    # A key is a setting's own name, or the one it had before: everything below
+    # speaks the names of the file.
+    named, unknown = {}, []
+    for key, value in body.items():
+        setting = config_schema.find_setting(key)
+        if setting is None:
+            unknown.append(key)
+        else:
+            named[setting.path] = value
+    if unknown:
+        return jsonify({"ok": False, "error": "unknown_setting"}), 400
+    body = named
     if _SETTINGS_HIDDEN_KEYS & set(body):
         return jsonify({"ok": False, "error": "use_auth_endpoint"}), 400
     body = {k: v for k, v in body.items() if not (k in _SETTINGS_WRITE_ONLY and v == _SECRET_MASK)}
     if not body:
         return jsonify({"ok": True, "data": {"applied_live": True, "restart_needed": False,
                                              "reboot_needed": False, "audio_reloaded": False}})
+    # What the daemon reads: the keys the file writes, in the names it holds them.
+    changed = {config_schema.BY_PATH[key].env for key in body}
     bad = (_check_github_repo(body) or _check_extra_hosts(body) or _check_bt_adapters(body)
            or _check_gpio_pins(body))
     if bad:
@@ -4272,50 +4287,50 @@ def api_set_settings():
         reload = control("reload_config")
     except Exception:  # noqa: BLE001
         reload = {"ok": False}
-    if "ACT_LED" in body:
+    if "hardware.act_led" in body:
         if not system_actions.service_action("start", "rukebox-act-led"):
             log.warning("Could not apply the activity LED setting")
-    if config_schema.GPIO_BUTTON_SETTINGS & set(body) and _service_is_active("rukebox-gpio-button"):
+    if config_schema.GPIO_BUTTON_SETTINGS & changed and _service_is_active("rukebox-gpio-button"):
         for action in ("stop", "start"):
             if not system_actions.service_action(action, GPIO_BUTTON_SERVICE):
                 log.warning("Could not %s %s", action, GPIO_BUTTON_SERVICE)
-    if "FLIC_HCI_DEVICE" in body and _service_is_active("flicd"):
+    if "bluetooth.flic_hci_device" in body and _service_is_active("flicd"):
         if not system_actions.service_action("restart", "flicd"):
             log.warning("Could not restart flicd")
-    if "SPEAKER_BT_ADAPTER" in body:
+    if "bluetooth.adapter" in body:
         if not system_actions.service_action("restart", "bt-connect"):
             log.warning("Could not restart bt-connect")
     audio_reloaded = False
-    if "BT_AUDIO_CODECS" in body:
+    if "bluetooth.bt_audio_codecs" in body:
         # WirePlumber reads the drop-in when it starts: write it, then restart the user service.
         try:
-            bt_codec.write(codecs=bt_codec.parse(body.get("BT_AUDIO_CODECS")))
+            bt_codec.write(codecs=bt_codec.parse(body.get("bluetooth.bt_audio_codecs")))
             audio_reloaded = bt_codec.restart_wireplumber(env=_user_session_env())
         except Exception:  # noqa: BLE001
             log.exception("Could not apply the Bluetooth codec list")
         if not audio_reloaded:
             log.warning("The new codecs apply at the next start of WirePlumber")
-    if "AP_GATEWAY_ENABLED" in body and not system_actions.apply_ap_gateway(cfg().get("AP_INTERFACE", "uap0")):
+    if "network.ap_gateway" in body and not system_actions.apply_ap_gateway(cfg().get("AP_INTERFACE", "uap0")):
         log.warning("Could not apply the access point gateway setting")
     reboot_needed = False
-    if "USB_PORT_MODE" in body:
+    if "hardware.usb_port_mode" in body:
         if not system_actions.service_action("restart", "rukebox-usb-gadget", timeout=30):
             log.warning("Could not apply the USB port mode")
         reboot_needed = True
-    restart_needed = bool(config_schema.RESTART_REQUIRED & set(body))
-    if config_schema.STREAM_SETTINGS & set(body):
+    restart_needed = bool(config_schema.RESTART_REQUIRED & changed)
+    if config_schema.STREAM_SETTINGS & changed:
         # The encoder is built on the next status read, from the file just written.
         forget_stream()
     else:
         _apply_stream_tuning()
-    if config_schema.UPNP_SETTINGS & set(body):
+    if config_schema.UPNP_SETTINGS & changed:
         # Another name is another label over the same device: say goodbye under
         # the old one before announcing the new one.
         upnp.stop()
         _ensure_upnp_identity(cfg())
-    if (config_schema.STREAM_SETTINGS | config_schema.UPNP_SETTINGS) & set(body):
+    if (config_schema.STREAM_SETTINGS | config_schema.UPNP_SETTINGS) & changed:
         _upnp_follow_stream()
-    if any(key.startswith("WLED_") for key in body):
+    if any(config_schema.find_setting(key).section == "lights" for key in body):
         try:
             control("wled_refresh")
         except Exception:  # noqa: BLE001
@@ -4819,12 +4834,15 @@ def api_bt_controllers():
 def _check_bt_adapters(body):
     """The speaker and the Flic button on the same controller cannot work
     together while the Flic button is in use."""
-    if not ({"SPEAKER_BT_ADAPTER", "FLIC_HCI_DEVICE"} & set(body)) or not _flic_enabled():
+    keys = ("bluetooth.adapter", "bluetooth.flic_hci_device")
+    if not (set(keys) & set(body)) or not _flic_enabled():
         return None
     c = cfg()
     if (c.get("AUDIO_OUTPUT") or "bluetooth") != "bluetooth":
         return None
-    c.update({k: v for k, v in body.items() if k in ("SPEAKER_BT_ADAPTER", "FLIC_HCI_DEVICE")})
+    for key in keys:
+        if key in body:
+            c[config_schema.BY_PATH[key].env] = body[key]
     controllers = _bt_controllers()
     flic = _resolve_controller(c.get("FLIC_HCI_DEVICE") or "hci0", controllers)
     speaker = _resolve_controller(c.get("SPEAKER_BT_ADAPTER"), controllers)
@@ -7728,14 +7746,15 @@ def _check_gpio_pins(updates):
     to both the button and the password reset, or None. The picker greys those
     out, but the field beside it takes any number - and the reset configures
     its pin as an input at every boot, which on an I2C pin loses the clock."""
-    keys = ("GPIO_BUTTON_PIN", "GPIO_RESET_PIN")
+    keys = ("buttons.gpio_button_pin", "security.gpio_reset_pin")
     if not any(key in updates for key in keys):
         return None
     if any(key in updates and not gpio_pins.is_selectable(updates[key]) for key in keys):
         return "gpio_pin_reserved"
     current = cfg()
     try:
-        button, reset = (int(updates.get(key, current.get(key))) for key in keys)
+        button, reset = (int(updates.get(key, current.get(config_schema.BY_PATH[key].env)))
+                         for key in keys)
     except (TypeError, ValueError):
         return None
     return "gpio_pin_taken" if button == reset else None
@@ -7743,13 +7762,13 @@ def _check_gpio_pins(updates):
 
 def _check_extra_hosts(updates):
     """Error code for a WEB_EXTRA_HOSTS that holds something other than host names, or None."""
-    value = updates.get("WEB_EXTRA_HOSTS")
+    value = updates.get("network.web_extra_hosts")
     if value is None:
         return None
     names = str(value).lower().replace(",", " ").split()
     if any(not _HOST_NAME_RE.match(name.split(":", 1)[0]) for name in names):
         return "bad_host_name"
-    updates["WEB_EXTRA_HOSTS"] = ", ".join(dict.fromkeys(names))
+    updates["network.web_extra_hosts"] = ", ".join(dict.fromkeys(names))
     return None
 
 
@@ -7778,7 +7797,7 @@ def api_security_hosts():
 def _check_github_repo(updates):
     """Error code for a malformed UPDATE_GITHUB_REPO in a settings save, or
     None."""
-    repo = updates.get("UPDATE_GITHUB_REPO")
+    repo = updates.get("updates.github_repo")
     if repo is None:
         return None
     repo = str(repo).strip()
@@ -7896,8 +7915,8 @@ def api_gpio_pinout():
     return jsonify({"ok": True, "data": {
         "pins": gpio_pins.pinout(),
         "assigned": {
-            "GPIO_BUTTON_PIN": c.get("GPIO_BUTTON_PIN"),
-            "GPIO_RESET_PIN": c.get("GPIO_RESET_PIN"),
+            "buttons.gpio_button_pin": c.get("GPIO_BUTTON_PIN"),
+            "security.gpio_reset_pin": c.get("GPIO_RESET_PIN"),
         },
         "supported": gpio_reset.is_raspberry_pi() and gpio_reset.pinctrl_available(),
     }})

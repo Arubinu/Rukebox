@@ -6,9 +6,9 @@ const assert = require("node:assert/strict");
 
 const { load, until, STATUS } = require("./harness");
 
-const SETTINGS = { BASE_VOLUME: 70, VOLUME_CAP_ENABLED: true, VOLUME_CAP_PERCENT: 60,
-                   VOLUME_CAP_START_HOUR: 21, VOLUME_CAP_START_MINUTE: 30, VOLUME_CAP_END_HOUR: 7,
-                   VOLUME_CAP_END_MINUTE: 0 };
+const SETTINGS = { "playback.base_volume": 70, "playback.volume_cap_enabled": true, "playback.volume_cap_percent": 60,
+                   "playback.volume_cap_start_hour": 21, "playback.volume_cap_start_minute": 30, "playback.volume_cap_end_hour": 7,
+                   "playback.volume_cap_end_minute": 0 };
 
 test("the cap's fields say what the volume shown plays at, and hide while it is off", async () => {
   const page = load({ hash: "#settings/volume", routes: { "GET /api/settings": SETTINGS } });

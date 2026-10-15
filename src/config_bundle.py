@@ -24,7 +24,19 @@ log = logging.getLogger("config_bundle")
 BUNDLE_FORMAT = "rukebox-config"
 BUNDLE_VERSION = 1
 
-EXCLUDED_SETTINGS = ("WEB_PASSWORD_HASH", "WEB_SESSION_SECRET")
+EXCLUDED_SETTINGS = ("security.password_hash", "security.session_secret")
+
+
+def settings_of(raw):
+    """{setting's own name: value} for the settings a bundle or a prepared page
+    names, in the name a setting has or the one it had before."""
+    named = {}
+    for key, value in (raw or {}).items():
+        setting = config_schema.find_setting(key)
+        if setting is None or setting.path in EXCLUDED_SETTINGS:
+            continue
+        named[setting.path] = "" if value is None else str(value)
+    return named
 
 # What the server setup page hands a Docker or LXC installation, once: the base64 of a bundle,
 # whose web_password_hash was made in the browser. Base64 keeps "$" out of compose and .env files.
@@ -45,15 +57,13 @@ def apply_setup(text):
         settings = data.get("settings")
         if not isinstance(settings, dict):
             raise ValueError("no_settings")
-        known = {setting.env for setting in config_schema.SETTINGS}
-        updates = {key: "" if value is None else str(value) for key, value in settings.items()
-                   if key in known and key not in EXCLUDED_SETTINGS}
+        updates = settings_of(settings)
         password_hash = str(data.get("web_password_hash") or "")
     applied = len(updates)
     if password_hash:
         if not _HASH_RE.match(password_hash.strip()):
             raise ValueError("bad_password_hash")
-        updates["WEB_PASSWORD_HASH"] = password_hash.strip()
+        updates["security.password_hash"] = password_hash.strip()
     if updates:
         config_file.write_values(updates)
     return applied, bool(password_hash)
@@ -65,8 +75,8 @@ REPAIR_FILE = "repair.json"
 def export_bundle(cfg, version=None, flic_buttons=None):
     """Everything a fresh installation needs, as a plain dict."""
     settings = {
-        key: value for key, value in config_file.read_values().items()
-        if key not in EXCLUDED_SETTINGS
+        config_schema.BY_ENV[key].path: value for key, value in config_file.read_values().items()
+        if config_schema.BY_ENV[key].path not in EXCLUDED_SETTINGS
     }
     bundle = {
         "format": BUNDLE_FORMAT,
@@ -214,19 +224,12 @@ def import_bundle(data, cfg):
     if not isinstance(raw_settings, dict):
         raise ValueError("no_settings")
 
-    known = {setting.env for setting in config_schema.SETTINGS}
-    updates = {}
-    unknown = []
-    for key, value in raw_settings.items():
-        if key in EXCLUDED_SETTINGS:
-            continue
-        if key not in known:
-            unknown.append(key)
-            continue
-        updates[key] = "" if value is None else str(value)
+    updates = settings_of(raw_settings)
+    unknown = [key for key in raw_settings if config_schema.find_setting(key) is None]
 
     before = config_file.read_values()
-    changed = sum(1 for key, value in updates.items() if before.get(key) != value)
+    changed = sum(1 for key, value in updates.items()
+                  if before.get(config_schema.BY_PATH[key].env) != value)
 
     if updates:
         config_file.write_values(updates)

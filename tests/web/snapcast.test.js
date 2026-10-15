@@ -14,7 +14,7 @@ const CLIENTS = { available: true, running: true, web: true, port: 1780, clients
 function page(caps, output) {
   return load({ hash: "#audio/output", view: "detailed", routes: {
     "GET /api/status": Object.assign({}, STATUS, { capabilities: Object.assign({}, STATUS.capabilities, caps) }),
-    "GET /api/settings": { AUDIO_OUTPUT: output, SNAPCAST_CODEC: "opus" },
+    "GET /api/settings": { "audio.output": output, "audio.snapcast_codec": "opus" },
     "GET /api/audio/outputs": { output, outputs: [] },
     "GET /api/snapcast/clients": CLIENTS,
     "POST /api/snapcast/client": {},

@@ -372,7 +372,7 @@
                 <label for="gameJoinSec" data-i18n="game.join_sec">Wait for players (sec)</label>
                 <p class="field-desc" id="gameJoinSecDesc" data-i18n="game.join_sec_desc">Before the first round. The game begins sooner once everyone has chosen.</p>
               </div>
-              <input type="number" id="gameJoinSec" min="10" max="300" step="1" data-key="GAME_JOIN_SEC" class="num-input"
+              <input type="number" id="gameJoinSec" min="10" max="300" step="1" data-key="schedule.game_join_sec" class="num-input"
                      inputmode="numeric" aria-describedby="gameJoinSecDesc">
             </div>
             <div class="field-row">
@@ -380,7 +380,7 @@
                 <label for="gameVoiceStartStop" data-i18n="game.voice_start_stop">Say the start and the end</label>
                 <p class="field-desc" id="gameVoiceStartStopDesc" data-i18n="game.voice_start_stop_desc">Out loud, with the podium at the end.</p>
               </div>
-              <input type="checkbox" id="gameVoiceStartStop" data-key="GAME_VOICE_START_STOP" class="switch-input" role="switch"
+              <input type="checkbox" id="gameVoiceStartStop" data-key="schedule.game_voice_start_stop" class="switch-input" role="switch"
                      aria-describedby="gameVoiceStartStopDesc">
             </div>
             <div class="field-row">
@@ -388,7 +388,7 @@
                 <label for="gameVoiceWinners" data-i18n="game.voice_winners">Say who found it</label>
                 <p class="field-desc" id="gameVoiceWinnersDesc" data-i18n="game.voice_winners_desc">After each round. A name its owner recorded is played as it is.</p>
               </div>
-              <input type="checkbox" id="gameVoiceWinners" data-key="GAME_VOICE_WINNERS" class="switch-input" role="switch"
+              <input type="checkbox" id="gameVoiceWinners" data-key="schedule.game_voice_winners" class="switch-input" role="switch"
                      aria-describedby="gameVoiceWinnersDesc">
             </div>
             <div class="field-row">
@@ -396,7 +396,7 @@
                 <label for="gameVoiceAnswer" data-i18n="game.voice_answer">Say the answer</label>
                 <p class="field-desc" id="gameVoiceAnswerDesc" data-i18n="game.voice_answer_desc">The song and its artist, before who found it. Always said in a game aloud.</p>
               </div>
-              <input type="checkbox" id="gameVoiceAnswer" data-key="GAME_VOICE_ANSWER" class="switch-input" role="switch"
+              <input type="checkbox" id="gameVoiceAnswer" data-key="schedule.game_voice_answer" class="switch-input" role="switch"
                      aria-describedby="gameVoiceAnswerDesc">
             </div>
             <div class="field-row">
@@ -404,14 +404,14 @@
                 <label for="gameThinkSec" data-i18n="game.think_sec">Thinking time (sec)</label>
                 <p class="field-desc" id="gameThinkSecDesc" data-i18n="game.think_sec_desc">Aloud, between the extract and the answer. 0 = none.</p>
               </div>
-              <input type="number" id="gameThinkSec" min="0" max="60" step="1" data-key="GAME_THINK_SEC" class="num-input"
+              <input type="number" id="gameThinkSec" min="0" max="60" step="1" data-key="schedule.game_think_sec" class="num-input"
                      inputmode="numeric" aria-describedby="gameThinkSecDesc">
             </div>
             <details class="subsection" id="gameSoundsSection">
               <summary><span data-i18n="game.sounds">Sounds</span></summary>
               <div class="field-row">
                 <label for="gameThinkSound" data-i18n="game.think_sound">During the thinking time</label>
-                <select id="gameThinkSound" data-key="GAME_THINK_SOUND">
+                <select id="gameThinkSound" data-key="schedule.game_think_sound">
                   <option value="" data-i18n="game.sound_none">None</option>
                   <option value="tick" data-i18n="game.sound_tick">Tick-tock</option>
                   <option value="heartbeat" data-i18n="game.sound_heartbeat">Heartbeat</option>
@@ -421,7 +421,7 @@
               </div>
               <div class="field-row">
                 <label for="gameAnswerSound" data-i18n="game.answer_sound">Before the answer</label>
-                <select id="gameAnswerSound" data-key="GAME_ANSWER_SOUND">
+                <select id="gameAnswerSound" data-key="schedule.game_answer_sound">
                   <option value="" data-i18n="game.sound_none">None</option>
                   <option value="gong" data-i18n="game.sound_gong">Gong</option>
                   <option value="ding" data-i18n="game.sound_ding">Ding</option>
@@ -863,7 +863,7 @@
               </summary>
               <div class="field-row">
                 <label for="musicStartMode" data-i18n="settings.start_mode">Music start</label>
-                <select id="musicStartMode" data-key="MUSIC_START_MODE">
+                <select id="musicStartMode" data-key="playback.start_mode">
                   <option value="boot" data-i18n="start.boot">At startup</option>
                   <option value="action" data-i18n="start.action">On a button press</option>
                   <option value="scheduled" data-i18n="start.scheduled">At a set time</option>
@@ -872,15 +872,15 @@
               </div>
               <div class="field-row" id="musicStartTimeRow" hidden>
                 <label for="musicStartTime" data-i18n="settings.start_time">Start time</label>
-                <input type="time" id="musicStartTime" class="time-input" data-key="MUSIC_START_HOUR"
-                       data-key-minute="MUSIC_START_MINUTE" value="07:00">
+                <input type="time" id="musicStartTime" class="time-input" data-key="playback.start_hour"
+                       data-key-minute="playback.start_minute" value="07:00">
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label for="startFadeSec" data-i18n="settings.start_fade">Start with a fade-in (sec)</label>
                   <p class="field-desc" data-i18n="settings.start_fade_desc">The first song rises gently from silence. 0 = at once.</p>
                 </div>
-                <input type="number" id="startFadeSec" min="0" max="120" step="1" data-key="START_FADE_SEC" class="num-input" inputmode="decimal">
+                <input type="number" id="startFadeSec" min="0" max="120" step="1" data-key="fades.start_sec" class="num-input" inputmode="decimal">
               </div>
             </details>
 
@@ -894,32 +894,32 @@
                   <label for="cutoffEnabled" data-i18n="settings.cutoff_enabled">Daily cutoff</label>
                   <p class="field-desc" id="cutoffEnabledDesc" data-i18n="settings.cutoff_enabled_desc">Off: nothing stops the music by itself, except a schedule's own stop.</p>
                 </div>
-                <input type="checkbox" id="cutoffEnabled" data-key="CUTOFF_ENABLED" class="switch-input" role="switch"
+                <input type="checkbox" id="cutoffEnabled" data-key="schedule.cutoff_enabled" class="switch-input" role="switch"
                        aria-describedby="cutoffEnabledDesc">
               </div>
               <div class="field-row">
                 <label for="cutoffTime" data-i18n="settings.cutoff">Cutoff</label>
-                <input type="time" id="cutoffTime" class="time-input" data-key="CUTOFF_HOUR"
-                       data-key-minute="CUTOFF_MINUTE" value="07:00">
+                <input type="time" id="cutoffTime" class="time-input" data-key="schedule.cutoff_hour"
+                       data-key-minute="schedule.cutoff_minute" value="07:00">
               </div>
               <div class="field-row" id="cutoffWarningRow">
                 <div class="field-text">
                   <label for="cutoffWarning" data-i18n="settings.cutoff_warning">Say it before (min)</label>
                   <p class="field-desc" id="cutoffWarningDesc" data-i18n="settings.cutoff_warning_desc">"The radio stops in N minutes", while the music plays. 0 = say nothing.</p>
                 </div>
-                <input type="number" id="cutoffWarning" min="0" max="60" step="1" data-key="CUTOFF_WARNING_MIN"
+                <input type="number" id="cutoffWarning" min="0" max="60" step="1" data-key="schedule.cutoff_warning_min"
                        class="num-input" inputmode="numeric" aria-describedby="cutoffWarningDesc">
               </div>
               <div data-level="detail" class="field-row">
                 <label for="cutoffMode" data-i18n="settings.cutoff_mode">Cutoff mode</label>
-                <select id="cutoffMode" data-key="CUTOFF_MODE">
+                <select id="cutoffMode" data-key="schedule.cutoff_mode">
                   <option value="end_of_track" data-i18n="settings.cutoff_mode_eot">End of current track</option>
                   <option value="exact" data-i18n="settings.cutoff_mode_exact">Exact (fade at the exact time)</option>
                 </select>
               </div>
               <div class="field-row">
                 <label for="afterCutoff" data-i18n="settings.after_cutoff">After the cutoff</label>
-                <select id="afterCutoff" data-key="SHUTDOWN_AFTER_CUTOFF">
+                <select id="afterCutoff" data-key="schedule.shutdown_after_cutoff">
                   <option value="true" data-i18n="settings.after_cutoff_off">Switch the radio off</option>
                   <option value="false" data-i18n="settings.after_cutoff_standby">Standby: the radio stays on</option>
                 </select>
@@ -931,7 +931,7 @@
               <div class="field-row">
                 <label for="speechLanguage" data-i18n="settings.speech_language">Spoken language</label>
                 <div class="input-with-action">
-                  <select id="speechLanguage" data-key="SPEECH_LANGUAGE">
+                  <select id="speechLanguage" data-key="schedule.speech_language">
                     <option value="en">English</option>
                     <option value="fr">Français</option>
                     <option value="de">Deutsch</option>
@@ -948,7 +948,7 @@
                   <label for="djEvery" data-i18n="settings.dj_every">Introduce the songs (every N)</label>
                   <p class="field-desc" id="djEveryDesc" data-i18n="settings.dj_every_desc">Like a radio host: "Up next: title, by artist", between two songs. 0 = never.</p>
                 </div>
-                <input type="number" id="djEvery" min="0" max="20" step="1" data-key="DJ_ANNOUNCE_EVERY"
+                <input type="number" id="djEvery" min="0" max="20" step="1" data-key="schedule.dj_announce_every"
                        class="num-input" inputmode="numeric" aria-describedby="djEveryDesc">
               </div>
               <div class="field-row">
@@ -956,7 +956,7 @@
                   <label for="djMode" data-i18n="settings.dj_mode">Who introduces the songs</label>
                   <p class="field-desc" id="djModeDesc" data-i18n="settings.dj_mode_desc">The radio says it itself, or plays a file you prepared.</p>
                 </div>
-                <select id="djMode" data-key="DJ_ANNOUNCE_MODE" aria-describedby="djModeDesc">
+                <select id="djMode" data-key="schedule.dj_announce_mode" aria-describedby="djModeDesc">
                   <option value="spoken" data-i18n="settings.dj_mode_spoken">The radio</option>
                   <option value="files" data-i18n="settings.dj_mode_files">Your files</option>
                   <option value="files_first" data-i18n="settings.dj_mode_files_first">Your files, otherwise the radio</option>
@@ -979,7 +979,7 @@
           <form id="playbackForm" class="settings-form">
             <div class="field-row">
               <label for="musicOrderMode" data-i18n="settings.order">Order</label>
-              <select id="musicOrderMode" data-key="MUSIC_ORDER_MODE">
+              <select id="musicOrderMode" data-key="playback.order_mode">
                 <option value="random" data-i18n="order.random">Completely random</option>
                 <option value="random_albums" data-i18n="order.random_albums">Random albums (one song per artist before repeating)</option>
                 <option value="ordered" data-i18n="order.fixed_music">Fixed order (filename sort)</option>
@@ -990,19 +990,19 @@
                 <label for="risingStart" data-i18n="settings.rising_start">Rising start (songs)</label>
                 <p class="field-desc" id="risingStartDesc" data-i18n="settings.rising_start_desc">At each start, the first songs go from the quietest to the loudest. 0 = off.</p>
               </div>
-              <input type="number" id="risingStart" min="0" max="30" step="1" data-key="MORNING_RISE_TRACKS"
+              <input type="number" id="risingStart" min="0" max="30" step="1" data-key="playback.rising_start_tracks"
                      class="num-input" inputmode="numeric" aria-describedby="risingStartDesc">
             </div>
             <div class="field-row">
               <label for="musicLoopToggle" data-i18n="settings.loop">Loop the list</label>
-              <input type="checkbox" id="musicLoopToggle" data-key="MUSIC_LOOP" class="switch-input" role="switch">
+              <input type="checkbox" id="musicLoopToggle" data-key="playback.loop" class="switch-input" role="switch">
             </div>
             <div class="field-row">
               <div class="field-text">
                 <label for="crossfadeSec" data-i18n="settings.crossfade">Crossfade (sec)</label>
                 <p class="field-desc" id="crossfadeDesc" data-i18n="settings.crossfade_desc">The end of a song fades out under the start of the next. 0 = off.</p>
               </div>
-              <input type="number" id="crossfadeSec" min="0" max="10" step="1" data-key="CROSSFADE_SEC"
+              <input type="number" id="crossfadeSec" min="0" max="10" step="1" data-key="fades.crossfade_sec"
                      class="num-input" inputmode="decimal" aria-describedby="crossfadeDesc">
             </div>
             <div class="field-row">
@@ -1010,7 +1010,7 @@
                 <label for="skipSilenceToggle" data-i18n="settings.skip_silence">Skip the silence at the end</label>
                 <p class="field-desc" id="skipSilenceDesc" data-i18n="settings.skip_silence_desc">The next song starts as soon as only silence is left.</p>
               </div>
-              <input type="checkbox" id="skipSilenceToggle" data-key="SKIP_TRAILING_SILENCE" class="switch-input" role="switch"
+              <input type="checkbox" id="skipSilenceToggle" data-key="playback.skip_trailing_silence" class="switch-input" role="switch"
                      aria-describedby="skipSilenceDesc">
             </div>
             <p class="hint help-text" data-i18n="settings.loop_hint" hidden>
@@ -1023,7 +1023,7 @@
                 <label for="coverPriority" data-i18n="settings.cover_priority">Which cover wins</label>
                 <p class="field-desc" id="coverPriorityDesc" data-i18n="settings.cover_priority_desc">A song can carry several pictures; this says which one the player shows.</p>
               </div>
-              <select id="coverPriority" data-key="COVER_PRIORITY" aria-describedby="coverPriorityDesc">
+              <select id="coverPriority" data-key="playback.cover_priority" aria-describedby="coverPriorityDesc">
                 <option value="files" data-i18n="settings.cover_priority_files">The covers folder first</option>
                 <option value="id3" data-i18n="settings.cover_priority_id3">The music folders and the tags first</option>
               </select>
@@ -1036,11 +1036,11 @@
               <summary><span data-i18n="settings.group_resume">Picking up again</span></summary>
               <div class="field-row">
                 <label for="musicKeepProgressToggle" data-i18n="settings.keep_progress">Keep progress between launches</label>
-                <input type="checkbox" id="musicKeepProgressToggle" data-key="MUSIC_KEEP_PROGRESS" class="switch-input" role="switch">
+                <input type="checkbox" id="musicKeepProgressToggle" data-key="playback.keep_progress" class="switch-input" role="switch">
               </div>
               <div class="field-row">
                 <label for="musicResumeMode" data-i18n="settings.resume_label">On the next launch</label>
-                <select id="musicResumeMode" data-key="MUSIC_RESUME_MODE">
+                <select id="musicResumeMode" data-key="playback.resume_mode">
                   <option value="same_track" data-i18n="settings.resume_same">Replay the track that was interrupted</option>
                   <option value="same_position" data-i18n="settings.resume_position">Take it up where it stopped</option>
                   <option value="next_track" data-i18n="settings.resume_next">Move on to the next track</option>
@@ -1052,7 +1052,7 @@
               <summary><span data-i18n="settings.group_announce_lists">Announcements and lists</span></summary>
               <div class="field-row">
                 <label for="announceOrderMode" data-i18n="settings.announce_order">Announcement order</label>
-                <select id="announceOrderMode" data-key="ANNOUNCE_ORDER_MODE">
+                <select id="announceOrderMode" data-key="playback.announce_order_mode">
                   <option value="random" data-i18n="order.random">Completely random</option>
                   <option value="random_albums" data-i18n="order.random_subfolders">Random, spreading subfolders out</option>
                   <option value="ordered" data-i18n="order.fixed_announce">Fixed order (filename sort, or the order set below)</option>
@@ -1061,11 +1061,11 @@
               <p class="hint help-text" data-i18n="settings.announce_order_hint" hidden>Applies to every announcement folder.</p>
               <div class="field-row">
                 <label for="upcomingCount" data-i18n="settings.upcoming_tracks">Tracks coming up shown</label>
-                <input type="number" id="upcomingCount" min="0" max="50" step="1" data-key="UPCOMING_TRACKS_COUNT" class="num-input" inputmode="numeric">
+                <input type="number" id="upcomingCount" min="0" max="50" step="1" data-key="playback.upcoming_tracks" class="num-input" inputmode="numeric">
               </div>
               <div class="field-row">
                 <label for="recentCount" data-i18n="settings.recent_tracks">Tracks in the history</label>
-                <input type="number" id="recentCount" min="0" max="200" step="1" data-key="RECENT_TRACKS_COUNT" class="num-input" inputmode="numeric">
+                <input type="number" id="recentCount" min="0" max="200" step="1" data-key="playback.recent_tracks" class="num-input" inputmode="numeric">
               </div>
             </details>
 
@@ -1076,28 +1076,28 @@
                   <label for="pauseDurationsNew" data-i18n="settings.pause_durations">Timed pause (min)</label>
                   <p class="field-desc" data-i18n="settings.pause_durations_desc">The durations Timer… offers for a pause.</p>
                 </div>
-                <div class="duration-field" id="pauseDurations" data-key="PAUSE_DURATIONS"></div>
+                <div class="duration-field" id="pauseDurations" data-key="playback.pause_durations"></div>
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label for="sleepDurationsNew" data-i18n="settings.sleep_durations">Sleep timer (min)</label>
                   <p class="field-desc" data-i18n="settings.sleep_durations_desc">The durations Timer… offers for the sleep timer. The shortest is what a button set to Sleep timer uses.</p>
                 </div>
-                <div class="duration-field" id="sleepDurations" data-key="SLEEP_DURATIONS"></div>
+                <div class="duration-field" id="sleepDurations" data-key="playback.sleep_durations"></div>
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label for="retryMax" data-i18n-html="settings.retry_max_html">Pause after <em>N</em> failed tracks</label>
                   <p class="field-desc" id="retryMaxDesc" data-i18n="settings.retry_max_title">Consecutive unreadable files before playback pauses. 0 disables it.</p>
                 </div>
-                <input type="number" id="retryMax" min="0" max="100" step="1" data-key="PLAYBACK_ERROR_MAX_RETRIES" class="num-input" inputmode="numeric" aria-describedby="retryMaxDesc">
+                <input type="number" id="retryMax" min="0" max="100" step="1" data-key="playback_errors.pause_after_failures" class="num-input" inputmode="numeric" aria-describedby="retryMaxDesc">
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label for="retryDelay" data-i18n="settings.retry_delay">Retry delay (sec)</label>
                   <p class="field-desc" id="retryDelayDesc" data-i18n="settings.retry_delay_title">How long to wait before retrying. 0 = no wait.</p>
                 </div>
-                <input type="number" id="retryDelay" min="0" max="600" step="1" data-key="PLAYBACK_ERROR_BACKOFF_SEC" class="num-input" inputmode="numeric" aria-describedby="retryDelayDesc">
+                <input type="number" id="retryDelay" min="0" max="600" step="1" data-key="playback_errors.retry_delay_sec" class="num-input" inputmode="numeric" aria-describedby="retryDelayDesc">
               </div>
             </details>
             <p class="hint help-text" data-i18n-html="settings.errors_hint_html" hidden>
@@ -1116,14 +1116,14 @@
           <form id="volumeForm" class="settings-form">
             <div class="field-row">
               <label for="baseVolume" data-i18n="settings.base_volume">Base volume</label>
-              <input type="number" id="baseVolume" min="0" max="100" data-key="BASE_VOLUME" class="num-input" inputmode="numeric">
+              <input type="number" id="baseVolume" min="0" max="100" data-key="playback.base_volume" class="num-input" inputmode="numeric">
             </div>
             <div class="field-row">
               <div class="field-text">
                 <label for="audioEqualizer" data-i18n="settings.equalizer">Sound profile</label>
                 <p class="field-desc" id="audioEqualizerDesc" data-i18n="settings.equalizer_desc">Shapes the sound before the volume boost.</p>
               </div>
-              <select id="audioEqualizer" data-key="AUDIO_EQUALIZER" aria-describedby="audioEqualizerDesc">
+              <select id="audioEqualizer" data-key="playback.audio_equalizer" aria-describedby="audioEqualizerDesc">
                 <option value="off" data-i18n="eq.off">Off - the files as they are</option>
                 <option value="bass" data-i18n="eq.bass">More bass</option>
                 <option value="voice" data-i18n="eq.voice">Clear voices</option>
@@ -1136,7 +1136,7 @@
                 <label for="audioCompression" data-i18n="settings.audio_compression">Volume boost</label>
                 <p class="field-desc" id="audioCompressionDesc" data-i18n="settings.audio_compression_desc">Evens the loudness out when the recordings are quiet, without touching the slider.</p>
               </div>
-              <select id="audioCompression" data-key="AUDIO_COMPRESSION" aria-describedby="audioCompressionDesc">
+              <select id="audioCompression" data-key="playback.audio_compression" aria-describedby="audioCompressionDesc">
                 <option value="off" data-i18n="compression.off">Off - exactly what the files contain</option>
                 <option value="soft" data-i18n="compression.soft">Soft</option>
                 <option value="strong" data-i18n="compression.strong">Strong</option>
@@ -1149,7 +1149,7 @@
                   <label for="volumeCapOn" data-i18n="settings.volume_cap">Volume capped at night</label>
                   <p class="field-desc" id="volumeCapOnDesc" data-i18n="settings.volume_cap_desc">Between the two times below, the whole radio plays lower: music, announcements and sounds. The volume shown stays the one chosen.</p>
                 </div>
-                <input type="checkbox" id="volumeCapOn" data-key="VOLUME_CAP_ENABLED" class="switch-input" role="switch"
+                <input type="checkbox" id="volumeCapOn" data-key="playback.volume_cap_enabled" class="switch-input" role="switch"
                        aria-describedby="volumeCapOnDesc">
               </div>
               <div class="field-row" id="volumeCapRow">
@@ -1157,16 +1157,16 @@
                   <label for="volumeCapPercent" data-i18n="settings.volume_cap_percent">Maximum allowed (%)</label>
                   <p class="field-desc" id="volumeCapExample"></p>
                 </div>
-                <input type="number" id="volumeCapPercent" min="5" max="100" data-key="VOLUME_CAP_PERCENT" class="num-input"
+                <input type="number" id="volumeCapPercent" min="5" max="100" data-key="playback.volume_cap_percent" class="num-input"
                        inputmode="numeric" aria-describedby="volumeCapExample">
               </div>
               <div class="field-row" id="volumeCapHoursRow">
                 <label for="volumeCapStart" data-i18n="settings.volume_cap_hours">From / until</label>
                 <span class="sched-time">
-                  <input type="time" id="volumeCapStart" class="time-input" data-key="VOLUME_CAP_START_HOUR"
-                         data-key-minute="VOLUME_CAP_START_MINUTE" value="21:00">
-                  <input type="time" id="volumeCapEnd" class="time-input" data-key="VOLUME_CAP_END_HOUR"
-                         data-key-minute="VOLUME_CAP_END_MINUTE" value="08:00"
+                  <input type="time" id="volumeCapStart" class="time-input" data-key="playback.volume_cap_start_hour"
+                         data-key-minute="playback.volume_cap_start_minute" value="21:00">
+                  <input type="time" id="volumeCapEnd" class="time-input" data-key="playback.volume_cap_end_hour"
+                         data-key-minute="playback.volume_cap_end_minute" value="08:00"
                          data-i18n-aria-label="settings.volume_cap_until" aria-label="Until">
                 </span>
               </div>
@@ -1175,7 +1175,7 @@
                   <label for="volumeCapFade" data-i18n="settings.volume_cap_fade">Transition (sec)</label>
                   <p class="field-desc" id="volumeCapFadeDesc" data-i18n="settings.volume_cap_fade_desc">The time the volume takes to go down when the hours begin, and back up when they end. 0 = at once.</p>
                 </div>
-                <input type="number" id="volumeCapFade" min="0" max="600" step="5" data-key="VOLUME_CAP_FADE_SEC"
+                <input type="number" id="volumeCapFade" min="0" max="600" step="5" data-key="playback.volume_cap_fade_sec"
                        class="num-input" inputmode="numeric" aria-describedby="volumeCapFadeDesc">
               </div>
             </details>
@@ -1186,28 +1186,28 @@
                   <label for="volumeMode" data-i18n="settings.volume_mode">Volume after a track change</label>
                   <p class="field-desc" id="volumeModeDesc" data-i18n="settings.volume_mode_title">What the volume slider on the Home card does when the track changes. Needs a daemon restart.</p>
                 </div>
-                <select id="volumeMode" data-key="VOLUME_MODE" aria-describedby="volumeModeDesc">
+                <select id="volumeMode" data-key="playback.volume_mode" aria-describedby="volumeModeDesc">
                   <option value="session" data-i18n="settings.volume_session">Keep the volume I set (a restart goes back to base volume)</option>
                   <option value="base" data-i18n="settings.volume_base">Snap back to the base volume on every track</option>
                 </select>
               </div>
               <div class="field-row">
                 <label for="volumeChange" data-i18n="settings.volume_change">Volume change</label>
-                <select id="volumeChange" data-key="VOLUME_CHANGE">
+                <select id="volumeChange" data-key="playback.volume_change">
                   <option value="instant" data-i18n="settings.volume_instant">Immediate</option>
                   <option value="fade" data-i18n="settings.volume_fade">Fade</option>
                 </select>
               </div>
               <div class="field-row" id="volumeFadeRow" hidden>
                 <label for="volumeFadeSec" data-i18n="settings.volume_fade_sec">Fade duration (sec)</label>
-                <input type="number" id="volumeFadeSec" min="0.2" max="10" step="0.1" data-key="VOLUME_FADE_SEC" class="num-input" inputmode="decimal">
+                <input type="number" id="volumeFadeSec" min="0.2" max="10" step="0.1" data-key="playback.volume_fade_sec" class="num-input" inputmode="decimal">
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label for="volumeStep" data-i18n="settings.volume_step">Volume step</label>
                   <p class="field-desc" data-i18n="settings.volume_step_desc">For a button set to Volume + or Volume −.</p>
                 </div>
-                <input type="number" id="volumeStep" min="1" max="50" step="1" data-key="VOLUME_STEP" class="num-input" inputmode="numeric">
+                <input type="number" id="volumeStep" min="1" max="50" step="1" data-key="playback.volume_step" class="num-input" inputmode="numeric">
               </div>
             </details>
             <details data-level="detail" class="subsection" id="speakerVolumeSection">
@@ -1217,7 +1217,7 @@
                   <label for="speakerVolumeLink" data-i18n="settings.speaker_volume_link">The speaker's volume is the volume</label>
                   <p class="field-desc" id="speakerVolumeLinkDesc" data-i18n="settings.speaker_volume_link_desc">One volume instead of two: the slider sets the speaker's own volume, and its buttons move the slider.</p>
                 </div>
-                <input type="checkbox" id="speakerVolumeLink" data-key="SPEAKER_VOLUME_LINK" class="switch-input" role="switch"
+                <input type="checkbox" id="speakerVolumeLink" data-key="playback.speaker_volume_link" class="switch-input" role="switch"
                        aria-describedby="speakerVolumeLinkDesc">
               </div>
               <div class="field-row">
@@ -1225,7 +1225,7 @@
                   <label for="speakerVolumeLock" data-i18n="settings.speaker_volume_lock">The speaker's volume buttons are locked</label>
                   <p class="field-desc" id="speakerVolumeLockDesc" data-i18n="settings.speaker_volume_lock_desc">What they change is put back within two seconds.</p>
                 </div>
-                <input type="checkbox" id="speakerVolumeLock" data-key="SPEAKER_VOLUME_LOCK" class="switch-input" role="switch"
+                <input type="checkbox" id="speakerVolumeLock" data-key="playback.speaker_volume_lock" class="switch-input" role="switch"
                        aria-describedby="speakerVolumeLockDesc">
               </div>
             </details>
@@ -1244,33 +1244,33 @@
                 <label for="musicUnder" data-i18n="settings.music_under">Music under announcements (%)</label>
                 <p class="field-desc" id="musicUnderDesc" data-i18n="settings.music_under_desc">The music goes on, quieter, while an announcement or the time is said. 0 = it pauses.</p>
               </div>
-              <input type="number" id="musicUnder" min="0" max="80" step="5" data-key="ANNOUNCE_MUSIC_UNDER"
+              <input type="number" id="musicUnder" min="0" max="80" step="5" data-key="fades.music_under_announcements"
                      class="num-input" inputmode="numeric" aria-describedby="musicUnderDesc">
             </div>
             <div class="field-row">
               <label for="fadeAnnounce" data-i18n="settings.fade_announce">Announcement fade (sec)</label>
-              <input type="number" id="fadeAnnounce" min="0" max="60" step="0.5" data-key="FADE_DURATION_SEC" class="num-input" inputmode="decimal">
+              <input type="number" id="fadeAnnounce" min="0" max="60" step="0.5" data-key="fades.announcement_sec" class="num-input" inputmode="decimal">
             </div>
             <div class="field-row">
               <div class="field-text">
                 <label for="fadeInteractive" data-i18n="settings.fade_interactive">Interactive fade (sec)</label>
                 <p class="field-desc" id="fadeInteractiveDesc" data-i18n="settings.fade_interactive_title">Fade before single/double-click actions. 0 for an instant cut.</p>
               </div>
-              <input type="number" id="fadeInteractive" min="0" max="10" step="0.5" data-key="INTERACTIVE_FADE_DURATION_SEC" class="num-input" inputmode="decimal" aria-describedby="fadeInteractiveDesc">
+              <input type="number" id="fadeInteractive" min="0" max="10" step="0.5" data-key="fades.interactive_sec" class="num-input" inputmode="decimal" aria-describedby="fadeInteractiveDesc">
             </div>
             <div class="field-row">
               <div class="field-text">
                 <label for="fadeLongpress" data-i18n="settings.fade_longpress">Fade before switching off (sec)</label>
                 <p class="field-desc" id="fadeLongpressDesc" data-i18n="settings.fade_longpress_desc">Before stopping the music and switching the radio off. 0 = an instant cut.</p>
               </div>
-              <input type="number" id="fadeLongpress" min="0" max="20" step="0.5" data-key="LONGPRESS_FADE_DURATION_SEC" class="num-input" inputmode="decimal" aria-describedby="fadeLongpressDesc">
+              <input type="number" id="fadeLongpress" min="0" max="20" step="0.5" data-key="fades.long_press_sec" class="num-input" inputmode="decimal" aria-describedby="fadeLongpressDesc">
             </div>
             <div class="field-row">
               <div class="field-text">
                 <label for="fadePause" data-i18n="settings.fade_pause">Pause fade (sec)</label>
                 <p class="field-desc" id="fadePauseDesc" data-i18n="settings.fade_pause_desc">Out when pausing, back in on resume. 0 = at once.</p>
               </div>
-              <input type="number" id="fadePause" min="0" max="5" step="0.5" data-key="PAUSE_FADE_SEC" class="num-input" inputmode="decimal" aria-describedby="fadePauseDesc">
+              <input type="number" id="fadePause" min="0" max="5" step="0.5" data-key="fades.pause_sec" class="num-input" inputmode="decimal" aria-describedby="fadePauseDesc">
             </div>
 
             <div class="form-actions">
@@ -1285,7 +1285,7 @@
           <form id="lightsForm" class="settings-form">
             <div class="field-row">
               <label for="wledEnabled" data-i18n="lights.enabled">Drive the light strips</label>
-              <input type="checkbox" id="wledEnabled" data-key="WLED_ENABLED" class="switch-input" role="switch">
+              <input type="checkbox" id="wledEnabled" data-key="lights.enabled" class="switch-input" role="switch">
             </div>
             <div class="field-row">
               <div class="field-text">
@@ -1293,7 +1293,7 @@
                 <p class="field-desc" id="wledHostsDesc" data-i18n="lights.hosts_desc">Separated by commas, or found with Search.</p>
               </div>
               <div class="input-with-action">
-                <input type="text" id="wledHosts" data-key="WLED_HOSTS" class="text-input" placeholder="192.168.4.20"
+                <input type="text" id="wledHosts" data-key="lights.hosts" class="text-input" placeholder="192.168.4.20"
                        aria-describedby="wledHostsDesc" spellcheck="false" autocapitalize="off" autocomplete="off">
                 <button type="button" class="btn btn-icon" id="wledDiscover" data-icon="search"
                         data-i18n-aria-label="lights.discover" aria-label="Search" data-i18n-title="lights.discover" title="Search"></button>
@@ -1306,35 +1306,35 @@
               <summary><span data-i18n="lights.scenes">Scenes</span></summary>
               <p class="hint help-text" data-i18n="lights.scenes_help" hidden>For each moment, the preset to show. "Leave as it is" sends nothing; ▶ shows the preset now, to choose one.</p>
               <div class="field-row"><label for="wledScenePlay" data-i18n="lights.scene_play">While the music plays</label>
-                <div class="input-with-action"><select id="wledScenePlay" data-key="WLED_SCENE_PLAY" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledScenePlay" data-key="lights.scene_play" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledScenePlay" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row"><label for="wledSceneStart" data-i18n="lights.scene_start">When the music starts</label>
-                <div class="input-with-action"><select id="wledSceneStart" data-key="WLED_SCENE_START" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledSceneStart" data-key="lights.scene_start" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneStart" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row"><label for="wledScenePause" data-i18n="lights.scene_pause">While paused</label>
-                <div class="input-with-action"><select id="wledScenePause" data-key="WLED_SCENE_PAUSE" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledScenePause" data-key="lights.scene_pause" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledScenePause" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row"><label for="wledSceneIdle" data-i18n="lights.scene_idle">While waiting</label>
-                <div class="input-with-action"><select id="wledSceneIdle" data-key="WLED_SCENE_IDLE" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledSceneIdle" data-key="lights.scene_idle" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneIdle" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row"><label for="wledSceneAnnounce" data-i18n="lights.scene_announce">During an announcement</label>
-                <div class="input-with-action"><select id="wledSceneAnnounce" data-key="WLED_SCENE_ANNOUNCE" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledSceneAnnounce" data-key="lights.scene_announce" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneAnnounce" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row"><label for="wledSceneCutoff" data-i18n="lights.scene_cutoff">At the cutoff</label>
-                <div class="input-with-action"><select id="wledSceneCutoff" data-key="WLED_SCENE_CUTOFF" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledSceneCutoff" data-key="lights.scene_cutoff" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneCutoff" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row"><label for="wledSceneButton" data-i18n="lights.scene_button">On a button press</label>
-                <div class="input-with-action"><select id="wledSceneButton" data-key="WLED_SCENE_BUTTON" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledSceneButton" data-key="lights.scene_button" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneButton" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row"><label for="wledSceneAlert" data-i18n="lights.scene_alert">On an alert</label>
-                <div class="input-with-action"><select id="wledSceneAlert" data-key="WLED_SCENE_ALERT" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledSceneAlert" data-key="lights.scene_alert" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneAlert" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row" data-level="detail"><label for="wledSceneGame" data-i18n="lights.scene_game">During the blind test</label>
-                <div class="input-with-action"><select id="wledSceneGame" data-key="WLED_SCENE_GAME" class="wled-scene"></select>
+                <div class="input-with-action"><select id="wledSceneGame" data-key="lights.scene_game" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneGame" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
               <div class="field-row">
                 <label for="wledOff" data-i18n="lights.off_at_poweroff">Off with the radio</label>
-                <input type="checkbox" id="wledOff" data-key="WLED_OFF_AT_POWEROFF" class="switch-input" role="switch">
+                <input type="checkbox" id="wledOff" data-key="lights.off_at_poweroff" class="switch-input" role="switch">
               </div>
             </details>
 
@@ -1343,14 +1343,14 @@
               <p class="hint help-text" data-i18n="lights.beat_help" hidden>The radio listens to what it plays and sends the beat to WLED's audio reactive effects. In WLED: Config, then Sound Settings, set the sync to Receive, and pick an effect marked with a note.</p>
               <div class="field-row">
                 <label for="wledBeatOn" data-i18n="lights.beat_on">Send the beat</label>
-                <input type="checkbox" id="wledBeatOn" data-key="WLED_AUDIO_SYNC" class="switch-input" role="switch">
+                <input type="checkbox" id="wledBeatOn" data-key="lights.audio_sync" class="switch-input" role="switch">
               </div>
               <div class="field-row" data-level="detail">
                 <div class="field-text">
                   <label for="wledDelay" data-i18n="lights.delay">Beat delay (ms)</label>
                   <p class="field-desc" id="wledDelayDesc" data-i18n="lights.delay_desc">Keeps the light on time with what is heard: about 200 for a Bluetooth speaker, 0 for a wire.</p>
                 </div>
-                <input type="number" id="wledDelay" min="0" max="2000" step="10" data-key="WLED_AUDIO_DELAY_MS"
+                <input type="number" id="wledDelay" min="0" max="2000" step="10" data-key="lights.audio_delay_ms"
                        class="num-input" inputmode="numeric" aria-describedby="wledDelayDesc">
               </div>
             </details>
@@ -1360,7 +1360,7 @@
               <p class="hint help-text" data-i18n="lights.clock_help" hidden>The more reliable of the two gives the time to the other. Once the radio has given a WLED the time, it learns its timezone, and a radio with no clock module asks that WLED for the time when it starts.</p>
               <div class="field-row">
                 <label for="wledClockOn" data-i18n="lights.clock_on">Share the time</label>
-                <input type="checkbox" id="wledClockOn" data-key="WLED_CLOCK" class="switch-input" role="switch">
+                <input type="checkbox" id="wledClockOn" data-key="lights.clock" class="switch-input" role="switch">
               </div>
               <p class="hint" id="wledClockState"></p>
               <div class="form-actions">
@@ -1380,39 +1380,39 @@
           <form id="mqttForm" class="settings-form">
             <div class="field-row">
               <label for="mqttEnabled" data-i18n="mqtt.enabled">Publish to Home Assistant (MQTT)</label>
-              <input type="checkbox" id="mqttEnabled" data-key="MQTT_ENABLED" class="switch-input" role="switch">
+              <input type="checkbox" id="mqttEnabled" data-key="home_assistant.enabled" class="switch-input" role="switch">
             </div>
             <div class="field-row">
               <label for="mqttHost" data-i18n="mqtt.host">Broker address</label>
-              <input type="text" id="mqttHost" data-key="MQTT_HOST" class="text-input" placeholder="homeassistant.local"
+              <input type="text" id="mqttHost" data-key="home_assistant.host" class="text-input" placeholder="homeassistant.local"
                      autocapitalize="off" spellcheck="false">
             </div>
             <div class="field-row">
               <label for="mqttPort" data-i18n="mqtt.port">Port</label>
-              <input type="number" id="mqttPort" data-key="MQTT_PORT" class="num-input" min="1" max="65535" inputmode="numeric">
+              <input type="number" id="mqttPort" data-key="home_assistant.port" class="num-input" min="1" max="65535" inputmode="numeric">
             </div>
             <div class="field-row">
               <label for="mqttUser" data-i18n="mqtt.username">User name</label>
-              <input type="text" id="mqttUser" data-key="MQTT_USERNAME" class="text-input" autocomplete="off"
+              <input type="text" id="mqttUser" data-key="home_assistant.username" class="text-input" autocomplete="off"
                      autocapitalize="off" spellcheck="false">
             </div>
             <div class="field-row">
               <label for="mqttPassword" data-i18n="mqtt.password">Password</label>
-              <input type="password" id="mqttPassword" data-key="MQTT_PASSWORD" class="text-input" autocomplete="new-password">
+              <input type="password" id="mqttPassword" data-key="home_assistant.password" class="text-input" autocomplete="new-password">
             </div>
             <div class="field-row">
               <label for="mqttTls" data-i18n="mqtt.tls">TLS (port 8883)</label>
-              <input type="checkbox" id="mqttTls" data-key="MQTT_TLS" class="switch-input" role="switch">
+              <input type="checkbox" id="mqttTls" data-key="home_assistant.tls" class="switch-input" role="switch">
             </div>
             <details class="subsection" data-level="detail">
               <summary data-i18n="mqtt.topics">Topics</summary>
               <div class="field-row">
                 <label for="mqttTopic" data-i18n="mqtt.topic">Topic</label>
-                <input type="text" id="mqttTopic" data-key="MQTT_TOPIC" class="text-input" autocapitalize="off" spellcheck="false">
+                <input type="text" id="mqttTopic" data-key="home_assistant.topic" class="text-input" autocapitalize="off" spellcheck="false">
               </div>
               <div class="field-row">
                 <label for="mqttDiscovery" data-i18n="mqtt.discovery">Discovery prefix</label>
-                <input type="text" id="mqttDiscovery" data-key="MQTT_DISCOVERY_PREFIX" class="text-input" autocapitalize="off" spellcheck="false">
+                <input type="text" id="mqttDiscovery" data-key="home_assistant.discovery_prefix" class="text-input" autocapitalize="off" spellcheck="false">
               </div>
             </details>
             <p class="hint" id="mqttStatus" role="status"></p>
@@ -1428,7 +1428,7 @@
             <div class="field-row">
               <label for="singleClickAction" data-i18n="settings.single_click">Single click</label>
               <div class="input-with-action">
-                <select id="singleClickAction" data-key="SINGLE_CLICK_ACTION" class="click-action-select" data-click="single">
+                <select id="singleClickAction" data-key="buttons.single_click_action" class="click-action-select" data-click="single">
                   <option value="next" data-i18n="click.next">Next track</option>
                   <option value="previous" data-i18n="click.previous">Previous track</option>
                   <option value="sound" data-i18n="click.sound">Play the sound</option>
@@ -1453,7 +1453,7 @@
             </div>
             <div class="field-row click-sound-row" data-click="single">
               <label for="singleClickSource" data-i18n="click.sound_before">Sound played first</label>
-              <select id="singleClickSource" data-key="SINGLE_CLICK_SOURCE" class="click-source-select">
+              <select id="singleClickSource" data-key="buttons.single_click_source" class="click-source-select">
                 <option value="none" data-i18n="click.no_sound">No sound</option>
                 <option value="meme" data-i18n="source.meme">Button sounds</option>
                 <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
@@ -1462,7 +1462,7 @@
             <div class="field-row">
               <label for="doubleClickAction" data-i18n="settings.double_click">Double click</label>
               <div class="input-with-action">
-                <select id="doubleClickAction" data-key="DOUBLE_CLICK_ACTION" class="click-action-select" data-click="double">
+                <select id="doubleClickAction" data-key="buttons.double_click_action" class="click-action-select" data-click="double">
                   <option value="next" data-i18n="click.next">Next track</option>
                   <option value="previous" data-i18n="click.previous">Previous track</option>
                   <option value="sound" data-i18n="click.sound">Play the sound</option>
@@ -1487,7 +1487,7 @@
             </div>
             <div class="field-row click-sound-row" data-click="double">
               <label for="doubleClickSource" data-i18n="click.sound_before">Sound played first</label>
-              <select id="doubleClickSource" data-key="DOUBLE_CLICK_SOURCE" class="click-source-select">
+              <select id="doubleClickSource" data-key="buttons.double_click_source" class="click-source-select">
                 <option value="none" data-i18n="click.no_sound">No sound</option>
                 <option value="meme" data-i18n="source.meme">Button sounds</option>
                 <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
@@ -1495,7 +1495,7 @@
             </div>
             <div class="field-row">
               <label for="longPressAction" data-i18n="settings.long_press">Long press</label>
-              <select id="longPressAction" data-key="LONG_PRESS_ACTION">
+              <select id="longPressAction" data-key="buttons.long_press_action">
                 <option value="poweroff" data-i18n="click.poweroff">Switch the radio off</option>
                 <option value="standby" data-i18n="click.standby">Standby</option>
               </select>
@@ -1513,7 +1513,7 @@
               <div class="field-row">
                 <label for="spkPlaypauseClickAction" data-i18n="speakerbtn.playpause">Play / pause</label>
                 <div class="input-with-action">
-                  <select id="spkPlaypauseClickAction" data-key="SPEAKER_PLAYPAUSE_ACTION" class="click-action-select" data-click="spkPlaypause">
+                  <select id="spkPlaypauseClickAction" data-key="buttons.speaker_playpause_action" class="click-action-select" data-click="spkPlaypause">
                     <option value="next" data-i18n="click.next">Next track</option>
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
@@ -1538,7 +1538,7 @@
               </div>
               <div class="field-row click-sound-row" data-click="spkPlaypause">
                 <label for="spkPlaypauseClickSource" data-i18n="click.sound_before">Sound played first</label>
-                <select id="spkPlaypauseClickSource" data-key="SPEAKER_PLAYPAUSE_SOURCE" class="click-source-select">
+                <select id="spkPlaypauseClickSource" data-key="buttons.speaker_playpause_source" class="click-source-select">
                   <option value="none" data-i18n="click.no_sound">No sound</option>
                   <option value="meme" data-i18n="source.meme">Button sounds</option>
                   <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
@@ -1547,7 +1547,7 @@
               <div class="field-row">
                 <label for="spkNextClickAction" data-i18n="speakerbtn.next">Next</label>
                 <div class="input-with-action">
-                  <select id="spkNextClickAction" data-key="SPEAKER_NEXT_ACTION" class="click-action-select" data-click="spkNext">
+                  <select id="spkNextClickAction" data-key="buttons.speaker_next_action" class="click-action-select" data-click="spkNext">
                     <option value="next" data-i18n="click.next">Next track</option>
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
@@ -1572,7 +1572,7 @@
               </div>
               <div class="field-row click-sound-row" data-click="spkNext">
                 <label for="spkNextClickSource" data-i18n="click.sound_before">Sound played first</label>
-                <select id="spkNextClickSource" data-key="SPEAKER_NEXT_SOURCE" class="click-source-select">
+                <select id="spkNextClickSource" data-key="buttons.speaker_next_source" class="click-source-select">
                   <option value="none" data-i18n="click.no_sound">No sound</option>
                   <option value="meme" data-i18n="source.meme">Button sounds</option>
                   <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
@@ -1581,7 +1581,7 @@
               <div class="field-row">
                 <label for="spkPreviousClickAction" data-i18n="speakerbtn.previous">Previous</label>
                 <div class="input-with-action">
-                  <select id="spkPreviousClickAction" data-key="SPEAKER_PREVIOUS_ACTION" class="click-action-select" data-click="spkPrevious">
+                  <select id="spkPreviousClickAction" data-key="buttons.speaker_previous_action" class="click-action-select" data-click="spkPrevious">
                     <option value="next" data-i18n="click.next">Next track</option>
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
@@ -1606,7 +1606,7 @@
               </div>
               <div class="field-row click-sound-row" data-click="spkPrevious">
                 <label for="spkPreviousClickSource" data-i18n="click.sound_before">Sound played first</label>
-                <select id="spkPreviousClickSource" data-key="SPEAKER_PREVIOUS_SOURCE" class="click-source-select">
+                <select id="spkPreviousClickSource" data-key="buttons.speaker_previous_source" class="click-source-select">
                   <option value="none" data-i18n="click.no_sound">No sound</option>
                   <option value="meme" data-i18n="source.meme">Button sounds</option>
                   <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
@@ -1615,7 +1615,7 @@
               <div class="field-row">
                 <label for="spkVolumeupClickAction" data-i18n="speakerbtn.volumeup">Volume +</label>
                 <div class="input-with-action">
-                  <select id="spkVolumeupClickAction" data-key="SPEAKER_VOLUMEUP_ACTION" class="click-action-select" data-click="spkVolumeup">
+                  <select id="spkVolumeupClickAction" data-key="buttons.speaker_volumeup_action" class="click-action-select" data-click="spkVolumeup">
                     <option value="next" data-i18n="click.next">Next track</option>
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
@@ -1640,7 +1640,7 @@
               </div>
               <div class="field-row click-sound-row" data-click="spkVolumeup">
                 <label for="spkVolumeupClickSource" data-i18n="click.sound_before">Sound played first</label>
-                <select id="spkVolumeupClickSource" data-key="SPEAKER_VOLUMEUP_SOURCE" class="click-source-select">
+                <select id="spkVolumeupClickSource" data-key="buttons.speaker_volumeup_source" class="click-source-select">
                   <option value="none" data-i18n="click.no_sound">No sound</option>
                   <option value="meme" data-i18n="source.meme">Button sounds</option>
                   <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
@@ -1649,7 +1649,7 @@
               <div class="field-row">
                 <label for="spkVolumedownClickAction" data-i18n="speakerbtn.volumedown">Volume −</label>
                 <div class="input-with-action">
-                  <select id="spkVolumedownClickAction" data-key="SPEAKER_VOLUMEDOWN_ACTION" class="click-action-select" data-click="spkVolumedown">
+                  <select id="spkVolumedownClickAction" data-key="buttons.speaker_volumedown_action" class="click-action-select" data-click="spkVolumedown">
                     <option value="next" data-i18n="click.next">Next track</option>
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
@@ -1674,7 +1674,7 @@
               </div>
               <div class="field-row click-sound-row" data-click="spkVolumedown">
                 <label for="spkVolumedownClickSource" data-i18n="click.sound_before">Sound played first</label>
-                <select id="spkVolumedownClickSource" data-key="SPEAKER_VOLUMEDOWN_SOURCE" class="click-source-select">
+                <select id="spkVolumedownClickSource" data-key="buttons.speaker_volumedown_source" class="click-source-select">
                   <option value="none" data-i18n="click.no_sound">No sound</option>
                   <option value="meme" data-i18n="source.meme">Button sounds</option>
                   <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
@@ -1695,11 +1695,11 @@
               </div>
               <div class="field-row" data-level="detail">
                 <label for="btButtonDoubleClickWindow" data-i18n="remotes.double_window">Double-click window (sec)</label>
-                <input type="number" id="btButtonDoubleClickWindow" min="0.1" max="2" step="0.05" data-key="BT_BUTTON_DOUBLE_CLICK_WINDOW_SEC" class="num-input" inputmode="decimal">
+                <input type="number" id="btButtonDoubleClickWindow" min="0.1" max="2" step="0.05" data-key="buttons.bt_button_double_click_window_sec" class="num-input" inputmode="decimal">
               </div>
               <div class="field-row" data-level="detail">
                 <label for="btButtonLongPress" data-i18n="remotes.long_press">Long press (sec)</label>
-                <input type="number" id="btButtonLongPress" min="0.3" max="10" step="0.1" data-key="BT_BUTTON_LONG_PRESS_SEC" class="num-input" inputmode="decimal">
+                <input type="number" id="btButtonLongPress" min="0.3" max="10" step="0.1" data-key="buttons.bt_button_long_press_sec" class="num-input" inputmode="decimal">
               </div>
             </details>
             <details data-level="detail" class="subsection" data-needs="gpio">
@@ -1707,22 +1707,22 @@
               <div class="field-row">
                 <label for="gpioButtonPin" data-i18n="settings.gpio_button_pin">GPIO button pin</label>
                 <div class="pin-field">
-                  <input type="number" id="gpioButtonPin" min="0" max="27" step="1" data-key="GPIO_BUTTON_PIN" class="num-input" inputmode="numeric">
+                  <input type="number" id="gpioButtonPin" min="0" max="27" step="1" data-key="buttons.gpio_button_pin" class="num-input" inputmode="numeric">
                   <button type="button" class="btn btn-icon pin-pick-btn" data-icon="chip" data-pin-target="gpioButtonPin"
                           data-i18n-aria-label="gpio.choose" aria-label="Choose" data-i18n-title="gpio.choose" title="Choose"></button>
                 </div>
               </div>
               <div class="field-row">
                 <label for="gpioButtonDebounce" data-i18n="settings.gpio_button_debounce">GPIO debounce (sec)</label>
-                <input type="number" id="gpioButtonDebounce" min="0" max="1" step="0.01" data-key="GPIO_BUTTON_DEBOUNCE_SEC" class="num-input" inputmode="decimal">
+                <input type="number" id="gpioButtonDebounce" min="0" max="1" step="0.01" data-key="buttons.gpio_button_debounce_sec" class="num-input" inputmode="decimal">
               </div>
               <div class="field-row">
                 <label for="gpioButtonDoubleClickWindow" data-i18n="settings.gpio_button_double_click_window">GPIO double-click window (sec)</label>
-                <input type="number" id="gpioButtonDoubleClickWindow" min="0.1" max="2" step="0.05" data-key="GPIO_BUTTON_DOUBLE_CLICK_WINDOW_SEC" class="num-input" inputmode="decimal">
+                <input type="number" id="gpioButtonDoubleClickWindow" min="0.1" max="2" step="0.05" data-key="buttons.gpio_button_double_click_window_sec" class="num-input" inputmode="decimal">
               </div>
               <div class="field-row">
                 <label for="gpioButtonLongPress" data-i18n="settings.gpio_button_long_press">GPIO long press (sec)</label>
-                <input type="number" id="gpioButtonLongPress" min="0.3" max="10" step="0.1" data-key="GPIO_BUTTON_LONG_PRESS_SEC" class="num-input" inputmode="decimal">
+                <input type="number" id="gpioButtonLongPress" min="0.3" max="10" step="0.1" data-key="buttons.gpio_button_long_press_sec" class="num-input" inputmode="decimal">
               </div>
               <p class="hint help-text" data-i18n="settings.gpio_button_hint" hidden>
                 These fields only matter if a physical button is wired up.
@@ -1998,7 +1998,7 @@
             <p class="hint audio-detected" id="audioOutputDetected"></p>
             <div class="field-row">
               <label for="audioOutputSelect" data-i18n="audioout.label">Sound goes to</label>
-              <select id="audioOutputSelect" data-key="AUDIO_OUTPUT">
+              <select id="audioOutputSelect" data-key="audio.output">
                 <option value="bluetooth" data-i18n="audioout.bluetooth">Bluetooth speaker</option>
                 <option value="jack" data-i18n="audioout.jack">Headphone jack</option>
                 <option value="usb" data-i18n="audioout.usb">USB sound card</option>
@@ -2012,7 +2012,7 @@
                 <label for="snapcastCodec" data-i18n="snapcast.codec">Multiroom codec</label>
                 <p class="field-desc" id="snapcastCodecDesc" data-i18n="snapcast.codec_desc">Opus is light on a Wi-Fi network, FLAC is lossless and heavier.</p>
               </div>
-              <select id="snapcastCodec" data-key="SNAPCAST_CODEC" aria-describedby="snapcastCodecDesc">
+              <select id="snapcastCodec" data-key="audio.snapcast_codec" aria-describedby="snapcastCodecDesc">
                 <option value="opus">Opus</option>
                 <option value="flac">FLAC</option>
                 <option value="pcm">PCM</option>
@@ -2030,7 +2030,7 @@
                 <label for="audioFallbackSelect" data-i18n="audioout.fallback">If the speaker is lost</label>
                 <p class="field-desc" id="audioFallbackDesc" data-i18n="audioout.fallback_desc">Instead of pausing, keep playing on a wired output while the speaker is away.</p>
               </div>
-              <select id="audioFallbackSelect" data-key="AUDIO_FALLBACK_OUTPUT" aria-describedby="audioFallbackDesc">
+              <select id="audioFallbackSelect" data-key="audio.fallback_output" aria-describedby="audioFallbackDesc">
                 <option value="" data-i18n="audioout.fallback_none">Pause</option>
                 <option value="jack" data-i18n="audioout.jack">Headphone jack</option>
                 <option value="usb" data-i18n="audioout.usb">USB sound card</option>
@@ -2042,21 +2042,21 @@
                 <label data-i18n="audioout.codecs">Bluetooth codecs offered</label>
                 <p class="field-desc" id="btCodecsDesc" data-i18n="audioout.codecs_desc">Only tick what the speaker accepts: offering one it cannot handle can make it answer on the telephone-quality headset profile instead.</p>
               </div>
-              <div class="codec-field" id="btCodecs" data-key="BT_AUDIO_CODECS" aria-describedby="btCodecsDesc"></div>
+              <div class="codec-field" id="btCodecs" data-key="bluetooth.bt_audio_codecs" aria-describedby="btCodecsDesc"></div>
             </div>
             <details class="subsection" id="streamSection">
               <summary><span data-i18n="stream.title">Network audio stream</span></summary>
               <p class="hint help-text" data-i18n="stream.desc" hidden>Serve what the radio plays over the network, so another device can listen to it. It costs an ffmpeg process.</p>
               <div class="field-row" id="streamEnabledRow">
                 <label for="streamEnabled" data-i18n="stream.switch">Serve the stream</label>
-                <input type="checkbox" id="streamEnabled" data-key="STREAM_ENABLED" class="switch-input" role="switch">
+                <input type="checkbox" id="streamEnabled" data-key="audio.stream_enabled" class="switch-input" role="switch">
               </div>
               <div data-level="detail" class="field-row">
                 <div class="field-text">
                   <label for="streamEncoder" data-i18n="stream.codec">Stream codec</label>
                   <p class="field-desc" id="streamEncoderDesc" data-i18n="stream.codec_desc">What the stream is encoded with. Opus is what every browser plays and what the radio's little bandwidth carries comfortably.</p>
                 </div>
-                <select id="streamEncoder" data-key="STREAM_ENCODER" aria-describedby="streamEncoderDesc">
+                <select id="streamEncoder" data-key="audio.stream_encoder" aria-describedby="streamEncoderDesc">
                   <option value="" data-i18n="stream.codec_auto">Best available</option>
                   <option value="opus">Opus</option>
                   <option value="mp3">MP3</option>
@@ -2069,7 +2069,7 @@
                   <label for="streamSource" data-i18n="stream.source">Stream source</label>
                   <p class="field-desc" id="streamSourceDesc" data-i18n="stream.source_desc">The output to encode, as the sound server names it. Empty follows the output the radio already plays to.</p>
                 </div>
-                <input type="text" id="streamSource" data-key="STREAM_SOURCE" class="text-input"
+                <input type="text" id="streamSource" data-key="audio.stream_source" class="text-input"
                        placeholder="alsa_output.hdmi.monitor" autocomplete="off" spellcheck="false"
                        aria-describedby="streamSourceDesc">
               </div>
@@ -2078,7 +2078,7 @@
                   <label for="streamVolume" data-i18n="stream.volume">Stream volume (%)</label>
                   <p class="field-desc" id="streamVolumeDesc" data-i18n="stream.volume_desc">0 to 200%. 100% follows the volume the radio is playing at: below is quieter, above is louder. It multiplies what the radio plays.</p>
                 </div>
-                <input type="number" id="streamVolume" data-key="STREAM_VOLUME" class="num-input" min="0" max="200" step="5"
+                <input type="number" id="streamVolume" data-key="audio.stream_volume" class="num-input" min="0" max="200" step="5"
                        inputmode="numeric" aria-describedby="streamVolumeDesc">
               </div>
               <div class="field-row" id="upnpNameRow">
@@ -2086,7 +2086,7 @@
                   <label for="upnpName" data-i18n="stream.upnp_name">Name on the network</label>
                   <p class="field-desc" id="upnpNameDesc" data-i18n="stream.upnp_name_desc">The whole name a player lists and the stream carries, number included. Two radios on one network need two different ones.</p>
                 </div>
-                <input type="text" id="upnpName" data-key="UPNP_NAME" class="text-input" maxlength="40"
+                <input type="text" id="upnpName" data-key="audio.upnp_name" class="text-input" maxlength="40"
                        autocomplete="off" spellcheck="false" aria-describedby="upnpNameDesc">
               </div>
               <p class="hint" id="upnpNeedsStream" data-i18n="stream.upnp_needs_stream" hidden>A player can only find the radio while the stream is on.</p>
@@ -2096,7 +2096,7 @@
               <p class="hint help-text" data-i18n="audioout.transfer_limit_desc" hidden>Slows uploads (music sync, sounds) so the Bluetooth sound does not stutter.</p>
               <div class="field-row">
                 <label for="transferLimitMode" data-i18n="audioout.transfer_when">When</label>
-                <select id="transferLimitMode" data-key="TRANSFER_LIMIT_MODE">
+                <select id="transferLimitMode" data-key="hardware.transfer_limit">
                   <option value="auto" data-i18n="audioout.transfer_auto">While music plays over built-in Bluetooth</option>
                   <option value="always" data-i18n="audioout.transfer_always">Always</option>
                   <option value="off" data-i18n="audioout.transfer_off">Never</option>
@@ -2107,7 +2107,7 @@
                   <label for="transferLimitKbps" data-i18n="audioout.transfer_kbps">Limited speed (KB/s)</label>
                   <p class="field-desc" id="transferLimitKbpsDesc" data-i18n="audioout.transfer_kbps_desc">Slower is gentler on the Bluetooth sound; faster gets a music sync or a backup over with sooner.</p>
                 </div>
-                <select id="transferLimitKbps" data-key="TRANSFER_LIMIT_KBPS" aria-describedby="transferLimitKbpsDesc">
+                <select id="transferLimitKbps" data-key="hardware.transfer_limit_kbps" aria-describedby="transferLimitKbpsDesc">
                   <option value="64">64</option>
                   <option value="128">128</option>
                   <option value="200">200</option>
@@ -2120,7 +2120,7 @@
                   <label for="transferLimitUsb" data-i18n="audioout.transfer_usb">Also with a speaker on a USB dongle</label>
                   <p class="field-desc" id="transferLimitUsbDesc" data-i18n="audioout.transfer_usb_desc">A dongle close to the board can still disturb the Wi-Fi.</p>
                 </div>
-                <input type="checkbox" id="transferLimitUsb" data-key="TRANSFER_LIMIT_USB" class="switch-input" role="switch"
+                <input type="checkbox" id="transferLimitUsb" data-key="hardware.transfer_limit_usb" class="switch-input" role="switch"
                        aria-describedby="transferLimitUsbDesc">
               </div>
             </details>
@@ -2199,14 +2199,14 @@
             <form id="speakerForm" class="settings-form">
               <div class="field-row">
                 <label for="speakerLossPause" data-i18n="speakerloss.pause">Pause, resume when it comes back</label>
-                <input type="checkbox" id="speakerLossPause" data-key="SPEAKER_LOSS_PAUSE" class="switch-input" role="switch">
+                <input type="checkbox" id="speakerLossPause" data-key="bluetooth.pause_on_speaker_loss" class="switch-input" role="switch">
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label for="speakerWatchInterval" data-i18n="speakerloss.interval">Check the speaker every (sec)</label>
                   <p class="field-desc" id="speakerWatchIntervalDesc" data-i18n="speakerloss.interval_desc">How quickly the radio notices.</p>
                 </div>
-                <input type="number" id="speakerWatchInterval" min="0" max="300" step="1" data-key="SPEAKER_WATCH_INTERVAL_SEC"
+                <input type="number" id="speakerWatchInterval" min="0" max="300" step="1" data-key="statistics.speaker_watch_sec"
                        class="num-input" inputmode="numeric" aria-describedby="speakerWatchIntervalDesc">
               </div>
               <div class="field-row">
@@ -2214,7 +2214,7 @@
                   <label for="speakerQuickStep" data-i18n="speakerloss.quick_step">Big volume steps at the start (%)</label>
                   <p class="field-desc" id="speakerQuickStepDesc" data-i18n="speakerloss.quick_step_desc">Right after the music starts, a press on the speaker's volume moves it this much; normal steps again 10 s after the last press. 0 = off.</p>
                 </div>
-                <input type="number" id="speakerQuickStep" min="0" max="50" step="5" data-key="SPEAKER_QUICK_STEP"
+                <input type="number" id="speakerQuickStep" min="0" max="50" step="5" data-key="bluetooth.quick_volume_step"
                        class="num-input" inputmode="numeric" aria-describedby="speakerQuickStepDesc">
               </div>
               <div class="field-row">
@@ -2222,7 +2222,7 @@
                   <label for="speakerBatteryLow" data-i18n="speakerloss.battery_low">Warn when the battery falls to (%)</label>
                   <p class="field-desc" id="speakerBatteryLowDesc" data-i18n="speakerloss.battery_low_desc">0 = no warning. Only if the speaker reports its battery.</p>
                 </div>
-                <input type="number" id="speakerBatteryLow" min="0" max="90" step="5" data-key="SPEAKER_BATTERY_LOW"
+                <input type="number" id="speakerBatteryLow" min="0" max="90" step="5" data-key="bluetooth.battery_low_percent"
                        class="num-input" inputmode="numeric" aria-describedby="speakerBatteryLowDesc">
               </div>
               <div class="field-row" id="speakerResumeFadeRow">
@@ -2230,7 +2230,7 @@
                   <label for="speakerResumeFade" data-i18n="speakerloss.fade">Fade-in on resume (sec)</label>
                   <p class="field-desc" id="speakerResumeFadeDesc" data-i18n="speakerloss.fade_desc">0 = straight back at full volume.</p>
                 </div>
-                <input type="number" id="speakerResumeFade" min="0" max="30" step="0.5" data-key="SPEAKER_RESUME_FADE_SEC"
+                <input type="number" id="speakerResumeFade" min="0" max="30" step="0.5" data-key="bluetooth.resume_fade_sec"
                        class="num-input" inputmode="decimal" aria-describedby="speakerResumeFadeDesc">
               </div>
               <div class="field-row">
@@ -2238,7 +2238,7 @@
                   <label for="speakerLossShutdown" data-i18n="speakerloss.off_lost">Power off after it is lost (min)</label>
                   <p class="field-desc" id="speakerLossShutdownDesc" data-i18n="speakerloss.zero_never">0 = never.</p>
                 </div>
-                <input type="number" id="speakerLossShutdown" min="0" max="1440" step="1" data-key="SPEAKER_LOSS_SHUTDOWN_MIN"
+                <input type="number" id="speakerLossShutdown" min="0" max="1440" step="1" data-key="bluetooth.shutdown_after_speaker_loss_min"
                        class="num-input" inputmode="numeric" aria-describedby="speakerLossShutdownDesc">
               </div>
               <div class="field-row">
@@ -2246,7 +2246,7 @@
                   <label for="speakerAbsentShutdown" data-i18n="speakerloss.off_absent">Power off if no speaker since startup (min)</label>
                   <p class="field-desc" id="speakerAbsentShutdownDesc" data-i18n="speakerloss.zero_never">0 = never.</p>
                 </div>
-                <input type="number" id="speakerAbsentShutdown" min="0" max="1440" step="1" data-key="SPEAKER_ABSENT_SHUTDOWN_MIN"
+                <input type="number" id="speakerAbsentShutdown" min="0" max="1440" step="1" data-key="bluetooth.shutdown_if_no_speaker_min"
                        class="num-input" inputmode="numeric" aria-describedby="speakerAbsentShutdownDesc">
               </div>
               <p class="hint help-text" data-i18n="speakerloss.help" hidden>
@@ -2328,7 +2328,7 @@
               <label for="usbPlug" data-i18n="usb.plug_label">When a storage device is plugged in</label>
               <p class="field-desc" id="usbPlugDesc" data-i18n="usb.plug_desc">A device already used before is taken again either way.</p>
             </div>
-            <select id="usbPlug" data-key="USB_MUSIC_ON_PLUG" aria-describedby="usbPlugDesc">
+            <select id="usbPlug" data-key="hardware.usb_music_on_plug" aria-describedby="usbPlugDesc">
               <option value="offer" data-i18n="usb.plug_offer">Offer it</option>
               <option value="use" data-i18n="usb.plug_use">Play from it</option>
             </select>
@@ -2338,7 +2338,7 @@
               <label for="usbSwitch" data-i18n="usb.switch_label">Changing to a storage device</label>
               <p class="field-desc" id="usbSwitchDesc" data-i18n="usb.switch_desc">What happens to the song playing, every time a device becomes the music folder.</p>
             </div>
-            <select id="usbSwitch" data-key="USB_MUSIC_SWITCH" aria-describedby="usbSwitchDesc">
+            <select id="usbSwitch" data-key="hardware.usb_music_switch" aria-describedby="usbSwitchDesc">
               <option value="after" data-i18n="usb.switch_after">The song finishes, the storage takes over after</option>
               <option value="now" data-i18n="usb.switch_now">The song is replaced right away</option>
             </select>
@@ -2408,11 +2408,11 @@
             <summary><span data-i18n="clock.bt_fallback">Bluetooth fallback</span></summary>
             <div class="field-row">
               <label for="btClockEnabled" data-i18n="common.enabled">Enabled</label>
-              <input type="checkbox" id="btClockEnabled" data-key="BT_CLOCK_ENABLED" class="switch-input" role="switch">
+              <input type="checkbox" id="btClockEnabled" data-key="clock.bluetooth_fallback" class="switch-input" role="switch">
             </div>
             <div class="field-row">
               <label for="btClockMac" data-i18n="clock.device_mac">Device (MAC)</label>
-              <input type="text" id="btClockMac" data-key="BT_CLOCK_MAC" class="text-input" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false">
+              <input type="text" id="btClockMac" data-key="clock.bluetooth_mac" class="text-input" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false">
             </div>
             <div class="form-actions btn-split">
               <div class="btn-group">
@@ -2454,7 +2454,7 @@
                   <label for="extraHosts" data-i18n="domain.hosts">Allowed domain names</label>
                   <p class="field-desc" id="extraHostsDesc" data-i18n="domain.hosts_desc">Separated by commas. Its address and rukebox.local always work.</p>
                 </div>
-                <input type="text" id="extraHosts" data-key="WEB_EXTRA_HOSTS" class="text-input" placeholder="radio.example.com"
+                <input type="text" id="extraHosts" data-key="network.web_extra_hosts" class="text-input" placeholder="radio.example.com"
                        aria-describedby="extraHostsDesc" spellcheck="false" autocapitalize="off" autocomplete="off">
               </div>
               <div class="field-row">
@@ -2462,7 +2462,7 @@
                   <label for="behindProxy" data-i18n="domain.proxy">Behind a reverse proxy</label>
                   <p class="field-desc" id="behindProxyDesc" data-i18n="domain.proxy_desc">Trusts the headers your proxy adds (X-Forwarded-*). Only with a proxy in front.</p>
                 </div>
-                <input type="checkbox" id="behindProxy" data-key="WEB_BEHIND_PROXY" class="switch-input" role="switch"
+                <input type="checkbox" id="behindProxy" data-key="network.web_behind_proxy" class="switch-input" role="switch"
                        aria-describedby="behindProxyDesc">
               </div>
               <div id="refusedHostsBox" hidden>
@@ -2482,12 +2482,12 @@
             <form id="gpioResetForm" class="settings-form">
               <div class="field-row">
                 <label for="gpioResetEnabled" data-i18n="security.gpio_enabled">GPIO password reset</label>
-                <input type="checkbox" id="gpioResetEnabled" data-key="GPIO_RESET_ENABLED" class="switch-input" role="switch">
+                <input type="checkbox" id="gpioResetEnabled" data-key="security.gpio_reset_enabled" class="switch-input" role="switch">
               </div>
               <div class="field-row">
                 <label for="gpioResetPin" data-i18n="security.gpio_pin">Reset pin</label>
                 <div class="pin-field">
-                  <input type="number" id="gpioResetPin" min="0" max="27" step="1" data-key="GPIO_RESET_PIN" class="num-input" inputmode="numeric">
+                  <input type="number" id="gpioResetPin" min="0" max="27" step="1" data-key="security.gpio_reset_pin" class="num-input" inputmode="numeric">
                   <button type="button" class="btn btn-icon pin-pick-btn" data-icon="chip" data-pin-target="gpioResetPin"
                           data-i18n-aria-label="gpio.choose" aria-label="Choose" data-i18n-title="gpio.choose" title="Choose"></button>
                 </div>
@@ -2524,7 +2524,7 @@
                 <label for="apGatewayToggle" data-i18n="ap.gateway">Internet through the radio</label>
                 <p class="field-desc" id="apGatewayDesc" data-i18n="ap.gateway_desc">Needed to open this interface on a device that joined this Wi-Fi without the captive portal.</p>
               </div>
-              <input type="checkbox" id="apGatewayToggle" data-key="AP_GATEWAY_ENABLED" class="switch-input" role="switch" aria-describedby="apGatewayDesc">
+              <input type="checkbox" id="apGatewayToggle" data-key="network.ap_gateway" class="switch-input" role="switch" aria-describedby="apGatewayDesc">
             </div>
             <p class="hint help-text" data-i18n="ap.gateway_help" hidden>Why: a phone keeps a Wi-Fi only if it has internet. Without it, with mobile data on, the phone sends its browser over mobile data and the radio's address no longer opens. On: the radio passes on its own connection (personal Wi-Fi or USB cable), the phone keeps the Wi-Fi and the page opens. This only helps while the radio itself has internet, and every device on this Wi-Fi can then browse through it. Off: the Wi-Fi leads to the radio only; turn mobile data off, or answer "Stay connected" when the phone says the Wi-Fi has no internet.</p>
             <div class="form-actions">
@@ -2610,14 +2610,14 @@
           <form id="guestAccessForm" class="settings-form">
             <div class="field-row">
               <label for="guestModeToggle" data-i18n="security.guest_mode">Guest actions without password</label>
-              <input type="checkbox" id="guestModeToggle" data-key="GUEST_MODE_ENABLED" class="switch-input" role="switch">
+              <input type="checkbox" id="guestModeToggle" data-key="security.guest_mode" class="switch-input" role="switch">
             </div>
             <div class="field-row">
               <div class="field-text">
                 <label for="captivePortalMode" data-i18n="settings.captive_mode">Captive portal</label>
                 <p class="field-desc" id="captivePortalDesc" data-i18n="portal.desc">When a phone joins the Rukebox's Wi-Fi, it opens this interface by itself.</p>
               </div>
-              <select id="captivePortalMode" data-key="CAPTIVE_PORTAL_MODE" aria-describedby="captivePortalDesc">
+              <select id="captivePortalMode" data-key="network.captive_portal_mode" aria-describedby="captivePortalDesc">
                 <option value="release" data-i18n="portal.release">Once a day: back after 12 hours</option>
                 <option value="new_only" data-i18n="portal.new_only">Once per device: never again after that</option>
                 <option value="hold" data-i18n="portal.hold">At every check: the page keeps coming back</option>
@@ -2629,14 +2629,14 @@
               <summary><span data-i18n="guest.group_allowed">What guests may do</span></summary>
               <div class="field-row">
                 <label for="suggestionsToggle" data-i18n="suggest.enabled">Suggestion box</label>
-                <input type="checkbox" id="suggestionsToggle" data-key="SUGGESTIONS_ENABLED" class="switch-input" role="switch">
+                <input type="checkbox" id="suggestionsToggle" data-key="suggestions.enabled" class="switch-input" role="switch">
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label for="dedicationsToggle" data-i18n="guest.dedications">Dedications</label>
                   <p class="field-desc" id="dedicationsDesc" data-i18n="guest.dedications_desc">Whoever puts a song up next may add a short message, said out loud just before it.</p>
                 </div>
-                <input type="checkbox" id="dedicationsToggle" data-key="DEDICATIONS_ENABLED" class="switch-input" role="switch"
+                <input type="checkbox" id="dedicationsToggle" data-key="security.dedications" class="switch-input" role="switch"
                        aria-describedby="dedicationsDesc">
               </div>
               <div class="field-row">
@@ -2644,7 +2644,7 @@
                   <label for="dedicationsVoiceToggle" data-i18n="guest.dedications_voice">Voice dedications</label>
                   <p class="field-desc" id="dedicationsVoiceDesc" data-i18n="guest.dedications_voice_desc">The message can also be recorded with the microphone. Browsers only allow it over HTTPS.</p>
                 </div>
-                <input type="checkbox" id="dedicationsVoiceToggle" data-key="DEDICATIONS_VOICE" class="switch-input" role="switch"
+                <input type="checkbox" id="dedicationsVoiceToggle" data-key="security.dedications_voice" class="switch-input" role="switch"
                        aria-describedby="dedicationsVoiceDesc">
               </div>
               <p class="hint voice-https-note" id="dedicationsVoiceHttps" data-icon="lock" data-i18n="guest.dedications_voice_https" hidden>This page is not served over HTTPS: the microphone is blocked here, for you as for your guests.</p>
@@ -2653,19 +2653,19 @@
                   <label for="queueFairToggle" data-i18n="guest.queue_fair">Take turns between people</label>
                   <p class="field-desc" id="queueFairDesc" data-i18n="guest.queue_fair_desc">Songs asked for alternate, one per person, instead of first come, first served.</p>
                 </div>
-                <input type="checkbox" id="queueFairToggle" data-key="QUEUE_FAIR" class="switch-input" role="switch"
+                <input type="checkbox" id="queueFairToggle" data-key="security.queue_fair" class="switch-input" role="switch"
                        aria-describedby="queueFairDesc">
               </div>
               <div class="field-row">
                 <label for="renameInterval" data-i18n="suggest.rename_interval">Delay between two name changes (min)</label>
-                <input type="number" id="renameInterval" min="0" max="10080" step="1" data-key="SUGGESTIONS_RENAME_INTERVAL_MIN" class="num-input" inputmode="numeric">
+                <input type="number" id="renameInterval" min="0" max="10080" step="1" data-key="suggestions.rename_interval_min" class="num-input" inputmode="numeric">
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label data-i18n="guestpages.label">Pages hidden from guests</label>
                   <p class="field-desc" id="guestPagesDesc" data-i18n="guestpages.desc">A guest sees neither the page nor what it asks for. Now playing always stays.</p>
                 </div>
-                <div class="codec-field" id="guestPagesOff" data-key="GUEST_PAGES_OFF" data-min="0"
+                <div class="codec-field" id="guestPagesOff" data-key="security.guest_pages_off" data-min="0"
                      data-empty="guestpages.none" aria-describedby="guestPagesDesc"></div>
               </div>
               <div class="field-row">
@@ -2673,7 +2673,7 @@
                   <label data-i18n="guestlock.label">Locked for guests</label>
                   <p class="field-desc" id="guestLockedDesc" data-i18n="guestlock.desc">Commands a guest cannot use at all, whatever their credits.</p>
                 </div>
-                <div class="codec-field" id="guestLocked" data-key="GUEST_LOCKED" data-min="0"
+                <div class="codec-field" id="guestLocked" data-key="security.guest_locked" data-min="0"
                      data-empty="guestlock.none" aria-describedby="guestLockedDesc"></div>
               </div>
             </details>
@@ -2685,14 +2685,14 @@
                   <label for="skipVoteToggle" data-i18n="skipvote.allow">Allow the vote</label>
                   <p class="field-desc" data-i18n="skipvote.enabled_desc">Everyone with the page open can vote; the song changes once enough of them agree. Free, one vote per person.</p>
                 </div>
-                <input type="checkbox" id="skipVoteToggle" data-key="SKIP_VOTE_ENABLED" class="switch-input" role="switch">
+                <input type="checkbox" id="skipVoteToggle" data-key="security.skip_vote" class="switch-input" role="switch">
               </div>
               <div class="field-row">
                 <div class="field-text">
                   <label for="skipVoteShare" data-i18n="skipvote.share">Votes needed (%)</label>
                   <p class="field-desc" id="skipVoteShareDesc" data-i18n="skipvote.share_desc">More than this share of the people with the page open, 2 votes at least.</p>
                 </div>
-                <input type="number" id="skipVoteShare" min="1" max="100" step="1" data-key="SKIP_VOTE_SHARE"
+                <input type="number" id="skipVoteShare" min="1" max="100" step="1" data-key="security.skip_vote_share"
                        class="num-input" inputmode="numeric" aria-describedby="skipVoteShareDesc">
               </div>
               <div class="field-row">
@@ -2700,7 +2700,7 @@
                   <label for="actionRepeat" data-i18n="repeat.label">Same action from someone else ignored for (sec)</label>
                   <p class="field-desc" id="actionRepeatDesc" data-i18n="repeat.desc">Several people pressing Next together skip one song. 0 turns it off.</p>
                 </div>
-                <input type="number" id="actionRepeat" min="0" max="10" step="0.5" data-key="ACTION_REPEAT_SEC"
+                <input type="number" id="actionRepeat" min="0" max="10" step="0.5" data-key="security.action_repeat_sec"
                        class="num-input" inputmode="decimal" aria-describedby="actionRepeatDesc">
               </div>
             </details>
@@ -2712,66 +2712,66 @@
                   <label for="guestQuotaToggle" data-i18n="quota.allow">Allow credits</label>
                   <p class="field-desc" data-i18n="quota.desc">Each guest action costs credits, which come back over time; the same action repeated costs more and more.</p>
                 </div>
-                <input type="checkbox" id="guestQuotaToggle" data-key="GUEST_QUOTA_ENABLED" class="switch-input" role="switch">
+                <input type="checkbox" id="guestQuotaToggle" data-key="security.guest_quota" class="switch-input" role="switch">
               </div>
               <div class="field-row">
                 <label for="guestQuotaMax" data-i18n="quota.max">Credits at most</label>
-                <input type="number" id="guestQuotaMax" min="1" max="100" step="1" data-key="GUEST_QUOTA_MAX" class="num-input" inputmode="numeric">
+                <input type="number" id="guestQuotaMax" min="1" max="100" step="1" data-key="security.guest_quota_max" class="num-input" inputmode="numeric">
               </div>
               <div class="field-row">
                 <label for="guestQuotaStart" data-i18n="quota.start">Credits at the start</label>
-                <input type="number" id="guestQuotaStart" min="0" max="100" step="1" data-key="GUEST_QUOTA_START" class="num-input" inputmode="numeric">
+                <input type="number" id="guestQuotaStart" min="0" max="100" step="1" data-key="security.guest_quota_start" class="num-input" inputmode="numeric">
               </div>
               <div class="field-row">
                 <label for="guestQuotaRefill" data-i18n="quota.refill">One credit back every (sec)</label>
-                <input type="number" id="guestQuotaRefill" min="1" max="3600" step="1" data-key="GUEST_QUOTA_REFILL_SEC" class="num-input" inputmode="numeric">
+                <input type="number" id="guestQuotaRefill" min="1" max="3600" step="1" data-key="security.guest_quota_refill_sec" class="num-input" inputmode="numeric">
               </div>
               <div class="field-row">
                 <label for="guestQuotaRepeat" data-i18n="quota.repeat">Price doubles if repeated within (min)</label>
-                <input type="number" id="guestQuotaRepeat" min="0" max="1440" step="1" data-key="GUEST_QUOTA_REPEAT_MIN" class="num-input" inputmode="numeric">
+                <input type="number" id="guestQuotaRepeat" min="0" max="1440" step="1" data-key="security.guest_quota_repeat_min" class="num-input" inputmode="numeric">
               </div>
               <details class="subsection" id="guestCostsSection">
                 <summary><span data-i18n="quota.costs">Prices</span></summary>
                 <p class="hint help-text" data-i18n="quota.costs_desc" hidden>Credits each action costs a guest, doubled every time it is repeated. 0 = free.</p>
                 <div class="field-row">
                   <label for="guestCostNext" data-i18n="quota.cost_next">Next track</label>
-                  <input type="number" id="guestCostNext" min="0" max="100" step="1" data-key="GUEST_COST_NEXT" class="num-input" inputmode="numeric">
+                  <input type="number" id="guestCostNext" min="0" max="100" step="1" data-key="security.guest_cost_next" class="num-input" inputmode="numeric">
                 </div>
                 <div class="field-row">
                   <label for="guestCostPrevious" data-i18n="quota.cost_previous">Previous track</label>
-                  <input type="number" id="guestCostPrevious" min="0" max="100" step="1" data-key="GUEST_COST_PREVIOUS" class="num-input" inputmode="numeric">
+                  <input type="number" id="guestCostPrevious" min="0" max="100" step="1" data-key="security.guest_cost_previous" class="num-input" inputmode="numeric">
                 </div>
                 <div class="field-row">
                   <label for="guestCostStart" data-i18n="quota.cost_start">Start the music</label>
-                  <input type="number" id="guestCostStart" min="0" max="100" step="1" data-key="GUEST_COST_START" class="num-input" inputmode="numeric">
+                  <input type="number" id="guestCostStart" min="0" max="100" step="1" data-key="security.guest_cost_start" class="num-input" inputmode="numeric">
                 </div>
                 <div class="field-row">
                   <label for="guestCostPause" data-i18n="quota.cost_pause">Pause, resume, skip a sound</label>
-                  <input type="number" id="guestCostPause" min="0" max="100" step="1" data-key="GUEST_COST_PAUSE" class="num-input" inputmode="numeric">
+                  <input type="number" id="guestCostPause" min="0" max="100" step="1" data-key="security.guest_cost_pause" class="num-input" inputmode="numeric">
                 </div>
                 <div class="field-row">
                   <label for="guestCostSound" data-i18n="quota.cost_sound">Sound + next</label>
-                  <input type="number" id="guestCostSound" min="0" max="100" step="1" data-key="GUEST_COST_SOUND" class="num-input" inputmode="numeric">
+                  <input type="number" id="guestCostSound" min="0" max="100" step="1" data-key="security.guest_cost_sound" class="num-input" inputmode="numeric">
                 </div>
                 <div class="field-row">
                   <label for="guestCostAnnounce" data-i18n="quota.cost_announce">Announcement</label>
-                  <input type="number" id="guestCostAnnounce" min="0" max="100" step="1" data-key="GUEST_COST_ANNOUNCE" class="num-input" inputmode="numeric">
+                  <input type="number" id="guestCostAnnounce" min="0" max="100" step="1" data-key="security.guest_cost_announce" class="num-input" inputmode="numeric">
                 </div>
                 <div class="field-row">
                   <label for="guestCostVolume" data-i18n="quota.cost_volume">Volume (one charge per 10 sec of slider)</label>
-                  <input type="number" id="guestCostVolume" min="0" max="100" step="1" data-key="GUEST_COST_VOLUME" class="num-input" inputmode="numeric">
+                  <input type="number" id="guestCostVolume" min="0" max="100" step="1" data-key="security.guest_cost_volume" class="num-input" inputmode="numeric">
                 </div>
               <div class="field-row">
                 <label for="guestCostQueue" data-i18n="quota.cost_queue">Put a song up next</label>
-                <input type="number" id="guestCostQueue" min="0" max="100" step="1" data-key="GUEST_COST_QUEUE" class="num-input" inputmode="numeric">
+                <input type="number" id="guestCostQueue" min="0" max="100" step="1" data-key="security.guest_cost_queue" class="num-input" inputmode="numeric">
               </div>
               <div class="field-row">
                 <label for="guestCostPlayNow" data-i18n="quota.cost_play_now">Play a song of Up next now</label>
-                <input type="number" id="guestCostPlayNow" min="0" max="100" step="1" data-key="GUEST_COST_PLAY_NOW" class="num-input" inputmode="numeric">
+                <input type="number" id="guestCostPlayNow" min="0" max="100" step="1" data-key="security.guest_cost_play_now" class="num-input" inputmode="numeric">
               </div>
               <div class="field-row">
                 <label for="guestCostOutput" data-i18n="quota.cost_output">Another audio output (planned one missing)</label>
-                <input type="number" id="guestCostOutput" min="0" max="100" step="1" data-key="GUEST_COST_OUTPUT" class="num-input" inputmode="numeric">
+                <input type="number" id="guestCostOutput" min="0" max="100" step="1" data-key="security.guest_cost_output" class="num-input" inputmode="numeric">
               </div>
               </details>
             </details>
@@ -2816,7 +2816,7 @@
                 <label for="updateAllowWeb" data-i18n="update.allow_web">Allow updates from the web</label>
                 <p class="field-desc" id="updateAllowWebDesc" data-i18n="update.allow_web_desc">The update runs as root: anyone who can open this page could start a download and run it. Turn it back off when you are done.</p>
               </div>
-              <input type="checkbox" id="updateAllowWeb" data-key="UPDATE_ALLOW_WEB" class="switch-input" role="switch"
+              <input type="checkbox" id="updateAllowWeb" data-key="updates.allow_from_web" class="switch-input" role="switch"
                      aria-describedby="updateAllowWebDesc">
             </div>
           </div>
@@ -2858,7 +2858,7 @@
                     <p class="field-desc" id="releaseRepoDesc" data-i18n="update.release_repo_desc">owner/name - change it for a fork.</p>
                   </div>
                   <div class="input-with-action">
-                    <input type="text" id="releaseRepo" class="text-input" data-key="UPDATE_GITHUB_REPO"
+                    <input type="text" id="releaseRepo" class="text-input" data-key="updates.github_repo"
                            aria-describedby="releaseRepoDesc" placeholder="Arubinu/Rukebox"
                            autocapitalize="off" autocomplete="off" spellcheck="false">
                     <button type="submit" class="btn btn-icon" data-icon="check" data-i18n-aria-label="common.save" aria-label="Save" data-i18n-title="common.save" title="Save"></button>
