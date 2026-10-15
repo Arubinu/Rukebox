@@ -71,10 +71,16 @@ class ResolveTest(unittest.TestCase):
 
 class MovedRootTest(unittest.TestCase):
     def setUp(self):
+        # A test that pointed the document at its own directory leaves the
+        # variable behind: this one is about where the roots lead.
+        _path.document(None)
         for name, value in MOVED.items():
             patcher = mock.patch.object(paths, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
+
+    def tearDown(self):
+        _path.document(None)
 
     def test_the_two_configuration_files_follow_the_config_root(self):
         self.assertEqual(paths.env_file(), "/config/rukebox.env")
@@ -93,8 +99,7 @@ class MovedRootTest(unittest.TestCase):
         self.assertEqual(defaults["STATE_DIR"], "/data")
         self.assertEqual(defaults["STATS_DB_FILE"], "/data/stats.db")
         self.assertEqual(defaults["LIKES_FILE"], "/data/likes.json")
-        self.assertEqual(defaults["ANNOUNCEMENTS_FILE"], "/config/announcements.json")
-        self.assertEqual(defaults["CARDS_FILE"], "/config/cards.json")
+        self.assertEqual(defaults["HIDDEN_FILE"], "/data/hidden.json")
         self.assertEqual(defaults["MUSIC_DIR"], "/music/music")
         self.assertEqual(defaults["DJ_ANNOUNCE_DIR"], "/music/dj_announcements")
         self.assertEqual(defaults["COVER_DIR"], "/music/covers")

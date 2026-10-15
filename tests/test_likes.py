@@ -13,6 +13,7 @@ import likes
 class LikesTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.path = os.path.join(self.dir, "likes.json")
 
     def tearDown(self):

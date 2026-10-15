@@ -15,6 +15,7 @@ import rukebox_daemon
 class SchedulerTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         cfg = load_config()
         cfg.update({
@@ -24,7 +25,6 @@ class SchedulerTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "CUTOFF_HOUR": 23, "CUTOFF_MINUTE": 30,
         })
         self.daemon = rukebox_daemon.RadioDaemon(cfg)

@@ -77,6 +77,7 @@ class FakeSystemctl:
 class FlicHoldTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.cfg = load_config()
         self.cfg.update({
@@ -86,7 +87,6 @@ class FlicHoldTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "AUDIO_OUTPUT": "bluetooth",
         })
 

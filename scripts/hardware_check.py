@@ -298,7 +298,7 @@ def _next_minute(lead=60):
 def t_announcement(created):
     ensure_music()
     at = _next_minute()
-    item = announcements.add(cfg["ANNOUNCEMENTS_FILE"], {
+    item = announcements.add({
         "name": TEST_NAME, "folder": cfg["MEME_DIR"], "trigger": "time",
         "hour": at.hour, "minute": at.minute, "after_action": "pause"})
     created["announcement"] = item["id"]
@@ -318,7 +318,7 @@ def t_schedule(created):
     time.sleep(3)
     start = _next_minute(20)
     stop = start + timedelta(minutes=2)
-    item = schedules.add(cfg["SCHEDULES_FILE"], {
+    item = schedules.add({
         "name": TEST_NAME, "start": start.strftime("%H:%M"), "stop": stop.strftime("%H:%M"),
         "stop_action": "pause", "settings": {"BASE_VOLUME": str(SCHEDULE_VOLUME)}})
     created["schedule"] = item["id"]
@@ -422,9 +422,9 @@ def restore(snapshot, created=None):
     for kind, item_id in (created or {}).items():
         try:
             if kind == "announcement":
-                announcements.delete(cfg["ANNOUNCEMENTS_FILE"], item_id)
+                announcements.delete(item_id)
             else:
-                schedules.delete(cfg["SCHEDULES_FILE"], item_id)
+                schedules.delete(item_id)
         except (KeyError, ValueError, OSError):
             pass
     config_bundle.import_bundle(snapshot["bundle"], cfg)

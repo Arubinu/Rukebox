@@ -118,30 +118,30 @@ class RulesTest(unittest.TestCase):
         self.assertEqual(when, at(12, 7, 0))
         self.assertIsNone(schedules.next_start([make(date="2026-10-01")], at(5, 9, 30)))
 
-    def test_the_file_keeps_ids_and_refuses_to_replace_what_it_cannot_read(self):
+    def test_the_document_keeps_ids_and_refuses_to_replace_what_it_cannot_read(self):
         folder = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
-        path = os.path.join(folder, "schedules.json")
-        first = schedules.add(path, {"name": "Le matin", "start": "07:00"})
-        second = schedules.add(path, {"name": "Le matin", "start": "08:00"})
+        path = _path.document(folder)
+        first = schedules.add({"name": "Le matin", "start": "07:00"}, path)
+        second = schedules.add({"name": "Le matin", "start": "08:00"}, path)
         self.assertEqual((first["id"], second["id"]), ("le-matin", "le-matin-2"))
-        schedules.update(path, "le-matin", {"stop": "09:00", "enabled": False})
+        schedules.update("le-matin", {"stop": "09:00", "enabled": False}, path)
         self.assertEqual(schedules.load(path)[0]["stop"], "09:00")
         self.assertFalse(schedules.load(path)[0]["enabled"])
-        third = schedules.add(path, {"name": "Le soir", "start": "20:00"})
-        ordered = schedules.reorder(path, [third["id"], "gone", "le-matin-2", third["id"]])
+        third = schedules.add({"name": "Le soir", "start": "20:00"}, path)
+        ordered = schedules.reorder([third["id"], "gone", "le-matin-2", third["id"]], path)
         self.assertEqual([item["id"] for item in ordered], ["le-soir", "le-matin-2", "le-matin"],
                          "those named first, the others after, nothing lost")
         self.assertEqual([item["id"] for item in schedules.load(path)], ["le-soir", "le-matin-2", "le-matin"])
         with self.assertRaises(ValueError):
-            schedules.reorder(path, "le-soir")
-        schedules.delete(path, "le-matin-2")
-        schedules.delete(path, "le-soir")
+            schedules.reorder("le-soir", path)
+        schedules.delete("le-matin-2", path)
+        schedules.delete("le-soir", path)
         self.assertEqual(len(schedules.load(path)), 1)
-        with open(path, "w") as f:
-            f.write("{ not json")
-        with self.assertLogs("json_file", level="ERROR"), self.assertRaises(ValueError) as refused:
-            schedules.add(path, {"name": "B", "start": "07:00"})
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("schedules:\n  schedules: [ oops\n")
+        with self.assertLogs("config_document", level="ERROR"), self.assertRaises(ValueError) as refused:
+            schedules.add({"name": "B", "start": "07:00"}, path)
         self.assertEqual(str(refused.exception), "file_unreadable")
 
 
@@ -166,6 +166,7 @@ class FakeMpv:
 class DaemonTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.addCleanup(mock.patch.stopall)
         music = os.path.join(self.dir, "music")
@@ -173,8 +174,7 @@ class DaemonTest(unittest.TestCase):
         for name in ("a.mp3", "b.mp3", os.path.join("Calm", "c.mp3")):
             with open(os.path.join(music, name), "wb") as f:
                 f.write(b"x")
-        self.path = os.path.join(self.dir, "schedules.json")
-        self.lists = os.path.join(self.dir, "lists.json")
+        self.path = _path.document(self.dir)
         cfg = load_config()
         cfg.update({
             "MUSIC_DIR": music,
@@ -183,9 +183,6 @@ class DaemonTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
-            "MUSIC_LISTS_FILE": self.lists,
-            "SCHEDULES_FILE": self.path,
             "MUSIC_START_MODE": "action", "CUTOFF_HOUR": 3, "CUTOFF_MINUTE": 33,
             "BASE_VOLUME": 70, "VOLUME_CHANGE": "instant", "SPEAKER_VOLUME_LINK": False,
             "START_FADE_SEC": 0, "PAUSE_FADE_SEC": 0, "LONGPRESS_FADE_DURATION_SEC": 0,
@@ -208,7 +205,7 @@ class DaemonTest(unittest.TestCase):
     def add(self, **fields):
         base = {"name": "Morning", "start": "07:00", "stop": "09:00"}
         base.update(fields)
-        return schedules.add(self.path, base)
+        return schedules.add(base, self.path)
 
     def test_the_start_starts_the_music_once(self):
         self.add()
@@ -258,12 +255,12 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual(self.daemon.mode, "music")
         self.assertTrue(self.daemon._paused)
 
-        schedules.update(self.path, "morning", {"stop_action": "standby", "stop": "09:30"})
+        schedules.update("morning", {"stop_action": "standby", "stop": "09:30"}, self.path)
         self.daemon._set_pause(False, "test")
         self.tick(at(5, 9, 30))
         self.assertEqual(self.daemon.mode, "idle")
 
-        schedules.update(self.path, "morning", {"stop_action": "poweroff", "stop": "10:00"})
+        schedules.update("morning", {"stop_action": "poweroff", "stop": "10:00"}, self.path)
         self.tick(at(5, 10, 0))
         self.assertEqual(self.daemon.mode, "shutting_down")
         rukebox_daemon.system_actions.power_off.assert_called()
@@ -275,7 +272,7 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual(self.daemon.cfg["BASE_VOLUME"], 70)
 
     def test_its_list_is_played_and_the_one_before_comes_back(self):
-        calm = music_lists.add(self.lists, {"name": "Calm", "kind": "manual",
+        calm = music_lists.add({"name": "Calm", "kind": "manual",
                                             "tracks": [os.path.join(self.base["MUSIC_DIR"], "Calm", "c.mp3")]})
         self.add(list=calm["id"])
         self.tick(at(5, 7, 0))
@@ -291,7 +288,7 @@ class DaemonTest(unittest.TestCase):
             f.write(b"x")
         item = dict(announcements.validate(dict({"name": "Hello", "folder": "/sounds"}, **fields)), id="hello")
         item["folder"] = sounds
-        announcements.save_all(self.base["ANNOUNCEMENTS_FILE"], [item])
+        announcements.save_all([item])
 
     def test_a_schedule_can_open_with_an_announcement_then_the_music(self):
         self.announce()
@@ -317,7 +314,7 @@ class DaemonTest(unittest.TestCase):
         self.add(announcement="hello")
         self.tick(at(5, 7, 0))
         self.assertEqual(self.daemon.mode, "music")
-        schedules.update(self.path, "morning", {"announcement": "nobody", "start": "07:05"})
+        schedules.update("morning", {"announcement": "nobody", "start": "07:05"}, self.path)
         self.daemon._go_standby("test")
         with self.assertLogs("radio", level="WARNING"):
             self.tick(at(5, 7, 5))

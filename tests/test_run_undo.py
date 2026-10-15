@@ -21,6 +21,7 @@ from config_and_scan import load_config
 class StatsEraseTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.recorder = stats.StatsRecorder(os.path.join(self.dir, "stats.db"), enabled=True)
         self.recorder.open_session(clock_ok=True, clock_source="rtc")
 
@@ -203,6 +204,7 @@ class WinsUndoTest(unittest.TestCase):
 class DaemonEraseTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         cfg = load_config()
         cfg.update({
             "STATE_DIR": self.dir,
@@ -210,8 +212,6 @@ class DaemonEraseTest(unittest.TestCase):
             "MUSIC_CACHE_FILE": os.path.join(self.dir, "music_cache.json"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
             "HIDDEN_FILE": os.path.join(self.dir, "hidden.json"),
-            "MUSIC_LISTS_FILE": os.path.join(self.dir, "music_lists.json"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "STATS_ENABLED": True,
             "MUSIC_ORDER_MODE": "ordered",

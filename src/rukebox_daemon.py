@@ -24,6 +24,7 @@ import bt_link  # noqa: E402
 import cards  # noqa: E402
 import dj_intro  # noqa: E402
 from config_and_scan import AUDIO_EXTENSIONS, DEFAULTS, get_music_list, load_config  # noqa: E402
+import config_document  # noqa: E402
 from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import hidden_tracks  # noqa: E402
 import json_file  # noqa: E402
@@ -327,12 +328,12 @@ class RadioDaemon:
         self._last_tick = None
         self._flic_warned = False
 
-        self._custom_announcements = announcements.load(cfg["ANNOUNCEMENTS_FILE"])
-        self._announce_volumes = announcements.volumes(cfg["ANNOUNCEMENTS_FILE"])
+        self._custom_announcements = announcements.load()
+        self._announce_volumes = announcements.volumes()
         self._announcements_stamp = None
         self._announce_levels = announce_level.Levels(os.path.join(cfg["STATE_DIR"], "announce_levels.json"))
         self._sound_volume = None
-        self._music_lists = music_lists.load(cfg["MUSIC_LISTS_FILE"])
+        self._music_lists = music_lists.load()
         self._lists_stamp = None
         self._schedule_items = []
         self._schedules_stamp = False
@@ -880,20 +881,20 @@ class RadioDaemon:
 
     def _announcements(self):
         """The custom announcements and their volumes, re-read whenever the
-        file changed. `reload_announcements` is the web interface's own shout,
-        but this is what makes a hand edit over SSH - or a message that never
-        arrived - harmless: a stale list answered "that announcement no longer
-        exists" for a "Jouer" that had every right to work."""
-        path = self.cfg["ANNOUNCEMENTS_FILE"]
-        stamp = _file_stamp(path)
+        document they live in changed. `reload_announcements` is the web
+        interface's own shout, but this is what makes a hand edit over SSH - or
+        a message that never arrived - harmless: a stale list answered "that
+        announcement no longer exists" for a "Jouer" that had every right to
+        work."""
+        stamp = config_document.stamp()
         if stamp != self._announcements_stamp:
-            items = announcements.read_items(path)
+            items = announcements.read_items()
             if items is None:
-                log.error("Could not read %s: keeping the %d announcement(s) already "
-                          "loaded", path, len(self._custom_announcements))
+                log.error("Could not read the announcements: keeping the %d already "
+                          "loaded", len(self._custom_announcements))
             else:
                 self._custom_announcements = items
-                self._announce_volumes = announcements.volumes(path)
+                self._announce_volumes = announcements.volumes()
             self._announcements_stamp = stamp
         return self._custom_announcements
 
@@ -922,12 +923,11 @@ class RadioDaemon:
         return self._announcements()
 
     def _lists(self):
-        """The music lists, re-read whenever the file changed: the web
+        """The music lists, re-read whenever the document changed: the web
         interface is the only writer, and it says so on the socket too."""
-        path = self.cfg["MUSIC_LISTS_FILE"]
-        stamp = _file_stamp(path)
+        stamp = config_document.stamp()
         if stamp != self._lists_stamp:
-            self._music_lists = music_lists.load(path)
+            self._music_lists = music_lists.load()
             self._lists_stamp = stamp
         return self._music_lists
 
@@ -2487,7 +2487,7 @@ class RadioDaemon:
         ]
         custom_order = None
         if source_id:
-            custom_order = track_order.get(self.cfg["TRACK_ORDER_FILE"], source_id)
+            custom_order = track_order.get(source_id)
         return playlist.order_files(files, directory, self.cfg["ANNOUNCE_ORDER_MODE"], custom_order)
 
     def _next_announce_file(self, source_id, folder):
@@ -2561,14 +2561,13 @@ class RadioDaemon:
         self._perform_direct_action(action, "announcement")
 
     def _schedules(self):
-        """The schedules, re-read whenever the file changed."""
-        path = self.cfg.get("SCHEDULES_FILE") or ""
-        stamp = _file_stamp(path)
+        """The schedules, re-read whenever the document changed."""
+        stamp = config_document.stamp()
         if stamp != self._schedules_stamp:
-            items = schedules.read_items(path) if path else []
+            items = schedules.read_items()
             if items is None:
-                log.error("Could not read %s: keeping the %d schedule(s) already loaded",
-                          path, len(self._schedule_items))
+                log.error("Could not read the schedules: keeping the %d already loaded",
+                          len(self._schedule_items))
             else:
                 self._schedule_items = items
             self._schedules_stamp = stamp
@@ -3139,7 +3138,7 @@ class RadioDaemon:
 
     def _card(self, card_id, source):
         """What the card held on the reader starts."""
-        card = cards.load(self.cfg.get("CARDS_FILE") or "").get(card_id)
+        card = cards.load().get(card_id)
         self._last_card = {"id": card_id, "name": card["name"] if card else None, "known": bool(card),
                            "error": None, "mono": time.monotonic()}
         self.stats.record("card_read", label=card["name"] if card else card_id,

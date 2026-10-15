@@ -1966,7 +1966,7 @@ def _library_roots():
 def _announce_folders(c):
     """The folders whose files are announcements, brought to the music's loudness by the radio."""
     folders = [c.get("CUTOFF_ANNOUNCE_DIR"), c.get("MEME_DIR")]
-    folders += [item.get("folder") for item in announcements.read_items(c["ANNOUNCEMENTS_FILE"]) or []]
+    folders += [item.get("folder") for item in announcements.read_items() or []]
     return [f for f in folders if f]
 
 
@@ -2344,10 +2344,6 @@ def api_queue():
     return jsonify({"ok": True, "data": {"enabled": True, "items": items}})
 
 
-def _lists_path():
-    return cfg()["MUSIC_LISTS_FILE"]
-
-
 def _with_counts(entries):
     """Lists as the interface shows them: how many tracks each stands for
     right now, which is what the radio would play."""
@@ -2369,15 +2365,11 @@ def _active_list_id():
             if status.get("ok") else None)
 
 
-def _schedules_path():
-    return cfg()["SCHEDULES_FILE"]
-
-
 @app.route("/api/schedules")
 def api_schedules():
     """Every schedule, and the settings one may hold for itself."""
     return jsonify({"ok": True, "data": {
-        "schedules": schedules.load(_schedules_path()),
+        "schedules": schedules.load(),
         "settings": sorted(config_schema.BY_ENV[key].path for key in schedules.OVERRIDABLE),
     }})
 
@@ -2386,7 +2378,7 @@ def api_schedules():
 def api_create_schedule():
     body = request.get_json(silent=True) or {}
     try:
-        entry = schedules.add(_schedules_path(), body)
+        entry = schedules.add(body)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     notify_daemon("reload_schedules")
@@ -2399,7 +2391,7 @@ def api_order_schedules():
     """{order: [id, ...]}: the first of the list wins when two overlap."""
     body = request.get_json(silent=True) or {}
     try:
-        items = schedules.reorder(_schedules_path(), body.get("order"))
+        items = schedules.reorder(body.get("order"))
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     notify_daemon("reload_schedules")
@@ -2411,7 +2403,7 @@ def api_order_schedules():
 def api_update_schedule(schedule_id):
     body = request.get_json(silent=True) or {}
     try:
-        entry = schedules.update(_schedules_path(), schedule_id, body)
+        entry = schedules.update(schedule_id, body)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
@@ -2425,7 +2417,7 @@ def api_update_schedule(schedule_id):
 @app.route("/api/schedules/<schedule_id>", methods=["DELETE"])
 def api_delete_schedule(schedule_id):
     try:
-        schedules.delete(_schedules_path(), schedule_id)
+        schedules.delete(schedule_id)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
@@ -2438,7 +2430,7 @@ def api_delete_schedule(schedule_id):
 @app.route("/api/lists")
 def api_lists():
     return jsonify({"ok": True, "data": {
-        "lists": _with_counts(music_lists.load(_lists_path())),
+        "lists": _with_counts(music_lists.load()),
         "active": _active_list_id(),
     }})
 
@@ -2447,7 +2439,7 @@ def api_lists():
 def api_create_list():
     body = request.get_json(silent=True) or {}
     try:
-        entry = music_lists.add(_lists_path(), body)
+        entry = music_lists.add(body)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     notify_daemon("reload_lists")
@@ -2460,7 +2452,7 @@ def api_create_list():
 def api_update_list(list_id):
     body = request.get_json(silent=True) or {}
     try:
-        entry = music_lists.update(_lists_path(), list_id, body)
+        entry = music_lists.update(list_id, body)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
@@ -2474,8 +2466,8 @@ def api_update_list(list_id):
 @app.route("/api/lists/<list_id>", methods=["DELETE"])
 def api_delete_list(list_id):
     try:
-        entry = music_lists.get(_lists_path(), list_id)
-        music_lists.delete(_lists_path(), list_id)
+        entry = music_lists.get(list_id)
+        music_lists.delete(list_id)
     except KeyError:
         return jsonify({"ok": False, "error": "not_found"}), 404
     notify_daemon("reload_lists")
@@ -2491,7 +2483,7 @@ def api_list_tracks(list_id):
     manual list (with the files it kept that are gone from the library), or
     what a genre list resolves to."""
     try:
-        entry = music_lists.get(_lists_path(), list_id)
+        entry = music_lists.get(list_id)
     except KeyError:
         return jsonify({"ok": False, "error": "not_found"}), 404
     lib = _get_library()
@@ -2528,7 +2520,7 @@ def api_add_list_track(list_id):
     if not path:
         return jsonify({"ok": False, "error": "not_found"}), 404
     try:
-        entry = music_lists.add_track(_lists_path(), list_id, path)
+        entry = music_lists.add_track(list_id, path)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
@@ -2546,7 +2538,7 @@ def api_remove_list_track(list_id):
     if not path:
         return jsonify({"ok": False, "error": "not_found"}), 404
     try:
-        entry = music_lists.remove_track(_lists_path(), list_id, path)
+        entry = music_lists.remove_track(list_id, path)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
@@ -2563,7 +2555,7 @@ def api_active_list():
     track on, or right now."""
     body = request.get_json(silent=True) or {}
     list_id = str(body.get("id") or "").strip() or None
-    if list_id and not any(entry["id"] == list_id for entry in music_lists.load(_lists_path())):
+    if list_id and not any(entry["id"] == list_id for entry in music_lists.load()):
         return jsonify({"ok": False, "error": "not_found"}), 404
     notify_daemon("reload_lists")
     result = control("set_active_list", id=list_id, start=bool(body.get("start")))
@@ -2579,12 +2571,12 @@ def api_list_from_genres():
     if not genres:
         return jsonify({"ok": False, "error": "list_genres_required"}), 400
     wanted = {g.casefold() for g in genres}
-    entry = next((item for item in music_lists.load(_lists_path())
+    entry = next((item for item in music_lists.load()
                   if item.get("kind") == "genre"
                   and {g.casefold() for g in (item.get("genres") or [])} == wanted), None)
     if entry is None:
         try:
-            entry = music_lists.add(_lists_path(), {"name": music_lists.genre_list_name(genres),
+            entry = music_lists.add({"name": music_lists.genre_list_name(genres),
                                                     "kind": "genre", "genres": genres})
         except ValueError as e:
             return jsonify({"ok": False, "error": str(e)}), 400
@@ -3534,7 +3526,7 @@ def api_game():
     options = {"owner": _is_owner(), "round_choices": list(blind_test.ROUNDS),
                "second_choices": list(blind_test.CLIP_SECONDS), "hall": _game_hall(won), "hall_oral": oral_hall}
     if options["owner"]:
-        options["lists"] = [{"id": e["id"], "name": e["name"]} for e in music_lists.load(_lists_path())]
+        options["lists"] = [{"id": e["id"], "name": e["name"]} for e in music_lists.load()]
         options["asked"] = len(blind_test.asked(_game_asked_file()))
         options["kind_choices"] = list(blind_test.KINDS)
     if game is None or (game.state == "over" and time.monotonic() - game.ended_at > GAME_KEPT_SEC):
@@ -3580,7 +3572,7 @@ def api_game_start():
     list_id, entry = str(body.get("list") or ""), None
     if list_id:
         try:
-            entry = music_lists.get(_lists_path(), list_id)
+            entry = music_lists.get(list_id)
         except KeyError:
             return jsonify({"ok": False, "error": "game_list_gone"}), 404
     with _game_lock:
@@ -3838,13 +3830,9 @@ def api_rescan_music():
     return jsonify(result), (200 if result.get("ok") else 400)
 
 
-def _announcements_path():
-    return cfg()["ANNOUNCEMENTS_FILE"]
-
-
 @app.route("/api/announcements")
 def api_list_announcements():
-    items = announcements.load(_announcements_path())
+    items = announcements.load()
     for item in items:
         item["file_count"] = announcements.count_files(item.get("folder"))
     return jsonify({"ok": True, "data": items})
@@ -3861,7 +3849,7 @@ def _default_announcements_parent():
 def api_create_announcement():
     body = request.get_json(silent=True) or {}
     try:
-        item = announcements.add(_announcements_path(), body,
+        item = announcements.add(body,
                                  default_parent=_default_announcements_parent())
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
@@ -3877,7 +3865,7 @@ def api_create_announcement():
 def api_update_announcement(item_id):
     body = request.get_json(silent=True) or {}
     try:
-        item = announcements.update(_announcements_path(), item_id, body)
+        item = announcements.update(item_id, body)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
@@ -3890,7 +3878,7 @@ def api_update_announcement(item_id):
 @app.route("/api/announcements/<item_id>", methods=["DELETE"])
 def api_delete_announcement(item_id):
     try:
-        announcements.delete(_announcements_path(), item_id)
+        announcements.delete(item_id)
     except KeyError:
         return jsonify({"ok": False, "error": "not_found"}), 404
     notify_daemon("reload_announcements")
@@ -3902,14 +3890,14 @@ def api_delete_announcement(item_id):
 def api_announcement_volumes():
     """The volume each announcement source and System sound plays at, if it
     has one of its own."""
-    return jsonify({"ok": True, "data": announcements.volumes(_announcements_path())})
+    return jsonify({"ok": True, "data": announcements.volumes()})
 
 
 @app.route("/api/announcement_volumes/<path:key>", methods=["POST"])
 def api_set_announcement_volume(key):
     body = request.get_json(silent=True) or {}
     try:
-        entry = announcements.set_volume(_announcements_path(), key, body)
+        entry = announcements.set_volume(key, body)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     notify_daemon("reload_announcements")
@@ -3943,7 +3931,7 @@ def api_play_announcement(item_id):
 
 
 def _resolve_track_order_folder(source_id):
-    custom_items = announcements.load(_announcements_path())
+    custom_items = announcements.load()
     return announcements.resolve_source_folder(cfg(), custom_items, source_id)
 
 
@@ -3963,7 +3951,7 @@ def api_get_track_order(source_id):
     if folder is None:
         return jsonify({"ok": False, "error": "unknown_source"}), 404
     basenames = _list_audio_basenames(folder)
-    custom_order = track_order.get(cfg()["TRACK_ORDER_FILE"], source_id)
+    custom_order = track_order.get(source_id)
     ordered = playlist.build_ordered(basenames, custom_order)
     return jsonify({"ok": True, "data": {
         "folder": folder,
@@ -3982,7 +3970,7 @@ def api_set_track_order(source_id):
     if not isinstance(order, list):
         return jsonify({"ok": False, "error": "missing_order"}), 400
     try:
-        track_order.save_order(cfg()["TRACK_ORDER_FILE"], source_id, order)
+        track_order.save_order(source_id, order)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     stats.record("track_order_changed", label=source_id, detail={"count": len(order)})
@@ -4225,7 +4213,7 @@ def api_clear_track_order(source_id):
     folder = _resolve_track_order_folder(source_id)
     if folder is None:
         return jsonify({"ok": False, "error": "unknown_source"}), 404
-    track_order.clear(cfg()["TRACK_ORDER_FILE"], source_id)
+    track_order.clear(source_id)
     stats.record("track_order_reset", label=source_id)
     notify_daemon("reset_click_bag", source_id=source_id)
     return jsonify({"ok": True})
@@ -6435,14 +6423,14 @@ def api_likes():
 @app.route("/api/cards")
 def api_cards():
     """The RFID cards, by name."""
-    found = cards.load(cfg()["CARDS_FILE"])
+    found = cards.load()
     return jsonify({"ok": True, "data": sorted(found.values(), key=lambda c: c["name"].lower())})
 
 
 @app.route("/api/cards", methods=["POST"])
 def api_cards_save():
     try:
-        card = cards.save(cfg()["CARDS_FILE"], request.get_json(silent=True) or {})
+        card = cards.save(request.get_json(silent=True) or {})
     except ValueError as error:
         return jsonify({"ok": False, "error": str(error)}), 400
     stats.record("card_saved", label=card["name"], detail={"id": card["id"], "action": card["action"]})
@@ -6452,7 +6440,7 @@ def api_cards_save():
 @app.route("/api/cards/<card_id>", methods=["DELETE"])
 def api_cards_delete(card_id):
     try:
-        cards.delete(cfg()["CARDS_FILE"], card_id)
+        cards.delete(card_id)
     except KeyError:
         return jsonify({"ok": False, "error": "card_unknown"}), 404
     except ValueError as error:
@@ -7069,7 +7057,7 @@ def _allowed_roots():
         if folder:
             roots.append(folder)
     try:
-        for item in announcements.read_items(values.get("ANNOUNCEMENTS_FILE")) or []:
+        for item in announcements.read_items() or []:
             folder = str(item.get("folder") or "").strip()
             if folder:
                 roots.append(folder)
@@ -7220,7 +7208,7 @@ def _backup_dir():
 def _sound_sources():
     """{source_id: folder} of every announcement list."""
     c = cfg()
-    items = announcements.load(_announcements_path())
+    items = announcements.load()
     ids = list(announcements.BUILTIN_SOURCES) + ["custom:" + it["id"] for it in items]
     out = {}
     for source_id in ids:

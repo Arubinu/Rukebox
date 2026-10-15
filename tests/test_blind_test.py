@@ -153,6 +153,7 @@ class GameSpeechTest(unittest.TestCase):
 class WinsTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, True)
         self.path = os.path.join(self.dir, "game_wins.json")
 
@@ -377,6 +378,7 @@ class HintTest(unittest.TestCase):
 class AskedTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.path = os.path.join(self.dir, "game_asked.json")
 

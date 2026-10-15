@@ -115,6 +115,9 @@ def render_template(values=None):
             out.extend(_render_setting(setting, values, blank_line=True))
         if out[-1] == "\n":
             out.pop()
+    import config_document  # noqa: E402
+
+    out.append(config_document.render_template())
     return "".join(out)
 
 
@@ -222,8 +225,17 @@ def write_values(updates, path=None, env_path=None):
         raise ValueError("Unknown configuration key(s): %s" % sorted(unknown))
     updates = named
 
+    import config_document  # noqa: E402
+
     env_path = env_path or ENV_FILE
     path = find_yaml_file(path)
+    # The lists live in this file too: no block may be written while one is.
+    with config_document.lock(path):
+        changed = _write_values_locked(updates, path, env_path)
+    return changed
+
+
+def _write_values_locked(updates, path, env_path):
     if not os.path.exists(path):
         current = read_values(path, env_path)
         current.update({k: to_raw(BY_ENV[k], v) for k, v in updates.items()})
@@ -335,8 +347,15 @@ def _insert_settings(lines, settings, values):
 def merge_missing(path=None, env_path=None):
     """Adds settings a new version introduced, with their documentation,
     without modifying a single existing value."""
+    import config_document  # noqa: E402
+
     env_path = env_path or ENV_FILE
     path = find_yaml_file(path)
+    with config_document.lock(path):
+        return _merge_missing_locked(path, env_path)
+
+
+def _merge_missing_locked(path, env_path):
     if not os.path.exists(path):
         return []
     present = read_values(path, env_path)
@@ -433,10 +452,15 @@ def _match_owner(path, reference):
         pass
 
 
-def _announcement_paths(yaml_path, env_path):
+def _audio_root(yaml_path, env_path):
+    """This machine's audio root, not the template's: a container keeps its tree
+    elsewhere, and the interface may only write inside it."""
+    import announcements  # noqa: E402
+
     values = dict(DEFAULTS)
     values.update(read_values(yaml_path, env_path))
-    return values["ANNOUNCEMENTS_FILE"], values["TRACK_ORDER_FILE"], values
+    return os.path.dirname(str(values.get("MEME_DIR") or "").strip()) \
+        or announcements.DEFAULT_AUDIO_ROOT
 
 
 def seed_announcements(yaml_path=None, env_path=None):
@@ -446,15 +470,8 @@ def seed_announcements(yaml_path=None, env_path=None):
 
     yaml_path = find_yaml_file(yaml_path)
     env_path = env_path or ENV_FILE
-    ann_path, _, _ = _announcement_paths(yaml_path, env_path)
-    # This machine's audio root, not the template's: a container keeps its tree
-    # elsewhere, and the interface may only write inside it.
-    values = dict(DEFAULTS)
-    values.update(read_values(yaml_path, env_path))
-    audio_root = os.path.dirname(str(values.get("MEME_DIR") or "").strip()) \
-        or announcements.DEFAULT_AUDIO_ROOT
-    if announcements.seed_defaults(ann_path, audio_root):
-        _match_owner(ann_path, os.path.dirname(yaml_path) or ".")
+    if announcements.seed_defaults(_audio_root(yaml_path, env_path), yaml_path):
+        _match_owner(yaml_path, os.path.dirname(yaml_path) or ".")
         return True
     return False
 
@@ -464,8 +481,7 @@ def retarget_announcements(old_root, new_root, yaml_path=None, env_path=None):
     import announcements  # noqa: E402
 
     yaml_path = find_yaml_file(yaml_path)
-    ann_path, _, _ = _announcement_paths(yaml_path, env_path or ENV_FILE)
-    return announcements.retarget(ann_path, old_root, new_root)
+    return announcements.retarget(old_root, new_root, yaml_path)
 
 
 def retarget_folders(old_root, new_root, yaml_path=None, env_path=None):
@@ -493,7 +509,10 @@ def retarget_folders(old_root, new_root, yaml_path=None, env_path=None):
 
 def ensure_file(yaml_path=None, env_path=None):
     """Creates the configuration if it does not exist yet, or adds the settings
-    a new version introduced."""
+    a new version introduced. Takes in the lists an older version kept in their
+    own files, once."""
+    import config_document  # noqa: E402
+
     env_path = env_path or ENV_FILE
     yaml_path = find_yaml_file(yaml_path)
     if not os.path.exists(yaml_path):
@@ -506,6 +525,10 @@ def ensure_file(yaml_path=None, env_path=None):
     added = merge_missing(yaml_path, env_path)
     write_env_file(yaml_path, env_path)
     secure_file(yaml_path, os.path.dirname(yaml_path) or ".")
+    # Before the seeding below: a list waiting in its own file is not a reason
+    # to offer the types a brand new radio gets.
+    for name in config_document.import_legacy(yaml_path):
+        log.info("The %s list moved into %s", name, yaml_path)
     # The setup page creates the YAML first: without this seeding its sounds belong to nothing.
     seed_announcements(yaml_path, env_path)
     return ("updated", len(added)) if added else ("unchanged", 0)

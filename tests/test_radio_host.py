@@ -75,6 +75,7 @@ class SentencesTest(unittest.TestCase):
 class FairQueueTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, True)
         self.state = RadioState(os.path.join(self.dir, "state.json"))
         self.state.data["play_queue"] = ["q1", "q2"]
@@ -132,6 +133,7 @@ class SilenceTest(unittest.TestCase):
 class DaemonTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.addCleanup(mock.patch.stopall)
         self.music = os.path.join(self.dir, "music")
@@ -145,7 +147,6 @@ class DaemonTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "MUSIC_ORDER_MODE": "ordered",
             "FADE_DURATION_SEC": 0, "INTERACTIVE_FADE_DURATION_SEC": 0,
             "LONGPRESS_FADE_DURATION_SEC": 0, "PAUSE_FADE_SEC": 0, "START_FADE_SEC": 0,

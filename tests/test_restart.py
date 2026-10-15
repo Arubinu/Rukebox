@@ -35,6 +35,7 @@ class FakeMpv:
 class RestartTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         cfg = load_config()
         cfg.update({
@@ -44,7 +45,6 @@ class RestartTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             # No cue: where the sound is installed, the restart waits for its end.
             "RESTART_SOUND": "",
         })

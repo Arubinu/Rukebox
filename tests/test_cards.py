@@ -49,17 +49,18 @@ class ReaderTest(unittest.TestCase):
 class StoreTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, True)
-        self.path = os.path.join(self.dir, "cards.json")
+        self.path = _path.document(self.dir)
 
     def test_saved_replaced_and_deleted(self):
-        cards.save(self.path, {"id": "0012345678", "name": "Rock", "action": "list", "target": ""})
-        cards.save(self.path, {"id": "0012345678", "name": "Rock!", "action": "action", "target": "next"})
+        cards.save({"id": "0012345678", "name": "Rock", "action": "list", "target": ""}, self.path)
+        cards.save({"id": "0012345678", "name": "Rock!", "action": "action", "target": "next"}, self.path)
         self.assertEqual(cards.load(self.path)["0012345678"]["name"], "Rock!")
-        cards.delete(self.path, "0012345678")
+        cards.delete("0012345678", self.path)
         self.assertEqual(cards.load(self.path), {})
         with self.assertRaises(KeyError):
-            cards.delete(self.path, "0012345678")
+            cards.delete("0012345678", self.path)
 
     def test_bad_cards_are_refused(self):
         for bad, code in (({"id": "12", "name": "x", "action": "list"}, "card_bad_id"),
@@ -70,22 +71,18 @@ class StoreTest(unittest.TestCase):
                 cards.validate(bad)
             self.assertEqual(str(caught.exception), code)
 
-    def test_an_unreadable_file_is_never_written_over(self):
-        with open(self.path, "w") as f:
-            f.write("{broken")
+    def test_an_unreadable_document_is_never_written_over(self):
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write("cards:\n  cards: [ oops\n")
         with self.assertRaises(ValueError):
-            cards.save(self.path, {"id": "1234", "name": "x", "action": "list"})
-        with open(self.path) as f:
-            self.assertEqual(f.read(), "{broken")
+            cards.save({"id": "1234", "name": "x", "action": "list"}, self.path)
+        with open(self.path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "cards:\n  cards: [ oops\n")
 
 
 class DaemonCardTest(DaemonCase):
-    def setUp(self):
-        super().setUp()
-        self.daemon.cfg["CARDS_FILE"] = os.path.join(self.dir, "cards.json")
-
     def add(self, **card):
-        cards.save(self.daemon.cfg["CARDS_FILE"], dict({"id": "00001111", "name": "Card"}, **card))
+        cards.save(dict({"id": "00001111", "name": "Card"}, **card))
 
     def test_an_unknown_card_is_remembered_for_the_page(self):
         self.assertEqual(self.daemon._card("99998888", "card"), "card_unknown")

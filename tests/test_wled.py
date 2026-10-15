@@ -189,6 +189,7 @@ class FakeMpv:
 class DaemonTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.addCleanup(mock.patch.stopall)
         self.device = FakeWled(tz=3600)
@@ -198,7 +199,6 @@ class DaemonTest(unittest.TestCase):
             "MUSIC_DIR": os.path.join(self.dir, "music"), "STATE_DIR": self.dir,
             "MUSIC_CACHE_FILE": os.path.join(self.dir, "cache.json"),
             "STATS_ENABLED": False, "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "WLED_ENABLED": True, "WLED_HOSTS": self.device.host, "WLED_CLOCK": True,
             "CLOCK_SYNC_GRACE_SEC": 5,
         })

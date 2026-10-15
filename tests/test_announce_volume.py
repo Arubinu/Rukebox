@@ -2,7 +2,6 @@
 "off" meaning it follows the music, as it always did. src/announcements.py
 holds the store (in the announcements file, next to the announcements), the
 daemon applies it. mpv is faked, so this runs off-hardware."""
-import json
 import os
 import shutil
 import tempfile
@@ -13,6 +12,7 @@ import unittest
 import _path  # noqa: F401
 import announcements
 from config_and_scan import load_config
+import config_document
 import rukebox_daemon
 
 
@@ -70,26 +70,27 @@ class FakeMpv:
 class StoreTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
-        self.path = os.path.join(self.dir, "announcements.json")
+        _path.document(self.dir)
+        self.path = _path.document(self.dir)
         self.folder = os.path.join(self.dir, "matin")
 
     def tearDown(self):
         shutil.rmtree(self.dir, ignore_errors=True)
 
     def test_nothing_has_a_volume_of_its_own_to_start_with(self):
-        announcements.add(self.path, {"name": "Matin", "folder": self.folder,
-                                      "trigger": "manual"})
+        announcements.add({"name": "Matin", "folder": self.folder,
+                                      "trigger": "manual"}, self.path)
         self.assertEqual(announcements.volumes(self.path), {})
         self.assertIsNone(announcements.source_volume({}, "custom:matin"))
 
     def test_a_volume_round_trips(self):
-        announcements.set_volume(self.path, "meme", {"on": True, "volume": 20})
+        announcements.set_volume("meme", {"on": True, "volume": 20}, self.path)
         self.assertEqual(announcements.volumes(self.path)["meme"], {"on": True, "volume": 20})
         self.assertEqual(announcements.source_volume(announcements.volumes(self.path), "meme"),
                          20)
 
     def test_off_keeps_the_value_but_follows_the_music(self):
-        announcements.set_volume(self.path, "cutoff", {"on": False, "volume": 10})
+        announcements.set_volume("cutoff", {"on": False, "volume": 10}, self.path)
         entries = announcements.volumes(self.path)
         self.assertEqual(entries["cutoff"], {"on": False, "volume": 10})
         self.assertIsNone(announcements.source_volume(entries, "cutoff"))
@@ -97,45 +98,43 @@ class StoreTest(unittest.TestCase):
     def test_a_volume_out_of_range_is_refused(self):
         for value in (-1, 101, "loud", "1e999"):
             with self.assertRaises(ValueError) as caught:
-                announcements.set_volume(self.path, "meme", {"on": True, "volume": value})
+                announcements.set_volume("meme", {"on": True, "volume": value}, self.path)
             self.assertEqual(str(caught.exception), "announcement_bad_volume")
         with self.assertRaises(ValueError):
-            announcements.set_volume(self.path, "  ", {"on": True, "volume": 10})
+            announcements.set_volume("  ", {"on": True, "volume": 10}, self.path)
 
     def test_an_entry_that_makes_no_sense_is_ignored(self):
-        announcements.save_all(self.path, [])
-        with open(self.path, "r", encoding="utf-8") as f:
-            doc = json.load(f)
-        doc["volumes"]["meme"] = {"on": True, "volume": 900}
-        doc["volumes"]["cutoff"] = "yes"
-        with open(self.path, "w", encoding="utf-8") as f:
-            json.dump(doc, f)
+        announcements.save_all([], self.path)
+        config_document.write("announcements", {
+            "items": [],
+            "volumes": {"meme": {"on": True, "volume": 900}, "cutoff": "yes"},
+        }, self.path)
         self.assertEqual(announcements.volumes(self.path), {})
 
     def test_writing_a_volume_keeps_the_announcements(self):
-        item = announcements.add(self.path, {"name": "Matin", "folder": self.folder,
-                                             "trigger": "manual"})
-        announcements.set_volume(self.path, "custom:" + item["id"], {"on": True, "volume": 42})
+        item = announcements.add({"name": "Matin", "folder": self.folder,
+                                             "trigger": "manual"}, self.path)
+        announcements.set_volume("custom:" + item["id"], {"on": True, "volume": 42}, self.path)
         self.assertEqual([i["id"] for i in announcements.load(self.path)], [item["id"]])
         self.assertEqual(announcements.volumes(self.path)["custom:" + item["id"]]["volume"], 42)
 
     def test_deleting_an_announcement_drops_its_volume(self):
-        item = announcements.add(self.path, {"name": "Matin", "folder": self.folder,
-                                             "trigger": "manual"})
-        announcements.set_volume(self.path, "custom:" + item["id"], {"on": True, "volume": 42})
-        announcements.delete(self.path, item["id"])
+        item = announcements.add({"name": "Matin", "folder": self.folder,
+                                             "trigger": "manual"}, self.path)
+        announcements.set_volume("custom:" + item["id"], {"on": True, "volume": 42}, self.path)
+        announcements.delete(item["id"], self.path)
         self.assertEqual(announcements.volumes(self.path), {})
 
     def test_writers_at_once_do_not_lose_the_announcements(self):
-        # Two saves sharing one temporary file can publish two JSON documents glued together.
-        announcements.save_all(self.path, [
+        # Two saves at once must leave the document whole: one writer at a time.
+        announcements.save_all([
             {"id": "morning", "name": "Matin", "folder": self.folder, "hour": 7,
              "minute": 0, "trigger": "time", "delay_min": 30, "repeat_times": 1,
              "enabled": True},
             {"id": "doubleclick", "name": "Double", "folder": self.folder, "hour": 12,
              "minute": 0, "trigger": "manual", "delay_min": 30, "repeat_times": 1,
              "enabled": True},
-        ])
+        ], self.path)
         seen = []
         errors = []
 
@@ -144,7 +143,7 @@ class StoreTest(unittest.TestCase):
                 # Windows refuses the rename while a reader holds the file open (no FILE_SHARE_DELETE); the Pi does not.
                 for attempt in range(20):
                     try:
-                        announcements.set_volume(self.path, key, {"on": True, "volume": value})
+                        announcements.set_volume(key, {"on": True, "volume": value}, self.path)
                         break
                     except PermissionError:
                         if attempt == 19:
@@ -153,9 +152,8 @@ class StoreTest(unittest.TestCase):
                     except Exception as exc:  # noqa: BLE001
                         errors.append(repr(exc))
                         break
-                with open(self.path, encoding="utf-8") as f:
-                    doc = json.load(f)
-                seen.append(len(doc.get("items") or []))
+                block = config_document.read("announcements", self.path) or {}
+                seen.append(len(block.get("items") or []))
 
         threads = [threading.Thread(target=hammer, args=("key%d" % i,)) for i in range(8)]
         for thread in threads:
@@ -167,17 +165,18 @@ class StoreTest(unittest.TestCase):
         self.assertEqual([i["id"] for i in announcements.load(self.path)],
                          ["morning", "doubleclick"])
 
-    def test_a_file_we_cannot_read_is_never_replaced(self):
+    def test_a_document_we_cannot_read_is_never_replaced(self):
+        broken = 'announcements:\n  items: [ {"id": "morning"}\n  other: a second document\n'
         with open(self.path, "w", encoding="utf-8") as f:
-            f.write('{"items": [{"id": "morning"}]\n{"half": "a second document"}')
+            f.write(broken)
         with self.assertRaises(ValueError) as caught:
-            announcements.set_volume(self.path, "meme", {"on": True, "volume": 20})
+            announcements.set_volume("meme", {"on": True, "volume": 20}, self.path)
         self.assertEqual(str(caught.exception), "file_unreadable")
         with self.assertRaises(ValueError):
-            announcements.add(self.path, {"name": "Matin", "folder": self.folder,
-                                          "trigger": "manual"})
+            announcements.add({"name": "Matin", "folder": self.folder,
+                                          "trigger": "manual"}, self.path)
         with open(self.path, encoding="utf-8") as f:
-            self.assertIn("a second document", f.read(), "the file was left alone")
+            self.assertEqual(f.read(), broken, "the document was left alone")
 
 
 class PlayTargetTest(unittest.TestCase):
@@ -205,6 +204,7 @@ class PlayTargetTest(unittest.TestCase):
 class DaemonVolumeTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.music = os.path.join(self.dir, "music")
         self.track = self._audio(self.music, "a.mp3")
         self.folder = os.path.join(self.dir, "matin")
@@ -212,7 +212,7 @@ class DaemonVolumeTest(unittest.TestCase):
         self._audio(self.folder, "un.mp3")
         self._audio(self.memes, "clic.mp3")
 
-        self.path = os.path.join(self.dir, "announcements.json")
+        self.path = _path.document(self.dir)
         cfg = load_config()
         cfg.update({
             "MUSIC_DIR": self.music,
@@ -221,7 +221,6 @@ class DaemonVolumeTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": self.path,
             "MEME_DIR": self.memes,
             "INTERACTIVE_FADE_DURATION_SEC": 0,
             "FADE_DURATION_SEC": 0,
@@ -242,11 +241,10 @@ class DaemonVolumeTest(unittest.TestCase):
         return path
 
     def announcement(self, volume=None):
-        item = announcements.add(self.path, {"name": "Matin", "folder": self.folder,
-                                             "trigger": "manual"})
+        item = announcements.add({"name": "Matin", "folder": self.folder,
+                                             "trigger": "manual"}, self.path)
         if volume is not None:
-            announcements.set_volume(self.path, "custom:" + item["id"],
-                                     {"on": True, "volume": volume})
+            announcements.set_volume("custom:" + item["id"], {"on": True, "volume": volume}, self.path)
         self.daemon._custom_announcements = announcements.load(self.path)
         self.daemon._announce_volumes = announcements.volumes(self.path)
         return item
@@ -273,7 +271,7 @@ class DaemonVolumeTest(unittest.TestCase):
         self.assertEqual(self.daemon.mpv.volume, 30, "the music's own volume, as before")
 
     def test_a_click_sound_plays_at_the_volume_of_its_list(self):
-        announcements.set_volume(self.path, "meme", {"on": True, "volume": 15})
+        announcements.set_volume("meme", {"on": True, "volume": 15}, self.path)
         self.daemon._announce_volumes = announcements.volumes(self.path)
         self.daemon.mode = "music"
         self.daemon.cfg["SINGLE_CLICK_ACTION"] = "next"
@@ -283,13 +281,13 @@ class DaemonVolumeTest(unittest.TestCase):
 
     def test_a_keepalive_sound_with_its_own_volume_is_applied(self):
         self.daemon.cfg["KEEPALIVE_SOUND"] = os.path.join(self.memes, "clic.mp3")
-        announcements.set_volume(self.path, "KEEPALIVE_SOUND", {"on": True, "volume": 7})
+        announcements.set_volume("KEEPALIVE_SOUND", {"on": True, "volume": 7}, self.path)
         self.daemon._announce_volumes = announcements.volumes(self.path)
         self.daemon._start_keepalive()
         self.assertEqual(self.daemon.mpv.volume, 7)
 
     def test_the_volume_of_a_source_is_read_from_the_store(self):
-        announcements.set_volume(self.path, "cutoff", {"on": True, "volume": 8})
+        announcements.set_volume("cutoff", {"on": True, "volume": 8}, self.path)
         self.daemon._announce_volumes = announcements.volumes(self.path)
         self.assertEqual(self.daemon._source_volume("cutoff"), 8)
         self.assertIsNone(self.daemon._source_volume("meme"))
@@ -299,18 +297,18 @@ class DaemonVolumeTest(unittest.TestCase):
         self.daemon._announcements()  # as the first command would
         self.assertEqual([i["id"] for i in self.daemon._custom_announcements], [item["id"]])
         time.sleep(0.02)
-        announcements.set_volume(self.path, "meme", {"on": True, "volume": 33})
+        announcements.set_volume("meme", {"on": True, "volume": 33}, self.path)
         self.daemon._announcements()
         self.assertEqual(self.daemon._source_volume("meme"), 33)
         time.sleep(0.02)
-        announcements.delete(self.path, item["id"])
+        announcements.delete(item["id"], self.path)
         self.assertEqual(self.daemon._announcements(), [])
 
-    def test_a_broken_file_keeps_the_announcements_already_loaded(self):
+    def test_a_broken_document_keeps_the_announcements_already_loaded(self):
         item = self.announcement(volume=20)
         self.daemon._announcements()
         time.sleep(0.02)
         with open(self.path, "w", encoding="utf-8") as f:
-            f.write('{"items": [{"id": "morning"}]}\n{"and": "a second document"}')
+            f.write('announcements:\n  items: [ {"id": "morning"}\n  other: broken\n')
         self.assertEqual([i["id"] for i in self.daemon._announcements()], [item["id"]],
-                         "a file we cannot read does not empty the list")
+                         "a document we cannot read does not empty the list")

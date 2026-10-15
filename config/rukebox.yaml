@@ -1159,37 +1159,6 @@ paths:
 
   music_cache: "/var/lib/rukebox/music_cache.json"
 
-  # Custom announcement types added from the web interface (name,
-  # folder, time of day) - see src/announcements.py. Plain JSON, not
-  # YAML: it is a growable list managed entirely through the web UI's
-  # own form, not meant for hand-editing like the settings above.
-  announcements_file: "/etc/rukebox/announcements.json"
-
-  # Custom play order saved per announcement folder when
-  # announce_order_mode is "ordered" and you have picked a specific
-  # sequence from the web interface - see src/track_order.py. Same
-  # reasoning as announcements_file above: a plain JSON file, not part
-  # of the YAML settings.
-  track_order_file: "/etc/rukebox/track_order.json"
-
-  # The music lists built from the web interface - see
-  # src/music_lists.py. Same reasoning as announcements_file above: a
-  # growable list managed entirely by its own form, so JSON rather
-  # than a hand-edited setting. A list is either manual (tracks picked
-  # one by one) or by genre (kept up to date from the library's tags);
-  # the radio plays one list, or everything when none is active.
-  music_lists_file: "/etc/rukebox/music_lists.json"
-
-  # The schedules built from the web interface - see src/schedules.py:
-  # start the music, stop it, or both, on chosen days or one date, with
-  # settings that only hold while the schedule runs. Read by the daemon
-  # at every scheduler tick, so a change needs no restart.
-  schedules_file: "/etc/rukebox/schedules.json"
-
-  # The RFID cards and what each one starts - see src/cards.py. Read at
-  # every card, so a change needs no restart.
-  cards_file: "/etc/rukebox/cards.json"
-
   # The tracks liked from the player - see src/likes.py. A song is
   # remembered by its library key, so the like survives a rescan; each
   # entry carries the date it was liked, which is what the list shows.
@@ -1199,3 +1168,38 @@ paths:
   # the radio stops choosing them on its own. Nothing is deleted, and the
   # file is still there to be played by hand.
   hidden_file: "/var/lib/rukebox/hidden.json"
+
+# ---------------------------------------------------------------
+# The announcement types made in the interface
+# ---------------------------------------------------------------
+announcements:
+  items: []
+  volumes: {}
+
+
+# ---------------------------------------------------------------
+# The music lists, and the genres they play
+# ---------------------------------------------------------------
+music_lists:
+  lists: []
+
+
+# ---------------------------------------------------------------
+# When the radio starts and stops by itself
+# ---------------------------------------------------------------
+schedules:
+  schedules: []
+
+
+# ---------------------------------------------------------------
+# The cards, and what each one starts
+# ---------------------------------------------------------------
+cards:
+  cards: []
+
+
+# ---------------------------------------------------------------
+# The play order chosen for an announcement folder
+# ---------------------------------------------------------------
+track_order: {}
+

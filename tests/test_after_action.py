@@ -41,6 +41,7 @@ def touch(folder, *names):
 class AfterActionTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.addCleanup(mock.patch.stopall)
         music = os.path.join(self.dir, "music")
@@ -57,7 +58,6 @@ class AfterActionTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "CUTOFF_ANNOUNCE_DIR": self.cutoff,
             "ANNOUNCE_ORDER_MODE": "ordered",
             "FADE_DURATION_SEC": 0, "INTERACTIVE_FADE_DURATION_SEC": 0,

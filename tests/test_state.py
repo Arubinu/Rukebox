@@ -12,6 +12,7 @@ import state
 class StateTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.path = os.path.join(self.dir, "state.json")
         self.s = state.RadioState(self.path)
 

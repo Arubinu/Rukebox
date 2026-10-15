@@ -74,6 +74,7 @@ class FakeMpv:
 class SpeakerHoldTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.music = os.path.join(self.dir, "music")
         os.makedirs(self.music, exist_ok=True)
         self.track = os.path.join(self.music, "a.mp3")
@@ -88,7 +89,6 @@ class SpeakerHoldTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "SPEAKER_MAC": MAC,
             "SPEAKER_LOSS_PAUSE": True,
             "SPEAKER_RESUME_FADE_SEC": 0,
@@ -212,6 +212,7 @@ class OutputHoldTest(unittest.TestCase):
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         cfg = load_config()
         cfg.update({
@@ -221,7 +222,6 @@ class OutputHoldTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "BASE_VOLUME": 30,
         })
         self.daemon = rukebox_daemon.RadioDaemon(cfg)

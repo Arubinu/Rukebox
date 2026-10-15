@@ -44,6 +44,21 @@ import config_file  # noqa: E402
 config_file._refresh_paths(force=True)
 
 
+def document(directory=None):
+    """Points the configuration document - the settings and the lists the
+    interface writes - at a test's own directory, and answers its path.
+
+    A store handed no path reads the document this names, so a test and the
+    daemon it starts agree on the same file.
+    """
+    if directory is None:
+        os.environ.pop("RUKEBOX_YAML_FILE", None)
+    else:
+        os.environ["RUKEBOX_YAML_FILE"] = os.path.join(directory, "rukebox.yaml")
+    config_file._refresh_paths(force=True)
+    return config_file.find_yaml_file()
+
+
 def repo_file(*parts):
     """A file of the repository (web/, config/, bootstrap/...). When the
     tests run against an installed copy, its parent directory is used."""

@@ -5,9 +5,11 @@ import os
 import re
 import time
 
-import json_file
+import config_document
 
 log = logging.getLogger("music_lists")
+
+BLOCK = "music_lists"
 
 KINDS = ("manual", "genre")
 NAME_MAX = 40
@@ -19,9 +21,9 @@ def _slugify(name):
     return slug or "list"
 
 
-def load(path):
+def load(path=None):
     """Every list, oldest first."""
-    data = json_file.read(path)
+    data = config_document.read(BLOCK, path)
     if not data:
         return []
     items = data.get("lists")
@@ -31,12 +33,12 @@ def load(path):
 
 
 def _write(path, items):
-    json_file.write(path, {"lists": items})
+    config_document.write(BLOCK, {"lists": items}, path)
 
 
-def save_all(path, items):
+def save_all(items, path=None):
     """Replaces every list (a configuration import)."""
-    with json_file.lock(path):
+    with config_document.lock(path):
         _write(path, items)
 
 
@@ -83,11 +85,11 @@ def validate(data):
     }
 
 
-def add(path, data):
+def add(data, path=None):
     """Creates a list; its id is a slug of the name, so it stays readable in
     state.json."""
     clean = validate(data)
-    with json_file.lock(path):
+    with config_document.lock(path):
         items = load(path)
         taken = {item["id"] for item in items}
         new_id = base_id = _slugify(clean["name"])
@@ -102,9 +104,9 @@ def add(path, data):
     return clean
 
 
-def update(path, list_id, data):
+def update(list_id, data, path=None):
     """Partial update: fields left out of `data` keep their current value."""
-    with json_file.lock(path):
+    with config_document.lock(path):
         items = load(path)
         for i, item in enumerate(items):
             if item["id"] == list_id:
@@ -119,8 +121,8 @@ def update(path, list_id, data):
     raise KeyError(list_id)
 
 
-def delete(path, list_id):
-    with json_file.lock(path):
+def delete(list_id, path=None):
+    with config_document.lock(path):
         items = load(path)
         remaining = [item for item in items if item["id"] != list_id]
         if len(remaining) == len(items):
@@ -128,7 +130,7 @@ def delete(path, list_id):
         _write(path, remaining)
 
 
-def get(path, list_id):
+def get(list_id, path=None):
     for item in load(path):
         if item["id"] == list_id:
             return item
@@ -137,7 +139,7 @@ def get(path, list_id):
 
 def _mutate(path, list_id, change):
     """Reads, changes one entry, writes the whole file back."""
-    with json_file.lock(path):
+    with config_document.lock(path):
         items = load(path)
         for i, item in enumerate(items):
             if item["id"] == list_id:
@@ -147,7 +149,7 @@ def _mutate(path, list_id, change):
     raise KeyError(list_id)
 
 
-def add_track(path, list_id, track):
+def add_track(list_id, track, path=None):
     """Adds a track at the end of a manual list; already there is not an
     error, it just stays where it is."""
     track = str(track or "")
@@ -166,7 +168,7 @@ def add_track(path, list_id, track):
     return _mutate(path, list_id, change)
 
 
-def remove_track(path, list_id, track):
+def remove_track(list_id, track, path=None):
     track = str(track or "")
 
     def change(entry):

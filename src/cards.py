@@ -2,16 +2,18 @@
 
 import re
 
-import json_file
+import config_document
+
+BLOCK = "cards"
 
 ACTIONS = ("list", "folder", "announcement", "action")
 _ID_RE = re.compile(r"^[0-9A-Za-z]{4,32}$")
 
 
-def load(path, strict=False):
-    """{card id: {id, name, action, target}}; strict, an unreadable file raises
-    instead of reading as empty - it must never be written over."""
-    data = json_file.read(path)
+def load(path=None, strict=False):
+    """{card id: {id, name, action, target}}; strict, an unreadable document
+    raises instead of reading as empty - it must never be written over."""
+    data = config_document.read(BLOCK, path)
     if data is None and strict:
         raise ValueError("file_unreadable")
     items = (data or {}).get("cards")
@@ -40,21 +42,22 @@ def validate(data):
 
 
 def _write(path, cards):
-    json_file.write(path, {"cards": sorted(cards.values(), key=lambda c: c["name"].lower())})
+    config_document.write(BLOCK, {
+        "cards": sorted(cards.values(), key=lambda c: c["name"].lower())}, path)
 
 
-def save(path, data):
+def save(data, path=None):
     """Adds or replaces one card."""
     card = validate(data)
-    with json_file.lock(path):
+    with config_document.lock(path):
         cards = load(path, strict=True)
         cards[card["id"]] = card
         _write(path, cards)
     return card
 
 
-def delete(path, card_id):
-    with json_file.lock(path):
+def delete(card_id, path=None):
+    with config_document.lock(path):
         cards = load(path, strict=True)
         if card_id not in cards:
             raise KeyError(card_id)
@@ -62,7 +65,7 @@ def delete(path, card_id):
         _write(path, cards)
 
 
-def save_all(path, items):
+def save_all(items, path=None):
     """Replaces the whole list (a configuration import)."""
     clean = {}
     for item in items:
@@ -71,5 +74,5 @@ def save_all(path, items):
         except ValueError:
             continue
         clean[card["id"]] = card
-    with json_file.lock(path):
+    with config_document.lock(path):
         _write(path, clean)

@@ -12,6 +12,7 @@ from unittest import mock
 import _path  # noqa: F401
 import announcements
 import config_bundle
+import config_document
 import config_file
 import hidden_tracks
 import likes
@@ -24,38 +25,40 @@ import web_auth
 class TrackOrderTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
-        self.path = os.path.join(self.dir, "track_order.json")
+        self.path = _path.document(self.dir)
 
     def test_nothing_ordered_yet(self):
         self.assertEqual(track_order.load(self.path), {})
-        self.assertIsNone(track_order.get(self.path, "meme"))
+        self.assertIsNone(track_order.get("meme", self.path))
 
     def test_an_order_is_kept_per_source_and_cleared_alone(self):
-        track_order.save_order(self.path, "meme", ["b.mp3", "a.mp3"])
-        track_order.save_order(self.path, "custom:lunch", ["2.mp3", "1.mp3"])
-        self.assertEqual(track_order.get(self.path, "meme"), ["b.mp3", "a.mp3"])
-        track_order.clear(self.path, "meme")
-        self.assertIsNone(track_order.get(self.path, "meme"))
-        self.assertEqual(track_order.get(self.path, "custom:lunch"), ["2.mp3", "1.mp3"])
-        track_order.clear(self.path, "never-saved")
+        track_order.save_order("meme", ["b.mp3", "a.mp3"], self.path)
+        track_order.save_order("custom:lunch", ["2.mp3", "1.mp3"], self.path)
+        self.assertEqual(track_order.get("meme", self.path), ["b.mp3", "a.mp3"])
+        track_order.clear("meme", self.path)
+        self.assertIsNone(track_order.get("meme", self.path))
+        self.assertEqual(track_order.get("custom:lunch", self.path), ["2.mp3", "1.mp3"])
+        track_order.clear("never-saved", self.path)
 
     def test_an_order_is_a_list_of_names(self):
         for wrong in ("a.mp3", None, ["a.mp3", 3], {"a.mp3": 1}):
             with self.assertRaises(ValueError) as refused:
-                track_order.save_order(self.path, "meme", wrong)
+                track_order.save_order("meme", wrong, self.path)
             self.assertEqual(str(refused.exception), "bad_order")
         self.assertEqual(track_order.load(self.path), {})
 
-    def test_what_is_not_an_order_in_the_file_is_left_out(self):
-        with open(self.path, "w", encoding="utf-8") as f:
-            json.dump({"meme": ["a.mp3"], "broken": "a.mp3", "mixed": ["a.mp3", 3]}, f)
+    def test_what_is_not_an_order_in_the_block_is_left_out(self):
+        config_document.write("track_order",
+                              {"meme": ["a.mp3"], "broken": "a.mp3", "mixed": ["a.mp3", 3]},
+                              self.path)
         self.assertEqual(track_order.load(self.path), {"meme": ["a.mp3"]})
 
-    def test_an_unreadable_file_is_no_order_rather_than_a_crash(self):
+    def test_an_unreadable_document_is_no_order_rather_than_a_crash(self):
         with open(self.path, "w", encoding="utf-8") as f:
-            f.write("{not json")
-        with self.assertLogs("json_file", level="ERROR"):
+            f.write("track_order:\n  meme: [ oops\n")
+        with self.assertLogs("config_document", level="ERROR"):
             self.assertEqual(track_order.load(self.path), {})
 
 
@@ -68,6 +71,7 @@ def announcement(**fields):
 class BundleTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.yaml = os.path.join(self.dir, "rukebox.yaml")
         with open(self.yaml, "w", encoding="utf-8", newline="\n") as f:
@@ -77,11 +81,7 @@ class BundleTest(unittest.TestCase):
         config_file.ENV_FILE = os.path.join(self.dir, "rukebox.env")
         self.addCleanup(lambda: setattr(config_file, "YAML_FILE_CANDIDATES", before[0]))
         self.addCleanup(lambda: setattr(config_file, "ENV_FILE", before[1]))
-        self.cfg = {"ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
-                    "TRACK_ORDER_FILE": os.path.join(self.dir, "track_order.json"),
-                    "SCHEDULES_FILE": os.path.join(self.dir, "schedules.json"),
-                    "MUSIC_LISTS_FILE": os.path.join(self.dir, "music_lists.json"),
-                    "LIKES_FILE": os.path.join(self.dir, "likes.json"),
+        self.cfg = {"LIKES_FILE": os.path.join(self.dir, "likes.json"),
                     "HIDDEN_FILE": os.path.join(self.dir, "hidden.json")}
 
     def bundle(self, **parts):
@@ -97,8 +97,8 @@ class BundleTest(unittest.TestCase):
     def test_the_export_carries_everything_but_the_two_secrets(self):
         config_file.write_values({"BASE_VOLUME": "42", "WEB_PASSWORD_HASH": "pbkdf2$secret",
                                   "WEB_SESSION_SECRET": "signing-key"})
-        announcements.save_all(self.cfg["ANNOUNCEMENTS_FILE"], [dict(announcement(), id="lunch")])
-        track_order.save_order(self.cfg["TRACK_ORDER_FILE"], "meme", ["b.mp3", "a.mp3"])
+        announcements.save_all([dict(announcement(), id="lunch")])
+        track_order.save_order("meme", ["b.mp3", "a.mp3"])
 
         bundle = config_bundle.export_bundle(self.cfg, {"tree_hash_short": "abc123"})
         self.assertEqual((bundle["format"], bundle["version"], bundle["app_version"]),
@@ -178,44 +178,44 @@ class BundleTest(unittest.TestCase):
         ]), self.cfg)
         self.assertEqual(summary["announcements"], 3)
         self.assertEqual(summary["announcements_rejected"], ["announcement_name_required", "not an object"])
-        saved = announcements.load(self.cfg["ANNOUNCEMENTS_FILE"])
+        saved = announcements.load()
         self.assertEqual([item["id"] for item in saved], ["lunch", "lunch-2", "no-id"])
 
     def test_a_bundle_without_announcements_leaves_them_alone(self):
-        announcements.save_all(self.cfg["ANNOUNCEMENTS_FILE"], [dict(announcement(), id="lunch")])
-        track_order.save_order(self.cfg["TRACK_ORDER_FILE"], "meme", ["a.mp3"])
+        announcements.save_all([dict(announcement(), id="lunch")])
+        track_order.save_order("meme", ["a.mp3"])
         summary = config_bundle.import_bundle(self.bundle(), self.cfg)
         self.assertEqual((summary["announcements"], summary["track_order"]), (0, 0))
-        self.assertEqual(len(announcements.load(self.cfg["ANNOUNCEMENTS_FILE"])), 1)
-        self.assertEqual(track_order.get(self.cfg["TRACK_ORDER_FILE"], "meme"), ["a.mp3"])
+        self.assertEqual(len(announcements.load()), 1)
+        self.assertEqual(track_order.get("meme"), ["a.mp3"])
 
     def test_the_orders_come_back_without_what_is_not_one(self):
         summary = config_bundle.import_bundle(
             self.bundle(track_order={"meme": ["b.mp3", "a.mp3"], "broken": "a.mp3"}), self.cfg)
         self.assertEqual(summary["track_order"], 1)
-        self.assertEqual(track_order.load(self.cfg["TRACK_ORDER_FILE"]), {"meme": ["b.mp3", "a.mp3"]})
+        self.assertEqual(track_order.load(), {"meme": ["b.mp3", "a.mp3"]})
 
     def fill_the_four_stores(self):
-        schedules.add(self.cfg["SCHEDULES_FILE"], {"name": "Weekend", "days": [5, 6],
-                                                    "start": "09:00", "stop": "11:00"})
-        music_lists.add(self.cfg["MUSIC_LISTS_FILE"], {"name": "Evening", "kind": "manual",
-                                                        "tracks": ["a.opus", "b.opus"]})
+        schedules.add({"name": "Weekend", "days": [5, 6], "start": "09:00", "stop": "11:00"})
+        music_lists.add({"name": "Evening", "kind": "manual", "tracks": ["a.opus", "b.opus"]})
         likes.toggle(self.cfg["LIKES_FILE"], "k1", "Song", "Artist")
         hidden_tracks.set_hidden(self.cfg["HIDDEN_FILE"], "k2", True, "/music/x.opus", "X", "Y")
 
     def test_schedules_lists_likes_and_set_aside_tracks_travel_too(self):
         self.fill_the_four_stores()
         bundle = json.loads(json.dumps(config_bundle.export_bundle(self.cfg)))
-        for name in ("schedules.json", "music_lists.json", "likes.json", "hidden.json"):
+        # The lists are emptied, the two library files removed: both come back.
+        config_document.write("schedules", {"schedules": []}, self.yaml)
+        config_document.write("music_lists", {"lists": []}, self.yaml)
+        for name in ("likes.json", "hidden.json"):
             os.remove(os.path.join(self.dir, name))
 
         summary = config_bundle.import_bundle(bundle, self.cfg)
         self.assertEqual((summary["schedules"], summary["music_lists"], summary["likes"],
                           summary["hidden"]), (1, 1, 1, 1))
-        plan = schedules.load(self.cfg["SCHEDULES_FILE"])[0]
+        plan = schedules.load()[0]
         self.assertEqual((plan["id"], plan["days"], plan["start"]), ("weekend", [5, 6], "09:00"))
-        self.assertEqual(music_lists.load(self.cfg["MUSIC_LISTS_FILE"])[0]["tracks"],
-                         ["a.opus", "b.opus"])
+        self.assertEqual(music_lists.load()[0]["tracks"], ["a.opus", "b.opus"])
         self.assertEqual(likes.keys(self.cfg["LIKES_FILE"]), {"k1"})
         self.assertEqual(hidden_tracks.paths(self.cfg["HIDDEN_FILE"]), {"/music/x.opus"})
 
@@ -223,7 +223,7 @@ class BundleTest(unittest.TestCase):
         self.fill_the_four_stores()
         summary = config_bundle.import_bundle(self.bundle(), self.cfg)
         self.assertNotIn("schedules", summary)
-        self.assertEqual(len(schedules.load(self.cfg["SCHEDULES_FILE"])), 1)
+        self.assertEqual(len(schedules.load()), 1)
         self.assertEqual(likes.keys(self.cfg["LIKES_FILE"]), {"k1"})
 
     def test_a_bad_record_costs_only_itself(self):
@@ -235,7 +235,7 @@ class BundleTest(unittest.TestCase):
             hidden=[]), self.cfg)
         self.assertEqual((summary["schedules"], summary["music_lists"], summary["likes"],
                           summary["hidden"]), (1, 1, 1, 0))
-        self.assertEqual([item["id"] for item in music_lists.load(self.cfg["MUSIC_LISTS_FILE"])], ["m"])
+        self.assertEqual([item["id"] for item in music_lists.load()], ["m"])
 
     def test_a_file_that_cannot_be_read_is_none(self):
         path = os.path.join(self.dir, "bundle.json")

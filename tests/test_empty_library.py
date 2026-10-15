@@ -17,6 +17,7 @@ from test_speaker_hold import FakeMpv
 class DaemonCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.music = os.path.join(self.dir, "music")
         os.makedirs(self.music)
         cfg = load_config()
@@ -27,7 +28,6 @@ class DaemonCase(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "START_FADE_SEC": 0,
             "SPEAKER_VOLUME_LINK": False,
         })

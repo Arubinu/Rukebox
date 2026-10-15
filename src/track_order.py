@@ -2,14 +2,16 @@
 
 import logging
 
-import json_file
+import config_document
 
 log = logging.getLogger("track_order")
 
+BLOCK = "track_order"
 
-def load(path):
+
+def load(path=None):
     """{source_id: [basename, ...]} for every source that has a saved order."""
-    data = json_file.read(path)
+    data = config_document.read(BLOCK, path)
     if not data:
         return {}
     return {
@@ -19,31 +21,31 @@ def load(path):
     }
 
 
-def get(path, source_id):
+def get(source_id, path=None):
     """The saved order for one source, or None if it has never been customized."""
     return load(path).get(source_id)
 
 
-def save_all(path, data):
-    """Replaces the whole file."""
-    with json_file.lock(path):
-        json_file.write(path, data)
+def save_all(data, path=None):
+    """Replaces the whole block."""
+    with config_document.lock(path):
+        config_document.write(BLOCK, data, path)
 
 
-def save_order(path, source_id, order):
+def save_order(source_id, order, path=None):
     """Saves an explicit order (a list of basenames) for one source."""
     if not isinstance(order, list) or not all(isinstance(name, str) for name in order):
         raise ValueError("bad_order")
-    with json_file.lock(path):
+    with config_document.lock(path):
         data = load(path)
         data[source_id] = list(order)
-        json_file.write(path, data)
+        config_document.write(BLOCK, data, path)
 
 
-def clear(path, source_id):
+def clear(source_id, path=None):
     """Removes a saved order, reverting that source to natural sort."""
-    with json_file.lock(path):
+    with config_document.lock(path):
         data = load(path)
         if source_id in data:
             del data[source_id]
-            json_file.write(path, data)
+            config_document.write(BLOCK, data, path)

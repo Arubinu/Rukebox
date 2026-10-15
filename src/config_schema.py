@@ -1241,52 +1241,6 @@ SETTINGS = [
             "/var/lib/rukebox/music_cache.json",
             "", "Music scan cache"),
     Setting(
-        "ANNOUNCEMENTS_FILE", "paths", "announcements_file", "str",
-        "/etc/rukebox/announcements.json",
-        "Custom announcement types added from the web interface (name,\n"
-        "folder, time of day) - see src/announcements.py. Plain JSON, not\n"
-        "YAML: it is a growable list managed entirely through the web UI's\n"
-        "own form, not meant for hand-editing like the settings above.",
-        "Custom announcements file",
-    ),
-    Setting(
-        "TRACK_ORDER_FILE", "paths", "track_order_file", "str",
-        "/etc/rukebox/track_order.json",
-        "Custom play order saved per announcement folder when\n"
-        "announce_order_mode is \"ordered\" and you have picked a specific\n"
-        "sequence from the web interface - see src/track_order.py. Same\n"
-        "reasoning as announcements_file above: a plain JSON file, not part\n"
-        "of the YAML settings.",
-        "Track order file",
-    ),
-    Setting(
-        "MUSIC_LISTS_FILE", "paths", "music_lists_file", "str",
-        "/etc/rukebox/music_lists.json",
-        "The music lists built from the web interface - see\n"
-        "src/music_lists.py. Same reasoning as announcements_file above: a\n"
-        "growable list managed entirely by its own form, so JSON rather\n"
-        "than a hand-edited setting. A list is either manual (tracks picked\n"
-        "one by one) or by genre (kept up to date from the library's tags);\n"
-        "the radio plays one list, or everything when none is active.",
-        "Music lists file",
-    ),
-    Setting(
-        "SCHEDULES_FILE", "paths", "schedules_file", "str",
-        "/etc/rukebox/schedules.json",
-        "The schedules built from the web interface - see src/schedules.py:\n"
-        "start the music, stop it, or both, on chosen days or one date, with\n"
-        "settings that only hold while the schedule runs. Read by the daemon\n"
-        "at every scheduler tick, so a change needs no restart.",
-        "Schedules file",
-    ),
-    Setting(
-        "CARDS_FILE", "paths", "cards_file", "str",
-        "/etc/rukebox/cards.json",
-        "The RFID cards and what each one starts - see src/cards.py. Read at\n"
-        "every card, so a change needs no restart.",
-        "Cards file",
-    ),
-    Setting(
         "LIKES_FILE", "paths", "likes_file", "str",
         "/var/lib/rukebox/likes.json",
         "The tracks liked from the player - see src/likes.py. A song is\n"
@@ -1501,10 +1455,8 @@ def _environment_paths():
     import paths
 
     return {
-        "ANNOUNCEMENTS_FILE": paths.resolve("ANNOUNCEMENTS_FILE", paths.config("announcements.json")),
         "AP_CONNECT_SOUND": paths.resolve("AP_CONNECT_SOUND", paths.music("system", "ap_connect.wav")),
         "BATTERY_LOW_SOUND": paths.resolve("BATTERY_LOW_SOUND", paths.music("system", "battery_low.wav")),
-        "CARDS_FILE": paths.resolve("CARDS_FILE", paths.config("cards.json")),
         "CLOCK_FALLBACK_SOUND": paths.resolve(
             "CLOCK_FALLBACK_SOUND", paths.music("system", "clock_fallback.wav")),
         "CLOCK_OK_SOUND": paths.resolve("CLOCK_OK_SOUND", paths.music("system", "clock_ok.wav")),
@@ -1519,13 +1471,10 @@ def _environment_paths():
         "MEME_DIR": paths.resolve("MEME_DIR", paths.music("memes")),
         "MUSIC_CACHE_FILE": paths.resolve("MUSIC_CACHE_FILE", paths.state("music_cache.json")),
         "MUSIC_DIR": paths.resolve("MUSIC_DIR", paths.music("music")),
-        "MUSIC_LISTS_FILE": paths.resolve("MUSIC_LISTS_FILE", paths.config("music_lists.json")),
         "RESTART_SOUND": paths.resolve("RESTART_SOUND", paths.music("system", "restart.wav")),
-        "SCHEDULES_FILE": paths.resolve("SCHEDULES_FILE", paths.config("schedules.json")),
         "STATE_DIR": paths.resolve("STATE_DIR", paths.state_dir()),
         "STATS_DB_FILE": paths.resolve("STATS_DB_FILE", paths.state("stats.db")),
         "SUGGESTIONS_DB_FILE": paths.resolve("SUGGESTIONS_DB_FILE", paths.state("suggestions.db")),
-        "TRACK_ORDER_FILE": paths.resolve("TRACK_ORDER_FILE", paths.config("track_order.json")),
         "UPDATE_VERSION_FILE": paths.resolve("UPDATE_VERSION_FILE", paths.state("version.json")),
     }
 
@@ -1584,7 +1533,7 @@ RESTART_REQUIRED = frozenset({
     "STATS_ENABLED", "STATS_DB_FILE", "STATS_RETENTION_DAYS", "STATS_MAX_EVENTS",
     "AP_WATCH_INTERVAL_SEC", "AP_INTERFACE",
     "STATE_DIR", "MPV_SOCKET", "CONTROL_SOCKET", "MUSIC_CACHE_FILE",
-    "ANNOUNCEMENTS_FILE", "TRACK_ORDER_FILE", "SPEAKER_BT_ADAPTER",
+    "SPEAKER_BT_ADAPTER",
     "FLIC_HCI_DEVICE", "WEB_PORT",
 })
 

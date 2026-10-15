@@ -94,6 +94,7 @@ class WebTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.dir = tempfile.mkdtemp()
+        _path.document(cls.dir)
         cls.orig_cfg = ws.cfg
         cls.orig_control = ws.control
         cls.extra = {
@@ -102,9 +103,6 @@ class WebTest(unittest.TestCase):
             "LIBRARY_DB_FILE": os.path.join(cls.dir, "l.db"), "STATE_DIR": cls.dir,
             "MUSIC_DIR": os.path.join(cls.dir, "music"),
             "MUSIC_CACHE_FILE": os.path.join(cls.dir, "music_cache.json"),
-            "MUSIC_LISTS_FILE": os.path.join(cls.dir, "music_lists.json"),
-            "SCHEDULES_FILE": os.path.join(cls.dir, "schedules.json"),
-            "ANNOUNCEMENTS_FILE": os.path.join(cls.dir, "announcements.json"),
             "HOME_WIFI_CONN_NAME": "rukebox-home",
             "GUEST_QUOTA_ENABLED": True, "GUEST_QUOTA_MAX": 3, "GUEST_QUOTA_REFILL_SEC": 600,
             "GUEST_QUOTA_REPEAT_MIN": 0, "GUEST_COST_NEXT": 1,
@@ -1868,6 +1866,7 @@ class RepairAfterRestoreTest(unittest.TestCase):
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         values = dict(ws.cfg(), SPEAKER_MAC="7C:E9:13:69:66:55", AUDIO_OUTPUT="bluetooth",
                       STATE_DIR=self.dir, WEB_PASSWORD_HASH="", SETUP_HIDDEN="",
@@ -2212,9 +2211,8 @@ class GameRouteTest(unittest.TestCase):
     def use_lists(self, entries):
         folder = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
-        path = os.path.join(folder, "music_lists.json")
-        music_lists.save_all(path, entries)
-        unittest.mock.patch.object(ws, "_lists_path", return_value=path).start()
+        _path.document(folder)
+        music_lists.save_all(entries)
 
     def test_a_game_can_ask_only_about_a_list(self):
         self.use_lists([{"id": "mine", "name": "Mine", "kind": "manual",
@@ -2264,8 +2262,7 @@ class GameRouteTest(unittest.TestCase):
         asked = os.path.join(folder, "game_asked.json")
         unittest.mock.patch.object(ws, "_game_asked_file", return_value=asked).start()
         unittest.mock.patch.object(ws, "_is_owner", return_value=True).start()
-        music_lists_path = os.path.join(folder, "lists.json")
-        unittest.mock.patch.object(ws, "_lists_path", return_value=music_lists_path).start()
+        _path.document(folder)
         ws.blind_test.remember(asked, "/m/0")
         self.assertTrue(self.client.post("/api/game/start", json={"rounds": 5, "seconds": 20, "remember": True})
                         .get_json()["ok"])
@@ -2336,11 +2333,11 @@ class ExcludedTracksTest(unittest.TestCase):
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.music = os.path.join(self.dir, "music")
         self.db_file = os.path.join(self.dir, "library.db")
         self.hidden_file = os.path.join(self.dir, "hidden.json")
-        self.lists_file = os.path.join(self.dir, "music_lists.json")
         self.state_dir = os.path.join(self.dir, "state")
         os.makedirs(self.state_dir, exist_ok=True)
         lib = library.Library(self.db_file, track_media.track_key)
@@ -2360,7 +2357,6 @@ class ExcludedTracksTest(unittest.TestCase):
                       GUEST_MODE_ENABLED=True, STATE_DIR=self.state_dir,
                       MUSIC_DIR=self.music, MUSIC_CACHE_FILE=os.path.join(self.dir, "cache.json"),
                       LIBRARY_DB_FILE=self.db_file, HIDDEN_FILE=self.hidden_file,
-                      MUSIC_LISTS_FILE=self.lists_file,
                       LIKES_FILE=os.path.join(self.dir, "likes.json"))
         for target, value in (
                 ("cfg", lambda: dict(values)),
@@ -2662,6 +2658,7 @@ class EraseRunRouteTest(unittest.TestCase):
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.wins = os.path.join(self.dir, "game_wins.json")
         self.recorder = ws.stats.__class__(

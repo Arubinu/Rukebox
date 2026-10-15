@@ -57,6 +57,7 @@ class FakeMpv:
 class UsbMusicTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.music = os.path.join(self.dir, "music")
         os.makedirs(self.music)
@@ -78,7 +79,6 @@ class UsbMusicTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "USB_PORT_MODE": "host",
         })
         self.daemon = rukebox_daemon.RadioDaemon(cfg)

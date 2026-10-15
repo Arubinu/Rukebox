@@ -1,13 +1,15 @@
-"""User-defined announcement types (JSON, edited from the web interface)."""
+"""User-defined announcement types (the `announcements` block of rukebox.yaml)."""
 
 import logging
 import os
 import re
 import time
 
-import json_file
+import config_document
 
 log = logging.getLogger("announcements")
+
+BLOCK = "announcements"
 
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".flac", ".opus"}
 
@@ -23,9 +25,9 @@ def _is_absolute_path(folder):
 
 
 def _read_doc(path, strict=False):
-    """The whole file: {"items": [...], "volumes": {...}}."""
-    # `strict`: a writer must never replace a file it could not read with an empty one.
-    data = json_file.read(path)
+    """The whole block: {"items": [...], "volumes": {...}}."""
+    # `strict`: a writer must never replace a document it could not read with an empty one.
+    data = config_document.read(BLOCK, path)
     if data is None:
         if strict:
             raise ValueError("file_unreadable")
@@ -40,13 +42,13 @@ def _read_doc(path, strict=False):
     return data
 
 
-def load(path):
+def load(path=None):
     """Every custom announcement, oldest first."""
     return _read_doc(path)["items"]
 
 
-def read_items(path):
-    """The announcements, or None when the file cannot be read at all."""
+def read_items(path=None):
+    """The announcements, or None when the document cannot be read at all."""
     try:
         return _read_doc(path, strict=True)["items"]
     except ValueError:
@@ -54,26 +56,26 @@ def read_items(path):
 
 
 def _mutate(path, change):
-    """Read-modify-write, one writer at a time (src/json_file.py)."""
-    with json_file.lock(path):
+    """Read-modify-write, one writer at a time (src/config_document.py)."""
+    with config_document.lock(path):
         doc = _read_doc(path, strict=True)
         out = change(doc)
         if out is not None:
-            json_file.write(path, out)
+            config_document.write(BLOCK, out, path)
         return out
 
 
-def save_all(path, items):
+def save_all(items, path=None):
     """Replaces the whole list, validating nothing."""
-    # May write over an unreadable file: a config restore has to repair one.
-    with json_file.lock(path):
-        doc = json_file.read(path)
+    # May write over an unreadable document: a config restore has to repair one.
+    with config_document.lock(path):
+        doc = config_document.read(BLOCK, path)
         if not isinstance(doc, dict):
             doc = {}
         doc["items"] = items
         if not isinstance(doc.get("volumes"), dict):
             doc["volumes"] = {}
-        json_file.write(path, doc)
+        config_document.write(BLOCK, doc, path)
 
 
 VOLUME_MIN = 0
@@ -91,7 +93,7 @@ def clean_volume(data):
     return {"on": bool((data or {}).get("on", False)), "volume": volume}
 
 
-def volumes(path):
+def volumes(path=None):
     """The per-source volume: {"<source id>": {"on": bool, "volume": 0..100}}."""
     out = {}
     for key, entry in _read_doc(path)["volumes"].items():
@@ -104,7 +106,7 @@ def volumes(path):
     return out
 
 
-def set_volume(path, key, data):
+def set_volume(key, data, path=None):
     """Stores one source's volume."""
     key = str(key or "").strip()
     if not key or len(key) > 80:
@@ -198,7 +200,7 @@ def validate(data):
     }
 
 
-def add(path, data, default_parent=None):
+def add(data, default_parent=None, path=None):
     """Creates a new announcement type."""
     data = dict(data)
     wants_default = not str(data.get("folder", "")).strip() and default_parent
@@ -231,7 +233,7 @@ def add(path, data, default_parent=None):
     return clean
 
 
-def update(path, item_id, data):
+def update(item_id, data, path=None):
     """Partial update: fields left out of `data` keep their current value."""
     found = []
 
@@ -256,7 +258,7 @@ def update(path, item_id, data):
     return found[0]
 
 
-def delete(path, item_id):
+def delete(item_id, path=None):
     found = []
 
     def change(doc):
@@ -274,7 +276,7 @@ def delete(path, item_id):
         raise KeyError(item_id)
 
 
-def get(path, item_id):
+def get(item_id, path=None):
     for item in load(path):
         if item["id"] == item_id:
             return item
@@ -330,21 +332,23 @@ def _default_items(morning_folder, morning_hour, morning_minute, doubleclick_fol
     ]
 
 
-def seed_defaults(path, audio_root=DEFAULT_AUDIO_ROOT):
+def seed_defaults(audio_root=DEFAULT_AUDIO_ROOT, path=None):
     """Creates the list with the two announcement types a new radio is offered,
-    when the file does not exist at all."""
-    if not path or os.path.exists(path):
+    when the document holds none at all."""
+    block = config_document.read(BLOCK, path)
+    # None: the document could not be read. Never seed over one.
+    if block is None or block.get("items"):
         return False
-    save_all(path, _default_items(
+    save_all(_default_items(
         os.path.join(audio_root, "morning_announcements"), 5, 58,
-        os.path.join(audio_root, "doubleclick_announcements")))
+        os.path.join(audio_root, "doubleclick_announcements")), path)
     return True
 
 
-def retarget(path, old_root, new_root):
+def retarget(old_root, new_root, path=None):
     """Moves the announcements' folders from one audio root to another, and says how many
     moved."""
-    if not path or not old_root or not new_root:
+    if not old_root or not new_root:
         return 0
     old_root = old_root.rstrip("/\\").replace("\\", "/")
     new_root = new_root.rstrip("/\\").replace("\\", "/")
@@ -360,5 +364,5 @@ def retarget(path, old_root, new_root):
             item["folder"] = new_root + folder[len(old_root):]
             changed += 1
     if changed:
-        save_all(path, items)
+        save_all(items, path)
     return changed

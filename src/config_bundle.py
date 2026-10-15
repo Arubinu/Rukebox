@@ -84,13 +84,13 @@ def export_bundle(cfg, version=None, flic_buttons=None):
         "exported_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "app_version": (version or {}).get("tree_hash_short", ""),
         "settings": settings,
-        "announcements": announcements.load(cfg.get("ANNOUNCEMENTS_FILE", "")),
-        "track_order": track_order.load(cfg.get("TRACK_ORDER_FILE", "")),
-        "schedules": schedules.load(cfg.get("SCHEDULES_FILE", "")),
-        "music_lists": music_lists.load(cfg.get("MUSIC_LISTS_FILE", "")),
+        "announcements": announcements.load(),
+        "track_order": track_order.load(),
+        "schedules": schedules.load(),
+        "music_lists": music_lists.load(),
         "likes": likes.load(cfg.get("LIKES_FILE", "")),
         "hidden": hidden_tracks.load(cfg.get("HIDDEN_FILE", "")),
-        "cards": list(cards.load(cfg.get("CARDS_FILE", "")).values()),
+        "cards": list(cards.load().values()),
     }
     # The pairings themselves stay with the card: only how many there were travels.
     if flic_buttons is not None:
@@ -239,12 +239,12 @@ def import_bundle(data, cfg):
     rejected = [reason for item, reason in cleaned if item is None]
     applied_announcements = 0
     if isinstance(data.get("announcements"), list):
-        announcements.save_all(cfg["ANNOUNCEMENTS_FILE"], good)
+        announcements.save_all(good)
         applied_announcements = len(good)
 
     orders = _clean_orders(data.get("track_order"))
     if isinstance(data.get("track_order"), dict):
-        track_order.save_all(cfg["TRACK_ORDER_FILE"], orders)
+        track_order.save_all(orders)
 
     summary = {
         "settings": len(updates),
@@ -258,11 +258,11 @@ def import_bundle(data, cfg):
     # Absent from a file exported before they existed: left as they are.
     if isinstance(data.get("schedules"), list):
         items = _clean_records(data["schedules"], schedules.validate, schedules._slugify)
-        schedules.save_all(cfg["SCHEDULES_FILE"], items)
+        schedules.save_all(items)
         summary["schedules"] = len(items)
     if isinstance(data.get("music_lists"), list):
         items = _clean_records(data["music_lists"], music_lists.validate, music_lists._slugify)
-        music_lists.save_all(cfg["MUSIC_LISTS_FILE"], items)
+        music_lists.save_all(items)
         summary["music_lists"] = len(items)
     if isinstance(data.get("likes"), list):
         items = _clean_tracks(data["likes"], ("title", "artist"), "liked_at")
@@ -272,9 +272,9 @@ def import_bundle(data, cfg):
         items = _clean_tracks(data["hidden"], ("path", "title", "artist"), "hidden_at")
         hidden_tracks.save_all(cfg["HIDDEN_FILE"], items)
         summary["hidden"] = len(items)
-    if isinstance(data.get("cards"), list) and cfg.get("CARDS_FILE"):
-        cards.save_all(cfg["CARDS_FILE"], [c for c in data["cards"] if isinstance(c, dict)])
-        summary["cards"] = len(cards.load(cfg["CARDS_FILE"]))
+    if isinstance(data.get("cards"), list):
+        cards.save_all([c for c in data["cards"] if isinstance(c, dict)])
+        summary["cards"] = len(cards.load())
     flic = data.get("flic_buttons")
     if isinstance(flic, int) and not isinstance(flic, bool) and flic > 0:
         try:

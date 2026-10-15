@@ -41,6 +41,7 @@ class FakeMpv:
 class VolumeLinkTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         cfg = load_config()
         cfg.update({
             "MUSIC_DIR": self.dir,
@@ -49,7 +50,6 @@ class VolumeLinkTest(unittest.TestCase):
             "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "BASE_VOLUME": 30,
             "VOLUME_CHANGE": "instant",
         })

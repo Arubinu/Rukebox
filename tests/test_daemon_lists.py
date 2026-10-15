@@ -73,6 +73,7 @@ class FakeMpv:
 class DaemonListsTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.music = os.path.join(self.dir, "music")
         self.paths = {}
         for name in ("jazz1.mp3", "rock1.mp3", "metal.mp3", "Daft Punk/album1.mp3"):
@@ -82,7 +83,7 @@ class DaemonListsTest(unittest.TestCase):
                 f.write(b"x" * 10)
             self.paths[name] = path
 
-        self.lists_file = os.path.join(self.dir, "music_lists.json")
+        self.lists_file = _path.document(self.dir)
         lib = library.Library(os.path.join(self.dir, "library.db"), track_media.track_key)
         lib.sync(list(self.paths.values()), self.music)
         for name, genre in (("jazz1.mp3", "Jazz"), ("rock1.mp3", "Rock"),
@@ -99,8 +100,6 @@ class DaemonListsTest(unittest.TestCase):
             "LIST_LIBRARY_DB": None, "STATS_ENABLED": False,
             "STATS_DB_FILE": os.path.join(self.dir, "stats.db"),
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
-            "MUSIC_LISTS_FILE": self.lists_file,
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "HIDDEN_FILE": os.path.join(self.dir, "hidden.json"),
             "INTERACTIVE_FADE_DURATION_SEC": 0,
         })
@@ -124,8 +123,7 @@ class DaemonListsTest(unittest.TestCase):
         self.assertIsNone(self.daemon._build_status()["active_list"])
 
     def test_a_genre_list_limits_what_plays(self):
-        entry = music_lists.add(self.lists_file,
-                                {"name": "Jazz", "kind": "genre", "genres": ["jazz"]})
+        entry = music_lists.add({"name": "Jazz", "kind": "genre", "genres": ["jazz"]}, self.lists_file)
         result = self.daemon._set_active_list(entry["id"], "test")
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["data"]["tracks"], 2)
@@ -137,23 +135,22 @@ class DaemonListsTest(unittest.TestCase):
         self.assertEqual(self.daemon._build_status()["active_list"]["name"], "Jazz")
 
     def test_a_genre_list_finds_a_genre_among_several(self):
-        entry = music_lists.add(self.lists_file,
-                                {"name": "Heavy", "kind": "genre", "genres": ["Heavy Metal"]})
+        entry = music_lists.add({"name": "Heavy", "kind": "genre", "genres": ["Heavy Metal"]}, self.lists_file)
         self.daemon._set_active_list(entry["id"], "test")
         self.assertEqual(self.daemon._playable_tracks(), [self.paths["metal.mp3"]])
 
     def test_a_manual_list_keeps_the_order_it_was_built_in(self):
-        entry = music_lists.add(self.lists_file, {"name": "Soir", "kind": "manual"})
-        music_lists.add_track(self.lists_file, entry["id"], self.paths["rock1.mp3"])
-        music_lists.add_track(self.lists_file, entry["id"], self.paths["jazz1.mp3"])
+        entry = music_lists.add({"name": "Soir", "kind": "manual"}, self.lists_file)
+        music_lists.add_track(entry["id"], self.paths["rock1.mp3"], self.lists_file)
+        music_lists.add_track(entry["id"], self.paths["jazz1.mp3"], self.lists_file)
         self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
         self.daemon._set_active_list(entry["id"], "test")
         self.assertEqual(self.daemon.state.data["play_queue"],
                          [self.paths["rock1.mp3"], self.paths["jazz1.mp3"]])
 
     def test_playing_a_list_starts_it_now(self):
-        entry = music_lists.add(self.lists_file, {"name": "Soir", "kind": "manual"})
-        music_lists.add_track(self.lists_file, entry["id"], self.paths["rock1.mp3"])
+        entry = music_lists.add({"name": "Soir", "kind": "manual"}, self.lists_file)
+        music_lists.add_track(entry["id"], self.paths["rock1.mp3"], self.lists_file)
         self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
         self.daemon.mode = "music"
         self.daemon._set_active_list(entry["id"], "test", start=True)
@@ -161,8 +158,8 @@ class DaemonListsTest(unittest.TestCase):
         self.assertEqual(self.daemon.state.active_list(), entry["id"])
 
     def test_going_back_to_everything(self):
-        entry = music_lists.add(self.lists_file, {"name": "Jazz", "kind": "genre",
-                                                  "genres": ["Jazz"]})
+        entry = music_lists.add({"name": "Jazz", "kind": "genre",
+                                                  "genres": ["Jazz"]}, self.lists_file)
         self.daemon._set_active_list(entry["id"], "test")
         self.assertTrue(self.daemon._set_active_list(None, "test")["ok"])
         self.assertIsNone(self.daemon.state.active_list())
@@ -174,11 +171,11 @@ class DaemonListsTest(unittest.TestCase):
         self.assertIsNone(self.daemon.state.active_list())
 
     def test_a_deleted_list_goes_back_to_everything(self):
-        entry = music_lists.add(self.lists_file, {"name": "Jazz", "kind": "genre",
-                                                  "genres": ["Jazz"]})
+        entry = music_lists.add({"name": "Jazz", "kind": "genre",
+                                                  "genres": ["Jazz"]}, self.lists_file)
         self.daemon._set_active_list(entry["id"], "test")
         before = os.stat(self.lists_file).st_mtime_ns
-        music_lists.delete(self.lists_file, entry["id"])
+        music_lists.delete(entry["id"], self.lists_file)
         # A filesystem with coarse timestamps leaves the date alone when two
         # writes land in the same tick: the daemon then kept playing the list
         # the page had just deleted, and only its size told them apart.
@@ -187,9 +184,9 @@ class DaemonListsTest(unittest.TestCase):
         self.assertIsNone(self.daemon.state.active_list())
 
     def test_a_manual_list_forgets_a_file_the_library_lost(self):
-        entry = music_lists.add(self.lists_file, {"name": "Soir", "kind": "manual"})
-        music_lists.add_track(self.lists_file, entry["id"], self.paths["jazz1.mp3"])
-        music_lists.add_track(self.lists_file, entry["id"], "/nowhere/gone.mp3")
+        entry = music_lists.add({"name": "Soir", "kind": "manual"}, self.lists_file)
+        music_lists.add_track(entry["id"], self.paths["jazz1.mp3"], self.lists_file)
+        music_lists.add_track(entry["id"], "/nowhere/gone.mp3", self.lists_file)
         self.daemon._set_active_list(entry["id"], "test")
         self.assertEqual(self.daemon._playable_tracks(), [self.paths["jazz1.mp3"]])
 
@@ -272,9 +269,9 @@ class DaemonListsTest(unittest.TestCase):
         self.assertNotIn(self.paths["jazz1.mp3"], self.daemon.state.data["play_queue"])
 
     def test_a_list_keeps_what_the_radio_must_not_pick_itself(self):
-        entry = music_lists.add(self.lists_file, {"name": "Soir", "kind": "manual"})
-        music_lists.add_track(self.lists_file, entry["id"], self.paths["jazz1.mp3"])
-        music_lists.add_track(self.lists_file, entry["id"], self.paths["rock1.mp3"])
+        entry = music_lists.add({"name": "Soir", "kind": "manual"}, self.lists_file)
+        music_lists.add_track(entry["id"], self.paths["jazz1.mp3"], self.lists_file)
+        music_lists.add_track(entry["id"], self.paths["rock1.mp3"], self.lists_file)
         hidden_tracks.set_hidden(self.daemon.cfg["HIDDEN_FILE"], "k1", True,
                                  self.paths["jazz1.mp3"])
         self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"

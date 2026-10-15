@@ -1150,7 +1150,7 @@ card on the reader and the page says "Unknown card read: 0012345678" with
 - **Like a button**: any click action (next, pause, standby, say the time...).
 
 The ▶ of a row does what the card would do, without the card. Cards live in
-`/etc/rukebox/cards.json` (`paths.cards_file`), are read at every card (no
+the `cards:` block of `rukebox.yaml`, are read at every card (no
 restart), and travel with the configuration export. The USB port of a Pi
 Zero is the one the gadget uses: a reader needs `hardware.usb_port_mode: host` (and a
 hub if a Bluetooth dongle is plugged too). **Not tried with a real reader
@@ -1492,8 +1492,8 @@ The daemon decides by the clock alone at every scheduler tick (15 s), so a
 restart in the middle of a schedule finds it running again - its settings,
 volume and list are applied, but a start that is already past is not
 replayed. The player says which schedule runs and until when; while nothing
-plays, it says which one comes next. Schedules live in
-`/etc/rukebox/schedules.json` (`paths.schedules_file`) and need no restart.
+plays, it says which one comes next. Schedules live in the `schedules:`
+block of `rukebox.yaml` and need no restart.
 They travel with the configuration export.
 
 The arrows of a row move it up or down - the order matters when two weekly
@@ -2522,7 +2522,9 @@ way to reset the password there than editing `rukebox.yaml` by hand
 
 Everything the radio can be told is one file: **`/etc/rukebox/rukebox.yaml`**.
 Structured, commented, meant to be edited by hand over SSH, and it is
-also exactly what the web interface's settings form reads and writes.
+also exactly what the web interface's settings form reads and writes. The
+lists the interface builds — announcements, music lists, schedules, cards and
+the saved play order — are in the same file, further down.
 
 ### Why YAML, and what the second file is
 
@@ -2572,6 +2574,55 @@ sudo python3 /opt/rukebox/src/config_file.py set audio.output=jack
 sudo python3 /opt/rukebox/src/config_file.py get folders.music
 sudo python3 /opt/rukebox/src/config_file.py show
 ```
+
+### The lists are in the same file
+
+The lists a page builds — the custom announcements and their volumes, the
+music lists, the schedules, the cards, and the play order saved for an
+announcement folder — are the blocks `announcements:`, `music_lists:`,
+`schedules:`, `cards:` and `track_order:` of `rukebox.yaml`, under the
+settings. Saving one from the interface rewrites that block alone: the
+settings, the comments and the order of everything else are left alone, and a
+comment you put *above* a block is yours to keep.
+
+**A block belongs to the radio.** They are lists with ids, dates and folders
+inside them: read them, back them up with the rest of the file, but change
+them through the interface rather than by hand, or an edit that does not
+validate is refused as a whole. The shape of each one is in the file a new
+radio writes:
+
+```yaml
+announcements:
+  items:
+    - id: morning
+      name: Morning
+      folder: /home/pi/audio/morning_announcements
+      hour: 5
+      minute: 58
+      trigger: time
+      enabled: true
+  volumes:
+    meme: {on: true, volume: 80}
+```
+
+Until this version those lists were five files of their own in `/etc/rukebox`
+(`announcements.json`, `music_lists.json`, `schedules.json`, `cards.json`,
+`track_order.json`). The first start after the update takes each one into its
+block, checks it is there, and **removes the file it came from**; the update,
+the installation and every boot run that same step, and it only ever runs
+once. A file that cannot be read is left where it is, and so is one with
+nothing in it. Rolling back to an older version after that does not find the
+lists again: an older Rukebox reads the files, not the blocks.
+
+An older file also keeps the five lines that named those files, under `paths:`
+(`announcements_file` and the rest). Nothing reads them any more; they are only
+consulted to find a list still waiting in its own file, so they can be deleted
+once it has moved.
+
+Reading the blocks needs PyYAML (`python3-yaml`, installed by
+`install.sh`). Without it the settings come from `rukebox.env` and the lists
+stay in their own files, as before: the interface keeps working there, and the
+lists move into the blocks at the next start once PyYAML is installed.
 
 ### When a change takes effect
 
@@ -3114,7 +3165,8 @@ In order, and stopping at the first problem:
    and restarts exactly that set.
 5. **Merges new settings** into `/etc/rukebox/rukebox.yaml` — settings
    introduced by the new version are appended with their documentation,
-   and **no existing value is ever modified**.
+   and **no existing value is ever modified**. The lists a version before
+   2.0.0 kept in files of their own are taken into the file here, once.
 6. Refreshes the systemd units and the sudo grants (the latter validated
    with `visudo` first, since a malformed sudoers file can lock `sudo`
    out of the machine).
@@ -3124,7 +3176,9 @@ In order, and stopping at the first problem:
 
 If something fails partway through, it **restores the previous version
 by itself** and restarts the services, leaving the failed attempt in
-`/opt/rukebox.failed` for inspection.
+`/opt/rukebox.failed` for inspection. The configuration is not part of that
+backup: a version that stops after the step above leaves the configuration
+as the new version wrote it, lists included.
 
 ### Rolling back
 
@@ -3133,7 +3187,10 @@ sudo rukebox-update --list-backups
 sudo rukebox-update --rollback          # restores the most recent backup
 ```
 
-`updates.backup_keep` (3 by default) sets how many are kept.
+`updates.backup_keep` (3 by default) sets how many are kept. A rollback
+restores the program, not the configuration: a version before 2.0.0 would not
+find the lists that moved into `rukebox.yaml` (see "The lists are in the same
+file"), so keep a copy of the file before rolling back that far.
 
 ### Which version is installed?
 
@@ -3407,9 +3464,8 @@ this genre** makes the list for it (or reuses the one that already matches)
 and plays it - the quickest way to hear one kind of music for a while. Songs
 are added to a manual list the same way from anywhere the Library shows them.
 
-The lists are one file, `/etc/rukebox/music_lists.json`
-(`music_lists_file`), plain JSON written by the interface - it travels with
-the rest in a configuration backup.
+The lists are one block of `rukebox.yaml`, `music_lists:`, written by the
+interface - it travels with the rest in a configuration backup.
 
 ### Night volume: a cap between two times
 
@@ -3592,10 +3648,9 @@ a type defined without it firing, and **Delete** removes it entirely.
 
 Like the settings, **changes here apply immediately** - add, edit,
 disable or delete a custom announcement type and it takes effect on the
-very next scheduler tick (within 15s), no `systemctl restart` needed. They are stored separately from
-`rukebox.yaml`, in `/etc/rukebox/announcements.json` (`paths.announcements_file`)
-- plain JSON rather than YAML, since this is a list managed entirely
-through the web form rather than something meant for hand-editing.
+very next scheduler tick (within 15s), no `systemctl restart` needed. They are
+in the `announcements:` block of `rukebox.yaml`, which the interface
+writes for you.
 
 
 ### Putting the sounds in (Announcement files card)
@@ -3636,9 +3691,8 @@ of relying on filenames: select the folder, reorder its files with the
 part of any saved order yet, is appended after the saved ones rather
 than skipped. **Reset to alphabetical** clears the saved order for that
 folder, reverting to natural sort. Changes apply immediately, no
-service restart. Saved orders live in `/etc/rukebox/track_order.json`
-(`paths.track_order_file`) — plain JSON, like `announcements.json`, not part
-of the hand-editable YAML settings.
+service restart. Saved orders live in the `track_order:` block of
+`rukebox.yaml`, one list of names per announcement folder.
 
 This reordering UI is deliberately **not offered for the music library
 itself** — practical for the handful of clips an announcement folder
@@ -3668,9 +3722,9 @@ sounds card.
   the cutoff (`cutoff`), each custom announcement, and each **System
   sound** (keep-alive, clock confirmation, Wi-Fi hotspot connection,
   restart) — whatever the picker shows.
-- Stored in `/etc/rukebox/announcements.json`, next to the announcements
-  themselves, under `volumes`. Plain JSON like the rest of that file, not
-  a YAML setting; deleting an announcement drops its volume with it.
+- Stored in the `announcements:` block of `rukebox.yaml`, under `volumes`,
+  next to the announcements themselves; deleting an announcement drops its
+  volume with it.
 - Changing a volume applies at the **next** play of that announcement, no
   restart. Moving the Home slider *during* an announcement overrides it
   until that announcement ends, which is the one case where the slider

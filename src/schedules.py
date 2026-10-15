@@ -6,10 +6,12 @@ import re
 import time
 from datetime import date as date_type, timedelta
 
+import config_document
 import config_schema
-import json_file
 
 log = logging.getLogger("schedules")
+
+BLOCK = "schedules"
 
 STOP_ACTIONS = ("pause", "standby", "poweroff")
 NAME_MAX = 40
@@ -32,9 +34,9 @@ def _slugify(name):
     return slug or "schedule"
 
 
-def read_items(path):
-    """Every schedule in the order of the file, or None when it cannot be read."""
-    data = json_file.read(path)
+def read_items(path=None):
+    """Every schedule in the order of the document, or None when it cannot be read."""
+    data = config_document.read(BLOCK, path)
     if data is None:
         return None
     items = data.get("schedules")
@@ -43,12 +45,12 @@ def read_items(path):
     return [item for item in items if isinstance(item, dict) and item.get("id")]
 
 
-def load(path):
+def load(path=None):
     return read_items(path) or []
 
 
 def _write(path, items):
-    json_file.write(path, {"schedules": items})
+    config_document.write(BLOCK, {"schedules": items}, path)
 
 
 def _time(raw):
@@ -139,9 +141,9 @@ def validate(data):
     }
 
 
-def add(path, data):
+def add(data, path=None):
     clean = validate(data)
-    with json_file.lock(path):
+    with config_document.lock(path):
         items = _strict(path)
         taken = {item["id"] for item in items}
         new_id = base_id = _slugify(clean["name"])
@@ -157,16 +159,16 @@ def add(path, data):
 
 
 def _strict(path):
-    """A file that cannot be read is never replaced by an empty one."""
+    """A document that cannot be read is never replaced by an empty one."""
     items = read_items(path)
     if items is None:
         raise ValueError("file_unreadable")
     return items
 
 
-def update(path, schedule_id, data):
+def update(schedule_id, data, path=None):
     """Partial update: fields left out of `data` keep their current value."""
-    with json_file.lock(path):
+    with config_document.lock(path):
         items = _strict(path)
         for i, item in enumerate(items):
             if item["id"] == schedule_id:
@@ -181,8 +183,8 @@ def update(path, schedule_id, data):
     raise KeyError(schedule_id)
 
 
-def delete(path, schedule_id):
-    with json_file.lock(path):
+def delete(schedule_id, path=None):
+    with config_document.lock(path):
         items = _strict(path)
         remaining = [item for item in items if item["id"] != schedule_id]
         if len(remaining) == len(items):
@@ -190,13 +192,13 @@ def delete(path, schedule_id):
         _write(path, remaining)
 
 
-def reorder(path, order):
+def reorder(order, path=None):
     """Puts the schedules named in `order` first, in that order; the first of
     the list wins when two weekly schedules overlap."""
     if not isinstance(order, (list, tuple)):
         raise ValueError("schedule_bad_order")
     wanted = [str(one) for one in order]
-    with json_file.lock(path):
+    with config_document.lock(path):
         items = _strict(path)
         by_id = {item["id"]: item for item in items}
         first = [by_id[one] for one in dict.fromkeys(wanted) if one in by_id]
@@ -205,9 +207,9 @@ def reorder(path, order):
         return first + rest
 
 
-def save_all(path, items):
+def save_all(items, path=None):
     """Replaces every schedule (a configuration import)."""
-    with json_file.lock(path):
+    with config_document.lock(path):
         _write(path, items)
 
 

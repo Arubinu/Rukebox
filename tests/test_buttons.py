@@ -236,6 +236,7 @@ class UsbSoundCardTest(unittest.TestCase):
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.sound = os.path.join(self.dir, "sound")
         self.input = os.path.join(self.dir, "input")
@@ -325,6 +326,7 @@ class SpeakerKeyTest(unittest.TestCase):
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         cfg = rukebox_daemon.load_config()
         cfg.update({
@@ -334,7 +336,6 @@ class SpeakerKeyTest(unittest.TestCase):
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
             "MUSIC_DIR": self.dir,
             "MUSIC_CACHE_FILE": os.path.join(self.dir, "music_cache.json"),
-            "ANNOUNCEMENTS_FILE": os.path.join(self.dir, "announcements.json"),
             "SPEAKER_VOLUME_LINK": False,
             "VOLUME_STEP": 10,
             "BASE_VOLUME": 30,
@@ -432,6 +433,7 @@ class FlicBridgeTest(unittest.TestCase):
 class ControlClientTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        _path.document(self.dir)
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.path = os.path.join(self.dir, "control.sock")
         self.received = []
