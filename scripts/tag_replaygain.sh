@@ -3,7 +3,7 @@
 set -euo pipefail
 
 MUSIC_DIR="${1:-}"
-TARGET_LUFS="${REPLAYGAIN_TARGET_LUFS:--14}"
+TARGET_LUFS="${PLAYBACK_REPLAYGAIN_TARGET_LUFS:--14}"
 
 if [ -z "$MUSIC_DIR" ]; then
     echo "Usage: $0 /path/to/music" >&2

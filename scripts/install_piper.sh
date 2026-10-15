@@ -14,7 +14,7 @@ command -v curl > /dev/null 2>&1 || { echo "curl is missing: apt-get install cur
 
 voice="${1:-}"
 if [ -z "$voice" ]; then
-    language="$(python3 "$SRC/config_file.py" show | awk '$1 == "SPEECH_LANGUAGE" { print $2 }')"
+    language="$(python3 "$SRC/config_file.py" show | awk '$1 == "schedule.speech_language" { print $2 }')"
     voice="$(python3 -c "
 import sys
 sys.path.insert(0, '$SRC')
@@ -58,5 +58,5 @@ for suffix in .onnx .onnx.json; do
 done
 chmod 644 "$DEST"/*.onnx "$DEST"/*.onnx.json 2>/dev/null || true
 
-python3 "$SRC/config_file.py" set "PIPER_VOICE=$voice" > /dev/null
+python3 "$SRC/config_file.py" set "schedule.piper_voice=$voice" > /dev/null
 echo "Piper installed in $DEST ($(du -sh "$DEST" | cut -f1)), saying things with $voice."

@@ -222,7 +222,7 @@ if ! is_done packages; then
 fi
 
 if nmcli -t -f NAME connection show 2>/dev/null | grep -qx "$HOME_CONN"; then
-    run python3 /opt/rukebox/src/config_file.py set "HOME_WIFI_CONN_NAME=$HOME_CONN" >/dev/null || true
+    run python3 /opt/rukebox/src/config_file.py set "network.home_wifi_connection=$HOME_CONN" >/dev/null || true
 fi
 
 if ! is_done files; then

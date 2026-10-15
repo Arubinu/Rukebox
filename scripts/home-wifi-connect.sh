@@ -19,9 +19,9 @@ reload_config() {
         # shellcheck disable=SC1090
         . "$CONFIG_FILE"
     fi
-    CONN="${HOME_WIFI_CONN_NAME:-}"
+    CONN="${NETWORK_HOME_WIFI_CONNECTION:-}"
     # Both must agree: this enforces "Connection active", autoconnect allows it up at all.
-    case "${HOME_WIFI_ENABLED:-true}" in
+    case "${NETWORK_HOME_WIFI_ENABLED:-true}" in
         1|true|True|yes|on) WANTED=1 ;;
         *) WANTED=0 ;;
     esac

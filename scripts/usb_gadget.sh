@@ -16,7 +16,7 @@ NET_GATEWAY="192.168.77.1"
 log() { echo "[usb-gadget] $*"; }
 
 ENV_FILE="${RUKEBOX_ENV_FILE:-/etc/rukebox/rukebox.env}"
-MODE="$(sed -n "s/^USB_PORT_MODE='\(.*\)'$/\1/p" "$ENV_FILE" 2>/dev/null | tail -1)"
+MODE="$(sed -n "s/^HARDWARE_USB_PORT_MODE='\(.*\)'$/\1/p" "$ENV_FILE" 2>/dev/null | tail -1)"
 [ "$MODE" = "host" ] || MODE="gadget"
 
 CONFIG_TXT="/boot/firmware/config.txt"

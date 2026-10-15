@@ -123,7 +123,7 @@ fi
 
 # shellcheck disable=SC1091
 [ -f /etc/rukebox/rukebox.env ] && source /etc/rukebox/rukebox.env
-WEB_PORT="${WEB_PORT:-80}"
+WEB_PORT="${NETWORK_WEB_PORT:-80}"
 echo ""
 if [ -n "$PASSPHRASE" ]; then
     echo "Connect your phone ONCE to the '$SSID' network (password required)."
@@ -135,5 +135,5 @@ if [ "$WEB_PORT" = "80" ]; then
     echo "Web interface: http://<Pi's IP shown above>  - or simply accept the"
     echo "\"sign in to the network\" prompt your phone shows when it connects."
 else
-    echo "Web interface: http://<Pi's IP shown above>:${WEB_PORT}"
+    echo "Web interface: http://<Pi's IP shown above>:${NETWORK_WEB_PORT}"
 fi

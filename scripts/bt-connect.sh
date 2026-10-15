@@ -29,8 +29,8 @@ reload_config() {
         # shellcheck disable=SC1090
         . "$CONFIG_FILE"
     fi
-    SPEAKER_MAC="${SPEAKER_MAC:-}"
-    ADAPTER="${SPEAKER_BT_ADAPTER:-}"
+    SPEAKER_MAC="${BLUETOOTH_SPEAKER_MAC:-}"
+    ADAPTER="${BLUETOOTH_ADAPTER:-}"
     # A configuration brought from another Pi names a controller this one does not have.
     case "$ADAPTER" in
         ??:??:??:??:??:??)
@@ -166,7 +166,7 @@ hci_tx_bytes() {
 
 # A frozen counter while paused is not a fault: only repair when the daemon says it is playing.
 radio_is_playing() {
-    python3 - "${CONTROL_SOCKET:-/tmp/rukebox_control.sock}" <<'PY' 2>/dev/null
+    python3 - "${PATHS_CONTROL_SOCKET:-/tmp/rukebox_control.sock}" <<'PY' 2>/dev/null
 import json
 import socket
 import sys

@@ -2,7 +2,7 @@
 set -u
 
 [ -f /etc/rukebox/rukebox.env ] && . /etc/rukebox/rukebox.env
-MODE="${ACT_LED:-default}"
+MODE="${HARDWARE_ACT_LED:-default}"
 STATE=/run/rukebox-act-led.default
 
 LED=""

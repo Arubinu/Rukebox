@@ -57,22 +57,22 @@ while true; do
 
     if [ $outcome -eq 0 ]; then
         mac=$(cat /tmp/bt_clock_mac_ok)
-        $CONFIG_SET "BT_CLOCK_MAC=${mac}" "BT_CLOCK_ENABLED=true"
+        $CONFIG_SET "clock.bluetooth_mac=${mac}" "clock.bluetooth_fallback=true"
         echo ""
-        echo "Configured in $CONFIG_FILE: BT_CLOCK_ENABLED=true, BT_CLOCK_MAC=$mac"
+        echo "Configured in $CONFIG_FILE: clock.bluetooth_fallback=true, clock.bluetooth_mac=$mac"
         break
     elif [ $outcome -eq 2 ]; then
-        $CONFIG_SET "BT_CLOCK_ENABLED=false"
+        $CONFIG_SET "clock.bluetooth_fallback=false"
         echo ""
-        echo "Cancelled. BT_CLOCK_ENABLED=false: only the grace period will"
+        echo "Cancelled. clock.bluetooth_fallback=false: only the grace period will"
         echo "be used in the absence of an RTC (see CLOCK_SYNC_GRACE_SEC)."
         break
     else
         echo ""
         read -rp "Try another device? (y/n) " retry
         if [[ ! "$retry" =~ ^[yY] ]]; then
-            $CONFIG_SET "BT_CLOCK_ENABLED=false"
-            echo "BT_CLOCK_ENABLED=false: only the grace period will be used."
+            $CONFIG_SET "clock.bluetooth_fallback=false"
+            echo "clock.bluetooth_fallback=false: only the grace period will be used."
             break
         fi
     fi

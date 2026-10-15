@@ -3,7 +3,7 @@ set -euo pipefail
 
 SDK_DIR="${FLIC_SDK_DIR:-/opt/fliclib-linux-hci}"
 FLICD_DB="${FLICD_DB:-/var/lib/rukebox/flic.sqlite3}"
-HCI_DEVICE="${FLIC_HCI_DEVICE:-hci0}"
+HCI_DEVICE="${BLUETOOTH_FLIC_HCI_DEVICE:-hci0}"
 
 hci_for_address() {
     hciconfig 2>/dev/null | awk -v mac="$(echo "$1" | tr 'a-f' 'A-F')" '
@@ -25,8 +25,8 @@ if [[ "$HCI_DEVICE" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
         USB_DEVICES="$(hciconfig 2>/dev/null | awk '/^hci[0-9]+:/ { dev = $1; sub(":", "", dev) }
             /Bus: USB/ { print dev }')"
         SPEAKER_DEVICE=""
-        if [[ "${SPEAKER_BT_ADAPTER:-}" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
-            SPEAKER_DEVICE="$(hci_for_address "$SPEAKER_BT_ADAPTER")"
+        if [[ "${BLUETOOTH_ADAPTER:-}" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
+            SPEAKER_DEVICE="$(hci_for_address "$BLUETOOTH_ADAPTER")"
         fi
         # Only when the speaker is clearly elsewhere: flicd would take its controller from it.
         SPEAKER_ELSEWHERE=0

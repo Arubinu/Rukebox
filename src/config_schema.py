@@ -17,6 +17,11 @@ class Setting:
     def path(self):
         return "%s.%s" % (self.section, self.key)
 
+    @property
+    def variable(self):
+        """The name the environment calls it: its own name, a dot for an underscore."""
+        return self.path.upper().replace(".", "_")
+
     def __repr__(self):
         return "<Setting %s (%s)>" % (self.env, self.path)
 
@@ -1436,6 +1441,59 @@ SETTINGS = [
 
 BY_ENV = {s.env: s for s in SETTINGS}
 BY_PATH = {s.path: s for s in SETTINGS}
+BY_VARIABLE = {s.variable: s for s in SETTINGS}
+
+
+def find_setting(name):
+    """The setting a name designates: its own name, the one the environment
+    calls it, or the one it had before (a hand-written override, an older
+    bundle, a script of one's own)."""
+    text = str(name or "").strip()
+    return BY_PATH.get(text) or BY_VARIABLE.get(text) or BY_ENV.get(text)
+
+
+# What the generated rukebox.env carries besides the settings that differ from
+# this machine's own defaults: the ones the shell scripts and units read.
+SHELL_SETTINGS = (
+    "audio.output",
+    "audio.stream_enabled",
+    "bluetooth.adapter",
+    "bluetooth.flic_hci_device",
+    "bluetooth.speaker_mac",
+    "buttons.gpio_button_pin",
+    "clock.bluetooth_fallback",
+    "clock.bluetooth_mac",
+    "clock.sync_grace_sec",
+    "folders.ap_connect_sound",
+    "folders.battery_low_sound",
+    "folders.clock_fallback_sound",
+    "folders.clock_ok_sound",
+    "folders.covers",
+    "folders.cutoff_announcements",
+    "folders.dj_announcements",
+    "folders.keepalive_sound",
+    "folders.memes",
+    "folders.music",
+    "folders.restart_sound",
+    "hardware.act_led",
+    "hardware.usb_port_mode",
+    "network.ap_gateway",
+    "network.ap_interface",
+    "network.home_wifi_connection",
+    "network.home_wifi_enabled",
+    "network.web_port",
+    "paths.control_socket",
+    "paths.state_dir",
+    "playback.replaygain_target_lufs",
+    "schedule.piper_voice",
+    "schedule.speech_language",
+    "security.password_hash",
+    "updates.backup_keep",
+    "updates.git_branch",
+    "updates.git_url",
+    "updates.github_repo",
+    "updates.version_file",
+)
 
 
 def _environment_paths():

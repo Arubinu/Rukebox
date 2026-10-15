@@ -446,7 +446,8 @@ nothing: the interface owns the settings from then on.
 
 The image carries a **health check** (`docker/healthcheck.py`): the container
 is *healthy* once the daemon answers on its socket and the web server answers
-HTTP on `WEB_PORT`, which `docker ps`, Portainer and Dockge show as is.
+HTTP on the port `network.web_port` names, which `docker ps`, Portainer and
+Dockge show as is.
 
 ### Variant 1: hearing it at all
 
@@ -457,7 +458,7 @@ monitor. That is what "Listen here" on the player plays, and what VLC or a
 network speaker plays from `http://<host>:8080/stream.opus`.
 
 **It is a real output, in the list like any other, and it is the container's
-own.** The first start writes `AUDIO_OUTPUT=docker` into the configuration,
+own.** The first start writes `audio.output: docker` into the configuration,
 which the **Audio output** card shows as *Virtual output (container)* — so the
 card says where the sound goes, the daemon points mpv at the virtual sink, and
 the
@@ -476,7 +477,7 @@ to the same speaker at once, which on a Pi is the point.
 
 Turn the stream on in the same card (**Network audio stream** — it is on by
 default in the image, because on a container it *is* the output; a Pi leaves
-it off, since it costs an ffmpeg process). `STREAM_ENCODER` picks the codec
+it off, since it costs an ffmpeg process). `audio.stream_encoder` picks the codec
 (`opus` by default, which every browser plays). If nothing comes out, the line
 under the player says which of the causes it is: the stream is off, ffmpeg is
 missing, or the sound server answers nothing.
@@ -484,7 +485,7 @@ missing, or the sound server answers nothing.
 **A player can find it without being given the address**: the container
 answers UPnP discovery and offers the stream as a media server, so VLC shows
 it under *Local network* and plays it with one click - under the name the
-audio card holds (`UPNP_NAME`), number included,
+audio card holds (`audio.upnp_name`), number included,
 which is what tells two radios apart. It is only
 announced while the stream is on, so a player that is already open picks it up
 a few seconds after the stream is switched on, with nothing to restart. It has
@@ -493,7 +494,7 @@ not — its multicast stays inside the container, so use `network_mode: host`
 (variant 4 does) or a macvlan network for a player on the LAN to see it.
 
 **Think about the password first**: anyone who can reach the page can listen
-to the library. `WEB_PASSWORD_HASH` is the only thing in the way, and on a
+to the library. `security.password_hash` is the only thing in the way, and on a
 container the network around it is usually not a private access point.
 
 The stream is Ogg, so a player that joins it late is handed the stream's own
@@ -529,7 +530,7 @@ Two consequences worth knowing before you look for a card:
   still only ends the daemon, which the supervisor (or systemd) starts again.
 - **"Update"** cannot replace the tree in place: the image is the unit of
   update. The card shows the one line to run (`docker compose pull`), and
-  `UPDATE_DOCKER_IMAGE` is the image it names. Until that image is published,
+  `updates.docker_image` is the image it names. Until that image is published,
   rebuild from the checkout instead: `docker compose build && docker compose up -d`.
 - **The clock is the machine's, and so is its timezone.** A container can
   neither set the time nor change the zone, so **the Clock card is not offered
@@ -622,11 +623,11 @@ radio.example.com {
 
 ```yaml
 labels:
-  - traefik.enable=true
-  - traefik.http.routers.rukebox.rule=Host(`radio.example.com`)
-  - traefik.http.routers.rukebox.entrypoints=websecure
-  - traefik.http.routers.rukebox.tls.certresolver=letsencrypt
-  - traefik.http.services.rukebox.loadbalancer.server.port=80
+  - traefik.enable: true
+  - traefik.http.routers.rukebox.rule: Host(`radio.example.com`)
+  - traefik.http.routers.rukebox.entrypoints: websecure
+  - traefik.http.routers.rukebox.tls.certresolver: letsencrypt
+  - traefik.http.services.rukebox.loadbalancer.server.port: 80
 ```
 
 **A "Bad Gateway" on one request out of two** means the proxy has two targets
@@ -739,7 +740,7 @@ network"** to remove it instead. Changing either briefly disconnects
 anyone currently connected, the same as changing the Wi-Fi password on
 an ordinary router.
 
-**Internet through the radio** (`AP_GATEWAY_ENABLED`, same card, off by
+**Internet through the radio** (`network.ap_gateway`, same card, off by
 default): the access point reaches the radio only, a NetworkManager hook
 (`scripts/ap_isolate.sh`) dropping every forwarded packet. The catch: a
 phone keeps a Wi-Fi as its default network only once it has checked that
@@ -872,7 +873,7 @@ sudo systemctl enable --now flic-bridge.service
 
 | Gesture | Action |
 |---|---|
-| **Single click** | Quick fade, then one sound of the chosen list (the button sounds by default), then the next track. If music hasn't started yet (`MUSIC_START_MODE` is `action`, `scheduled` or `bluetooth`), the first single click always starts it instead, regardless of that setting. |
+| **Single click** | Quick fade, then one sound of the chosen list (the button sounds by default), then the next track. If music hasn't started yet (`playback.start_mode` is `action`, `scheduled` or `bluetooth`), the first single click always starts it instead, regardless of that setting. |
 | **Double click** | Same, with its own list (the double-click announcement by default). Ignored while the Pi is still idle. |
 | **Long press** | Fade (more gradual), full stop, then shuts down the Pi — whether music is playing or the Pi is still idle. Or, with `long_press_action: standby` (Buttons card), only **standby**: the music stops and the Pi stays on, waiting like at startup. |
 
@@ -881,14 +882,15 @@ default**, not an abrupt cut — whether it's the single click, double
 click, long press, or scheduled events (morning announcement, cutoff in
 `exact` mode). Three separate fade durations, adjustable independently:
 
-```bash
-INTERACTIVE_FADE_DURATION_SEC=1.5   # single click / double click: stays responsive
-LONGPRESS_FADE_DURATION_SEC=4       # long press: more gradual stop before shutdown
-PAUSE_FADE_SEC=1                    # Pause/Resume button: out, then back in (0 = at once, max 5)
-FADE_DURATION_SEC=15                # scheduled announcements (morning / exact cutoff)
+```yaml
+fades:
+  interactive_sec: 1.5   # single click / double click: stays responsive
+  long_press_sec: 4      # long press: more gradual stop before shutdown
+  pause_sec: 1           # Pause/Resume button: out, then back in (0 = at once, max 5)
+  announcement_sec: 15   # scheduled announcements (morning / exact cutoff)
 ```
 
-Set `INTERACTIVE_FADE_DURATION_SEC` to `0` for an instant cut instead
+Set `fades.interactive_sec` to `0` for an instant cut instead
 of a fade when skipping/switching tracks on a single or double click —
 it's still the same volume-ramp code underneath, just with a
 zero-length ramp, so no separate "hard cut" setting was needed.
@@ -1024,7 +1026,7 @@ Both are configurable independently, from the web interface's
 The speaker's own buttons (`speaker_*_action`) take the same actions. A
 double click set to `play` or `playpause` also starts the music from idle.
 
-**One sound per click, in the announcement order** (`ANNOUNCE_ORDER_MODE`,
+**One sound per click, in the announcement order** (`playback.announce_order_mode`,
 or the order saved in the Announcement files card): in a fixed order the
 clicks play the list's 1st, 2nd, 3rd sound... then start over; shuffled,
 every sound plays once before any comes back. Where the list stands is
@@ -1059,7 +1061,7 @@ set the actions to `off` to let the card alone.
 **Settings > Home Assistant** publishes the radio to an MQTT broker (the
 Mosquitto add-on of Home Assistant, or any other), where Home Assistant's MQTT
 integration finds it by itself through *MQTT discovery*: one device named like
-the radio (`UPNP_NAME`), with
+the radio (`audio.upnp_name`), with
 
 - sensors: the title, the artist, the state (`music`, `idle`, `stopped`...);
 - binary sensors: playing, and the speaker connected;
@@ -1067,7 +1069,7 @@ the radio (`UPNP_NAME`), with
 - buttons: play/pause, next, previous, start the music, skip the
   announcement, standby. Switching the radio off is never offered.
 
-The entities are named in the spoken language. Topics, under `MQTT_TOPIC`
+The entities are named in the spoken language. Topics, under `home_assistant.topic`
 (`rukebox`) and this radio's host name: `rukebox/rukebox_<host>/state` (one
 retained JSON document), `/availability` (`online`, or `offline` as the
 broker's last will), and `/set/<command>` for what it is asked (`volume` takes
@@ -1150,7 +1152,7 @@ card on the reader and the page says "Unknown card read: 0012345678" with
 The ▶ of a row does what the card would do, without the card. Cards live in
 `/etc/rukebox/cards.json` (`paths.cards_file`), are read at every card (no
 restart), and travel with the configuration export. The USB port of a Pi
-Zero is the one the gadget uses: a reader needs `USB_PORT_MODE=host` (and a
+Zero is the one the gadget uses: a reader needs `hardware.usb_port_mode: host` (and a
 hub if a Bluetooth dongle is plugged too). **Not tried with a real reader
 yet.**
 
@@ -1193,7 +1195,7 @@ click / long press to the daemon, so everything above (the three
 gestures, what single/double click do, the fades) applies identically
 regardless of which button you pressed.
 
-Wiring: one leg of the button to `GPIO_BUTTON_PIN` (BCM numbering,
+Wiring: one leg of the button to `buttons.gpio_button_pin` (BCM numbering,
 default **GPIO20**, physical header pin 38), the other leg to any GND
 pin. No resistor needed — the pin is configured with its own internal
 pull-up, the same mechanism as the [GPIO password reset](#security)
@@ -1248,7 +1250,7 @@ above.
 
 - **Music playback order, loop and resume**: music and announcements
   each have their own independent order setting
-  (`MUSIC_ORDER_MODE` / `ANNOUNCE_ORDER_MODE`, `playback.order_mode` /
+  (`playback.order_mode` / `playback.announce_order_mode`, `playback.order_mode` /
   `playback.announce_order_mode` in `rukebox.yaml`), one of:
   - `random` — completely random, the whole list reshuffled.
   - `random_albums` — random too, but round-robins across each
@@ -1262,7 +1264,7 @@ above.
     music library itself — impractical at the scale of a real music
     collection, natural sort/file naming is the only control there).
 
-  **Rising start** (`MORNING_RISE_TRACKS`, `playback.rising_start_tracks`,
+  **Rising start** (`playback.rising_start_tracks`, `playback.rising_start_tracks`,
   0 = off, 30 at most): at each music start - the boot, a time, the
   speaker, a click - the next N songs of the queue are played from the
   quietest to the loudest, whatever the order mode, so the music wakes up
@@ -1275,7 +1277,7 @@ above.
   quiet. Songs asked for stay first, and a start that takes the last song up
   again (`same_track` / `same_position`) is left alone.
 
-  `MUSIC_LOOP` (`playback.loop`) controls what happens once the list
+  `playback.loop` (`playback.loop`) controls what happens once the list
   has played through once: `true` (default) loops forever, like
   before. `false` stops after exactly one pass — the Pi and the
   Bluetooth speaker stay fully powered (so a scheduled announcement can
@@ -1283,12 +1285,12 @@ above.
   "Start music" in the web interface, restarts the list (reshuffling it
   first, for the random modes).
 
-  `MUSIC_KEEP_PROGRESS` (`playback.keep_progress`) controls what
+  `playback.keep_progress` (`playback.keep_progress`) controls what
   happens across the daily shutdown/restart: `true` (default) picks up
   where the list left off — necessary since the Pi shuts itself down
   and restarts every day (see below) — while `false` always starts a
   fresh pass (a full reshuffle, for the random modes). When
-  `keep_progress` is on, `MUSIC_RESUME_MODE` (`playback.resume_mode`)
+  `keep_progress` is on, `playback.resume_mode` (`playback.resume_mode`)
   decides what happens to the track that was interrupted mid-play by
   the shutdown: `next_track` (default) moves on as if it had finished,
   `same_track` replays it from the start, and `same_position` takes it up
@@ -1298,15 +1300,15 @@ above.
   The play queue itself is a single persisted list (`src/state.py`),
   built by `src/playlist.py` from whichever order mode is active.
 - **ReplayGain**: mpv natively applies the `REPLAYGAIN_TRACK_GAIN` tags
-  already present in your files (`REPLAYGAIN_MODE=track`), no
+  already present in your files (`playback.replaygain_mode: track`), no
   re-encoding — light on the Pi Zero. If you ever need to re-tag,
   `scripts/tag_replaygain.sh` targets -14 LUFS with `rsgain`.
 - **Announcement loudness**: each announcement file (custom types, cutoff,
   memes) is measured once by the library pass, after the songs' endings and
   before their loudness (`ffmpeg ebur128`, kept in
-  `STATE_DIR/announce_levels.json` until the file changes; a file the pass
+  `paths.state_dir/announce_levels.json` until the file changes; a file the pass
   has not reached yet is measured by the radio itself) and played with
-  the gain that brings it to `REPLAYGAIN_TARGET_LUFS`: at most +12 dB, and
+  the gain that brings it to `playback.replaygain_target_lufs`: at most +12 dB, and
   never past -1 dBFS at its peak. Spoken texts are left as they are.
 - **Fades around an announcement**: the music fades out before a paused
   announcement and fades back in after it (the interactive fade). Kept under
@@ -1315,14 +1317,14 @@ above.
 - **Morning announcement**: a custom announcement like any other (see
   "Adding your own announcement types"), created for a new radio at 05:58
   with the folder `/home/pi/audio/morning_announcements`. At its time:
-  fade over `FADE_DURATION_SEC` seconds down to 0, pause, volume reset to
-  `BASE_VOLUME`, plays ONE of its files (the next one in the
+  fade over `fades.announcement_sec` seconds down to 0, pause, volume reset to
+  `playback.base_volume`, plays ONE of its files (the next one in the
   announcement order, a different one each time), then resumes music. Rename it,
   change its time or delete it from the web interface. The **double-click
   announcement** is the same kind of entry,
   with no fixed time: it only plays on demand or from a button.
-- **Cutoff at the configured time** (`CUTOFF_HOUR:CUTOFF_MINUTE`), two
-  modes to choose from (`CUTOFF_MODE`):
+- **Cutoff at the configured time** (`schedule.cutoff_hour:schedule.cutoff_minute`), two
+  modes to choose from (`schedule.cutoff_mode`):
   - `exact`: same behavior as the morning announcement (fade, one file
     of the cutoff folder), then shuts down instead of resuming music.
   - `end_of_track` (default): no fade, simply waits for the natural end
@@ -1335,23 +1337,23 @@ above.
 - **Flic button**: see the dedicated section above (single click,
   double click, long press).
 - **Volume at startup**: whatever the volume was at the last shutdown,
-  it's reset to `BASE_VOLUME` as soon as the daemon launches, before any
+  it's reset to `playback.base_volume` as soon as the daemon launches, before any
   playback.
 - **Volume while listening**: the slider in the web interface applies
-  immediately, and `VOLUME_MODE` (`playback.volume_mode`) decides what the
+  immediately, and `playback.volume_mode` (`playback.volume_mode`) decides what the
   next track change does with it — `session` (default) keeps the volume you set for as long as
-  the daemon runs, `base` sends it back to `BASE_VOLUME` on every track
+  the daemon runs, `base` sends it back to `playback.base_volume` on every track
   (announcements and their fades still come back to the same value, not
-  to 0). A restart always starts from `BASE_VOLUME`.
-- **How a volume change is heard**: `VOLUME_CHANGE` (`playback.volume_change`)
+  to 0). A restart always starts from `playback.base_volume`.
+- **How a volume change is heard**: `playback.volume_change` (`playback.volume_change`)
   is `instant` (default) or `fade`, a glide to the new level over
-  `VOLUME_FADE_SEC` seconds (1.5 by default) - in the Volume card's
+  `playback.volume_fade_sec` seconds (1.5 by default) - in the Volume card's
   detailed view. A new change during a glide carries on from wherever it
   got to.
 - **Shutdown**: disconnects Bluetooth from the speaker then
   `systemctl poweroff` - on a Pi, and in an LXC, whose own systemd stops the
   container. **After the cutoff** (Settings > Schedules > Every
-  day, `SHUTDOWN_AFTER_CUTOFF`) chooses what the daily cutoff ends with:
+  day, `schedule.shutdown_after_cutoff`) chooses what the daily cutoff ends with:
   *Switch the radio off*, or *Standby* - the radio stays on, the speaker stays
   connected, and it waits exactly as it does at startup, so the next start
   (a time, the speaker, a click, a schedule) works. A long press does what
@@ -1361,7 +1363,7 @@ above.
 
 ## When the music starts
 
-Four modes, adjustable via `MUSIC_START_MODE`:
+Four modes, adjustable via `playback.start_mode`:
 
 - `boot` (default): music starts as soon as the daemon is up, the way a
   radio switched on at the wall behaves.
@@ -1371,7 +1373,7 @@ Four modes, adjustable via `MUSIC_START_MODE`:
   music plays. Playback only starts on the first single click on the
   button (or via "Start music" in the web interface).
 - `scheduled`: silent exactly as in `action`, until
-  `MUSIC_START_HOUR:MUSIC_START_MINUTE`, then playback starts on its
+  `playback.start_hour:playback.start_minute`, then playback starts on its
   own. A click before that time still starts it early — the schedule is
   a floor, not a lock — and once music is playing the schedule never
   interrupts it.
@@ -1379,7 +1381,7 @@ Four modes, adjustable via `MUSIC_START_MODE`:
   is connected, then playback starts on its own — the speaker becomes
   the on switch, which is useful when it is powered on separately from
   the Pi (or is simply not reachable yet when the Pi boots). The check
-  is the same one that watches the speaker (`SPEAKER_WATCH_INTERVAL_SEC`,
+  is the same one that watches the speaker (`statistics.speaker_watch_sec`,
   10s by default on a new install). The **first connection since the Pi
   (or the service) started** always starts the music - the speaker
   already there at boot, or turned on minutes later - whatever time of
@@ -1395,62 +1397,62 @@ Four modes, adjustable via `MUSIC_START_MODE`:
 **When the speaker goes away** (Bluetooth card, "If the speaker
 disconnects"), all driven by that same check:
 
-- `SPEAKER_LOSS_PAUSE` (on by default): the song is paused when the
+- `bluetooth.pause_on_speaker_loss` (on by default): the song is paused when the
   speaker disconnects and resumes when it comes back, rising over
-  `SPEAKER_RESUME_FADE_SEC` seconds (0 = straight back). Only a song is
+  `bluetooth.resume_fade_sec` seconds (0 = straight back). Only a song is
   paused - an announcement plays to its end - and a pause you chose
   yourself is left alone. A button press while the speaker is away does
   **not** put the music back on the air either: its sound is played (and
   heard if the speaker comes back mid-sound), the next song is loaded, and
   it stays paused until the speaker really is there. Before, a press undid
   that pause and the radio played on into nothing for as long as the speaker
-  was gone. The radio checks the speaker every `SPEAKER_WATCH_INTERVAL_SEC`
+  was gone. The radio checks the speaker every `statistics.speaker_watch_sec`
   (10 s), and at once whenever an open page sees it come or go - so with the
   interface open, the pause follows the "not connected" banner.
-- `SPEAKER_QUICK_STEP` (20, 0 = off): for 10 seconds after the music
+- `bluetooth.quick_volume_step` (20, 0 = off): for 10 seconds after the music
   starts - or the speaker comes back - a press on the speaker's own volume
   buttons moves the volume by 20 points in the press's direction, since a
   speaker woken from standby is often far too loud and its own steps are
   small. Each press keeps the big steps 10 more seconds; then the speaker's
   steps are its own again. Works whether or not the speaker's volume is
   linked to the radio's (a lock wins over it).
-- `SPEAKER_BATTERY_LOW` (15 %, 0 = off): when the speaker reports its
+- `bluetooth.battery_low_percent` (15 %, 0 = off): when the speaker reports its
   battery to BlueZ, the level shows next to its address, and once it falls
-  to that percentage the radio plays `BATTERY_LOW_SOUND` (a System sound)
+  to that percentage the radio plays `folders.battery_low_sound` (a System sound)
   and the player says so - once per discharge, given back after the speaker
   has charged 10 points above the threshold. Each ten-percent step is kept
   in the event log. Many speakers do not report their battery at all; the
   line then simply does not appear.
-- `AUDIO_FALLBACK_OUTPUT` (Audio output card, "If the speaker is lost"):
+- `audio.fallback_output` (Audio output card, "If the speaker is lost"):
   instead of pausing, keep playing on a wired output (`jack`, `usb`,
   `hdmi`) while the speaker is away; it takes the sound back when it
   returns. Empty (the default) keeps the pause above. If that output is not
   plugged in, the speaker loss is handled as usual.
-- `SPEAKER_LOSS_SHUTDOWN_MIN`: switch the radio off after the speaker has
+- `bluetooth.shutdown_after_speaker_loss_min`: switch the radio off after the speaker has
   been gone that many minutes (0 = never).
-- `SPEAKER_ABSENT_SHUTDOWN_MIN`: switch it off when no speaker has
+- `bluetooth.shutdown_if_no_speaker_min`: switch it off when no speaker has
   connected that many minutes after startup (0 = never).
 
 The **activity LED** (the green light on the board) can be switched off
-from the System card (`ACT_LED`: `default` / `off`); the setting is
+from the System card (`hardware.act_led`: `default` / `off`); the setting is
 re-applied at every boot by `rukebox-act-led.service`.
 
 Like every other timed event here, `scheduled` depends on the clock
 being right, so it wants the RTC module (see the Clock section). The
 trigger fires once a day. `bluetooth` needs no clock at all — but it
 does need a speaker paired and its MAC address configured
-(`SPEAKER_MAC`, see the Bluetooth section), since that is what it
+(`bluetooth.speaker_mac`, see the Bluetooth section), since that is what it
 watches.
 
 **In all the silent modes** (`action`, `scheduled`, `bluetooth`), to
 prevent the Bluetooth speaker from auto-powering off due to silence
 detection (common behavior on this type of device), a very quiet looping
-sound (`KEEPALIVE_SOUND`, provided in `assets/sounds/keepalive.wav`)
+sound (`folders.keepalive_sound`, provided in `assets/sounds/keepalive.wav`)
 plays throughout the waiting period. It stops as soon as music actually
 starts.
 
 The same keep-alive mechanism also covers the **"stopped"** mode
-reached when `MUSIC_LOOP=false` and the list finishes a full pass: the
+reached when `playback.loop: false` and the list finishes a full pass: the
 Pi and speaker stay fully on (so a scheduled morning/cutoff/custom
 announcement can still fire normally, and correctly returns to
 "stopped" afterward rather than resuming music) until a single click,
@@ -1569,7 +1571,7 @@ The same voice can do three more things.
   as above; *your files*, where nothing is said for a song you have not
   prepared; or *your files, otherwise the radio*, which uses a file when there
   is one and the radio's voice otherwise. The files are read from
-  `DJ_ANNOUNCE_DIR` (`folders.dj_announcements`,
+  `folders.dj_announcements` (`folders.dj_announcements`,
   `/home/pi/audio/dj_announcements`), which **mirrors the music folder**: a
   file named after the song, or a file named `_any` beside it, which then
   covers the whole album, the whole artist, or everything when it sits in the
@@ -1635,13 +1637,13 @@ already saved on a smartphone).
    install, default `Rukebox-Admin`).
 2. Your phone shows its usual "sign in to this network" prompt a second
    or two later — accept it and the interface opens. That prompt is the
-   captive portal (`CAPTIVE_PORTAL_ENABLED`, on by default), and it is
+   captive portal (`network.captive_portal`, on by default), and it is
    the reason there is no address to type on a device with no screen.
 3. If the prompt doesn't appear (some phones suppress it on a network
    they already know), open `http://<Pi's IP shown at the end of
    install.sh>` — typically `http://10.42.0.1` with NetworkManager, or
    `http://192.168.4.1` with the older hostapd/dnsmasq fallback. No port
-   suffix: the interface listens on port 80 (`WEB_PORT`). Set `WEB_PORT`
+   suffix: the interface listens on port 80 (`network.web_port`). Set `network.web_port`
    to something else and the address needs `:<port>` again — and the
    captive portal then starts a second, tiny listener on port 80 whose
    only job is to redirect there, since a phone's probe only ever looks
@@ -1678,7 +1680,7 @@ already saved on a smartphone).
 > true of hotel and train portals too. What "Finish connecting" buys is
 > that leaving that window no longer costs you the network.
 
-**Four modes**, in Network → Guest access (`CAPTIVE_PORTAL_MODE`):
+**Four modes**, in Network → Guest access (`network.captive_portal_mode`):
 
 - **Once a day** (`release`, the default): the behaviour above; a device
   that finished is let through for 12 hours, then sees the page again.
@@ -2034,7 +2036,7 @@ Anne. A person is a device, or the devices linked as one person.
 
 With a password set, anyone joining the access point normally sees only
 a login box. Turning on **Guest actions without password** (Network →
-Guest access, `GUEST_MODE_ENABLED`) gives them the Home pages instead:
+Guest access, `security.guest_mode`) gives them the Home pages instead:
 **Now Playing, the volume and the button actions** (sound + next track,
 previous, pause and resume, skipping a sound, announcement, start the
 music), Up next, the Library to put a song up next, Recently played,
@@ -2052,7 +2054,7 @@ access point — so switching it on is a deliberate decision about what a
 visitor may do, and this project would rather you made it than have an
 update make it for you.
 
-**Pages hidden from guests** (Network > Guest access, `GUEST_PAGES_OFF`):
+**Pages hidden from guests** (Network > Guest access, `security.guest_pages_off`):
 tick the Home pages a guest should not get - Up next, Recently played,
 Today, Library, Blind test, Suggestions. The page leaves the guest's menu and
 the server refuses what it asks for; Now playing always stays, and the owner
@@ -2061,7 +2063,7 @@ still sees everything.
 **Vote to skip** (Network > Guest access, on by default): as soon as two
 people have the page open, the player offers "Vote to skip (1/3)". A vote is
 free and counts once per person (linked devices are one person) and per
-song; when **more** than `SKIP_VOTE_SHARE` percent (50 by default) of the
+song; when **more** than `security.skip_vote_share` percent (50 by default) of the
 people with the page open have voted - two votes at least - the next song
 plays and the event log says "Skipped by vote". Who is "here" is who made a
 request in the last two minutes, i.e. anyone whose page is open; a new song
@@ -2214,19 +2216,19 @@ itself and keeps them in `game-sounds/` in the state folder.
 - **Network audio stream** (*Audio output* card): serves what the radio
   plays over HTTP, so another device can listen to it - a network speaker,
   a browser, `mpv`, VLC. Off on a Pi, because it costs an ffmpeg process;
-  on in the Docker image, where it *is* the sound. `STREAM_ENCODER`
+  on in the Docker image, where it *is* the sound. `audio.stream_encoder`
   (`stream_encoder`) picks the codec (Opus by default, which every browser
   plays), and the address is `http://<the radio>/stream.opus`. Both are read
   at the next status read, so a save applies them without a restart. **It
   encodes the output the radio plays to** (the wired output chosen above, or
-  the default one); `STREAM_SOURCE` (`stream_source`) is only for following
+  the default one); `audio.stream_source` (`stream_source`) is only for following
   something else entirely. Not to be confused with the choice just above it
   in the same card: *Virtual output (container)* is an **output** (where the
   sound goes, and only a container has one), while this is the **stream**
   (what carries it to another device). **A paused or idle radio makes a
   silent stream**: a player has no way of knowing the difference between
   that and a broken one, so the entry it is offered is named "Rukebox 4821
-  (paused)" while nothing plays. `STREAM_VOLUME` (`stream_volume`, 100 by
+  (paused)" while nothing plays. `audio.stream_volume` (`stream_volume`, 100 by
   default) is a volume of its own for what network listeners hear, applied
   by the encoder and handed to it live, without dropping whoever is
   listening; 100% follows the radio's own volume, and it multiplies what
@@ -2248,7 +2250,7 @@ itself and keeps them in `game-sounds/` in the state folder.
   would hold up the Wi-Fi the clients listen through, on a board where
   both share one radio chip). The Flic button, the Bluetooth remotes, the
   phone's clock and a scan asked for still work. **Devices listening > Manage** sets each client's volume,
-  mutes it, or forgets one gone for good. `SNAPCAST_CODEC`
+  mutes it, or forgets one gone for good. `audio.snapcast_codec`
   (`snapcast_codec`): Opus by default, light on a Wi-Fi network; FLAC is
   lossless and heavier. Clients find the radio by themselves on the same
   network (mDNS); a Docker container on a bridge needs ports 1704 and 1780
@@ -2264,10 +2266,10 @@ itself and keeps them in `game-sounds/` in the state folder.
   to a player that is already
   open (VLC picks it up in a few seconds, without being restarted). The only
   key is
-  `UPNP_NAME` (`upnp_name`): the **whole** name a player lists and the
+  `audio.upnp_name` (`upnp_name`): the **whole** name a player lists and the
   stream itself carries, number included ("Rukebox 4821"), drawn once when
   the radio first announces itself and free to rename afterwards. What a
-  player remembers it by is `UPNP_UID` (`upnp_uid`), drawn once and never
+  player remembers it by is `audio.upnp_uid` (`upnp_uid`), drawn once and never
   shown, so renaming relabels the device instead of adding a second one.
   A player still shows the *server* as a folder - that is what DLNA is - so
   the radio appears as one folder holding the stream. VLC's other
@@ -2481,7 +2483,7 @@ with guests, for example — or if the AP is open by choice) — set it
 during installation, or from the **Security** card (System tab)
 afterward. Leaving both fields empty and saving removes it again. The
 password is never stored in plain text (a salted PBKDF2 hash,
-`WEB_PASSWORD_HASH` in `rukebox.yaml`), and it is still exactly that: an
+`security.password_hash` in `rukebox.yaml`), and it is still exactly that: an
 extra layer, not a replacement for the access point being private. A new
 password needs at least 8 characters.
 
@@ -2494,7 +2496,7 @@ you reach the Pi under another name of your own, list it, or the interface
 answers "this address is not one of the Rukebox's own names":
 
 ```bash
-sudo python3 /opt/rukebox/src/config_file.py set WEB_EXTRA_HOSTS=radio.example
+sudo python3 /opt/rukebox/src/config_file.py set network.web_extra_hosts=radio.example
 ```
 Guessing it is slowed down by the server itself: after 3 wrong passwords
 from one device (its address), each further try locks it out for 5
@@ -2531,12 +2533,39 @@ as a real comment above it rather than a separate document to keep in
 sync.
 
 Six systemd units (`rukebox-daemon`, `rukebox-web`, `flicd`, `flic-bridge`,
-`bt-connect`, and this project's own tooling) read their configuration
-via `EnvironmentFile=`, and two shell scripts `source` it directly —
-neither speaks YAML, and neither is going to learn to. So a second file,
-**`/etc/rukebox/rukebox.env`**, is generated from the YAML automatically and
-is what those actually read. **Never edit `rukebox.env` by hand** — it is
-overwritten every time `rukebox.yaml` changes, and says so at the top.
+`bt-connect`, and this project's own tooling) and several shell scripts read
+their configuration from the environment — and a shell is not going to learn
+YAML. So a second file, **`/etc/rukebox/rukebox.env`**, is generated from the
+YAML automatically and carries what those read: the settings a script names
+(the folders, the speaker's address, the port...), and the ones that are not
+this machine's own defaults. **It is a projection, not a copy**: everything
+else is read from `rukebox.yaml` alone. **Never edit `rukebox.env` by hand** —
+it is overwritten every time `rukebox.yaml` changes, and says so at the top.
+
+### One name per setting
+
+A setting's name is where it sits in the file: `audio.output` is the output,
+`folders.music` the music folder. The environment calls it the same name, a dot
+spelled as an underscore — `audio.output`, `FOLDERS_MUSIC` — so a systemd
+drop-in, a `docker-compose.yml` `environment:` block or a script of your own
+overrides a setting by that one name:
+
+```yaml
+environment:
+  audio.output: "jack"
+```
+
+The names settings used to have (`folders.music`, `bluetooth.speaker_mac`, `network.web_port`...) are
+still read, with a line in the log, so an override written before this version
+keeps working; write them the new way the next time you touch one.
+
+The command line speaks those names too:
+
+```bash
+sudo python3 /opt/rukebox/src/config_file.py set audio.output=jack
+sudo python3 /opt/rukebox/src/config_file.py get folders.music
+sudo python3 /opt/rukebox/src/config_file.py show
+```
 
 ### When a change takes effect
 
@@ -2728,11 +2757,11 @@ usable offline, which is the whole point of this project.
 
 Two guards keep the file from growing without bound:
 
-- `STATS_RETENTION_DAYS` (90 by default) prunes the individual event
+- `statistics.retention_days` (90 by default) prunes the individual event
   rows. **Cumulative totals are never pruned**, so "60 hours of music
   since the beginning" stays true even once the events behind it are
   gone.
-- `STATS_MAX_EVENTS` (20000) is a hard ceiling regardless of the
+- `statistics.max_events` (20000) is a hard ceiling regardless of the
   retention, guarding against a pathological case such as a folder full
   of unreadable files.
 
@@ -2759,21 +2788,23 @@ thing off; the radio behaves exactly as before.
 
 ### Monitoring settings
 
-```ini
-# How often to check the speaker is still connected (0 = disabled).
-# With MUSIC_START_MODE=bluetooth, this same check is what starts the
-# music, so a 0 falls back to the default there instead of disabling it.
-SPEAKER_WATCH_INTERVAL_SEC=10
+```yaml
+bluetooth:
+  # How often to check the speaker is still connected (0 = disabled).
+  # With playback.start_mode: bluetooth, this same check is what starts the
+  # music, so a 0 falls back to the default there instead of disabling it.
+  speaker_watch_interval_sec: 10
 
-# Admin access point interface, and how often to look at who is on it
-AP_INTERFACE=uap0
-AP_WATCH_INTERVAL_SEC=60
+network:
+  # Admin access point interface, and how often to look at who is on it
+  ap_interface: "uap0"
+  ap_watch_interval_sec: 60
 ```
 
 Reading the access point's client list uses `iw dev uap0 station dump`,
 which normally needs `CAP_NET_ADMIN`; `scripts/install.sh` installs a
 narrow passwordless sudo entry for exactly that read-only command. **If
-you change `AP_INTERFACE`, update the matching line in
+you change `network.ap_interface`, update the matching line in
 `/etc/sudoers.d/rukebox-poweroff`**, otherwise access point usage simply
 won't be recorded (everything else keeps working, and a warning is
 logged once).
@@ -2791,17 +2822,17 @@ the SD card and the CPU of a Pi Zero for nothing. So after a number of
 
 ```ini
 # Pause after this many consecutive unreadable tracks
-PLAYBACK_ERROR_MAX_RETRIES=5
+playback_errors.pause_after_failures: 5
 # ...and wait this long before trying again
-PLAYBACK_ERROR_BACKOFF_SEC=10
+playback_errors.retry_delay_sec: 10
 ```
 
 Both are adjustable **from the web interface** (Playback card), and each can be switched off on its own:
 
 | Setting | Effect |
 | --- | --- |
-| `PLAYBACK_ERROR_MAX_RETRIES=0` | Feature off entirely. Failures are still recorded one by one, but never grouped into a pause. |
-| `PLAYBACK_ERROR_BACKOFF_SEC=0` | The run of failures is still **recorded** (so the Stats pages show it) but playback retries immediately, with no waiting. |
+| `playback_errors.pause_after_failures: 0` | Feature off entirely. Failures are still recorded one by one, but never grouped into a pause. |
+| `playback_errors.retry_delay_sec: 0` | The run of failures is still **recorded** (so the Stats pages show it) but playback retries immediately, with no waiting. |
 
 A single file that plays resets the counter. The suspension itself is
 recorded as a `playback_stalled` event, so the Stats pages show it
@@ -2981,7 +3012,7 @@ settings, music and statistics kept). The installed release's tag then
 shows beside the version.
 
 Installing from the page needs **Allow updates from the web**
-(`UPDATE_ALLOW_WEB`, the switch at the bottom of the Update card), like
+(`updates.allow_from_web`, the switch at the bottom of the Update card), like
 the Git button below - same reasons. From SSH it needs nothing:
 
 ```bash
@@ -3035,8 +3066,8 @@ below, which connects it to your own network without dropping the admin
 access point. Configure the repository once:
 
 ```ini
-UPDATE_GIT_URL=https://github.com/you/your-repo.git
-UPDATE_GIT_BRANCH=main
+updates.git_url: https://github.com/you/your-repo.git
+updates.git_branch: main
 ```
 
 Then, on the Pi:
@@ -3047,7 +3078,7 @@ sudo rukebox-update --from-git
 
 A button in the web interface does the same thing, but it only appears
 if you explicitly opt in, with the **Allow updates from the web** switch
-in the Update card (or `UPDATE_ALLOW_WEB=true` in `rukebox.yaml`). It is
+in the Update card (or `updates.allow_from_web: true` in `rukebox.yaml`). It is
 saved as soon as you flip it, and takes effect at once.
 
 **It is off by default for a reason.** The web interface has no
@@ -3095,7 +3126,7 @@ sudo rukebox-update --list-backups
 sudo rukebox-update --rollback          # restores the most recent backup
 ```
 
-`UPDATE_BACKUP_KEEP` (3 by default) sets how many are kept.
+`updates.backup_keep` (3 by default) sets how many are kept.
 
 ### Which version is installed?
 
@@ -3262,7 +3293,7 @@ what the folder picker and the uploads are allowed to reach:
 | Morning / double-click announcements | `/home/pi/audio/morning_announcements`, `/home/pi/audio/doubleclick_announcements` | the announcement's own folder (Custom Announcements card) |
 | System sounds (clock, Wi-Fi, keep-alive) | `/home/pi/audio/system` (your replacements in `system/custom`) | System sounds card |
 
-The music list is cached (`MUSIC_CACHE_FILE`) to avoid rescanning the SD
+The music list is cached (`paths.music_cache`) to avoid rescanning the SD
 card on every startup; after adding new tracks, force a rescan:
 
 ```bash
@@ -3408,7 +3439,7 @@ effect without a restart. Choose **Volume boost** in Settings > Volume, or
 by hand:
 
 ```bash
-sudo python3 src/config_file.py set AUDIO_COMPRESSION=soft
+sudo python3 src/config_file.py set playback.audio_compression=soft
 echo '{"cmd":"reload_config"}' | nc -U /tmp/rukebox_control.sock
 ```
 
@@ -3468,7 +3499,7 @@ Choose **The speaker's volume is the volume** in Settings > Volume, or by
 hand:
 
 ```bash
-sudo python3 src/config_file.py set SPEAKER_VOLUME_LINK=true
+sudo python3 src/config_file.py set playback.speaker_volume_link=true
 echo '{"cmd":"reload_config"}' | nc -U /tmp/rukebox_control.sock
 ```
 
@@ -3519,7 +3550,7 @@ with:
 - a **name**,
 - a **folder** (anywhere; created on the Pi like any other audio folder,
   ONE of its files played per trigger, in turn, according to
-  `ANNOUNCE_ORDER_MODE` - the cutoff too: one file, then the Pi switches
+  `playback.announce_order_mode` - the cutoff too: one file, then the Pi switches
   off - same as every other announcement folder — see "Announcement track order"
   below). The **Browse…** button beside that field walks the Pi's own
   directories instead of asking you to type a path on a phone keyboard:
@@ -3555,7 +3586,7 @@ a type defined without it firing, and **Delete** removes it entirely.
 Like the settings, **changes here apply immediately** - add, edit,
 disable or delete a custom announcement type and it takes effect on the
 very next scheduler tick (within 15s), no `systemctl restart` needed. They are stored separately from
-`rukebox.yaml`, in `/etc/rukebox/announcements.json` (`ANNOUNCEMENTS_FILE`)
+`rukebox.yaml`, in `/etc/rukebox/announcements.json` (`paths.announcements_file`)
 - plain JSON rather than YAML, since this is a list managed entirely
 through the web form rather than something meant for hand-editing.
 
@@ -3585,7 +3616,7 @@ itself from the announcement chosen - the request only ever names a file
 
 ### Announcement track order
 
-`ANNOUNCE_ORDER_MODE` (`playback.announce_order_mode` in `rukebox.yaml`,
+`playback.announce_order_mode` (`playback.announce_order_mode` in `rukebox.yaml`,
 default `ordered`) applies to every announcement folder — morning,
 cutoff, double-click, and any custom type — the same three choices as
 the music order mode (see "How it works" above): `random`,
@@ -3599,7 +3630,7 @@ part of any saved order yet, is appended after the saved ones rather
 than skipped. **Reset to alphabetical** clears the saved order for that
 folder, reverting to natural sort. Changes apply immediately, no
 service restart. Saved orders live in `/etc/rukebox/track_order.json`
-(`TRACK_ORDER_FILE`) — plain JSON, like `announcements.json`, not part
+(`paths.track_order_file`) — plain JSON, like `announcements.json`, not part
 of the hand-editable YAML settings.
 
 This reordering UI is deliberately **not offered for the music library
@@ -3856,9 +3887,9 @@ This script scans nearby devices, lets you pick one, pairs it, then
 **immediately tests** reading the time. On failure, it explains the
 likely cause (service not exposed, often on iPhone) and offers to try
 another device, or to cleanly give up — in which case
-`BT_CLOCK_ENABLED=false` is automatically written to the config, and
-only the grace period will be used. On success, `BT_CLOCK_MAC` and
-`BT_CLOCK_ENABLED=true` are filled in for you.
+`clock.bluetooth_fallback: false` is automatically written to the config, and
+only the grace period will be used. On success, `clock.bluetooth_mac` and
+`clock.bluetooth_fallback: true` are filled in for you.
 
 ### The timezone
 
@@ -3883,9 +3914,9 @@ Without a detected RTC, the daemon plays a short sound on the speaker
 once the clock status is known, so you know without checking the logs
 whether it worked:
 
-- `CLOCK_OK_SOUND` (default `/home/pi/audio/system/clock_ok.wav`): two
+- `folders.clock_ok_sound` (default `/home/pi/audio/system/clock_ok.wav`): two
   soft rising notes — the time was recovered via Bluetooth.
-- `CLOCK_FALLBACK_SOUND` (default `/home/pi/audio/system/clock_fallback.wav`):
+- `folders.clock_fallback_sound` (default `/home/pi/audio/system/clock_fallback.wav`):
   two soft descending notes, similar but distinguishable timbre — the
   recovery failed (or wasn't enabled), the daemon falls back to the
   grace period with whatever time is available.
@@ -3906,7 +3937,7 @@ about once a minute), and stops doing anything but watching once the
 connection is up. It also enables the adapter's *connectable* setting,
 which BlueZ leaves off at every start — without it the Pi refuses every
 incoming connection, so a speaker that remembers the Pi can never come
-back on its own. The daemon then waits up to `SPEAKER_READY_TIMEOUT_SEC`
+back on its own. The daemon then waits up to `clock.speaker_ready_timeout_sec`
 seconds for the speaker to be ready before playing the sound — past that
 delay, the sound is simply skipped (no indefinite wait).
 
@@ -3919,13 +3950,13 @@ A2DP endpoint to connect a speaker to.
 
 ### Wi-Fi hotspot connection sound
 
-A short chime (`AP_CONNECT_SOUND`, default
+A short chime (`folders.ap_connect_sound`, default
 `/home/pi/audio/system/ap_connect.wav`) plays once whenever a new
 device joins the admin access point — handy confirmation that your
 phone actually connected without having to check the web UI. It's a
 short rising two-note ping, in the same discreet style as (and
 distinguishable from) the clock confirmation sounds above, also
-provided pre-synthesized in `assets/sounds/`. Set `AP_CONNECT_SOUND` to
+provided pre-synthesized in `assets/sounds/`. Set `folders.ap_connect_sound` to
 an empty value to disable it.
 
 This one is played through a disposable, independent mpv instance
@@ -3939,13 +3970,13 @@ The two fallbacks (RTC detection, then a Bluetooth attempt if needed)
 run **in parallel with the rest of startup** (mpv launches and plays
 music immediately, without waiting) — but the scheduler itself
 evaluates no time-based trigger (morning announcement, cutoff) until a
-reliable source has been confirmed. `CLOCK_SYNC_GRACE_SEC` sets the
+reliable source has been confirmed. `clock.sync_grace_sec` sets the
 upper bound on this wait: past this delay since launch, the scheduler
 starts anyway with whatever time is available, so as never to block the
 radio indefinitely if both fallbacks fail.
 
 ```bash
-CLOCK_SYNC_GRACE_SEC=30   # seconds
+clock.sync_grace_sec: 30   # seconds
 ```
 
 Adjust based on how reliable your Bluetooth connection is (a higher
@@ -3979,13 +4010,13 @@ starts later if both fallbacks fail).
   approximate — they're shown in italics rather than presented as fact.
 - Access point usage is only recorded if the client list can be read
   (`iw dev uap0 station dump`, see the Statistics section). With a
-  customized `AP_INTERFACE` and no matching sudoers entry, that one
+  customized `network.ap_interface` and no matching sudoers entry, that one
   metric stays at zero; nothing else is affected.
 - Speaker drop detection polls `bluetoothctl` every
-  `SPEAKER_WATCH_INTERVAL_SEC`, so a disconnection is noticed within
+  `statistics.speaker_watch_sec`, so a disconnection is noticed within
   that window rather than instantly. Lowering it too far costs CPU on a
   Pi Zero for little gain. That same window is the delay before
-  `MUSIC_START_MODE=bluetooth` starts the music once the speaker is
+  `playback.start_mode: bluetooth` starts the music once the speaker is
   connected.
 - The updater replaces `src/`, `scripts/`, `web/`, `config/` and
   `systemd/` wholesale. Anything you added by hand inside `/opt/rukebox` is lost on
@@ -4004,6 +4035,6 @@ starts later if both fallbacks fail).
 - Updating from Git needs the Pi to have temporary network access. With
   no network it fails cleanly, changing nothing, and points at
   `setup_home_wifi.sh`.
-- `UPDATE_ALLOW_WEB=true` lets an unauthenticated interface trigger code
+- `updates.allow_from_web: true` lets an unauthenticated interface trigger code
   to be fetched and run as root. That is a deliberate, documented
   trade-off, off by default — see *Updating the Pi*.

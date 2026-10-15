@@ -278,23 +278,23 @@ moved="$(python3 "$PROJECT_ROOT/src/config_file.py" retarget_audio /home/pi/audi
 if [ "$PROFILE" = "lxc" ]; then
     # The template documents the Pi's own folders; this machine's are elsewhere.
     python3 "$PROJECT_ROOT/src/config_file.py" set \
-        "MUSIC_DIR=$AUDIO_ROOT/music" \
-        "DJ_ANNOUNCE_DIR=$AUDIO_ROOT/dj_announcements" \
-        "COVER_DIR=$AUDIO_ROOT/covers" \
-        "MEME_DIR=$AUDIO_ROOT/memes" \
-        "CUTOFF_ANNOUNCE_DIR=$AUDIO_ROOT/cutoff_announcements" \
-        "KEEPALIVE_SOUND=$AUDIO_ROOT/system/keepalive.wav" \
-        "CLOCK_OK_SOUND=$AUDIO_ROOT/system/clock_ok.wav" \
-        "CLOCK_FALLBACK_SOUND=$AUDIO_ROOT/system/clock_fallback.wav" \
-        "RESTART_SOUND=$AUDIO_ROOT/system/restart.wav" \
-        "AP_CONNECT_SOUND=" \
-        "BATTERY_LOW_SOUND=" > /dev/null
+        "folders.music=$AUDIO_ROOT/music" \
+        "folders.dj_announcements=$AUDIO_ROOT/dj_announcements" \
+        "folders.covers=$AUDIO_ROOT/covers" \
+        "folders.memes=$AUDIO_ROOT/memes" \
+        "folders.cutoff_announcements=$AUDIO_ROOT/cutoff_announcements" \
+        "folders.keepalive_sound=$AUDIO_ROOT/system/keepalive.wav" \
+        "folders.clock_ok_sound=$AUDIO_ROOT/system/clock_ok.wav" \
+        "folders.clock_fallback_sound=$AUDIO_ROOT/system/clock_fallback.wav" \
+        "folders.restart_sound=$AUDIO_ROOT/system/restart.wav" \
+        "folders.ap_connect_sound=" \
+        "folders.battery_low_sound=" > /dev/null
     echo ">> Audio folders moved to $AUDIO_ROOT (the template documents the Pi's)."
     # A first start only, like the Docker image: an existing file keeps its choice.
     case "$action" in
         "created "*)
             python3 "$PROJECT_ROOT/src/config_file.py" set \
-                "AUDIO_OUTPUT=docker" "STREAM_ENABLED=true" > /dev/null
+                "audio.output=docker" "audio.stream_enabled=true" > /dev/null
             echo ">> Virtual output and network stream set (a container has no card)."
             ;;
     esac
@@ -530,7 +530,7 @@ else
     echo ""
     echo "== No access point, no Wi-Fi country =="
     echo "   A container has no radio of its own. Reach the interface on"
-    echo "   http://<this host's address>:${WEB_PORT:-80} - see docs/guide.md,"
+    echo "   http://<this host's address>:${NETWORK_WEB_PORT:-80} - see docs/guide.md,"
     echo "   'Running in a container'."
     AP_SSID=""
     # The web password below asks whether to reuse it; a container never set one.
@@ -567,7 +567,7 @@ sys.path.insert(0, '$PROJECT_ROOT/src')
 import web_auth
 print(web_auth.hash_password(sys.argv[1]))
 " "$WEB_PASSWORD")
-    python3 "$PROJECT_ROOT/src/config_file.py" set "WEB_PASSWORD_HASH=$WEB_PASSWORD_HASH" > /dev/null
+    python3 "$PROJECT_ROOT/src/config_file.py" set "security.password_hash=$WEB_PASSWORD_HASH" > /dev/null
     echo "Web interface password set."
 else
     echo "No web interface password (the access point remains the only gate)."
@@ -585,7 +585,7 @@ echo "== Done =="
 echo ""
 # shellcheck disable=SC1091
 [ -f /etc/rukebox/rukebox.env ] && source /etc/rukebox/rukebox.env
-echo "Reach the interface at http://<this host's address>:${WEB_PORT:-80}"
+echo "Reach the interface at http://<this host's address>:${NETWORK_WEB_PORT:-80}"
 echo "There is no access point to join and no password by default: put one on"
 echo "(Security card) if anything else can reach this address."
 echo ""
@@ -619,11 +619,11 @@ echo ""
 echo "Access point '$AP_SSID' is active on uap0 - connect your phone to it,"
 echo "then reach the admin interface (both SSID and password, if any, are"
 echo "editable later from its own card in the web interface):"
-if [ "${WEB_PORT:-80}" = "80" ]; then
+if [ "${NETWORK_WEB_PORT:-80}" = "80" ]; then
     echo "     http://<Pi's IP on that network>    (or just accept the"
     echo "     \"sign in to the network\" prompt your phone shows on connecting)"
 else
-    echo "     http://<Pi's IP on that network>:${WEB_PORT}"
+    echo "     http://<Pi's IP on that network>:${NETWORK_WEB_PORT}"
 fi
 echo ""
 echo "Next steps:"
@@ -639,7 +639,7 @@ echo "     sudo /opt/rukebox/scripts/setup_bt_clock.sh"
 echo "5. Install and configure the Flic SDK (see docs/guide.md) then:"
 echo "     systemctl enable --now flicd.service flic-bridge.service"
 echo "6. (Optional) Instead of, or in addition to, the Flic button: wire a"
-echo "   physical button to GPIO_BUTTON_PIN (default BCM 20) and GND, then:"
+echo "   physical button to buttons.gpio_button_pin (default BCM 20) and GND, then:"
 echo "     sudo systemctl enable --now rukebox-gpio-button.service"
 echo "7. Start the radio and the web interface:"
 echo "     systemctl start bt-connect.service rukebox-daemon.service rukebox-web.service"

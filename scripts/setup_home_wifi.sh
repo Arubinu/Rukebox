@@ -42,7 +42,7 @@ echo ""
 if [ -f /etc/rukebox/rukebox.yaml ]; then
     read -rp "Write this value to /etc/rukebox/rukebox.yaml now? (y/n) " confirm
     if [[ "$confirm" =~ ^[yY] ]]; then
-        python3 /opt/rukebox/src/config_file.py set "HOME_WIFI_CONN_NAME=${CONN_NAME}"
+        python3 /opt/rukebox/src/config_file.py set "network.home_wifi_connection=${CONN_NAME}"
         echo "Done. Restart the web service to apply:"
         echo "  sudo systemctl restart rukebox-web.service"
     fi

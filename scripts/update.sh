@@ -79,12 +79,12 @@ Source (exactly one):
   --source DIR         Use an already-extracted project tree
   --from-archive FILE  Extract a .tar.gz, then use it
   --from-git [URL]     Clone/pull a Git repository (URL defaults to
-                       UPDATE_GIT_URL in rukebox.yaml). Needs network.
+                       UPDATES_GIT_URL in rukebox.yaml). Needs network.
   --from-release [TAG] Download a GitHub release (the latest one, or TAG)
-                       of UPDATE_GITHUB_REPO in rukebox.yaml. Needs network.
+                       of UPDATES_GITHUB_REPO in rukebox.yaml. Needs network.
 
 Options:
-  --branch NAME        Git branch (default: UPDATE_GIT_BRANCH, or main)
+  --branch NAME        Git branch (default: UPDATES_GIT_BRANCH, or main)
   --source-kind KIND    What carried a pushed tree: usb (the default, the
                         cable) or wifi (the same push over the network).
                         Only a label: the interface shows it.
@@ -92,7 +92,7 @@ Options:
                        own "git describe" (v1.2.0-5-g5622dcf), so the interface
                        can tell "ahead of v1.2.0" from "v1.2.0"
   --no-restart         Install without restarting the services
-  --keep N             Number of backups to keep (default: UPDATE_BACKUP_KEEP)
+  --keep N             Number of backups to keep (default: UPDATES_BACKUP_KEEP)
   --quiet              Only print errors
   --rollback           Restore the most recent backup and exit
   --list-backups       List available backups and exit
@@ -150,9 +150,9 @@ if [ "$INSTALL_DIR" = "/opt/rukebox" ] && [ "$EUID" -ne 0 ]; then
     fail "run this script with sudo."
 fi
 
-[ "$BACKUP_KEEP_SET" = "1" ] || BACKUP_KEEP="$(conf_get UPDATE_BACKUP_KEEP "$BACKUP_KEEP")"
+[ "$BACKUP_KEEP_SET" = "1" ] || BACKUP_KEEP="$(conf_get UPDATES_BACKUP_KEEP "$BACKUP_KEEP")"
 if [ -z "${RUKEBOX_STATE_DIR:-}" ]; then
-    VERSION_FILE="$(conf_get UPDATE_VERSION_FILE "$VERSION_FILE")"
+    VERSION_FILE="$(conf_get UPDATES_VERSION_FILE "$VERSION_FILE")"
 fi
 mkdir -p "$BACKUP_DIR"
 
@@ -251,9 +251,9 @@ fi
 
 if [ "$SOURCE_KIND" = "git" ]; then
     command -v git >/dev/null 2>&1 || fail "git is not installed (sudo apt-get install -y git)."
-    [ -n "$GIT_URL" ] || GIT_URL="$(conf_get UPDATE_GIT_URL)"
+    [ -n "$GIT_URL" ] || GIT_URL="$(conf_get UPDATES_GIT_URL)"
     [ -n "$GIT_URL" ] || fail "no Git URL: pass one, or set git_url under updates: in $CONFIG_FILE."
-    [ -n "$GIT_BRANCH" ] || GIT_BRANCH="$(conf_get UPDATE_GIT_BRANCH main)"
+    [ -n "$GIT_BRANCH" ] || GIT_BRANCH="$(conf_get UPDATES_GIT_BRANCH main)"
 
     step "Fetching $GIT_URL ($GIT_BRANCH)"
     if [ -d "$GIT_CHECKOUT/.git" ]; then
@@ -278,7 +278,7 @@ fi
 
 if [ "$SOURCE_KIND" = "release" ]; then
     command -v curl >/dev/null 2>&1 || fail "curl is not installed (sudo apt-get install -y curl)."
-    GITHUB_REPO="$(conf_get UPDATE_GITHUB_REPO Arubinu/Rukebox)"
+    GITHUB_REPO="$(conf_get UPDATES_GITHUB_REPO Arubinu/Rukebox)"
     { printf '%s' "$GITHUB_REPO" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' \
         && ! printf '%s' "$GITHUB_REPO" | grep -Eq '(^|/)\.+(/|$)'; } \
         || fail "invalid GitHub repository: $GITHUB_REPO (expected owner/name)."

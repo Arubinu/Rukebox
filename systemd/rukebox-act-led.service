@@ -1,5 +1,5 @@
 [Unit]
-Description=Applies the activity LED setting (ACT_LED: default or off)
+Description=Applies the activity LED setting (hardware.act_led: default or off)
 After=rukebox-config.service
 Wants=rukebox-config.service
 

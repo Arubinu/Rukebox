@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config_schema import (  # noqa: E402
-    BY_ENV, DEFAULTS, SETTINGS, sections_with_settings, to_raw,
+    BY_ENV, DEFAULTS, SETTINGS, SHELL_SETTINGS, find_setting, sections_with_settings, to_raw,
 )
 import paths  # noqa: E402
 
@@ -153,12 +153,15 @@ def read_env_file(path=None):
                     continue
                 key, _, value = line.partition("=")
                 key = key.strip()
+                setting = find_setting(key)
+                if setting is None:
+                    continue
                 value = value.strip()
                 if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
                     value = value[1:-1]
                     if line.strip()[len(key) + 1] == '"':
                         value = value.replace('\\"', '"').replace("\\\\", "\\")
-                values[key] = value
+                values[setting.env] = value
     except OSError:
         log.exception("Could not read %s", path)
     return values
@@ -205,10 +208,19 @@ def _strip_inline_comment(rest):
 
 def write_values(updates, path=None, env_path=None):
     """Saves settings, preserving comments, ordering and every line that is not
-    being changed."""
-    unknown = [k for k in updates if k not in DEFAULTS]
+    being changed. A key is a setting's own name (`audio.output`), the name the
+    environment calls it, or the one it had before."""
+    named = {}
+    unknown = []
+    for key, value in updates.items():
+        setting = find_setting(key)
+        if setting is None:
+            unknown.append(key)
+        else:
+            named[setting.env] = value
     if unknown:
         raise ValueError("Unknown configuration key(s): %s" % sorted(unknown))
+    updates = named
 
     env_path = env_path or ENV_FILE
     path = find_yaml_file(path)
@@ -380,22 +392,33 @@ def _shell_quote(value):
 
 
 def write_env_file(yaml_path=None, env_path=None, values=None):
-    """Regenerates the flat file systemd and the shell scripts read."""
+    """Regenerates the flat file systemd and the shell scripts read: the settings
+    they name, and the ones that are not this machine's own default. A setting is
+    named as it is (folders.music -> FOLDERS_MUSIC); everything else is read from
+    the YAML alone."""
     env_path = env_path or ENV_FILE
     merged = dict(DEFAULTS)
     merged.update(values if values is not None else read_values(yaml_path, env_path))
     values = merged
 
+    carried = set(SHELL_SETTINGS)
     lines = [
         "# GENERATED FILE - DO NOT EDIT.\n",
         "# Written from %s by src/config_file.py.\n" % find_yaml_file(yaml_path),
         "# Any change here is lost at the next sync; edit the YAML file.\n",
         "#\n",
+        "# Only what a shell needs: the settings it names, and the ones that are\n",
+        "# not this machine's default. A setting is named as it is in the file,\n",
+        "# a dot for an underscore (folders.music -> FOLDERS_MUSIC).\n",
+        "#\n",
         "# Read by systemd (EnvironmentFile=) and sourced by the shell scripts.\n",
         "\n",
     ]
     for setting in SETTINGS:
-        lines.append("%s=%s\n" % (setting.env, _shell_quote(values.get(setting.env, setting.default))))
+        value = values.get(setting.env, setting.default)
+        if setting.path not in carried and str(value) == str(DEFAULTS.get(setting.env, "")):
+            continue
+        lines.append("%s=%s\n" % (setting.variable, _shell_quote(value)))
     _atomic_write(env_path, "".join(lines))
     return env_path
 
@@ -493,9 +516,13 @@ def _main(argv):
     config_file.py sync     [yaml] [env]   regenerate the env file
     config_file.py ensure   [yaml] [env]   create or merge, then sync
     config_file.py show     [yaml]         print the effective values
-    config_file.py set      KEY=value ...  save settings
+    config_file.py get      NAME           print one setting's value
+    config_file.py set      NAME=value ... save settings
     config_file.py retarget_audio OLD NEW  move the announcements' folders
     config_file.py template                print the documented template
+
+    A NAME is a setting's own name (audio.output), the name the environment calls
+    it, or the name it had before.
     """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     _refresh_paths()
@@ -512,7 +539,7 @@ def _main(argv):
         except ValueError as e:
             print("ERROR: %s" % e, file=sys.stderr)
             return 1
-        print(" ".join(changed) if changed else "(no change)")
+        print(" ".join(BY_ENV[k].path for k in changed) if changed else "(no change)")
         return 0
 
     yaml_path = argv[2] if len(argv) > 2 else None
@@ -525,11 +552,20 @@ def _main(argv):
         action, count = ensure_file(yaml_path, env_path)
         print("%s %s" % (action, count))
         return 0
+    if command == "get":
+        setting = find_setting(argv[2] if len(argv) > 2 else "")
+        if setting is None:
+            print("ERROR: unknown setting", file=sys.stderr)
+            return 1
+        values = dict(DEFAULTS)
+        values.update(read_values())
+        print(values[setting.env])
+        return 0
     if command == "show":
         values = dict(DEFAULTS)
         values.update(read_values(yaml_path, env_path))
         for setting in SETTINGS:
-            print("%-32s %s" % (setting.env, values[setting.env]))
+            print("%-40s %s" % (setting.path, values[setting.env]))
         return 0
     if command == "retarget_audio":
         if len(argv) < 4:

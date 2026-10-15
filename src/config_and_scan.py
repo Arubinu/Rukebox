@@ -1,6 +1,7 @@
 """Configuration loading and the cached scan of the music folder."""
 
 import json
+import logging
 import os
 import sys
 import time
@@ -10,20 +11,33 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config_schema import DEFAULTS, SETTINGS, coerce  # noqa: E402
 import config_file  # noqa: E402
 
+log = logging.getLogger("config")
+
 AUDIO_EXTENSIONS = {".mp3", ".flac", ".ogg", ".m4a", ".wav", ".opus"}
 
 CONFIG_FILE_CANDIDATES = config_file.YAML_FILE_CANDIDATES
 
 
+_warned_names = set()
+
+
 def load_config(env_overrides=True):
-    """Priority: environment variables already present."""
+    """Priority: environment variables already present, under the name a setting
+    has (FOLDERS_MUSIC) or the one it had before (MUSIC_DIR)."""
     raw = dict(DEFAULTS)
     raw.update(config_file.read_values())
 
     if env_overrides:
-        for key in raw:
-            if key in os.environ:
-                raw[key] = os.environ[key]
+        for setting in SETTINGS:
+            for name in (setting.variable, setting.env):
+                if name in os.environ:
+                    raw[setting.env] = os.environ[name]
+                    if name != setting.variable and name not in _warned_names:
+                        _warned_names.add(name)
+                        log.warning(
+                            "%s is the name %s had: write it as %s, or set %s.",
+                            name, setting.path, setting.path, setting.variable)
+                    break
 
     return {setting.env: coerce(setting, raw[setting.env]) for setting in SETTINGS}
 

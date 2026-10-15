@@ -269,9 +269,8 @@ class FilesTest(unittest.TestCase):
         import config_schema
 
         installer = _path.read("scripts", "install.sh")
-        missing = [setting.env for setting in config_schema.SETTINGS
-                   if setting.section == "folders" and setting.env.endswith("_DIR")
-                   and setting.env not in installer]
+        missing = [setting.path for setting in config_schema.SETTINGS
+                   if setting.section == "folders" and setting.path not in installer]
         self.assertEqual(missing, [])
 
     def test_the_community_scripts_are_present_and_well_formed(self):
