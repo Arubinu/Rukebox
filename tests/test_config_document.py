@@ -153,21 +153,64 @@ class ImportTest(unittest.TestCase):
         self.assertEqual(track_order.get("meme", self.path), ["b.mp3", "a.mp3"])
         for name, path in paths.items():
             self.assertFalse(os.path.exists(path), "%s was taken" % name)
-            # A copy stays beside it, under a name a version before this one
-            # does not read: putting the file back is a rename.
-            kept = path + config_document.BACKUP_SUFFIX
-            with open(kept, encoding="utf-8") as f:
-                self.assertEqual(json.load(f), contents[name],
-                                 "%s is kept as it was" % os.path.basename(kept))
-        self.assertEqual(config_document.import_legacy(self.path), [], "nothing left to take")
 
-    def test_a_file_we_cannot_copy_stays_where_it_is(self):
+    def test_the_whole_folder_is_copied_before_anything_moves(self):
+        self.legacy("cards.json", {"cards": [{"id": "abcd1234", "name": "Bleue"}]})
+        env_line = "BASE_VOLUME='30'"
+        with open(os.path.join(self.dir, "rukebox.env"), "w", encoding="utf-8") as f:
+            f.write(env_line + "\n")
+        before = open(self.path, encoding="utf-8").read()
+        self.assertEqual(config_document.import_legacy(self.path), ["cards"])
+
+        kept = os.path.join(self.dir, config_document.BACKUP_DIR)
+        self.assertTrue(os.path.isdir(kept))
+        # The document as it was, before the block was written into it.
+        with open(os.path.join(kept, "rukebox.yaml"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), before)
+        with open(os.path.join(kept, "rukebox.env"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), env_line + "\n")
+        with open(os.path.join(kept, "cards.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"cards": [{"id": "abcd1234", "name": "Bleue"}]})
+        # And it says what it is, for whoever finds it in a year.
+        with open(os.path.join(kept, config_document.README_NAME), encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("before the lists", text)
+        self.assertIn("cp -a", text)
+
+    def test_the_copy_is_taken_once_and_never_overwritten(self):
+        self.legacy("cards.json", {"cards": [{"id": "abcd1234", "name": "Bleue"}]})
+        config_document.import_legacy(self.path)
+        kept = os.path.join(self.dir, config_document.BACKUP_DIR)
+        with open(os.path.join(kept, "cards.json"), "w", encoding="utf-8") as f:
+            f.write('{"cards": []}')
+        # A later run must not write over the copy a person may be relying on.
+        config_document.write("cards", {"cards": []}, self.path)
+        self.legacy("schedules.json", {"schedules": [{"id": "weekend", "name": "Weekend"}]})
+        self.assertEqual(config_document.import_legacy(self.path), ["schedules"])
+        with open(os.path.join(kept, "cards.json"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), '{"cards": []}')
+
+    def test_a_folder_no_copy_can_be_made_of_moves_nothing(self):
         path = self.legacy("cards.json", {"cards": [{"id": "abcd1234", "name": "Bleue"}]})
-        with mock.patch.object(config_document, "_keep_a_copy", side_effect=OSError("no room")):
-            self.assertEqual(config_document.import_legacy(self.path), ["cards"])
-        self.assertTrue(os.path.exists(path), "a file no copy could be made of is left alone")
-        self.assertEqual(sorted(cards.load(self.path)), ["abcd1234"], "the block holds it")
-        self.assertFalse(os.path.exists(path + config_document.BACKUP_SUFFIX))
+        with mock.patch.object(config_document, "_keep_the_folder", side_effect=OSError("no room")):
+            with self.assertLogs("config_document", level="ERROR"):
+                self.assertEqual(config_document.import_legacy(self.path), [])
+        self.assertTrue(os.path.exists(path), "without a copy the file is not removed")
+        self.assertEqual(cards.load(self.path), {}, "and nothing was written either")
+
+    def test_the_copy_is_not_copied_into_itself(self):
+        self.legacy("cards.json", {"cards": [{"id": "abcd1234", "name": "Bleue"}]})
+        config_document.import_legacy(self.path)
+        kept = os.path.join(self.dir, config_document.BACKUP_DIR)
+        self.assertNotIn(config_document.BACKUP_DIR, os.listdir(kept))
+        # A half-written document is not worth keeping either.
+        with open(os.path.join(self.dir, "rukebox.yaml.tmp"), "w", encoding="utf-8") as f:
+            f.write("half a document")
+        os.remove(os.path.join(kept, "cards.json"))
+        config_document.write("cards", {"cards": []}, self.path)
+        self.legacy("schedules.json", {"schedules": [{"id": "weekend", "name": "Weekend"}]})
+        config_document.import_legacy(self.path)
+        self.assertNotIn("rukebox.yaml.tmp", os.listdir(kept))
 
     def test_a_file_that_cannot_be_read_is_left_where_it_is(self):
         path = os.path.join(self.dir, "cards.json")

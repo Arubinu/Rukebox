@@ -522,13 +522,15 @@ def ensure_file(yaml_path=None, env_path=None):
         write_env_file(yaml_path, env_path, values=dict(DEFAULTS))
         seed_announcements(yaml_path, env_path)
         return "created", 0
+    # The lists an older version kept in their own files are taken in first, so
+    # that the copy of the folder made on the way is the configuration as it
+    # was; before the seeding below too, or the types a brand new radio is
+    # offered would bury a list waiting in a file.
+    for name in config_document.import_legacy(yaml_path):
+        log.info("The %s list moved into %s", name, yaml_path)
     added = merge_missing(yaml_path, env_path)
     write_env_file(yaml_path, env_path)
     secure_file(yaml_path, os.path.dirname(yaml_path) or ".")
-    # Before the seeding below: a list waiting in its own file is not a reason
-    # to offer the types a brand new radio gets.
-    for name in config_document.import_legacy(yaml_path):
-        log.info("The %s list moved into %s", name, yaml_path)
     # The setup page creates the YAML first: without this seeding its sounds belong to nothing.
     seed_announcements(yaml_path, env_path)
     return ("updated", len(added)) if added else ("unchanged", 0)

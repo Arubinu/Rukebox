@@ -2608,23 +2608,31 @@ announcements:
 Until this version those lists were five files of their own in `/etc/rukebox`
 (`announcements.json`, `music_lists.json`, `schedules.json`, `cards.json`,
 `track_order.json`). The first start after the update takes each one into its
-block, checks it is there, keeps a **copy beside it** — `announcements.json.
-before-yaml` and so on — and removes the file itself; the update, the
-installation and every boot run that same step, and it only ever runs once. A
-file that cannot be read is left where it is, and so is one with nothing in
-it; a file no copy could be made of is left where it is too.
+block and removes the file it came from; the update, the installation and
+every boot run that same step, and it only ever runs once. A file that cannot
+be read is left where it is, and so is one with nothing in it.
 
-The copies are what a version before this one reads. Putting one back is a
-rename, and the interface then finds that list again:
+**The whole folder is copied before any of that**, into
+`/etc/rukebox/backup-before-v2/`: the document, the generated environment file
+and the five list files, exactly as the older version left them. Nothing is
+moved and nothing is removed if that copy cannot be made — an older Rukebox
+reads those files, so they are not thrown away without a way back, and the
+next start tries again. The copy is taken once and never written over, and it
+says what it is in `WHAT-IS-THIS.txt`.
+
+Putting the configuration back is a copy of the folder, radio stopped:
 
 ```bash
-sudo mv /etc/rukebox/announcements.json.before-yaml /etc/rukebox/announcements.json
+sudo systemctl stop rukebox-daemon rukebox-web
+sudo cp -a /etc/rukebox/backup-before-v2/. /etc/rukebox/
+sudo systemctl start rukebox-daemon rukebox-web
 ```
 
-Once you are sure you will not go back, they can go:
-`sudo rm /etc/rukebox/*.json.before-yaml`. Rolling back with them in place is
-still not the same as before the update: a version before this one ignores the
-blocks, so any change made since lives in `rukebox.yaml` alone.
+One list can be put back on its own instead, without touching the rest of the
+configuration: copy that one file (`cards.json`, `announcements.json`...) back
+into `/etc/rukebox`, and the older version reads it again. Once you are sure
+you will not go back, the folder can go:
+`sudo rm -rf /etc/rukebox/backup-before-v2`.
 
 An older file also keeps the five lines that named those files, under `paths:`
 (`announcements_file` and the rest). Nothing reads them any more; they are only
@@ -3201,8 +3209,8 @@ sudo rukebox-update --rollback          # restores the most recent backup
 
 `updates.backup_keep` (3 by default) sets how many are kept. A rollback
 restores the program, not the configuration: a version before 2.0.0 would not
-find the lists that moved into `rukebox.yaml` unless the copies left beside
-their old files are put back first (see "The lists are in the same file").
+find the lists that moved into `rukebox.yaml` unless the configuration folder
+copied before the move is put back (see "The lists are in the same file").
 
 ### Which version is installed?
 

@@ -11,6 +11,7 @@ import logging
 import os
 import shutil
 import threading
+import time
 
 import config_file
 import json_file
@@ -18,9 +19,27 @@ import paths
 
 log = logging.getLogger("config_document")
 
-# What the file a list came from is kept as: putting it back is a rename, and a
-# version before the blocks reads that name.
-BACKUP_SUFFIX = ".before-yaml"
+# Where the configuration folder is copied to, once, before the lists move out
+# of their own files: a version before the blocks reads that folder as it was.
+BACKUP_DIR = "backup-before-v2"
+README_NAME = "WHAT-IS-THIS.txt"
+README = """\
+The configuration as it was before the lists (announcements, music lists,
+schedules, cards and the play order saved per announcement folder) moved into
+rukebox.yaml. Taken on %s, with every file of /etc/rukebox.
+
+Putting it back: stop the radio, then copy this folder over the configuration
+folder, which restores the settings and the five list files too:
+
+    sudo systemctl stop rukebox-daemon rukebox-web
+    sudo cp -a . /etc/rukebox/
+    sudo systemctl start rukebox-daemon rukebox-web
+
+A single list can also be put back on its own, without touching the rest: copy
+one file (announcements.json, cards.json...) into /etc/rukebox, and a version
+before this one reads it again. Once you are sure you will not go back, this
+folder can be deleted.
+"""
 
 # Every block: the name it had as a setting, the key it had in `paths:`, and
 # the file it lived in before this version.
@@ -236,27 +255,49 @@ def write(name, doc, path=None):
     forget(document)
 
 
-def _keep_a_copy(path):
-    """A copy of a file beside it, for a version that read that name: putting
-    it back is a rename."""
-    target = path + BACKUP_SUFFIX
-    shutil.copyfile(path, target)
-    config_file.secure_file(target, os.path.dirname(path) or ".")
+def _keep_the_folder(document):
+    """Copies every file of the configuration folder into BACKUP_DIR, once.
+
+    Taken before a list is moved in, so that a version that read the files can
+    be put back by copying the folder over: it is the whole configuration as it
+    was, the document and its generated environment file included. A folder
+    that is already there is left as it is - the first copy is the good one.
+    """
+    source = os.path.dirname(document) or "."
+    target = os.path.join(source, BACKUP_DIR)
+    if os.path.isdir(target):
+        return target
+    # Listed before the folder is made: it must not be copied into itself.
+    entries = [entry for entry in sorted(os.listdir(source))
+               if entry != BACKUP_DIR and not entry.endswith(".tmp")]
+    os.makedirs(target, mode=0o700)
+    for entry in entries:
+        origin = os.path.join(source, entry)
+        if os.path.isdir(origin):
+            shutil.copytree(origin, os.path.join(target, entry))
+            continue
+        shutil.copy2(origin, os.path.join(target, entry))
+        config_file.secure_file(os.path.join(target, entry), source)
+    with open(os.path.join(target, README_NAME), "w", encoding="utf-8", newline="\n") as f:
+        f.write(README % time.strftime("%Y-%m-%d"))
+    config_file.secure_file(os.path.join(target, README_NAME), source)
+    log.info("The configuration folder was copied to %s", target)
     return target
 
 
 def import_legacy(path=None):
     """Moves the lists kept in their own files into the document, once.
 
-    Each file is written into its block, read back to be sure, copied beside
-    itself, and only then removed: an unreadable file is left alone, and so is
-    one with nothing to take. Answers the blocks that moved.
+    The whole configuration folder is copied first, then each file is written
+    into its block, read back to be sure, and only then removed: an unreadable
+    file is left alone, and so is one with nothing to take. Answers the blocks
+    that moved.
     """
     if config_file._yaml_module() is None:
         log.warning("PyYAML is not installed: the lists stay in their own files")
         return []
     document = document_path(path)
-    moved = []
+    waiting = []
     for name in BLOCKS:
         data = _parsed(document) if os.path.exists(document) else {}
         block = (data or {}).get(name)
@@ -268,24 +309,28 @@ def import_legacy(path=None):
         if not legacy or not os.path.exists(legacy):
             continue
         doc = json_file.read(legacy)
-        if not isinstance(doc, dict) or not doc:
-            continue
+        if isinstance(doc, dict) and doc:
+            waiting.append((name, legacy, doc))
+    if not waiting:
+        return []
+    try:
+        _keep_the_folder(document)
+    except OSError:
+        # Nothing is moved and nothing is removed: without the copy there is no
+        # way back, and the files are still read by a version before this one.
+        log.exception("Could not copy the configuration folder: the lists stay where they are")
+        return []
+
+    moved = []
+    for name, legacy, doc in waiting:
         write(name, doc, document)
         if read(name, document) != doc:
             log.error("Could not move %s into %s: the file is kept", legacy, document)
-            continue
-        try:
-            kept = _keep_a_copy(legacy)
-        except OSError:
-            # No copy, no removal: the list is in the document either way, and
-            # this file is what a version before this one reads.
-            log.warning("Could not copy %s: it is left where it is", legacy)
-            moved.append(name)
             continue
         try:
             os.remove(legacy)
         except OSError:
             log.warning("Could not remove %s, it is no longer read", legacy)
         moved.append(name)
-        log.info("The %s list moved into %s; %s kept as %s", name, document, legacy, kept)
+        log.info("The %s list moved into %s, %s removed", name, document, legacy)
     return moved
