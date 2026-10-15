@@ -1828,7 +1828,8 @@ class RepairAfterRestoreTest(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         values = dict(ws.cfg(), SPEAKER_MAC="7C:E9:13:69:66:55", AUDIO_OUTPUT="bluetooth",
-                      STATE_DIR=self.dir, WEB_PASSWORD_HASH="", SETUP_HIDDEN="")
+                      STATE_DIR=self.dir, WEB_PASSWORD_HASH="", SETUP_HIDDEN="",
+                      UPDATE_VERSION_FILE=os.path.join(self.dir, "version.json"))
         for target, value in (("cfg", lambda: dict(values)), ("_ap_is_open", lambda: False),
                               ("_storages", lambda: []), ("_timezone_name", lambda: "Europe/Paris"),
                               ("control", lambda *a, **k: {"ok": True, "data": {"track_count": 10}})):
@@ -1854,6 +1855,17 @@ class RepairAfterRestoreTest(unittest.TestCase):
         self.assertNotIn("flic_pair", self.items(True, 1))
         self.assertFalse(os.path.exists(os.path.join(self.dir, "repair.json")), "done once and for all")
         self.assertNotIn("flic_pair", self.items(True, 0))
+
+    def test_the_card_is_told_which_interface_the_radio_serves(self):
+        """The page keeps the one it loaded: another means the radio was updated under it."""
+        with open(os.path.join(self.dir, "version.json"), "w", encoding="utf-8") as f:
+            f.write('{"tree_hash_short": "abc123def456"}')
+        data = ws.app.test_client().get("/api/setup/pending").get_json()["data"]
+        self.assertEqual(data["web_version"], "abc123def456")
+
+    def test_a_radio_that_recorded_no_version_says_nothing(self):
+        data = ws.app.test_client().get("/api/setup/pending").get_json()["data"]
+        self.assertEqual(data["web_version"], "")
 
 
 @unittest.skipUnless(flask, "Flask is not installed")

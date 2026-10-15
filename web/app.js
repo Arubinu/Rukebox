@@ -10542,6 +10542,51 @@ async function saveSetupHidden(list) {
   refreshSetup();
 }
 
+/* The version of the interface this page loaded, as the radio served it then.
+   Another one later means the radio was updated while the page stayed open. */
+let webVersionLoaded = null;
+
+/* A reload revalidates every file on its own; this asks for fresh copies first and
+   brings the service worker up to date, for a page kept open across an update. */
+async function reloadWithFreshCache() {
+  try {
+    await Promise.all(["/", "/app.js", "/style.css", "/i18n.js", "/qr.js"]
+      .map((name) => fetch(name, { cache: "reload" })));
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) await registration.update();
+    }
+    if (window.caches) {
+      await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
+    }
+  } catch (e) {  }
+  location.reload();
+}
+
+function setupUpdateRow() {
+  const li = document.createElement("li");
+  li.id = "setupWebUpdate";
+  li.dataset.icon = "refresh";
+  const text = document.createElement("span");
+  text.className = "setup-text";
+  text.dataset.i18n = "setup.web_updated";
+  text.textContent = t("setup.web_updated");
+  const group = document.createElement("div");
+  group.className = "btn-group";
+  const again = document.createElement("button");
+  again.type = "button";
+  again.className = "btn btn-small btn-primary";
+  again.dataset.i18n = "setup.web_updated_action";
+  again.textContent = t("setup.web_updated_action");
+  again.addEventListener("click", () => {
+    again.disabled = true;
+    reloadWithFreshCache();
+  });
+  group.append(again);
+  li.append(text, group);
+  return li;
+}
+
 async function refreshSetup() {
   const result = await apiGet("/api/setup/pending");
   const card = document.getElementById("setupCard");
@@ -10551,7 +10596,9 @@ async function refreshSetup() {
   }
   const items = (result.data.items || []).filter((id) => SETUP_TARGETS[id]);
   setupHidden = result.data.hidden || [];
-  document.getElementById("setupList").replaceChildren(...items.map((id) => {
+  const version = result.data.web_version || "";
+  if (webVersionLoaded === null) webVersionLoaded = version;
+  const rows = items.map((id) => {
     // Where the clock cannot be set (a container), the zone is read in the
     // health card: the Clock page is not offered there at all.
     const [tab, titleId, icon] = id === "timezone" && !canDo("set_clock")
@@ -10579,8 +10626,11 @@ async function refreshSetup() {
     group.append(hide, go);
     li.append(text, group);
     return li;
-  }));
-  card.hidden = !items.length;
+  });
+  // First: nothing else to finish matters until the page catches up with the radio.
+  if (version && version !== webVersionLoaded) rows.unshift(setupUpdateRow());
+  document.getElementById("setupList").replaceChildren(...rows);
+  card.hidden = !rows.length;
   const line = document.getElementById("setupHiddenLine");
   line.hidden = !setupHidden.length;
   document.getElementById("setupHiddenText").textContent = t("setup.hidden_count", { n: setupHidden.length });

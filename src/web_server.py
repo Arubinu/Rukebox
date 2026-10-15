@@ -6733,9 +6733,13 @@ def api_setup_pending():
     if any(s["status"] != "ok" for s in _storages()):
         pending.append("storage")
     hidden = [x.strip() for x in str(c.get("SETUP_HIDDEN") or "").split(",") if x.strip() in SETUP_ITEMS]
+    # The tree hash the radio serves: a page compares it with the one it loaded, and
+    # offers a reload when the radio was updated under it.
+    version = read_version_file(c["UPDATE_VERSION_FILE"])
     return jsonify({"ok": True, "data": {
         "items": [x for x in pending if x not in hidden],
         "hidden": hidden,
+        "web_version": str(version.get("tree_hash_short") or ""),
     }})
 
 

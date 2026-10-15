@@ -74,7 +74,7 @@ function load(options = {}) {
     if (typeof init.body === "string") {
       try { body = JSON.parse(init.body); } catch (e) { body = init.body; }
     }
-    const request = { method, path: pathname, query: target.searchParams, body };
+    const request = { method, path: pathname, query: target.searchParams, body, cache: init.cache };
     if (closed || pathname === "/api/status/wait") return new Promise(() => {});
     requests.push(request);
     let answer = routes[method + " " + pathname];
