@@ -9966,22 +9966,28 @@ function kpiTile(icon, label, value, sub, opts) {
   }
 
   tile.append(i, body);
-  if (options.keys) armKpiReset(tile, label, options.keys);
+  if (options.keys) armKpiTile(tile, label, options.keys, options.page);
   return tile;
 }
 
 const KPI_HOLD_MS = 700;
 
-function armKpiReset(tile, label, keys) {
+/* A brief press opens the statistics page that goes with the counter, a long
+   one resets it: the page stops being something the menu alone knows about. */
+function armKpiTile(tile, label, keys, page) {
   tile.tabIndex = 0;
   tile.classList.add("kpi-resettable");
-  tile.setAttribute("aria-description", t("stats.kpi_hold_hint"));
+  if (page) tile.classList.add("kpi-link");
+  tile.setAttribute("aria-description", t(page ? "stats.kpi_press_hint" : "stats.kpi_hold_hint"));
   let timer = null;
   let start = null;
   const cancel = () => {
     clearTimeout(timer);
     timer = null;
     tile.classList.remove("kpi-holding");
+  };
+  const open = () => {
+    if (page) setActiveView("stats", page);
   };
   const ask = async () => {
     cancel();
@@ -10004,13 +10010,22 @@ function armKpiReset(tile, label, keys) {
   tile.addEventListener("pointermove", (e) => {
     if (timer && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
   });
-  ["pointerup", "pointerleave", "pointercancel"].forEach((type) => tile.addEventListener(type, cancel));
+  /* The hold clears its own timer, so a release after it opens nothing. */
+  tile.addEventListener("pointerup", (e) => {
+    const brief = !!timer && (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) <= 10);
+    cancel();
+    if (brief) open();
+  });
+  ["pointerleave", "pointercancel"].forEach((type) => tile.addEventListener(type, cancel));
 
   tile.addEventListener("contextmenu", (e) => e.preventDefault());
   tile.addEventListener("keydown", (e) => {
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
       ask();
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
     }
   });
 }
@@ -10033,20 +10048,20 @@ function renderKpis(summary) {
 
   grid.append(
     kpiTile("headphones", t("kpi.music_listened"), formatDuration(c.seconds_music),
-      t("kpi.music_listened_sub", { total: formatDuration(totalListening) }), { hero: true, keys: keysIf(["seconds_music", "seconds_meme", "seconds_announce"]) }),
+      t("kpi.music_listened_sub", { total: formatDuration(totalListening) }), { hero: true, keys: keysIf(["seconds_music", "seconds_meme", "seconds_announce"]), page: "recap" }),
     kpiTile("music", t("kpi.tracks_played"), Math.round(c.tracks_played || 0),
-      t("kpi.tracks_played_sub", { memes: Math.round(c.memes_played || 0), announcements: Math.round(c.announcements_played || 0) }), { keys: keysIf(["tracks_played", "memes_played", "announcements_played"]) }),
+      t("kpi.tracks_played_sub", { memes: Math.round(c.memes_played || 0), announcements: Math.round(c.announcements_played || 0) }), { keys: keysIf(["tracks_played", "memes_played", "announcements_played"]), page: "tops" }),
     kpiTile("pointer", t("kpi.button_presses"), Math.round(totalClicks),
       t("kpi.button_presses_sub", { single: Math.round(c.clicks_single || 0), double: Math.round(c.clicks_double || 0), long: Math.round(c.clicks_long || 0), speaker: Math.round(c.clicks_speaker || 0) }), { keys: keysIf(["clicks_single", "clicks_double", "clicks_long", "clicks_speaker"]) }),
     kpiTile("antenna", t("kpi.click_sources"),
       Math.round(c.clicks_flic || 0) + " / " + Math.round(c.clicks_gpio || 0) + " / " + Math.round(c.clicks_remote || 0) + " / " + Math.round(c.clicks_web || 0),
       t("kpi.click_sources_sub", { ignored: Math.round(c.clicks_ignored || 0) }), { keys: keysIf(["clicks_flic", "clicks_gpio", "clicks_remote", "clicks_web", "clicks_ignored"]) }),
     kpiTile("play", t("kpi.startups"), Math.round(c.sessions_started || 0),
-      t("kpi.startups_sub", { used: Math.round(c.sessions_used || 0), unclean: Math.round(c.sessions_unclean || 0) }), { keys: keysIf(["sessions_started", "sessions_used", "sessions_unclean"]) }),
+      t("kpi.startups_sub", { used: Math.round(c.sessions_used || 0), unclean: Math.round(c.sessions_unclean || 0) }), { keys: keysIf(["sessions_started", "sessions_used", "sessions_unclean"]), page: "sessions" }),
     kpiTile("power", t("kpi.shutdowns"), Math.round((c.shutdowns_cutoff || 0) + (c.shutdowns_longpress || 0) + (c.shutdowns_speaker || 0)),
-      t("kpi.shutdowns_sub", { scheduled: Math.round(c.shutdowns_cutoff || 0), longpress: Math.round(c.shutdowns_longpress || 0), speaker: Math.round(c.shutdowns_speaker || 0) }), { keys: keysIf(["shutdowns_cutoff", "shutdowns_longpress", "shutdowns_service", "shutdowns_speaker"]) }),
+      t("kpi.shutdowns_sub", { scheduled: Math.round(c.shutdowns_cutoff || 0), longpress: Math.round(c.shutdowns_longpress || 0), speaker: Math.round(c.shutdowns_speaker || 0) }), { keys: keysIf(["shutdowns_cutoff", "shutdowns_longpress", "shutdowns_service", "shutdowns_speaker"]), page: "sessions" }),
     kpiTile("alert", t("kpi.playback_errors"), errorCount,
-      t("kpi.playback_errors_sub", { n: Math.round(c.playback_stalls || 0) }), { warn: errorCount > 0, keys: keysIf(["playback_errors", "playback_stalls"]) }),
+      t("kpi.playback_errors_sub", { n: Math.round(c.playback_stalls || 0) }), { warn: errorCount > 0, keys: keysIf(["playback_errors", "playback_stalls"]), page: "errors" }),
     kpiTile("speaker", t("kpi.speaker_lost"), speakerLostCount,
       t("kpi.speaker_lost_sub", { n: Math.round(c.speaker_recoveries || 0) }), { warn: speakerLostCount > 0, keys: keysIf(["speaker_drops", "speaker_recoveries"]) }),
     kpiTile("wifi", t("kpi.access_point"), Math.round(c.ap_client_connections || 0),

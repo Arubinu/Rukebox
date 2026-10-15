@@ -3341,6 +3341,20 @@ select {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+/* A counter that leads to a page says so; the hold overlay keeps ::after. */
+.kpi-link::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 13px;
+  height: 13px;
+  background-color: currentColor;
+  opacity: 0.4;
+  -webkit-mask: var(--i-chevron) center / contain no-repeat;
+  mask: var(--i-chevron) center / contain no-repeat;
+  pointer-events: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .kpi-resettable.kpi-holding::after { transition: none; }
 }
