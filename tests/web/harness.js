@@ -69,9 +69,12 @@ function load(options = {}) {
       try { body = JSON.parse(init.body); } catch (e) { body = init.body; }
     }
     const request = { method, path: pathname, query: target.searchParams, body };
-    if (closed || pathname === "/api/status/wait") return new Promise(() => {});
-    requests.push(request);
     let answer = routes[method + " " + pathname];
+    // The long poll hangs on purpose - unless a test answers it, to tell the page the radio is going.
+    if (closed || (pathname === "/api/status/wait" && answer === undefined)) {
+      return new Promise(() => {});
+    }
+    requests.push(request);
     if (typeof answer === "function") answer = answer(request);
     return Promise.resolve(answer).then((data) => {
       const payload = data === undefined

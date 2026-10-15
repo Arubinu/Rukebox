@@ -1217,6 +1217,32 @@ class WebTest(unittest.TestCase):
                                "unknown": True})
         self.assertIsNone(data["speaker_connected"])
 
+    def test_the_status_says_the_machine_is_going_down(self):
+        """The page that asked for it knows; every other page has to be told."""
+        self.status["powering_off"] = True
+        self.addCleanup(self.status.pop, "powering_off", None)
+        data = self.status_of({"connected": False, "controller": None, "expected": None,
+                               "paired_here": False, "known_here": False, "name": "",
+                               "unknown": True})
+        self.assertEqual(data["going_down"], "poweroff")
+
+    def test_a_page_waiting_on_the_long_poll_is_told_without_asking_again(self):
+        self.addCleanup(setattr, ws, "_going_down", None)
+        self.addCleanup(ws._going_down_event.clear)
+        ws._going_down = None
+        ws._going_down_event.clear()
+        self.status["powering_off"] = "reboot"
+        self.addCleanup(self.status.pop, "powering_off", None)
+        with unittest.mock.patch.object(ws, "send_control_command",
+                                        lambda *a, **k: {"ok": True, "data": {"version": 3}}):
+            data = self.status_of({"connected": False, "controller": None, "expected": None,
+                                   "paired_here": False, "known_here": False, "name": "",
+                                   "unknown": True})
+            self.assertEqual(data["going_down"], "reboot")
+            waiting = self.owner().get("/api/status/wait?since=1").get_json()["data"]
+        self.assertEqual(waiting["going_down"], "reboot",
+                         "another page hears it on its long poll, not on its own turn")
+
     def test_backup_refusals(self):
         owner = self.owner()
         r = owner.post("/api/backup/inspect", data={"file": (io.BytesIO(b"not a zip"), "x.zip")},

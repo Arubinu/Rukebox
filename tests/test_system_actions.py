@@ -200,12 +200,19 @@ class PowerTest(PlatformFixtures):
     def test_going_down_reads_systemds_jobs(self):
         self.as_platform(host.PI)
         with mock.patch.object(sa, "_systemctl_available", return_value=True):
+            # "JOB UNIT TYPE STATE", with --no-legend: the unit is the second column.
             with mock.patch.object(sa, "_run",
-                                   return_value=fake_result(stdout="12 reboot.target\n")):
+                                   return_value=fake_result(stdout="1 reboot.target start running\n")):
                 self.assertEqual(sa.going_down(), "reboot")
             with mock.patch.object(sa, "_run",
-                                   return_value=fake_result(stdout="12 poweroff.target\n")):
+                                   return_value=fake_result(stdout="2 poweroff.target start running\n")):
                 self.assertEqual(sa.going_down(), "poweroff")
+            with mock.patch.object(sa, "_run",
+                                   return_value=fake_result(stdout="3 kexec.target start waiting\n")):
+                self.assertEqual(sa.going_down(), "reboot")
+            with mock.patch.object(sa, "_run",
+                                   return_value=fake_result(stdout="4 scratch.service start running\n")):
+                self.assertIsNone(sa.going_down(), "another unit's job is not the machine going down")
             with mock.patch.object(sa, "_run", return_value=fake_result(stdout="")):
                 self.assertIsNone(sa.going_down())
 
