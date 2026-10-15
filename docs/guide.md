@@ -2602,7 +2602,8 @@ background refresh either.
 Reading and writing `rukebox.yaml` uses PyYAML (`python3-yaml`, installed
 by `scripts/install.sh`). If a Pi somehow ends up without it — an update
 pushed over USB cannot run `apt` — the radio keeps running normally: it
-falls back to reading the already-generated `rukebox.env`. Only a hand
+falls back to reading the already-generated `rukebox.env`, which carries every
+value that differs from this machine's own default. Only a hand
 edit made to `rukebox.yaml` *while PyYAML is missing* has to wait for
 PyYAML to come back before it is seen; nothing is lost, it is simply not
 read yet.

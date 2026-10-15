@@ -360,8 +360,8 @@ def merge_missing(path=None, env_path=None):
 
 def _atomic_write(path, text):
     """Writes through a temporary file and a rename, mode 600: the YAML holds
-    the web password hash and the session secret, and rukebox.env repeats
-    every setting."""
+    the web password hash and the session secret, and rukebox.env carries the
+    password hash too."""
     directory = os.path.dirname(path)
     if directory:
         os.makedirs(directory, exist_ok=True)
