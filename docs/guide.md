@@ -494,8 +494,8 @@ not — its multicast stays inside the container, so use `network_mode: host`
 (variant 4 does) or a macvlan network for a player on the LAN to see it.
 
 **Think about the password first**: anyone who can reach the page can listen
-to the library. `security.password_hash` is the only thing in the way, and on a
-container the network around it is usually not a private access point.
+to the library. The owner account's password is the only thing in the way, and
+on a container the network around it is usually not a private access point.
 
 The stream is Ogg, so a player that joins it late is handed the stream's own
 headers first — an Ogg file without them cannot be decoded at all. Those
@@ -922,13 +922,15 @@ service, with a **Restart** for those in use. On a fresh installation,
 time source, timezone, music, passwords) with a way there; anything can
 be set aside.
 
-**Guests** (guest mode on, password set) spend credits: each action has a
+**Guests** (the guest role: guest access on, an owner password set) spend
+credits: each action has a
 price (Network > Guest access), doubled every time the same guest
 repeats it within a few minutes, and credits come back over time. A guest
 seen for the first time starts with a few (**Credits at the start**, 3 by
 default), not the most a guest may hold, so a fresh browser or a private
 window is not a way to a full counter; counters are kept on disk
-(`guest_credits.json` in the state folder) and survive a restart. Anyone
+(`guest_credits.json` in the state folder) and survive a restart. Someone with
+an account never pays them: the prices are a visitor's. Anyone
 can put a song of **Recently played** or the **Library** up next, then
 start one of **Up next** at once (two prices, which add up), and when the planned audio
 output is gone (speaker off, card unplugged) anyone may send the sound to
@@ -2032,27 +2034,26 @@ people - one each, then the next round - instead of first come, first
 served: three songs from Anne then one from Bob play as Anne, Bob, Anne,
 Anne. A person is a device, or the devices linked as one person.
 
-### Guest access
+### Guest access (the guest role)
 
-With a password set, anyone joining the access point normally sees only
-a login box. Turning on **Guest actions without password** (Network →
-Guest access, `security.guest_mode`) gives them the Home pages instead:
-**Now Playing, the volume and the button actions** (sound + next track,
-previous, pause and resume, skipping a sound, announcement, start the
-music), Up next, the Library to put a song up next, Recently played,
-Today and the suggestions. Each action can cost credits, and any of them
-can be **locked** for guests altogether - see below.
+With an owner account holding a password, anyone joining the access point
+normally sees only a login box. Turning on **Guest actions without password**
+(Network → Guest access, `security.guest_mode`) gives a visitor the guest
+role: the Home pages — **Now Playing, the volume and the button actions**
+(sound + next track, previous, pause and resume, skipping a sound,
+announcement, start the music), Up next, the Library to put a song up next,
+Recently played, Today and the suggestions. Each action can cost credits, and
+any of them can be **locked** for guests altogether - see below.
 
-Not included, and not reachable by any route: **shutting the Pi down**,
-the loop, the timers, and every setting, statistic and network control.
-Those stay behind the password, and a **Log in for full access** button on
-the same page swaps the guest view for the whole interface.
+Not included, and not reachable by any route: **shutting the radio down**, the
+loop, the timers, and every setting, statistic and network control. Those are
+the operator's and the owner's, and a **Log in for full access** button on the
+same page swaps the guest view for the account's own.
 
-It is **off by default**. It only changes anything while a password is
-set — with none, the whole interface is already open to anyone on the
-access point — so switching it on is a deliberate decision about what a
-visitor may do, and this project would rather you made it than have an
-update make it for you.
+It is **off by default**, and that value is kept when a radio updated from a
+version before 2.0.0: switching it on is a deliberate decision about what a
+visitor may do, and this project would rather you made it than have an update
+make it for you.
 
 **Pages hidden from guests** (Network > Guest access, `security.guest_pages_off`):
 tick the Home pages a guest should not get - Up next, Recently played,
@@ -2466,26 +2467,42 @@ player.
 
 ### Security
 
-**No authentication by default.** The core security assumption is that
-the only way to reach this server is by being connected to the Pi's
-local, private Wi-Fi access point — normally, someone needs to know the
-hotspot's Wi-Fi password just to reach the interface **unless you chose
-an open access point** (no password) during installation or from its
-card in the web interface, in which case anyone in range can. **Never
-expose it** on a shared network (work Wi-Fi, shared home network) or
-the Internet without adding real authentication beforehand: as it
-stands, anyone who can reach it could stop the music, shut down the Pi,
-or enable SSH.
+**Accounts and roles.** The interface knows four of them, and each one is a
+place rather than a privilege:
 
-An **optional password** is available as a second layer on top of the
-access point itself (useful if the AP's own password ends up shared
-with guests, for example — or if the AP is open by choice) — set it
-during installation, or from the **Security** card (System tab)
-afterward. Leaving both fields empty and saving removes it again. The
-password is never stored in plain text (a salted PBKDF2 hash,
-`security.password_hash` in `rukebox.yaml`), and it is still exactly that: an
-extra layer, not a replacement for the access point being private. A new
-password needs at least 8 characters.
+| role | what it may do |
+|---|---|
+| **guest** | a visitor on the access point: the player, the queue, the suggestions — what the owner allows below, with credits |
+| **member** | someone who lives here: the music, their likes, their lists — never a setting, never the machine |
+| **operator** | someone who keeps the radio: every setting, and everything it stores (announcements, lists, schedules, cards, the devices on the network) — not the machine itself |
+| **owner** | the machine and its door: power, updates, network, backups, and the accounts |
+
+**An account is a name, a role and a password.** People → **People** (System
+tab) adds one, changes what it may do, or removes it; only the owner sees that
+card. A password is a salted PBKDF2 hash and needs 8 characters at least;
+nobody but the owner may go without one, since an account with no password
+would open on its name alone. The first owner account takes the password this
+radio already had when it updates, so the same password keeps working.
+
+**Without an owner account holding a password, the interface is open** to
+whoever reaches the access point — this project's original model, kept for
+whoever wants no account, and the first owner password is what closes it. That
+is why the access point stays the perimeter: anyone who can reach the page
+could stop the music, shut the radio down or enable SSH. **Never expose it** on
+a shared network (work Wi-Fi, shared home network) or the Internet. What the
+accounts close is the *interface*; the audio stream (`/stream`), the UPnP
+announcement and the local control socket (`/tmp/rukebox_control.sock`, used by
+the daemon's own tools) are not behind them and never were, so keep the network
+private whatever you do here.
+
+A device that logs in **goes by its account**: its name, its votes and its
+credits follow the account, and logging out gives the device its own generated
+name back. A visitor without an account keeps that generated name, and one
+person may be several devices.
+
+Setting the password from the **Security** card writes the owner's account;
+leaving both fields empty and saving removes it, which opens the interface
+again. A new password needs at least 8 characters.
 
 **Other websites cannot drive or read the interface.** A page open in the
 browser of a device on the network could otherwise make that browser talk to
@@ -2516,7 +2533,7 @@ can be turned off with `gpio_reset_enabled: false`. On anything that
 isn't a Raspberry Pi (or without the `pinctrl` tool, part of current
 Raspberry Pi OS), this check quietly does nothing — there is no other
 way to reset the password there than editing `rukebox.yaml` by hand
-(clear `password_hash:` under `security:`).
+(clear the `hash:` of the owner account under `people:`, or the whole block).
 
 ## Configuration
 
@@ -2638,6 +2655,28 @@ An older file also keeps the five lines that named those files, under `paths:`
 (`announcements_file` and the rest). Nothing reads them any more; they are only
 consulted to find a list still waiting in its own file, so they can be deleted
 once it has moved.
+
+The `people:` block holds the accounts, and the interface writes it (System
+tab, **People**): a name, a role, and the password as a salted hash. Nothing
+else is kept there - what each account did (credits, votes, names, bans) lives
+with the devices, in the state folder:
+
+```yaml
+people:
+  items:
+    - id: marie
+      name: Marie
+      role: member
+      hash: "pbkdf2_sha256$260000$..."
+      created_at: 1790928000.0
+```
+
+A `role` is one of `member`, `operator` or `owner` (`src/roles.py` holds the
+ladder and what each one reaches). An account whose `hash` is empty is one
+anybody may open on its name alone: only an owner may be left that way, and
+that is exactly the radio open to everyone. Deleting a line here is the same
+as removing the account from the card - the music it asked for stays, and the
+devices it used go back to their own generated names.
 
 Reading the blocks needs PyYAML (`python3-yaml`, installed by
 `install.sh`). Without it the settings come from `rukebox.env` and the lists
@@ -4077,10 +4116,11 @@ starts later if both fallbacks fail).
 - The access point and a personal Wi-Fi run together on one radio
   (`uap0` beside `wlan0`), so both are on the same channel, and the
   Bluetooth shares that radio too (see "If the Bluetooth sound skips").
-- The web interface has **no password by default** (see the Security
-  section above): it assumes the local Wi-Fi access point is the
-  protection perimeter, and the optional password is a second layer.
-  Never expose it on a shared network.
+- The web interface is **open until an owner account has a password** (see
+  the Security section above): with no account it assumes the local Wi-Fi
+  access point is the protection perimeter. Create the owner account to close
+  it, and never expose the radio on a shared network either way: the accounts
+  close the interface, not the audio stream nor the local control socket.
 - Settings saved from the web interface apply at once; the few read
   only at startup (listed in `config_schema.RESTART_REQUIRED`) say so
   and offer a restart of `rukebox-daemon`.
