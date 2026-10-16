@@ -24,6 +24,7 @@ ENV PYTHONUNBUFFERED=1 \
 # host's Bluetooth.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
+        libchromaprint-tools \
         mpv \
         pipewire \
         pipewire-pulse \

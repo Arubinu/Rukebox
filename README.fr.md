@@ -28,8 +28,8 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
   veille.
 - **Une interface web claire** sur téléphone, tablette ou ordinateur :
   lecture en cours avec pochette et paroles, la suite, une bibliothèque
-  où chercher, tes propres listes - tout, ou seulement certains genres -
-  et tous les réglages. Six langues, thèmes clair et sombre.
+  où chercher, tes propres listes - tout, ou seulement certains genres -,
+  étiquettes et pochettes écrites dans les fichiers eux-mêmes, et tous les réglages. Six langues, thèmes clair et sombre.
 - **Facile à partager** : tes invités rejoignent le Wi-Fi en scannant un
   QR code, ajoutent des morceaux à la file et en proposent de nouveaux -
   avec des crédits, pour que personne ne monopolise la radio.

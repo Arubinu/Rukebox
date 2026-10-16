@@ -27,8 +27,8 @@ della cassa o qualsiasi telefono collegato al Wi-Fi del Pi.
   standby.
 - **Un'interfaccia web chiara** su telefono, tablet o computer: il brano in
   corso con copertina e testo, cosa viene dopo, una libreria in cui
-  cercare, le tue liste - tutto o solo alcuni generi - e tutte le
-  impostazioni. Sei lingue, tema chiaro e scuro.
+  cercare, le tue liste - tutto o solo alcuni generi -, tag e copertine
+  scritti nei file stessi, e tutte le impostazioni. Sei lingue, tema chiaro e scuro.
 - **Facile da condividere**: gli ospiti si collegano al Wi-Fi scansionando
   un QR code, mettono brani in coda e ne propongono di nuovi - con dei
   crediti, perché nessuno si impossessi della radio.

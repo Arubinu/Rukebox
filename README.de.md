@@ -28,7 +28,8 @@ Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
 - **Eine übersichtliche Weboberfläche** auf Handy, Tablet oder Computer:
   der laufende Titel mit Cover und Songtext, was als Nächstes kommt, eine
   durchsuchbare Bibliothek, eigene Listen - alles oder nur bestimmte
-  Genres - und alle Einstellungen. Sechs Sprachen, helles und dunkles
+  Genres -, Tags und Cover direkt in die Dateien geschrieben, und alle
+  Einstellungen. Sechs Sprachen, helles und dunkles
   Design.
 - **Leicht zu teilen**: Gäste treten dem WLAN per QR-Code bei, reihen
   Titel ein und schlagen neue vor - mit Guthaben, damit niemand das Radio

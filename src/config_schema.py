@@ -224,16 +224,12 @@ SETTINGS = [
             "Sounds played by a single click on the Flic button.", "Button sounds"),
     Setting(
         "COVER_DIR", "folders", "covers", "str", "/home/pi/audio/covers",
-        "Cover art you prepared, mirroring the music folder the way the\n"
-        "prepared introductions do: a picture named after the song, or one\n"
-        "named \"_any\" beside it - which then covers its album, its artist,\n"
-        "or the whole library. The names the readers usually look for\n"
-        "(cover, folder, front, albumart, thumb, poster...), and the\n"
-        "folder's own name, work there too. This folder is the \"files\"\n"
-        "side of cover_priority; anything found in the music folders\n"
-        "themselves counts as the \"id3\" side. Empty disables it: the\n"
-        "pictures beside the music are then the only ones looked at.",
-        "Covers",
+        "Where an older version kept the covers you prepared, mirroring the\n"
+        "music folder. Covers now live in the music folder itself: at the\n"
+        "first start, every picture here is copied to the same place there\n"
+        "(\"_any\" becomes that folder's cover), then this folder is renamed\n"
+        "<name>.before-v2 and no longer read.",
+        "Old covers folder",
     ),
     Setting("CUTOFF_ANNOUNCE_DIR", "folders", "cutoff_announcements", "str",
             "/home/pi/audio/cutoff_announcements", "", "Cutoff announcements"),
@@ -299,17 +295,13 @@ SETTINGS = [
     ),
     Setting(
         "COVER_PRIORITY", "playback", "cover_priority", "str", "files",
-        "Which cover the page shows when both sides have one:\n"
-        "  files -> cover_dir first (a picture named after the song or\n"
-        "           \"_any\" beside it, or one of the usual names), then\n"
-        "           what the music folders and the tags carry.\n"
-        "  id3   -> what the music folders and the tags carry first: the\n"
-        "           picture named after the track (or <track>.cover.jpg),\n"
-        "           the one embedded in the file itself, then the folders'\n"
-        "           own pictures (cover, folder, front, albumart,\n"
-        "           albumartsmall, thumb, poster, default, jacket, artist,\n"
-        "           or the folder's own name), from the album folder up to\n"
-        "           the artist folder and the library.\n"
+        "Which cover the page shows when a song has several. A picture named\n"
+        "after the track (or <track>.cover.jpg) always comes first; then:\n"
+        "  files -> the folders' own pictures (cover, folder, front, albumart,\n"
+        "           albumartsmall, thumb, poster, default, jacket, artist, or\n"
+        "           the folder's own name), from the album folder up to the\n"
+        "           artist folder and the library, then the one inside the file.\n"
+        "  id3   -> the picture inside the file, then the folders' own.\n"
         "Either way a picture that cannot be read is skipped and the search\n"
         "goes on; when nothing is found anywhere, the page shows the grey\n"
         "music note. A wide backdrop, a banner, a logo or a disc picture is\n"
@@ -1068,6 +1060,14 @@ SETTINGS = [
         "Internet through the access point",
     ),
     Setting(
+        "ACOUSTID_KEY", "network", "acoustid_key", "str", "",
+        "The application key that lets the tag page recognise a song by its\n"
+        "sound (AcoustID, then MusicBrainz). Free: register one at\n"
+        "https://acoustid.org/new-application. Needs fpcalc (apt:\n"
+        "libchromaprint-tools) and the radio's own internet connection.",
+        "AcoustID application key",
+    ),
+    Setting(
         "AP_INTERFACE", "network", "ap_interface", "str", "uap0",
         "Admin access point interface, created by scripts/create_uap0.sh.\n"
         "NOTE: if you change this, update the matching 'iw' entry in\n"
@@ -1439,7 +1439,6 @@ SHELL_SETTINGS = (
     "folders.battery_low_sound",
     "folders.clock_fallback_sound",
     "folders.clock_ok_sound",
-    "folders.covers",
     "folders.cutoff_announcements",
     "folders.dj_announcements",
     "folders.keepalive_sound",

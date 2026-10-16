@@ -192,7 +192,7 @@ apt-get update
 # curl, which the grants and the Flic SDK helper need.
 apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit util-linux-extra \
     sudo curl \
-    espeak-ng \
+    espeak-ng libchromaprint-tools \
     pipewire pipewire-bin wireplumber pipewire-audio \
     pipewire-pulse pulseaudio-utils
 # `pactl` reaches PipeWire where `pw-dump` cannot (inside a container). Trixie
@@ -241,7 +241,7 @@ fi
 
 echo "== Creating folders =="
 mkdir -p /opt/rukebox /etc/rukebox /var/lib/rukebox
-mkdir -p "$AUDIO_ROOT"/{music,dj_announcements,covers,memes,morning_announcements,cutoff_announcements,doubleclick_announcements,system}
+mkdir -p "$AUDIO_ROOT"/{music,dj_announcements,memes,morning_announcements,cutoff_announcements,doubleclick_announcements,system}
 
 if [ "$PROFILE" = "lxc" ] && ! id -u "$RUN_USER" > /dev/null 2>&1; then
     echo "== Creating the '$RUN_USER' account the services run as =="
@@ -280,7 +280,6 @@ if [ "$PROFILE" = "lxc" ]; then
     python3 "$PROJECT_ROOT/src/config_file.py" set \
         "folders.music=$AUDIO_ROOT/music" \
         "folders.dj_announcements=$AUDIO_ROOT/dj_announcements" \
-        "folders.covers=$AUDIO_ROOT/covers" \
         "folders.memes=$AUDIO_ROOT/memes" \
         "folders.cutoff_announcements=$AUDIO_ROOT/cutoff_announcements" \
         "folders.keepalive_sound=$AUDIO_ROOT/system/keepalive.wav" \

@@ -33,11 +33,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import announce_level  # noqa: E402
 import accounts  # noqa: E402
+import acoustid  # noqa: E402
 import announcements  # noqa: E402
 import audio_diag  # noqa: E402
 import net_diag  # noqa: E402
 import bt_codec  # noqa: E402
 import config_bundle  # noqa: E402
+import covers_move  # noqa: E402
 import duplicates  # noqa: E402
 import hidden_tracks  # noqa: E402
 import json_file  # noqa: E402
@@ -48,6 +50,7 @@ import speech  # noqa: E402
 import snapcast  # noqa: E402
 import playlist  # noqa: E402
 import track_order  # noqa: E402
+import tag_editor  # noqa: E402
 import track_media  # noqa: E402
 import captive_portal  # noqa: E402
 import config_schema  # noqa: E402
@@ -1980,7 +1983,7 @@ def _now_playing_checked():
 def _cover_of(path):
     """The cover of a track, looked up the way the settings ask for it."""
     c = cfg()
-    return track_media.cover(path, c.get("COVER_DIR"), c.get("MUSIC_DIR"),
+    return track_media.cover(path, c.get("MUSIC_DIR"),
                              c.get("COVER_PRIORITY"))
 
 
@@ -2196,6 +2199,221 @@ def api_library():
     for item in found["items"]:
         item["excluded"] = item.get("key") in excluded
     return jsonify({"ok": True, "data": found})
+
+
+def _tag_target(key):
+    """(path, music folder) of a catalogue song the tag page may change, or
+    (None, error code)."""
+    path = _get_library().path_for_key(str(key or "")) if key else None
+    if not path or not os.path.isfile(path):
+        return None, "not_found"
+    for root in _library_roots():
+        if root and track_media._under(os.path.abspath(path), os.path.abspath(root)):
+            return path, root
+    return None, "not_found"
+
+
+def _tag_folder(path, root, level):
+    """The folder a picture of that level goes in, or None."""
+    return tag_editor.levels(path, root).get(level)
+
+
+def _relative_to(path, root):
+    relative = os.path.relpath(path, root).replace(os.sep, "/")
+    return "" if relative == "." else relative
+
+
+def _tag_answer(path, root):
+    tags = tag_editor.read(path)
+    if tags is None:
+        return None
+    levels = tag_editor.levels(path, root)
+    beside = next(track_media._named_pictures(path), None)
+    folders = {}
+    for level, folder in levels.items():
+        if folder is None:
+            folders[level] = None
+            continue
+        found = tag_editor.folder_picture(folder)
+        folders[level] = {"folder": _relative_to(folder, root),
+                          "picture": os.path.basename(found) if found else None,
+                          "writable": os.access(folder, os.W_OK)}
+    c = cfg()
+    return {
+        "key": track_media.track_key(path),
+        "path": _relative_to(path, root),
+        "tags": {name: tags[name] for name in tag_editor.FIELDS},
+        "duration": tags["duration"],
+        "writable": tags["writable"] and os.access(path, os.W_OK),
+        "picture": tags["picture"],
+        "beside": os.path.basename(beside) if beside else None,
+        "folders": folders,
+        "priority": track_media._priority(c.get("COVER_PRIORITY")),
+        "identify": {"tool": acoustid.available(), "key": bool(c.get("ACOUSTID_KEY"))},
+    }
+
+
+def _tags_changed(path, root):
+    """The catalogue and the pages see the song as it is now."""
+    try:
+        _get_library().store(path, library.read_tags(path), [r for r in _library_roots() if r])
+    except Exception:  # noqa: BLE001
+        log.exception("Could not read the tags back from %s", path)
+    _library_wake.set()
+
+
+@app.route("/api/tags")
+def api_tags():
+    """One song's own tags and every picture the player may show for it."""
+    path, root = _tag_target(request.args.get("key"))
+    if path is None:
+        return jsonify({"ok": False, "error": root}), 404
+    data = _tag_answer(path, root)
+    if data is None:
+        return jsonify({"ok": False, "error": "unreadable"}), 400
+    return jsonify({"ok": True, "data": data})
+
+
+@app.route("/api/tags", methods=["POST"])
+def api_tags_save():
+    """Writes the tags into the file; `album` also writes the fields an album
+    shares into every song of its folder."""
+    body = request.get_json(silent=True) or {}
+    path, root = _tag_target(body.get("key"))
+    if path is None:
+        return jsonify({"ok": False, "error": root}), 404
+    try:
+        changes = tag_editor.clean_changes(body.get("tags") or {})
+        if not changes:
+            return jsonify({"ok": False, "error": "no_data"}), 400
+        tag_editor.write(path, changes)
+    except tag_editor.TagError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    _tags_changed(path, root)
+    others, failed = 0, []
+    shared = {name: value for name, value in changes.items() if name in tag_editor.ALBUM_FIELDS}
+    if body.get("album") and shared:
+        folder = os.path.dirname(path)
+        for name in sorted(os.listdir(folder)):
+            other = os.path.join(folder, name)
+            if other == path or not os.path.isfile(other) \
+                    or os.path.splitext(name)[1].lower() not in announcements.AUDIO_EXTENSIONS:
+                continue
+            try:
+                tag_editor.write(other, shared)
+                others += 1
+                _tags_changed(other, root)
+            except tag_editor.TagError as e:
+                failed.append({"name": name, "error": str(e)})
+    stats.record("tags_changed", label=os.path.basename(path),
+                 detail={"fields": sorted(changes), "album": others, "failed": len(failed)})
+    return jsonify({"ok": True, "data": dict(_tag_answer(path, root) or {},
+                                             album_done=others, album_failed=failed)})
+
+
+def _picture_level():
+    level = (request.values.get("level") or "").strip()
+    return level if level in ("file", "beside", "album", "artist") else None
+
+
+@app.route("/api/tags/picture")
+def api_tags_picture():
+    """One of the song's pictures, to show beside its slot."""
+    path, root = _tag_target(request.args.get("key"))
+    level = _picture_level()
+    if path is None or level is None:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    if level == "file":
+        data = track_media._embedded_picture(path)
+    else:
+        found = next(track_media._named_pictures(path), None) if level == "beside" \
+            else tag_editor.folder_picture(_tag_folder(path, root, level) or "")
+        data = track_media._read_file(found, track_media.PICTURE_MAX_BYTES) if found else None
+    if not data or not track_media._image_mime(data):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    if len(data) > track_media.COVER_MAX_BYTES:
+        data = track_media._shrink(data)
+    return Response(data, mimetype=track_media._image_mime(data),
+                    headers={"Cache-Control": "no-store"})
+
+
+@app.route("/api/tags/picture", methods=["POST"])
+def api_tags_picture_set():
+    """Puts a picture in the file (`file`), or as the album's or the artist's
+    cover.jpg. The picture is a file sent, or `release_group`: the album's
+    front from the Cover Art Archive."""
+    path, root = _tag_target(request.form.get("key"))
+    level = _picture_level()
+    if path is None or level not in ("file", "album", "artist"):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    upload = request.files.get("file")
+    try:
+        if upload is not None:
+            raw = upload.read(track_media.PICTURE_MAX_BYTES + 1)
+            if len(raw) > track_media.PICTURE_MAX_BYTES:
+                raise tag_editor.TagError("file_too_big")
+        else:
+            raw = acoustid.cover(request.form.get("release_group") or "")
+        picture = tag_editor.picture_jpeg(raw)
+        if level == "file":
+            tag_editor.write(path, {}, picture=picture)
+        else:
+            folder = _tag_folder(path, root, level)
+            if not folder:
+                return jsonify({"ok": False, "error": "not_found"}), 404
+            tag_editor.set_folder_picture(folder, picture)
+    except (tag_editor.TagError, acoustid.AcoustidError) as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except OSError:
+        log.exception("Could not write the picture for %s", path)
+        return jsonify({"ok": False, "error": "write_failed"}), 500
+    _tags_changed(path, root)
+    stats.record("cover_changed", label=os.path.basename(path), detail={"level": level})
+    return jsonify({"ok": True, "data": _tag_answer(path, root)})
+
+
+@app.route("/api/tags/picture", methods=["DELETE"])
+def api_tags_picture_remove():
+    """Takes one picture away: out of the file, or the file the lookup finds."""
+    path, root = _tag_target(request.args.get("key"))
+    level = _picture_level()
+    if path is None or level is None:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    try:
+        if level == "file":
+            tag_editor.write(path, {}, picture=None)
+        elif level == "beside":
+            for found in list(track_media._named_pictures(path)):
+                os.remove(found)
+        else:
+            folder = _tag_folder(path, root, level)
+            if not folder or not tag_editor.remove_folder_picture(folder):
+                return jsonify({"ok": False, "error": "not_found"}), 404
+    except tag_editor.TagError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except OSError:
+        return jsonify({"ok": False, "error": "read_only"}), 400
+    _tags_changed(path, root)
+    stats.record("cover_removed", label=os.path.basename(path), detail={"level": level})
+    return jsonify({"ok": True, "data": _tag_answer(path, root)})
+
+
+@app.route("/api/tags/identify", methods=["POST"])
+def api_tags_identify():
+    """What the song is, by its sound: AcoustID's candidates, nothing written."""
+    body = request.get_json(silent=True) or {}
+    path, root = _tag_target(body.get("key"))
+    if path is None:
+        return jsonify({"ok": False, "error": root}), 404
+    if not acoustid.available():
+        return jsonify({"ok": False, "error": "fingerprint_missing"}), 501
+    try:
+        duration, print_ = acoustid.fingerprint(path)
+        found = acoustid.lookup(cfg().get("ACOUSTID_KEY") or "", duration, print_)
+    except acoustid.AcoustidError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True, "data": {"candidates": found}})
+
 
 
 @app.route("/api/library/facets")
@@ -4652,20 +4870,6 @@ def api_dj_announcements():
     tracks = get_music_list(_effective_music_dir(), c["MUSIC_CACHE_FILE"])
     folder = c.get("DJ_ANNOUNCE_DIR") or ""
     files, covered = dj_intro.scan(tracks, folder, _effective_music_dir())
-    return jsonify({"ok": True, "data": {"dir": folder, "files": files,
-                                         "covered": covered, "tracks": len(tracks)}})
-
-
-@app.route("/api/covers")
-def api_covers():
-    """What the prepared covers folder holds, and how many songs it covers.
-    Read when the settings are shown, never in the status: it walks the
-    library."""
-    c = cfg()
-    tracks = get_music_list(_effective_music_dir(), c["MUSIC_CACHE_FILE"])
-    folder = c.get("COVER_DIR") or ""
-    files, covered = dj_intro.scan(tracks, folder, _effective_music_dir(),
-                                   extensions=track_media.IMAGE_EXTENSIONS)
     return jsonify({"ok": True, "data": {"dir": folder, "files": files,
                                          "covered": covered, "tracks": len(tracks)}})
 
@@ -8205,9 +8409,21 @@ def _on_sigterm(signum, frame):
     os._exit(0)
 
 
+def _move_old_covers(c):
+    """The separate covers folder of an older version, emptied into the music folder once."""
+    try:
+        summary = covers_move.move(c.get("COVER_DIR"), c.get("MUSIC_DIR"))
+    except Exception:  # noqa: BLE001
+        log.exception("Could not move the old covers folder")
+        return
+    if summary:
+        stats.record("covers_moved", label=str(summary["copied"]), detail=summary)
+
+
 def main():
     c = load_config()
     signal.signal(signal.SIGTERM, _on_sigterm)
+    threading.Thread(target=_move_old_covers, args=(c,), name="covers-move", daemon=True).start()
     if _portal_on(c) and int(c["WEB_PORT"]) != captive_portal.PORTAL_PORT:
         captive_portal.start(c.get("AP_INTERFACE", "uap0"), c["WEB_PORT"])
     _upnp_follow_stream()

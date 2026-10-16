@@ -280,13 +280,8 @@ document.getElementById("btnTrackOrderReset").addEventListener("click", async ()
 
 loadTrackOrder();
 
-/* Covers and introductions both mirror the music folder: one browser for both. */
+/* The introductions mirror the music folder: a browser of that tree. */
 const PREPARED = {
-  covers: { list: "coversList", path: "coversPath", count: "coversCount", hint: "coversHint",
-            add: "coversAdd", input: "coversInput", up: "coversUp", folder: "coversNewFolder",
-            progress: "coversProgress", counts: "/api/covers", countKey: "settings.cover_count",
-            empty: "prepared.empty_pictures", emptyAdvice: "prepared.empty_pictures_advice",
-            picture: true, icon: "image" },
   intros: { list: "introsList", path: "introsPath", count: "introsCount", hint: "introsHint",
             add: "introsAdd", input: "introsInput", up: "introsUp", folder: "introsNewFolder",
             progress: "introsProgress", counts: "/api/dj_announcements",
@@ -294,9 +289,9 @@ const PREPARED = {
             emptyAdvice: "prepared.empty_files_advice",
             picture: false, icon: "audio-lines" },
 };
-const preparedPath = { covers: "", intros: "" };
-const preparedParent = { covers: null, intros: null };
-const preparedLoaded = { covers: false, intros: false };
+const preparedPath = { intros: "" };
+const preparedParent = { intros: null };
+const preparedLoaded = { intros: false };
 
 function preparedFull(kind, name) {
   return preparedPath[kind] ? preparedPath[kind] + "/" + name : name;

@@ -308,7 +308,6 @@ async function loadSettingsIntoForm() {
   paintStreamRows();
   paintVolumeShape();
   loadDjIntroFiles();
-  loadCoverFiles();
 
   if ("hardware.act_led" in result.data) {
     document.getElementById("actLedToggle").checked = result.data["hardware.act_led"] !== "off";
@@ -326,31 +325,6 @@ async function loadDjIntroFiles() {
   if (!result.ok) return;
   const data = result.data || {};
   folder.dataset.i18nVarFolder = data.dir || "";
-  count.dataset.i18nVarFiles = String(data.files || 0);
-  count.dataset.i18nVarCovered = String(data.covered || 0);
-  count.dataset.i18nVarTracks = String(data.tracks || 0);
-  count.hidden = false;
-  [folder, count].forEach((el) => {
-    el.textContent = t(el.dataset.i18n, i18nVars(el));
-  });
-}
-
-/* What the prepared covers folder holds, and how much of the library it
-   covers: walked by the server, only when the settings are read. */
-async function loadCoverFiles() {
-  const folder = document.getElementById("coverFolder");
-  const count = document.getElementById("coverCount");
-  if (!folder || !count) return;
-  const result = await apiGet("/api/covers");
-  if (!result.ok) return;
-  const data = result.data || {};
-  if (!data.dir) {
-    folder.dataset.i18n = "settings.cover_folder_none";
-    folder.textContent = t("settings.cover_folder_none");
-    count.hidden = true;
-    return;
-  }
-  folder.dataset.i18nVarFolder = data.dir;
   count.dataset.i18nVarFiles = String(data.files || 0);
   count.dataset.i18nVarCovered = String(data.covered || 0);
   count.dataset.i18nVarTracks = String(data.tracks || 0);
@@ -511,7 +485,7 @@ async function restartDaemon() {
   if (result.ok) showToast(t("alert.service_restarted")); else showError(result.error);
 }
 
-const SETTINGS_FORMS = ["gameVoiceForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "mqttForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
+const SETTINGS_FORMS = ["gameVoiceForm", "tagsKeyForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "mqttForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
   .map((id) => document.getElementById(id))
   .filter(Boolean);
 

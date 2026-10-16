@@ -606,31 +606,87 @@
           </p>
         </section>
 
-        <section class="card" id="coversCard" data-page="covers" data-tab="home" data-owner
-                 data-needs="media_upload" aria-labelledby="coversTitle">
-          <h2 data-icon="image" id="coversTitle"><span data-i18n="covers.title">Covers</span></h2>
-          <p class="hint help-text" data-i18n="covers.help" hidden>
-            Cover pictures you prepare yourself, mirroring the music folder:
-            the song's name, or "_any" beside it for its album, its artist or
-            everything.
+        <section class="card" id="tagsCard" data-page="tags" data-tab="home" data-owner
+                 data-needs="media_upload" aria-labelledby="tagsTitle">
+          <h2 data-icon="image" id="tagsTitle"><span data-i18n="tags.title">Tags and covers</span></h2>
+          <p class="hint help-text" data-i18n="tags.help" hidden>
+            Changes go into the music files themselves, so any player sees them. An album's or an
+            artist's cover is a cover.jpg in its folder of the music folder.
           </p>
-          <p class="hint" id="coversCount" role="status"></p>
-          <div class="prepared-actions">
-            <button type="button" class="btn btn-primary" id="coversAdd" data-icon="upload"
-                    data-i18n="prepared.add_pictures">Add pictures…</button>
-            <button type="button" class="btn" id="coversNewFolder" data-icon="folder"
-                    data-i18n="prepared.new_folder">New folder…</button>
-            <button type="button" class="btn btn-icon" id="coversUp" data-icon="arrow-up"
-                    data-i18n-aria-label="prepared.up" aria-label="Up one level"
-                    data-i18n-title="prepared.up" title="Up one level" disabled></button>
+          <div class="library-search">
+            <label for="tagsSearch" class="sr-only" data-i18n="tags.search_label">Find a song</label>
+            <input type="search" id="tagsSearch" class="text-input" autocomplete="off" enterkeyhint="search"
+                   data-i18n-placeholder="tags.search_placeholder" placeholder="Title, artist, album…">
           </div>
-          <input type="file" id="coversInput" multiple hidden
+          <ul class="device-list tags-results" id="tagsResults"></ul>
+          <form id="tagsForm" class="settings-form" hidden>
+            <p class="hint tags-path" id="tagsPath"></p>
+            <p class="hint" id="tagsReadOnly" data-i18n="tags.read_only" hidden>This file cannot be changed: a USB key is read only, and some formats carry no tags.</p>
+            <div class="field-row">
+              <label for="tagsTitleInput" data-i18n="tags.field_title">Title</label>
+              <input type="text" id="tagsTitleInput" class="text-input" maxlength="200">
+            </div>
+            <div class="field-row">
+              <label for="tagsArtistInput" data-i18n="tags.field_artist">Artist</label>
+              <input type="text" id="tagsArtistInput" class="text-input" maxlength="200">
+            </div>
+            <div class="field-row">
+              <label for="tagsAlbumInput" data-i18n="tags.field_album">Album</label>
+              <input type="text" id="tagsAlbumInput" class="text-input" maxlength="200">
+            </div>
+            <div class="field-row">
+              <label for="tagsAlbumArtistInput" data-i18n="tags.field_album_artist">Album artist</label>
+              <input type="text" id="tagsAlbumArtistInput" class="text-input" maxlength="200">
+            </div>
+            <div class="field-row">
+              <label for="tagsYearInput" data-i18n="tags.field_year">Year</label>
+              <input type="text" id="tagsYearInput" class="text-input" maxlength="10" inputmode="numeric"
+                     pattern="\d{4}(-\d{2}(-\d{2})?)?">
+            </div>
+            <div class="field-row">
+              <label for="tagsGenreInput" data-i18n="tags.field_genre">Genre</label>
+              <input type="text" id="tagsGenreInput" class="text-input" maxlength="200">
+            </div>
+            <div class="field-row">
+              <label for="tagsTrackInput" data-i18n="tags.field_track">Track number</label>
+              <input type="text" id="tagsTrackInput" class="text-input" maxlength="7" inputmode="numeric"
+                     pattern="\d{1,3}(/\d{1,3})?">
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="tagsAlbumWide" data-i18n="tags.album_wide">The whole album too</label>
+                <p class="field-desc" id="tagsAlbumWideDesc" data-i18n="tags.album_wide_desc">Artist, album, album artist, year and genre go into every song of this folder as well.</p>
+              </div>
+              <input type="checkbox" id="tagsAlbumWide" class="switch-input" role="switch" aria-describedby="tagsAlbumWideDesc">
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn" id="tagsIdentify" data-icon="sparkles" data-i18n="tags.identify">Recognise</button>
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+            <p class="hint" id="tagsIdentifyWhy" hidden></p>
+            <ul class="device-list tags-candidates" id="tagsCandidates" hidden></ul>
+            <h3 class="tags-pictures-title" data-i18n="tags.pictures">Pictures</h3>
+            <div class="tags-pictures" id="tagsPictures"></div>
+            <p class="hint help-text" data-i18n="tags.pictures_help" hidden>The outlined one is the picture the player shows. A picture named after the song always wins; then the folders' pictures or the one inside the file, as the cover setting says.</p>
+          </form>
+          <input type="file" id="tagsPictureInput" hidden
                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
-          <p class="hint" id="coversProgress" role="status" hidden></p>
-          <nav class="prepared-path" id="coversPath" data-i18n-aria-label="prepared.here"
-               aria-label="You are here"></nav>
-          <ul class="device-list prepared-list" id="coversList"></ul>
-          <p class="hint" id="coversHint"></p>
+          <details class="subsection" id="tagsKeySection" data-level="detail">
+            <summary><span data-i18n="tags.key_group">Recognising a song</span></summary>
+            <form id="tagsKeyForm" class="settings-form">
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="acoustidKey" data-i18n="tags.key">AcoustID application key</label>
+                  <p class="field-desc" id="acoustidKeyDesc" data-i18n="tags.key_desc">Free, from acoustid.org/new-application. The radio needs its own internet connection to ask.</p>
+                </div>
+                <input type="text" id="acoustidKey" data-key="network.acoustid_key" class="text-input"
+                       autocomplete="off" spellcheck="false" maxlength="64" aria-describedby="acoustidKeyDesc">
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
         </section>
 
         <section class="card" id="listsCard" data-page="lists" data-tab="home" aria-labelledby="listsTitle" hidden>
@@ -1030,14 +1086,10 @@
                 <p class="field-desc" id="coverPriorityDesc" data-i18n="settings.cover_priority_desc">A song can carry several pictures; this says which one the player shows.</p>
               </div>
               <select id="coverPriority" data-key="playback.cover_priority" aria-describedby="coverPriorityDesc">
-                <option value="files" data-i18n="settings.cover_priority_files">The covers folder first</option>
-                <option value="id3" data-i18n="settings.cover_priority_id3">The music folders and the tags first</option>
+                <option value="files" data-i18n="settings.cover_priority_files">The folders' pictures first</option>
+                <option value="id3" data-i18n="settings.cover_priority_id3">The picture inside the file first</option>
               </select>
             </div>
-            <p class="hint" id="coverFolder" data-i18n="settings.cover_folder_hint"
-               data-i18n-var-folder="covers">Covers are read from {folder}.</p>
-            <p class="hint" id="coverCount" data-i18n="settings.cover_count" hidden
-               data-i18n-var-files="0" data-i18n-var-covered="0" data-i18n-var-tracks="0">Pictures: {files} · Songs covered: {covered} of {tracks}.</p>
             <details data-level="detail" class="subsection" id="resumeSection">
               <summary><span data-i18n="settings.group_resume">Picking up again</span></summary>
               <div class="field-row">

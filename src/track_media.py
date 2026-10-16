@@ -10,8 +10,6 @@ import subprocess
 import threading
 from collections import OrderedDict
 
-import dj_intro
-
 log = logging.getLogger("track_media")
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
@@ -21,8 +19,8 @@ FOLDER_IMAGE_NAMES = ("cover", "folder", "front", "album", "albumart", "albumart
                       "thumb", "poster", "default", "jacket", "artist")
 LYRICS_EXTENSIONS = (".lrc", ".srt", ".vtt", ".txt")
 
-# Which side wins when both have a cover: the prepared folder, or what the
-# track's own folders and tags carry (see config_schema.COVER_PRIORITY).
+# Which side wins when both have a cover: the pictures in the music folders,
+# or the one inside the file (see config_schema.COVER_PRIORITY).
 COVER_PRIORITIES = ("files", "id3")
 DEFAULT_COVER_PRIORITY = "files"
 
@@ -175,24 +173,6 @@ def _named_pictures(path):
             yield os.path.join(folder, name)
 
 
-def _prepared_pictures(path, cover_dir, music_dir):
-    """The prepared covers folder, most precise first, as the introductions
-    read it: the picture named after the song, then - level by level, album,
-    artist, the folder itself - `_any` (our own convention) and the usual
-    names of `_picture_names()`."""
-    own, above = dj_intro.levels(path, cover_dir, music_dir)
-    if own:
-        found = dj_intro.named(own, os.path.splitext(os.path.basename(path))[0],
-                               extensions=IMAGE_EXTENSIONS)
-        if found:
-            yield found
-    for folder in above:
-        for stem in (dj_intro.ANY,) + tuple(_picture_names(folder)):
-            found = dj_intro.named(folder, stem, extensions=IMAGE_EXTENSIONS)
-            if found:
-                yield found
-
-
 def _under(path, root):
     return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
 
@@ -218,9 +198,9 @@ def _priority(value):
     return text if text in COVER_PRIORITIES else DEFAULT_COVER_PRIORITY
 
 
-def _cover_sources(path, cover_dir, music_dir, priority):
-    """Where the cover is looked for, in order, as ("file", path) or ("tag", None)."""
-    prepared = [("file", found) for found in _prepared_pictures(path, cover_dir, music_dir)]
+def _cover_sources(path, music_dir, priority):
+    """Where the cover is looked for, in order, as ("file", path) or ("tag", None):
+    a picture named after the track first, whichever side wins after it."""
     beside = [("file", found) for found in _named_pictures(path)]
     folders = []
     for folder in _music_levels(path, music_dir):
@@ -228,17 +208,14 @@ def _cover_sources(path, cover_dir, music_dir, priority):
         if found:
             folders.append(("file", found))
     if _priority(priority) == "id3":
-        return beside + [("tag", None)] + folders + prepared
-    return prepared + beside + [("tag", None)] + folders
+        return beside + [("tag", None)] + folders
+    return beside + folders + [("tag", None)]
 
 
-def _cover_stamps(path, cover_dir, music_dir):
+def _cover_stamps(path, music_dir):
     """(folder, mtime) for every folder the lookup lists, so a picture dropped
-    beside the music, or in the covers folder, is seen without a restart."""
+    beside the music is seen without a restart."""
     folders = list(_music_levels(path, music_dir))
-    if cover_dir and music_dir:
-        _own, above = dj_intro.levels(path, cover_dir, music_dir)
-        folders += above
     stamps = []
     for folder in folders:
         try:
@@ -248,16 +225,15 @@ def _cover_stamps(path, cover_dir, music_dir):
     return tuple(stamps)
 
 
-def _cover_key(path, cover_dir, music_dir, priority):
+def _cover_key(path, music_dir, priority):
     key = _file_key(path)
     if key is None:
         return None
-    return (key, _priority(priority), str(cover_dir or ""), str(music_dir or ""),
-            _cover_stamps(path, cover_dir, music_dir))
+    return (key, _priority(priority), str(music_dir or ""), _cover_stamps(path, music_dir))
 
 
-def _find_cover(path, cover_dir=None, music_dir=None, priority=None):
-    for kind, source in _cover_sources(path, cover_dir, music_dir, priority):
+def _find_cover(path, music_dir=None, priority=None):
+    for kind, source in _cover_sources(path, music_dir, priority):
         data = _embedded_picture(path) if kind == "tag" else _read_file(source, PICTURE_MAX_BYTES)
         if not data or not _image_mime(data):
             continue
@@ -269,10 +245,10 @@ def _find_cover(path, cover_dir=None, music_dir=None, priority=None):
     return None
 
 
-def cover(path, cover_dir=None, music_dir=None, priority=None):
+def cover(path, music_dir=None, priority=None):
     """(bytes, mime) for the track's cover, or None."""
     global _cover_cache_bytes
-    key = _cover_key(path, cover_dir, music_dir, priority)
+    key = _cover_key(path, music_dir, priority)
     if key is None:
         return None
     with _lock:
@@ -280,7 +256,7 @@ def cover(path, cover_dir=None, music_dir=None, priority=None):
             _cover_cache.move_to_end(key)
             return _cover_cache[key]
     try:
-        result = _find_cover(path, cover_dir, music_dir, priority)
+        result = _find_cover(path, music_dir, priority)
     except Exception:
         log.exception("Cover lookup failed for %s", path)
         result = None

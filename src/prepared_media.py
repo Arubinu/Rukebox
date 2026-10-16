@@ -1,15 +1,13 @@
-"""The folders you prepare yourself - cover pictures and prepared introductions - which mirror
-the music folder: what the interface browses, uploads into and deletes from."""
+"""The folder you prepare yourself - the prepared introductions - which mirrors the music
+folder: what the interface browses, uploads into and deletes from."""
 
 import os
 
 import dj_intro
-import track_media
 
 # `extensions` must be what the lookup reads, or the card would accept a file
 # that is never used.
 KINDS = {
-    "covers": {"setting": "COVER_DIR", "extensions": track_media.IMAGE_EXTENSIONS},
     "intros": {"setting": "DJ_ANNOUNCE_DIR", "extensions": dj_intro.EXTENSIONS},
 }
 

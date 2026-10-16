@@ -26,7 +26,8 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
   previous, pause, loop, volume, sleep timer, standby.
 - **A clear web interface** on phone, tablet or computer: now playing with
   cover and lyrics, what comes next, a searchable library, lists of your
-  own - everything, or only some genres - and every setting. Six
+  own - everything, or only some genres -, tags and covers written into
+  the files themselves, and every setting. Six
   languages, light and dark themes.
 - **Easy to share**: guests join the Wi-Fi by scanning a QR code, queue
   songs and suggest new ones - with credits, so nobody takes over.

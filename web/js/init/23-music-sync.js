@@ -86,7 +86,6 @@ function musicProgress(done, total, label, bytes) {
 const NAV_TRANSFER_TARGETS = {
   music: { tab: "home", card: "musicCard", title: "transfer.music" },
   announce: { tab: "settings", card: "trackOrderCard", title: "transfer.announce" },
-  covers: { tab: "home", card: "coversCard", title: "transfer.covers" },
   intros: { tab: "settings", card: "introsCard", title: "transfer.intros" },
 };
 const navTransfer = {

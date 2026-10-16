@@ -59,7 +59,8 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
   "list_selected", "list_added", "list_changed", "list_removed",
-  "announcement_volume_set", "prepared_file_added", "usb_music_used", "usb_music_released"];
+  "announcement_volume_set", "prepared_file_added", "usb_music_used", "usb_music_released",
+  "tags_changed", "cover_changed", "cover_removed", "covers_moved"];
 function eventLabel(type) {
   return EVENT_TYPE_KEYS.includes(type) ? t("event." + type) : type;
 }

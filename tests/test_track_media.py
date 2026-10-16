@@ -1,6 +1,6 @@
 """Cover art (src/track_media.py): the two sides a picture comes from - the
-prepared covers folder, and what the music folders and the tags carry - which
-one wins, and what a picture that cannot be read does."""
+pictures in the music folders, and the one inside the file - which one wins,
+and what a picture that cannot be read does."""
 import os
 import shutil
 import tempfile
@@ -21,7 +21,6 @@ class CoverTest(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.music = os.path.join(self.dir, "music")
-        self.covers = os.path.join(self.dir, "covers")
         self.track = self.write(self.music, "LMFAO", "Sorry For Party Rocking",
                                 "03 - Party Rock Anthem.opus", data=b"x")
 
@@ -35,46 +34,25 @@ class CoverTest(unittest.TestCase):
     def song(self, *parts, data=PNG):
         return self.write(self.music, *parts, data=data)
 
-    def cover(self, priority=None, cover_dir=None, music_dir=None):
-        return track_media.cover(self.track,
-                                 self.covers if cover_dir is None else cover_dir,
-                                 self.music if music_dir is None else music_dir,
+    def cover(self, priority=None, music_dir=None):
+        return track_media.cover(self.track, self.music if music_dir is None else music_dir,
                                  priority)
 
-    def test_the_prepared_folder_is_a_mirror_of_the_music_one(self):
-        own = self.write(self.covers, "LMFAO", "Sorry For Party Rocking",
-                         "03 - Party Rock Anthem.jpg", data=JPEG)
-        album = self.write(self.covers, "LMFAO", "Sorry For Party Rocking", "_any.png")
-        artist = self.write(self.covers, "LMFAO", "_any.webp", data=WEBP)
-        everything = self.write(self.covers, "_any.png", data=WEBP)
-        self.assertEqual(self.cover(), (JPEG, "image/jpeg"), "the song's own picture")
-        os.remove(own)
-        self.assertEqual(self.cover(), (PNG, "image/png"), "then its album's")
-        os.remove(album)
-        self.assertEqual(self.cover(), (WEBP, "image/webp"), "then its artist's")
-        os.remove(artist)
-        self.assertEqual(self.cover(), (WEBP, "image/webp"), "then the whole library's")
-        os.remove(everything)
-        self.assertIsNone(self.cover())
-
     def test_the_jpg_comes_first_whatever_the_disk_lists(self):
-        self.write(self.covers, "_any.png")
-        self.write(self.covers, "_any.jpeg", data=WEBP)
-        jpg = self.write(self.covers, "_any.jpg", data=JPEG)
-        self.assertEqual(self.cover(), (JPEG, "image/jpeg"))
-        os.remove(jpg)
-        self.assertEqual(self.cover(), (WEBP, "image/webp"), "jpeg before png")
-
-    def test_the_music_side_wins_when_the_priority_asks_for_it(self):
-        self.write(self.covers, "LMFAO", "_any.png")
-        sidecar = self.write(self.music, "LMFAO", "Sorry For Party Rocking",
-                             "03 - Party Rock Anthem.jpg", data=JPEG)
-        self.assertEqual(self.cover("files"), (PNG, "image/png"), "the default")
-        self.assertEqual(self.cover("id3"), (JPEG, "image/jpeg"))
-        os.remove(sidecar)
+        self.song("LMFAO", "Sorry For Party Rocking", "cover.png")
+        self.song("LMFAO", "Sorry For Party Rocking", "cover.jpeg", data=WEBP)
+        jpg = self.song("LMFAO", "Sorry For Party Rocking", "cover.jpg", data=JPEG)
         with mock.patch.object(track_media, "_embedded_picture", return_value=None):
-            self.assertEqual(self.cover("id3"), (PNG, "image/png"),
-                             "the other side is only a fallback")
+            self.assertEqual(self.cover(), (JPEG, "image/jpeg"))
+            os.remove(jpg)
+            self.assertEqual(self.cover(), (WEBP, "image/webp"), "jpeg before png")
+
+    def test_the_folders_win_by_default_and_the_file_when_asked(self):
+        self.song("LMFAO", "Sorry For Party Rocking", "cover.png")
+        with mock.patch.object(track_media, "_embedded_picture", return_value=TAG):
+            self.assertEqual(self.cover("files")[0], PNG, "the default: the folder's picture")
+            self.assertEqual(self.cover("id3")[0], TAG, "the picture inside the file")
+            self.assertEqual(self.cover("spoken")[0], PNG, "an unknown priority is the default")
 
     def test_the_sidecar_comes_before_the_tag_and_the_folder_picture(self):
         sidecar = self.song("LMFAO", "Sorry For Party Rocking", "03 - Party Rock Anthem.png")
@@ -153,56 +131,33 @@ class CoverTest(unittest.TestCase):
         with mock.patch.object(track_media, "_embedded_picture", return_value=None):
             self.assertIsNone(self.cover("id3"))
 
-    def test_the_prepared_folder_takes_the_usual_names_as_well(self):
-        album = self.write(self.covers, "LMFAO", "Sorry For Party Rocking", "cover.jpg",
-                           data=JPEG)
-        artist = self.write(self.covers, "LMFAO", "folder.png")
-        own = self.write(self.covers, "LMFAO", "LMFAO.webp", data=WEBP)
-        self.assertEqual(self.cover(), (JPEG, "image/jpeg"), "the album folder's cover.jpg")
-        os.remove(album)
-        self.assertEqual(self.cover(), (PNG, "image/png"), "then the artist folder's folder.png")
-        os.remove(artist)
-        self.assertEqual(self.cover(), (WEBP, "image/webp"), "then the artist's own name")
-        os.remove(own)
-        self.assertIsNone(self.cover())
-
     def test_a_picture_that_cannot_be_read_gives_way_to_the_next_one(self):
-        self.write(self.covers, "LMFAO", "Sorry For Party Rocking", "_any.png", data=b"nope")
         self.song("LMFAO", "Sorry For Party Rocking", "03 - Party Rock Anthem.png", data=b"nope")
-        self.song("LMFAO", "Sorry For Party Rocking", "cover.jpg", data=JPEG)
+        self.song("LMFAO", "Sorry For Party Rocking", "cover.png", data=b"nope")
+        self.song("LMFAO", "front.jpg", data=JPEG)
         with mock.patch.object(track_media, "_embedded_picture", return_value=None):
-            self.assertEqual(self.cover("files"), (JPEG, "image/jpeg"),
-                             "the prepared folder first, then the music one")
+            self.assertEqual(self.cover("files"), (JPEG, "image/jpeg"), "up to the artist's")
 
     def test_the_capital_letters_do_not_matter(self):
-        self.write(self.covers, "lmfao", "SORRY FOR PARTY ROCKING", "_ANY.PNG")
+        self.song("LMFAO", "Sorry For Party Rocking", "COVER.PNG")
         self.song("LMFAO", "Sorry For Party Rocking", "03 - PARTY ROCK ANTHEM.JPG", data=JPEG)
-        self.assertEqual(self.cover("files"), (PNG, "image/png"))
-        self.assertEqual(self.cover("id3"), (JPEG, "image/jpeg"))
+        self.assertEqual(self.cover("files"), (JPEG, "image/jpeg"), "the track's own name first")
 
     def test_a_picture_added_later_is_seen_without_a_restart(self):
-        self.assertIsNone(self.cover(), "nothing yet, and it is remembered that way")
-        self.write(self.covers, "_any.png")
-        self.assertEqual(self.cover(), (PNG, "image/png"))
-        self.write(self.music, "LMFAO", "Sorry For Party Rocking", "cover.jpg", data=JPEG)
         with mock.patch.object(track_media, "_embedded_picture", return_value=None):
-            self.assertEqual(self.cover("id3"), (JPEG, "image/jpeg"))
+            self.assertIsNone(self.cover(), "nothing yet, and it is remembered that way")
+            self.song("cover.png")
+            self.assertEqual(self.cover(), (PNG, "image/png"))
+            self.song("LMFAO", "Sorry For Party Rocking", "cover.jpg", data=JPEG)
+            self.assertEqual(self.cover(), (JPEG, "image/jpeg"))
 
-    def test_a_track_outside_the_music_folder_still_gets_the_library_one(self):
+    def test_a_track_outside_the_music_folder_only_looks_beside_itself(self):
+        self.song("cover.png")
         other = self.write(self.dir, "memes", "a jingle.opus", data=b"x")
-        self.assertIsNone(track_media.cover(other, self.covers, self.music))
-        self.write(self.covers, "_any.png")
-        self.assertEqual(track_media.cover(other, self.covers, self.music), (PNG, "image/png"))
-
-    def test_an_empty_covers_folder_only_looks_beside_the_music(self):
-        self.write(self.covers, "_any.png")
-        self.song("LMFAO", "Sorry For Party Rocking", "cover.jpg", data=JPEG)
         with mock.patch.object(track_media, "_embedded_picture", return_value=None):
-            self.assertEqual(self.cover(cover_dir=""), (JPEG, "image/jpeg"))
-
-    def test_an_unknown_priority_is_the_default_one(self):
-        self.write(self.covers, "_any.png")
-        self.assertEqual(self.cover("spoken"), (PNG, "image/png"))
+            self.assertIsNone(track_media.cover(other, self.music))
+            self.write(self.dir, "memes", "cover.jpg", data=JPEG)
+            self.assertEqual(track_media.cover(other, self.music), (JPEG, "image/jpeg"))
 
     def test_the_old_call_still_reads_beside_the_track(self):
         """cover(path) without the settings: what the API always did."""

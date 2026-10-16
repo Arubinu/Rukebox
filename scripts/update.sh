@@ -428,7 +428,7 @@ if folders:
 # could not write there.
 music = str(values.get("MUSIC_DIR") or "").strip()
 owner = os.stat(music) if os.path.isdir(music) else None
-for key in ("DJ_ANNOUNCE_DIR", "COVER_DIR"):
+for key in ("DJ_ANNOUNCE_DIR",):
     folder = str(values.get(key) or "").strip()
     if not folder or os.path.isdir(folder):
         continue
@@ -569,6 +569,11 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     if ! command -v pactl >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
         apt-get install -y pipewire-pulse pulseaudio-utils >/dev/null 2>&1 \
             || echo "WARNING: pactl is missing (pipewire-pulse, pulseaudio-utils): the network stream may find no output to encode."
+    fi
+    # fpcalc: the tag page recognises a song by its sound.
+    if ! command -v fpcalc >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+        apt-get install -y libchromaprint-tools >/dev/null 2>&1 \
+            || echo "WARNING: fpcalc could not be installed (libchromaprint-tools): songs are not recognised by their sound."
     fi
     # The multiroom output; the radio runs its own snapserver, the packaged service stays off.
     if ! command -v snapserver >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then

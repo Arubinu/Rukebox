@@ -27,8 +27,8 @@ speaker of elke telefoon op de wifi van de Pi is genoeg.
   volgende, vorige, pauze, herhalen, volume, slaaptimer, stand-by.
 - **Een overzichtelijke webinterface** op telefoon, tablet of computer: wat
   er speelt met hoes en songtekst, wat er hierna komt, een doorzoekbare
-  bibliotheek, je eigen lijsten - alles of alleen bepaalde genres - en alle
-  instellingen. Zes talen, licht en donker thema.
+  bibliotheek, je eigen lijsten - alles of alleen bepaalde genres -, tags en
+  hoezen in de bestanden zelf geschreven, en alle instellingen. Zes talen, licht en donker thema.
 - **Makkelijk te delen**: gasten verbinden met de wifi via een QR-code,
   zetten nummers in de wachtrij en stellen nieuwe voor - met tegoed,
   zodat niemand de radio overneemt.

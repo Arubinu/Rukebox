@@ -399,7 +399,7 @@ class WebTest(unittest.TestCase):
         self.assertEqual(guest.get("/api/settings").status_code, 401)
         self.assertEqual(guest.get("/api/dj_announcements").status_code, 401,
                          "what is prepared on the Pi is not a guest's business")
-        self.assertEqual(guest.get("/api/covers").status_code, 401)
+        self.assertEqual(guest.get("/api/tags").status_code, 401)
         self.assertEqual(guest.get("/api/today").status_code, 200)
         self.assertEqual(guest.get("/api/queue").status_code, 200)
 
@@ -478,81 +478,58 @@ class WebTest(unittest.TestCase):
                          "two files: one song of its own, one jingle covering both")
         self.assertEqual(data["dir"], intros)
 
-    def test_the_prepared_covers_are_counted(self):
-        music = tempfile.mkdtemp()
-        covers = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, music, True)
-        self.addCleanup(shutil.rmtree, covers, True)
-        for name in ("a.mp3", "b.mp3"):
-            open(os.path.join(music, name), "wb").close()
-        open(os.path.join(covers, "a.png"), "wb").close()
-        open(os.path.join(covers, "_any.png"), "wb").close()
-        open(os.path.join(covers, "notes.txt"), "wb").close()
-        was = dict(type(self).extra)
-        type(self).extra.update({"MUSIC_DIR": music, "COVER_DIR": covers,
-                                 "MUSIC_CACHE_FILE": os.path.join(self.dir, "cover-cache.json")})
-        try:
-            data = self.owner().get("/api/covers").get_json()["data"]
-        finally:
-            type(self).extra.clear()
-            type(self).extra.update(was)
-        self.assertEqual((data["files"], data["covered"], data["tracks"]), (2, 2, 2),
-                         "two pictures: one song of its own, one covering both, no text file")
-        self.assertEqual(data["dir"], covers)
-
     def test_the_prepared_folders_are_browsed_uploaded_and_cleaned(self):
-        """The two cards behind them: the covers folder and the introductions
-        folder, both mirroring the music tree."""
-        covers = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, covers, True)
-        os.makedirs(os.path.join(covers, "LMFAO", "Sorry"))
-        with open(os.path.join(covers, "LMFAO", "Sorry", "cover.jpg"), "wb") as f:
-            f.write(b"\xff\xd8\xff" + b"c" * 8)
-        with open(os.path.join(covers, "LMFAO", "notes.txt"), "wb") as f:
+        """The card behind it: the introductions folder, mirroring the music tree."""
+        intros = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, intros, True)
+        os.makedirs(os.path.join(intros, "LMFAO", "Sorry"))
+        with open(os.path.join(intros, "LMFAO", "Sorry", "_any.opus"), "wb") as f:
+            f.write(b"OggS" + b"c" * 8)
+        with open(os.path.join(intros, "LMFAO", "notes.txt"), "wb") as f:
             f.write(b"n")
         was = dict(type(self).extra)
-        type(self).extra.update({"COVER_DIR": covers})
+        type(self).extra.update({"DJ_ANNOUNCE_DIR": intros})
         owner = self.owner()
         try:
-            root = owner.get("/api/prepared/covers").get_json()["data"]
+            root = owner.get("/api/prepared/intros").get_json()["data"]
             self.assertEqual([d["name"] for d in root["dirs"]], ["LMFAO"])
             self.assertEqual(root["files"], [])
             self.assertIsNone(root["parent"], "nothing above the prepared root")
-            self.assertEqual(root["root"], os.path.realpath(covers))
+            self.assertEqual(root["root"], os.path.realpath(intros))
 
-            album = owner.get("/api/prepared/covers", query_string={"path": "LMFAO/Sorry"}).get_json()["data"]
+            album = owner.get("/api/prepared/intros", query_string={"path": "LMFAO/Sorry"}).get_json()["data"]
             self.assertEqual((album["path"], album["parent"]), ("LMFAO/Sorry", "LMFAO"))
-            self.assertEqual([(f["name"], f["used"]) for f in album["files"]], [("cover.jpg", True)])
+            self.assertEqual([(f["name"], f["used"]) for f in album["files"]], [("_any.opus", True)])
 
-            listing = owner.get("/api/prepared/covers", query_string={"path": "LMFAO"}).get_json()["data"]
+            listing = owner.get("/api/prepared/intros", query_string={"path": "LMFAO"}).get_json()["data"]
             self.assertEqual([(f["name"], f["used"]) for f in listing["files"]],
                              [("notes.txt", False)], "there, but this kind never uses it")
 
-            # A thumbnail, the same file the lookup would read.
-            picture = owner.get("/api/prepared/covers/file",
-                                query_string={"path": "LMFAO/Sorry/cover.jpg"})
-            self.assertEqual(picture.status_code, 200)
-            self.assertEqual(picture.data[:3], b"\xff\xd8\xff")
-            picture.close()
+            # A preview, the same file the introductions would play.
+            sound = owner.get("/api/prepared/intros/file",
+                              query_string={"path": "LMFAO/Sorry/_any.opus"})
+            self.assertEqual(sound.status_code, 200)
+            self.assertEqual(sound.data[:4], b"OggS")
+            sound.close()
 
             # Uploading into a folder the mirror has not created yet.
-            made = owner.post("/api/prepared/covers/folder",
+            made = owner.post("/api/prepared/intros/folder",
                               json={"path": "LMFAO", "name": "2011 - Sorry"}).get_json()
             self.assertTrue(made["ok"], made)
             self.assertEqual(made["data"]["path"], "LMFAO/2011 - Sorry")
-            self.assertTrue(os.path.isdir(os.path.join(covers, "LMFAO", "2011 - Sorry")))
+            self.assertTrue(os.path.isdir(os.path.join(intros, "LMFAO", "2011 - Sorry")))
 
-            sent = owner.post("/api/prepared/covers/file",
-                              data={"path": "LMFAO/2011 - Sorry", "name": "cover.png",
-                                    "file": (io.BytesIO(b"\x89PNG\r\n\x1a\n" + b"p" * 8), "cover.png")},
+            sent = owner.post("/api/prepared/intros/file",
+                              data={"path": "LMFAO/2011 - Sorry", "name": "Party.mp3",
+                                    "file": (io.BytesIO(b"ID3" + b"p" * 8), "Party.mp3")},
                               content_type="multipart/form-data")
             self.assertTrue(sent.get_json()["ok"], sent.get_json())
-            self.assertTrue(os.path.isfile(os.path.join(covers, "LMFAO", "2011 - Sorry", "cover.png")))
+            self.assertTrue(os.path.isfile(os.path.join(intros, "LMFAO", "2011 - Sorry", "Party.mp3")))
 
             # Deleting works on what the kind does not use, too.
-            gone = owner.delete("/api/prepared/covers/file", query_string={"path": "LMFAO/notes.txt"})
+            gone = owner.delete("/api/prepared/intros/file", query_string={"path": "LMFAO/notes.txt"})
             self.assertTrue(gone.get_json()["ok"], gone.get_json())
-            self.assertFalse(os.path.exists(os.path.join(covers, "LMFAO", "notes.txt")))
+            self.assertFalse(os.path.exists(os.path.join(intros, "LMFAO", "notes.txt")))
         finally:
             type(self).extra.clear()
             type(self).extra.update(was)
@@ -560,35 +537,35 @@ class WebTest(unittest.TestCase):
     def test_a_prepared_folder_refuses_everything_outside_it(self):
         """The whole point of the module: a path that climbs out is refused by
         every route, whatever it says."""
-        covers = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, covers, True)
-        outside = os.path.join(os.path.dirname(covers), "secret.jpg")
+        intros = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, intros, True)
+        outside = os.path.join(os.path.dirname(intros), "secret.jpg")
         with open(outside, "wb") as f:
             f.write(b"\xff\xd8\xff")
         was = dict(type(self).extra)
-        type(self).extra.update({"COVER_DIR": covers})
+        type(self).extra.update({"DJ_ANNOUNCE_DIR": intros})
         owner = self.owner()
         try:
             for attempt in ("..", "../secret.jpg", "a/../../secret.jpg", "/etc/passwd"):
-                listed = owner.get("/api/prepared/covers", query_string={"path": attempt})
+                listed = owner.get("/api/prepared/intros", query_string={"path": attempt})
                 self.assertEqual((listed.status_code, listed.get_json()["error"]), (400, "bad_path"),
                                  attempt)
             for attempt in ("../secret.jpg", "a/../../secret.jpg"):
-                served = owner.get("/api/prepared/covers/file", query_string={"path": attempt})
+                served = owner.get("/api/prepared/intros/file", query_string={"path": attempt})
                 self.assertEqual(served.status_code, 400, attempt)
-                removed = owner.delete("/api/prepared/covers/file", query_string={"path": attempt})
+                removed = owner.delete("/api/prepared/intros/file", query_string={"path": attempt})
                 self.assertEqual(removed.status_code, 400, attempt)
             self.assertTrue(os.path.isfile(outside), "and nothing outside was touched")
-            bad_folder = owner.post("/api/prepared/covers/folder", json={"name": "../elsewhere"})
+            bad_folder = owner.post("/api/prepared/intros/folder", json={"name": "../elsewhere"})
             self.assertEqual((bad_folder.status_code, bad_folder.get_json()["error"]), (400, "bad_name"))
-            self.assertFalse(os.path.exists(os.path.join(os.path.dirname(covers), "elsewhere")))
-            rejected = owner.post("/api/prepared/covers/file",
-                                  data={"path": "", "name": "song.mp3",
-                                        "file": (io.BytesIO(b"x"), "song.mp3")},
+            self.assertFalse(os.path.exists(os.path.join(os.path.dirname(intros), "elsewhere")))
+            rejected = owner.post("/api/prepared/intros/file",
+                                  data={"path": "", "name": "cover.jpg",
+                                        "file": (io.BytesIO(bytes([0xFF, 0xD8, 0xFF])), "cover.jpg")},
                                   content_type="multipart/form-data")
             self.assertEqual((rejected.status_code, rejected.get_json()["error"]), (400, "bad_file"),
                              "a format this kind never uses is refused at the door")
-            no_file = owner.post("/api/prepared/covers/file", data={"path": ""},
+            no_file = owner.post("/api/prepared/intros/file", data={"path": ""},
                                  content_type="multipart/form-data")
             self.assertEqual((no_file.status_code, no_file.get_json()["error"]), (400, "no_file"))
             unknown = owner.get("/api/prepared/nonsense")
@@ -599,9 +576,9 @@ class WebTest(unittest.TestCase):
 
     def test_the_prepared_folders_are_the_owners_own(self):
         guest = ws.app.test_client()
-        self.assertEqual(guest.get("/api/prepared/covers").status_code, 401)
+        self.assertEqual(guest.get("/api/prepared/intros").status_code, 401)
         self.assertEqual(guest.post("/api/prepared/intros/folder", json={"name": "x"}).status_code, 401)
-        self.assertEqual(guest.delete("/api/prepared/covers/file",
+        self.assertEqual(guest.delete("/api/prepared/intros/file",
                                       query_string={"path": "a.jpg"}).status_code, 401)
 
     def test_the_usb_key_switch_is_carried_to_the_daemon(self):

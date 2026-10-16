@@ -160,15 +160,11 @@ folders:
   # Sounds played by a single click on the Flic button.
   memes: "/home/pi/audio/memes"
 
-  # Cover art you prepared, mirroring the music folder the way the
-  # prepared introductions do: a picture named after the song, or one
-  # named "_any" beside it - which then covers its album, its artist,
-  # or the whole library. The names the readers usually look for
-  # (cover, folder, front, albumart, thumb, poster...), and the
-  # folder's own name, work there too. This folder is the "files"
-  # side of cover_priority; anything found in the music folders
-  # themselves counts as the "id3" side. Empty disables it: the
-  # pictures beside the music are then the only ones looked at.
+  # Where an older version kept the covers you prepared, mirroring the
+  # music folder. Covers now live in the music folder itself: at the
+  # first start, every picture here is copied to the same place there
+  # ("_any" becomes that folder's cover), then this folder is renamed
+  # <name>.before-v2 and no longer read.
   covers: "/home/pi/audio/covers"
 
   cutoff_announcements: "/home/pi/audio/cutoff_announcements"
@@ -219,17 +215,13 @@ playback:
   #         interface) restarts the list.
   loop: true
 
-  # Which cover the page shows when both sides have one:
-  #   files -> cover_dir first (a picture named after the song or
-  #            "_any" beside it, or one of the usual names), then
-  #            what the music folders and the tags carry.
-  #   id3   -> what the music folders and the tags carry first: the
-  #            picture named after the track (or <track>.cover.jpg),
-  #            the one embedded in the file itself, then the folders'
-  #            own pictures (cover, folder, front, albumart,
-  #            albumartsmall, thumb, poster, default, jacket, artist,
-  #            or the folder's own name), from the album folder up to
-  #            the artist folder and the library.
+  # Which cover the page shows when a song has several. A picture named
+  # after the track (or <track>.cover.jpg) always comes first; then:
+  #   files -> the folders' own pictures (cover, folder, front, albumart,
+  #            albumartsmall, thumb, poster, default, jacket, artist, or
+  #            the folder's own name), from the album folder up to the
+  #            artist folder and the library, then the one inside the file.
+  #   id3   -> the picture inside the file, then the folders' own.
   # Either way a picture that cannot be read is skipped and the search
   # goes on; when nothing is found anywhere, the page shows the grey
   # music note. A wide backdrop, a banner, a logo or a disc picture is
@@ -886,6 +878,12 @@ network:
   # phone sees a working Wi-Fi and keeps it, as long as the radio itself
   # has internet. Applied by scripts/ap_isolate.sh.
   ap_gateway: false
+
+  # The application key that lets the tag page recognise a song by its
+  # sound (AcoustID, then MusicBrainz). Free: register one at
+  # https://acoustid.org/new-application. Needs fpcalc (apt:
+  # libchromaprint-tools) and the radio's own internet connection.
+  acoustid_key: ""
 
   # Admin access point interface, created by scripts/create_uap0.sh.
   # NOTE: if you change this, update the matching 'iw' entry in

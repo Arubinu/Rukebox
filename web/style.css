@@ -3144,6 +3144,61 @@ select {
 .prepared-play.is-on { color: var(--accent); }
 .device-list li.prepared-row.is-unused .prepared-art { opacity: 0.55; }
 
+/* Tags and covers: a song found, its fields, and one frame per picture it may show. */
+.device-list li.tags-result { padding: 0; }
+.tags-result-open {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.tags-result-open::before { grid-row: span 2; }
+.tags-result-open:hover { background: var(--accent-soft); }
+.tags-result-open > strong, .tags-result-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tags-result-meta, .tags-picture-where, .tags-candidate-text > span { color: var(--text-muted); font-size: 13px; }
+.tags-path { overflow-wrap: anywhere; }
+.tags-pictures-title { margin: 8px 0 0; font-size: 15px; }
+.tags-pictures { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(46%, 180px), 1fr)); gap: 12px; }
+.tags-picture {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.tags-picture.is-shown { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+.tags-picture-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  overflow: hidden;
+}
+.tags-picture-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tags-picture figcaption { display: flex; flex-direction: column; min-width: 0; }
+.tags-picture-where { overflow-wrap: anywhere; }
+.tags-picture-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+/* A narrow frame keeps its two buttons on one line: the words give way, not the bin. */
+.tags-picture .tags-picture-actions { flex-wrap: nowrap; }
+.tags-picture .tags-picture-actions .btn:not(.btn-icon) { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-list li.tags-candidate { align-items: flex-start; }
+.tags-candidate-text { display: flex; flex-direction: column; flex: 1 1 12rem; min-width: 0; }
+
 .device-list li.prepared-row > .prepared-name {
   flex: 1 1 8rem;
   min-width: 0;

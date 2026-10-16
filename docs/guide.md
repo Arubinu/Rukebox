@@ -1587,8 +1587,8 @@ The same voice can do three more things.
   caring about capitals. A prepared file is not synthesized: no waiting, no
   model, nothing on the processor. Settings > Schedules shows how many files
   there are and how many songs they cover, and **the Radio host's voice
-  card** (Settings) fills the folder: it walks the mirrored tree exactly like
-  the covers card does, takes sound files into the folder you are looking at,
+  card** (Settings) fills the folder: it walks the mirrored tree, takes sound
+  files into the folder you are looking at,
   plays one to check it, makes an artist or album folder, and removes one. A
   dedication keeps its own voice: a
   file prepared for the song cannot say "from Blue fox". **A backup does not
@@ -2405,40 +2405,31 @@ The Home card shows the cover of the track being played, and a
 **Lyrics** button when it has lyrics. Nothing to configure: they are
 looked up next to the track, most specific first.
 
-- **Cover**: two sides, and `playback.cover_priority` says which one wins.
-  - *The prepared covers folder* (`folders.cover_dir`,
-    `/home/pi/audio/covers`), which **mirrors the music folder the way the
-    prepared introductions do**: `LMFAO/2011 - Sorry For Rocking/03 - Party
-    Rock Anthem.jpg` is that one song's cover, `_any.jpg` beside it covers the
-    whole album, `LMFAO/_any.jpg` every LMFAO song, and `_any.jpg` in the
-    folder itself every song of the library. The usual names work there too
-    (`cover.jpg`, `folder.jpg`, `front.jpg`...), and capitals do not matter -
-    the **name** is what counts. Settings > Playback shows how many pictures
-    it holds and how many songs they cover. **The Covers card**
-    (Home) fills it: it walks the same tree as the music, shows the thumbnails
-    of what is already there, takes pictures into the folder you are looking
-    at, makes an artist or album folder that does not exist yet, and removes
-    what no longer belongs (a file whose name the lookup never uses is listed
-    as such). It is the owner's card: a guest never sees it, and the Pi has to
-    have the music folder writable - in a container that mounts it read-only,
-    the card is not shown.
-  - *What the music folders and the tags carry*: the picture named after the
-    track (`03 - Mojo.jpg`, or `03 - Mojo.cover.jpg` beside `03 - Mojo.opus`),
-    then the picture embedded in the file itself (MP3, FLAC, Ogg/Opus,
-    M4A...), then the folder's own pictures - in the track's folder (the
-    album) first, then in the artist folder above it, then in the music folder
-    itself, where they may be called: `cover`, `folder`, `front`, `album`,
-    `albumart`, `albumartsmall`, `thumb`, `poster`, `default`, `jacket`,
-    `artist`, **or the folder's own name** (`2011 - Sorry For Rocking.jpg`,
-    `LMFAO.jpg`) - with `.jpg`, `.jpeg`, `.png` or `.webp`. That list is what
-    the other readers look for: miniDLNA's own default, Emby's and Jellyfin's
-    primary art, Kodi's and Windows Media Player's folder picture. A wide
-    backdrop (`fanart`, `backdrop`), a `banner`, a `logo` or a `disc` picture
-    is deliberately **not** taken for the cover.
-  - **Which wins**: `files` (the default) takes the prepared folder first,
-    `id3` takes the music folders and the tags first - both fall back on the
-    other. A picture that cannot be read is skipped and the search goes on;
-    with a cover on neither side, the page shows the grey music note.
+- **Cover**: looked up in the music folder only, most precise first.
+  - *The picture named after the track* (`03 - Mojo.jpg`, or
+    `03 - Mojo.cover.jpg` beside `03 - Mojo.opus`) always comes first.
+  - *The folders' own pictures*: in the track's folder (the album) first,
+    then in the artist folder above it, then in the music folder itself,
+    where they may be called `cover`, `folder`, `front`, `album`, `albumart`,
+    `albumartsmall`, `thumb`, `poster`, `default`, `jacket`, `artist`, **or
+    the folder's own name** (`2011 - Sorry For Rocking.jpg`, `LMFAO.jpg`) -
+    with `.jpg`, `.jpeg`, `.png` or `.webp`, whatever the capitals. That list
+    is what the other readers look for: miniDLNA's own default, Emby's and
+    Jellyfin's primary art, Kodi's and Windows Media Player's folder picture.
+    A wide backdrop (`fanart`, `backdrop`), a `banner`, a `logo` or a `disc`
+    picture is deliberately **not** taken for the cover.
+  - *The picture inside the file* (MP3, FLAC, Ogg/Opus, M4A...).
+  - **Which wins** after the track's own picture: `files` (the default)
+    takes the folders' pictures before the one inside the file, `id3` the
+    other way round. A picture that cannot be read is skipped and the search
+    goes on; with no cover at all, the page shows the grey music note.
+  - *The old covers folder*: earlier versions kept prepared covers in a
+    folder of their own (`folders.covers`, `/home/pi/audio/covers`)
+    mirroring the music. At the first start of this version every picture
+    there is copied to the same place in the music folder - `_any.jpg`
+    becomes that folder's `cover.jpg`, a name the music folder already has is
+    left alone - and the old folder is renamed `covers.before-v2`: kept whole
+    as the way back, no longer read.
 - **Lyrics**: a file with the same name as the track - `.lrc`
   (synchronised; "enhanced" per-word timings are accepted), `.srt` or
   `.vtt` (subtitles, synchronised too), `.txt` (plain text) - then the
@@ -2448,6 +2439,35 @@ looked up next to the track, most specific first.
 
 Reading embedded pictures and tags uses `ffmpeg`/`ffprobe`, which
 `install.sh` already installs. Each track is looked up once and cached.
+
+### Tags and covers
+
+**Home > Tags and covers** (operator and owner) changes a song's own tags
+- title, artist, album, album artist, year, genre, track number - **inside
+the file**, so every player sees them. ffmpeg copies the audio as it is
+(nothing is re-encoded) into a new file beside the old one, checks its length,
+then puts it in place: a power cut leaves either file whole. MP3, FLAC, M4A,
+Ogg and Opus are written; Ogg and Opus keep their tags on the audio stream
+and their picture as the standard `METADATA_BLOCK_PICTURE` tag. *The whole
+album too* writes artist, album, album artist, year and genre into every song
+of the same folder. A song on a USB key cannot be changed: the key is mounted
+read-only.
+
+The card shows every picture the player may use for the song - inside the
+file, named after the song, the album's, the artist's - and outlines the one
+it shows. A picture can be added, replaced or removed in each place; the
+album's and the artist's are written as `cover.jpg` in their folder of the
+music folder (the first name the lookup tries), as a JPEG of 1000 pixels at
+most.
+
+**Recognise** finds what a song is by its sound: `fpcalc` (apt:
+`libchromaprint-tools`, which `install.sh` and updates install) computes its
+fingerprint on the radio, and AcoustID matches it to MusicBrainz. It needs
+the radio's own internet connection and a free application key from
+https://acoustid.org/new-application, saved in the card
+(`network.acoustid_key`, the owner's). The candidates fill in the fields on a
+tap - nothing is written before *Save* - and *Take its cover* writes the
+album's front from the Cover Art Archive as the album's `cover.jpg`.
 
 ### Theme, language and interface
 

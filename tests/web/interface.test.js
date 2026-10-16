@@ -440,21 +440,11 @@ test("the settings that belong together are folded together", async (t) => {
                    ["playback.base_volume", "playback.audio_equalizer", "playback.audio_compression"]);
 });
 
-test("the covers folder is named with what it holds", async (t) => {
-  const page = open(t, { routes: { "GET /api/settings": { "playback.cover_priority": "files" },
-                                   "GET /api/covers": { dir: "/home/pi/audio/covers", files: 46,
-                                                        covered: 312, tracks: 1175 } } });
+test("the cover setting is read into its own row", async (t) => {
+  const page = open(t, { routes: { "GET /api/settings": { "playback.cover_priority": "id3" } } });
   await until(() => page.$("bootOverlay").hidden);
-  await until(() => !page.$("coverCount").hidden);
-  assert.match(page.$("coverFolder").textContent, /\/home\/pi\/audio\/covers/);
-  assert.match(page.$("coverCount").textContent, /46/);
-  assert.match(page.$("coverCount").textContent, /312/);
-  assert.equal(page.$("coverPriority").value, "files", "the setting is read into its own row");
-
-  const none = open(t, { routes: { "GET /api/covers": { dir: "", files: 0, covered: 0, tracks: 0 } } });
-  await until(() => none.$("bootOverlay").hidden);
-  await until(() => /no covers folder/i.test(none.$("coverFolder").textContent));
-  assert.equal(none.$("coverCount").hidden, true, "nothing to count, nothing shown");
+  await until(() => page.$("coverPriority").value === "id3");
+  assert.equal(page.$("coverFolder"), null, "covers live in the music folder: no folder of their own");
 });
 
 test("the update card asks for permission first, then gathers its sources", async (t) => {
@@ -1330,57 +1320,57 @@ test("a filter is excluded whole, and a row one track at a time", async (t) => {
   assert.deepEqual(page.errors, []);
 });
 
-test("the prepared covers are browsed, added to and cleaned", async (t) => {
+test("the prepared introductions are browsed, added to and cleaned", async (t) => {
   const listing = (path) => ({
-    kind: "covers", root: "/home/pi/audio/covers", path: path, parent: path ? "" : null,
-    missing: false, extensions: [".jpg", ".png"],
+    kind: "intros", root: "/home/pi/audio/dj_announcements", path: path, parent: path ? "" : null,
+    missing: false, extensions: [".opus", ".mp3"],
     dirs: path ? [] : [{ name: "LMFAO" }],
-    files: path ? [{ name: "cover.jpg", size: 2048, used: true },
+    files: path ? [{ name: "_any.opus", size: 2048, used: true },
                    { name: "notes.txt", size: 12, used: false }] : [],
   });
-  const page = open(t, { hash: "#home/covers", routes: {
-    "GET /api/covers": { dir: "/home/pi/audio/covers", files: 46, covered: 312, tracks: 1175 },
-    "GET /api/prepared/covers": (request) => listing(request.query.get("path") || ""),
-    "POST /api/prepared/covers/folder": { path: "LMFAO/Sorry" },
-    "DELETE /api/prepared/covers/file": {},
+  const page = open(t, { hash: "#settings/djfiles", routes: {
+    "GET /api/dj_announcements": { dir: "/home/pi/audio/dj_announcements", files: 46, covered: 312,
+                                   tracks: 1175 },
+    "GET /api/prepared/intros": (request) => listing(request.query.get("path") || ""),
+    "POST /api/prepared/intros/folder": { path: "LMFAO/Sorry" },
+    "DELETE /api/prepared/intros/file": {},
   } });
-  await until(() => page.$("coversList").children.length);
-  assert.equal(page.document.body.dataset.page, "covers", "the address opened the card's page");
-  assert.match(page.$("coversCount").textContent, /46/);
-  assert.equal(page.$("coversUp").disabled, true, "nothing above the prepared root");
-  assert.equal(page.$("coversPath").hidden, true,
+  await until(() => page.$("introsList").children.length);
+  assert.equal(page.document.body.dataset.page, "djfiles", "the address opened the card's page");
+  assert.match(page.$("introsCount").textContent, /46/);
+  assert.equal(page.$("introsUp").disabled, true, "nothing above the prepared root");
+  assert.equal(page.$("introsPath").hidden, true,
                "the prepared folder's own name is not a crumb: its title and the guide say it");
-  assert.equal(page.$("coversPath").textContent, "");
-  assert.equal(page.$("coversHint").children.length, 0, "a folder to browse is not an empty folder");
-  const row = page.$("coversList").children[0];
+  assert.equal(page.$("introsPath").textContent, "");
+  assert.equal(page.$("introsHint").children.length, 0, "a folder to browse is not an empty folder");
+  const row = page.$("introsList").children[0];
   assert.equal(row.className.includes("is-dir"), true);
 
   row.querySelector("button").click();
-  const asked = await until(() => page.sent("GET", "/api/prepared/covers")
+  const asked = await until(() => page.sent("GET", "/api/prepared/intros")
     .find((r) => r.query.get("path") === "LMFAO"));
   assert.ok(asked);
-  await until(() => page.$("coversList").children.length === 2);
-  const [picture, other] = Array.from(page.$("coversList").children);
-  assert.equal(picture.querySelector("img").getAttribute("src"),
-               "/api/prepared/covers/file?path=LMFAO%2Fcover.jpg");
+  await until(() => page.$("introsList").children.length === 2);
+  const [picture, other] = Array.from(page.$("introsList").children);
+  assert.ok(picture.querySelector(".prepared-play"), "a sound is listened to, not looked at");
   assert.equal(other.className.includes("is-unused"), true,
                "a file this folder never uses says so");
   assert.match(other.textContent, /not used/);
-  assert.equal(page.$("coversUp").disabled, false, "one level up is offered now");
-  assert.match(page.$("coversPath").textContent, /LMFAO/, "the breadcrumb follows");
+  assert.equal(page.$("introsUp").disabled, false, "one level up is offered now");
+  assert.match(page.$("introsPath").textContent, /LMFAO/, "the breadcrumb follows");
 
-  page.$("coversNewFolder").click();
+  page.$("introsNewFolder").click();
   await until(() => !page.$("modalOverlay").hidden);
   page.$("modalBody").querySelector("input").value = "Sorry";
   page.$("modalOk").click();
-  const made = await until(() => page.sent("POST", "/api/prepared/covers/folder")[0]);
+  const made = await until(() => page.sent("POST", "/api/prepared/intros/folder")[0]);
   assert.deepEqual(made.body, { path: "LMFAO", name: "Sorry" });
 
   picture.querySelector('button[data-icon="trash"]').click();
   await until(() => !page.$("modalOverlay").hidden);
   page.$("modalOk").click();
-  const gone = await until(() => page.sent("DELETE", "/api/prepared/covers/file")[0]);
-  assert.equal(gone.query.get("path"), "LMFAO/cover.jpg");
+  const gone = await until(() => page.sent("DELETE", "/api/prepared/intros/file")[0]);
+  assert.equal(gone.query.get("path"), "LMFAO/_any.opus");
   assert.deepEqual(page.errors, []);
 });
 

@@ -240,7 +240,6 @@ document.addEventListener("page-shown", (event) => {
   if (page === "previous") refreshPrevious();
   if (page === "banned") refreshBanned();
   if (page === "suggest" && suggestNewCount) noteNewSuggestions();
-  if (page === "covers") loadPrepared("covers");
   if (page === "djfiles") loadPrepared("intros");
 });
 

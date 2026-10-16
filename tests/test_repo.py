@@ -269,8 +269,10 @@ class FilesTest(unittest.TestCase):
         import config_schema
 
         installer = _path.read("scripts", "install.sh")
+        # The old covers folder is only read to be emptied into the music one.
         missing = [setting.path for setting in config_schema.SETTINGS
-                   if setting.section == "folders" and setting.path not in installer]
+                   if setting.section == "folders" and setting.path not in installer
+                   and setting.path != "folders.covers"]
         self.assertEqual(missing, [])
 
     def test_the_community_scripts_are_present_and_well_formed(self):
