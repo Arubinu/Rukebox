@@ -7,6 +7,7 @@ those lines only, so the comments, the order and the settings of the rest of
 the file are untouched.
 """
 
+import copy
 import logging
 import os
 import shutil
@@ -205,7 +206,8 @@ def read(name, path=None):
         if data is None:
             return None
         block = data.get(name)
-        return block if isinstance(block, dict) else {}
+        # A copy: the parsed document is shared by every reader until the file changes.
+        return copy.deepcopy(block) if isinstance(block, dict) else {}
 
 
 def render(name, doc):
