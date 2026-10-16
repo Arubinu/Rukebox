@@ -417,6 +417,7 @@ function renderDetail(item) {
 
   const editing = editingListId === item.id;
   listsDetailActions.classList.toggle("is-two", editing);
+  listsDetailActions.classList.toggle("is-four", !editing);
   listsDetailActions.replaceChildren(...(editing ? [
     listActionButton("check", "common.save", () => saveList(item)),
     listActionButton("x", "common.cancel", () => {
@@ -429,6 +430,7 @@ function renderDetail(item) {
       editingListId = item.id;
       renderDetail(item);
     }),
+    listActionButton("download", "lists.export", () => exportList(item)),
     listActionButton("trash", "common.delete", () => deleteList(item), "btn-danger-outline"),
   ]));
 
@@ -496,6 +498,42 @@ function closeList() {
 }
 
 document.getElementById("listsBack").addEventListener("click", closeList);
+
+/* M3U: a list handed to another player, or one of its lists taken in. */
+function exportList(item) {
+  const link = document.createElement("a");
+  link.href = "/api/lists/" + encodeURIComponent(item.id) + "/m3u";
+  link.download = "";
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+document.getElementById("listsImport").addEventListener("click", () => {
+  document.getElementById("listsImportInput").click();
+});
+
+document.getElementById("listsImportInput").addEventListener("change", async (event) => {
+  const file = (event.target.files || [])[0];
+  event.target.value = "";
+  if (!file) return;
+  const body = new FormData();
+  body.append("file", file, file.name);
+  const result = await apiFetch("/api/lists/import", { method: "POST", body });
+  if (!result.ok) {
+    showError(result.error);
+    return;
+  }
+  const d = result.data;
+  if (d.missing_count) {
+    showToast(t("lists.imported", { name: d.list.name, n: d.found }),
+              t("lists.imported_missing", { n: d.missing_count }) + " " + d.missing.slice(0, 5).join(", "));
+  } else {
+    showToast(t("lists.imported", { name: d.list.name, n: d.found }));
+  }
+  await refreshLists();
+  openList(d.list.id);
+});
 
 async function refreshLists() {
   if (document.body.dataset.access === "guest" || editingListId) return;

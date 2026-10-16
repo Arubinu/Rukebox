@@ -75,6 +75,7 @@ import wled  # noqa: E402
 import audio_output  # noqa: E402
 import bt_link  # noqa: E402
 import library  # noqa: E402
+import m3u  # noqa: E402
 import blind_test  # noqa: E402
 import cards  # noqa: E402
 import dj_intro  # noqa: E402
@@ -3029,6 +3030,53 @@ def api_remove_list_track(list_id):
     stats.record("list_changed", label=entry["name"],
                  detail={"id": list_id, "removed": os.path.basename(path)})
     return jsonify({"ok": True, "data": {"name": entry["name"], "count": len(entry["tracks"])}})
+
+
+M3U_MAX_BYTES = 2 * 1024 * 1024
+
+
+@app.route("/api/lists/<list_id>/m3u")
+def api_list_m3u(list_id):
+    """The list as an M3U file, for another player holding the same music folder."""
+    try:
+        entry = music_lists.get(list_id)
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    lib = _get_library()
+    paths = lib.paths_for_genres(entry.get("genres") or []) if entry.get("kind") == "genre" \
+        else list(entry.get("tracks") or [])
+    rows = {item["path"]: item for item in lib.items_for_paths(paths)}
+    items = [dict(rows.get(path) or {}, path=path) for path in paths]
+    text = m3u.export(items, [root for root in _library_roots() if root])
+    safe = re.sub(r"[^\w .-]+", "_", entry["name"]).strip() or "list"
+    return Response(text.encode("utf-8"), mimetype="audio/x-mpegurl", headers={
+        "Content-Disposition": 'attachment; filename="%s.m3u8"' % safe})
+
+
+@app.route("/api/lists/import", methods=["POST"])
+def api_list_import():
+    """An M3U file sent: a new list of the songs the library has, and what it has not."""
+    upload = request.files.get("file")
+    if upload is None:
+        return jsonify({"ok": False, "error": "no_file"}), 400
+    raw = upload.read(M3U_MAX_BYTES + 1)
+    if len(raw) > M3U_MAX_BYTES:
+        return jsonify({"ok": False, "error": "file_too_big"}), 400
+    entries = m3u.parse(m3u.decode(raw))
+    paths, missing = m3u.match(entries, _get_library(), [root for root in _library_roots() if root])
+    if not paths:
+        return jsonify({"ok": False, "error": "m3u_nothing_found", "detail": len(entries)}), 400
+    name = (request.form.get("name") or os.path.splitext(os.path.basename(upload.filename or ""))[0]
+            or "M3U").strip()[:music_lists.NAME_MAX]
+    try:
+        entry = music_lists.add({"name": name, "kind": "manual", "tracks": paths})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    notify_daemon("reload_lists")
+    stats.record("list_added", label=entry["name"],
+                 detail={"id": entry["id"], "kind": "manual", "imported": len(paths), "missing": len(missing)})
+    return jsonify({"ok": True, "data": {"list": _with_counts([entry])[0], "found": len(paths),
+                                         "missing": missing[:50], "missing_count": len(missing)}})
 
 
 @app.route("/api/lists/active", methods=["POST"])

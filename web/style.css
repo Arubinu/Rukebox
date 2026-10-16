@@ -2803,6 +2803,7 @@ select {
 .device-list li.ann-item.is-playing { border-color: var(--accent); background: var(--accent-soft); }
 .ann-item.is-playing .ann-name { color: var(--accent); }
 .ann-actions.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ann-actions.is-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .list-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 /* No nested scroll: it steals the drag meant for the page. */
 .list-tracks { margin-top: 12px; }

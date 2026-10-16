@@ -703,7 +703,10 @@
             <div class="form-actions">
               <button type="button" class="btn" id="listsPlayAll" data-icon="play"
                       data-i18n="lists.play_all">Play everything</button>
+              <button type="button" class="btn" id="listsImport" data-icon="upload"
+                      data-i18n="lists.import">Import M3U…</button>
             </div>
+            <input type="file" id="listsImportInput" hidden accept=".m3u,.m3u8,audio/x-mpegurl,audio/mpegurl">
             <ol class="device-list ann-list" id="listsList"></ol>
 
             <details class="subsection" id="listsNew">

@@ -3595,6 +3595,14 @@ are added to a manual list the same way from anywhere the Library shows them.
 The lists are one block of `rukebox.yaml`, `music_lists:`, written by the
 interface - it travels with the rest in a configuration backup.
 
+**M3U.** *Export* in a list hands it to another player as an `.m3u8` file:
+each song by its path inside the music folder, with the `#EXTINF` line other
+players show. *Import M3U…* reads one back as a new list of picked tracks:
+each line is matched to the library by its path, its path inside the music
+folder, its file name alone, then the "Artist - Title" of its `#EXTINF`; the
+toast says how many songs were found and names the first ones that were not.
+A web address in the file is skipped: the radio plays its own library.
+
 ### The volume by itself: a cap, or a curve
 
 **Settings > Volume > Volume by itself** (`volume_shape` under `playback:`)
