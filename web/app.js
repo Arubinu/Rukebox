@@ -2093,6 +2093,12 @@ function applyNotices(d) {
   }
   if (d.output_override) add("info", "speaker", "notice.override", { output: t("audioout." + d.output_override) });
   if (typeof d.volume_cap === "number") add("info", "volume-low", "notice.volume_cap", { n: d.volume_cap });
+  // The daily curve, multiplying or deciding the volume: a hand that finds the
+  // controls refused is told why.
+  if (d.volume_forced) add("info", "volume-low", "notice.volume_forced");
+  else if (typeof d.volume_curve === "number") {
+    add("info", "volume-low", "notice.volume_curve", { n: Math.round(d.volume_curve) });
+  }
   if (d.clock_ready === false) add("warn", "clock", "notice.clock");
   if (d.track_count === 0) add("warn", "music", "notice.no_tracks");
   if ((d.consecutive_play_errors || 0) >= 3) add("warn", "alert", "notice.errors", { n: d.consecutive_play_errors });
@@ -3505,6 +3511,7 @@ function paintVolumeShape() {
     { full: percent, half: Math.round(percent / 2) });
   const editing = shape === "curve";
   document.getElementById("volumeCurveRow").hidden = !editing;
+  document.getElementById("volumeCurveManualRow").hidden = !editing;
   document.getElementById("volumeCurveEditor").hidden = !editing;
   if (editing) refreshVolumeCurve();
 }

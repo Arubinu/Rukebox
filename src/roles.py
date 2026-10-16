@@ -174,6 +174,7 @@ OPERATOR_PATHS = frozenset({
     "/api/system_sounds/<key>/off",
     "/api/system_sounds/<key>/test",
     "/api/track_order/<path:source_id>",
+    "/api/volume_curve",
     "/api/wled",
     "/api/wled/discover",
     "/api/wled/refresh",

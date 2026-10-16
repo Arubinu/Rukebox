@@ -413,9 +413,11 @@ SETTINGS = [
     ),
     Setting(
         "VOLUME_CURVE_MANUAL", "playback", "volume_curve_manual", "str", "scaled",
-        "What a hand on the volume does while the curve applies. Scaled, the only\n"
-        "one for now, means the curve multiplies what was chosen: 100% during a\n"
-        "40% stretch plays at 40%.",
+        "What a hand on the volume does while the curve applies. Scaled: the curve\n"
+        "multiplies what was chosen (100% during a 40% stretch plays at 40%). Force:\n"
+        "the curve is the volume and the controls are refused. Shifted: the hand\n"
+        "moves the whole curve up or down. Paused: the curve steps aside until its\n"
+        "next dot.",
         "The curve and the volume control",
     ),
     Setting(

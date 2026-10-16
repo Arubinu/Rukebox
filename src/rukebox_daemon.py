@@ -324,6 +324,9 @@ class RadioDaemon:
         self._curve_stamp = None
         self._curve_points = []
         self._volume_shape_last = None
+        self._curve_offset = 0.0
+        self._curve_paused_until = None
+        self._curve_driven = None
         self._volume_glide_target = None
         self._sink_level = None
         self._sink_name = None
@@ -1638,6 +1641,15 @@ class RadioDaemon:
             self._curve_stamp = stamp
         return self._curve_points
 
+    def _curve_manual(self):
+        """How the curve answers a hand on the volume."""
+        manual = str(self.cfg.get("VOLUME_CURVE_MANUAL") or "scaled").strip().lower()
+        return manual if manual in ("scaled", "force", "shifted", "paused") else "scaled"
+
+    def _curve_is_driving(self):
+        """Whether the curve is the volume itself, and a hand is not."""
+        return self._volume_shape() == "curve" and self._curve_manual() in ("force", "shifted")
+
     def _curve_level(self, now=None):
         """The share the curve gives now, in percent, or None with no curve."""
         points = self._curve()
@@ -1658,20 +1670,70 @@ class RadioDaemon:
             self._volume_shape_last = mode
             return self._apply_volume_cap(now, glide=glide)
         self._volume_shape_last = mode
-        level = self._curve_level(now)
-        scale = 1.0 if level is None else max(0.0, min(1.0, level / 100.0))
-        if scale == self._cap_scale and (glide or scale == self.mpv.scale):
-            return
-        self._cap_scale = scale
         now = now or datetime.now()
         minute = now.hour * 60 + now.minute
         # A cut lands at once; the rest of the ramp walks in the tick's own
         # steps, which keeps it smooth and right after a restart.
-        seconds = 0.0 if (not glide or volume_curve.is_cut(self._curve(), minute)) \
-            else CURVE_GLIDE_SEC
+        cut = volume_curve.is_cut(self._curve(), minute)
+        seconds = 0.0 if (not glide or cut) else CURVE_GLIDE_SEC
+        manual = self._curve_manual()
+        level = self._curve_level(now)
+        if manual in ("force", "shifted"):
+            return self._apply_curve_volume(level, manual, seconds)
+        if manual == "paused" and self._curve_paused():
+            # A hand asked the curve to step aside: the volume is the one chosen.
+            level = None
+        scale = 1.0 if level is None else max(0.0, min(1.0, level / 100.0))
+        if scale == self._cap_scale and (glide or scale == self.mpv.scale):
+            return
+        self._cap_scale = scale
+        self._curve_driven = None
         log.info("Volume curve: %s", "off" if level is None else "%g%% of the volume chosen" % level)
         self._glide_cap(scale, seconds)
         self._bump_state()
+
+    def _apply_curve_volume(self, level, manual, seconds):
+        """The curve as the volume itself: forced, or moved by a hand."""
+        self._cap_scale = 1.0
+        self.mpv.set_scale(1.0)
+        if level is None:
+            return
+        wanted = level + (self._curve_offset if manual == "shifted" else 0.0)
+        wanted = max(0.0, min(100.0, round(wanted, 1)))
+        if wanted == self._curve_driven:
+            return
+        self._curve_driven = wanted
+        log.info("Volume curve: %g%%%s", wanted,
+                 ", the curve moved by %.0f" % self._curve_offset if self._curve_offset else "")
+        self._set_user_volume(wanted, "curve", glide=seconds)
+
+    def _curve_paused(self, seconds=0.0):
+        """Whether a hand asked the curve to step aside, until its next dot."""
+        if self._curve_paused_until is None:
+            return False
+        if time.monotonic() < self._curve_paused_until:
+            return True
+        self._curve_paused_until = None
+        return False
+
+    def _pause_curve(self, now=None):
+        """A hand on the volume: the curve steps aside until its next dot."""
+        now = now or datetime.now()
+        minute = now.hour * 60 + now.minute
+        ahead = volume_curve.next_point(self._curve(), minute)
+        if ahead is None:
+            return
+        self._curve_paused_until = time.monotonic() + ahead * 60
+        log.info("Volume curve: aside for %d min, until its next dot", ahead)
+
+    def _shift_curve(self, wanted, now=None):
+        """A hand on the volume moves the whole curve, not one moment of it."""
+        now = now or datetime.now()
+        level = self._curve_level(now)
+        if level is None:
+            return
+        self._curve_offset = max(-level, min(100.0 - level, float(wanted) - level))
+        log.info("Volume curve: moved by %+.0f for every hour", self._curve_offset)
 
     def _volume_cap(self, now=None):
         """The night cap in percent while its hours run, or None."""
@@ -3942,8 +4004,22 @@ class RadioDaemon:
         self.stats.record("loop_mode", label=mode, detail={"source": source})
         self._bump_state()
 
-    def _set_user_volume(self, vol, source):
+    def _set_user_volume(self, vol, source, glide=None):
         vol = max(0.0, min(100.0, float(vol)))
+        if source != "curve" and self._curve_is_driving():
+            manual = self._curve_manual()
+            if manual == "force":
+                # The curve is the volume: the hand is told no.
+                return False
+            if manual == "shifted":
+                self._shift_curve(vol)
+            else:
+                # scaled: nothing to do here - and never reached, the two
+                # others are the driving ones.
+                pass
+        elif source != "curve" and self._volume_shape() == "curve" \
+                and self._curve_manual() == "paused":
+            self._pause_curve()
         self._user_volume = vol
         self._shown_volume = vol
         fade = self.cfg.get("VOLUME_FADE_SEC", 0) or 0
@@ -3953,19 +4029,20 @@ class RadioDaemon:
             self._current_volume = vol
             self._write_level(vol)
         elif self.cfg.get("VOLUME_CHANGE") == "fade" and fade > 0 and not self._paused:
-            self._glide_volume(vol, min(float(fade), 10.0))
+            self._glide_volume(vol, min(float(fade), 10.0) if glide is None else glide)
         else:
             self._stop_volume_glide()
             self._current_volume = vol
             self._write_level(vol)
         self._bump_state()
         now = time.monotonic()
-        if now - self._last_volume_event > 30:
+        if now - self._last_volume_event > 30 and source != "curve":
             self._last_volume_event = now
             self.stats.record(
                 "volume_set", label=str(round(vol)),
                 detail={"source": source, "volume": round(vol)},
             )
+        return True
 
     def _durations(self, key, fallback):
         """A duration list ("5,15,30,60"): whole minutes, 1-600, sorted, no
@@ -4349,6 +4426,8 @@ class RadioDaemon:
             "volume_cap": self._volume_cap(),
             "volume_curve": self._curve_level() if self._volume_shape() == "curve" else None,
             "volume_shape": self._volume_shape(),
+            "volume_curve_manual": self._curve_manual(),
+            "volume_forced": self._curve_is_driving() and self._curve_manual() == "force",
             "current_track": os.path.basename(music_track) if music_track else None,
             "current_track_path": music_track,
             "sound": sound,
@@ -4659,7 +4738,8 @@ class RadioDaemon:
                     vol = max(0, min(100, float(msg.get("value"))))
                 except (TypeError, ValueError):
                     return {"ok": False, "error": "invalid_value"}
-                self._set_user_volume(vol, source)
+                if self._set_user_volume(vol, source) is False:
+                    return {"ok": False, "error": "volume_forced"}
                 return {"ok": True, "volume": vol}
             if cmd == "rescan_music":
                 return {"ok": True, "tracks": self._rescan_music(source)}

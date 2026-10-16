@@ -1197,6 +1197,18 @@
                   <p class="field-desc" id="volumeCurveDesc" data-i18n="settings.volume_curve_desc">The volume is a share of the one you chose, hour by hour. Drag a dot, double-click the strip to add one, right-click or Delete to remove it.</p>
                 </div>
               </div>
+              <div class="field-row" id="volumeCurveManualRow" hidden>
+                <div class="field-text">
+                  <label for="volumeCurveManual" data-i18n="settings.volume_curve_manual">A hand on the volume</label>
+                  <p class="field-desc" id="volumeCurveManualDesc" data-i18n="settings.volume_curve_manual_desc">What happens when someone moves the volume while the curve applies.</p>
+                </div>
+                <select id="volumeCurveManual" data-key="playback.volume_curve_manual" aria-describedby="volumeCurveManualDesc">
+                  <option value="scaled" data-i18n="settings.volume_curve_manual_scaled">The curve multiplies the volume I choose</option>
+                  <option value="force" data-i18n="settings.volume_curve_manual_force">The curve decides: the volume is not adjustable</option>
+                  <option value="shifted" data-i18n="settings.volume_curve_manual_shifted">The hands moves the whole curve up or down</option>
+                  <option value="paused" data-i18n="settings.volume_curve_manual_paused">The curve steps aside until its next dot</option>
+                </select>
+              </div>
               <figure class="curve-editor" id="volumeCurveEditor" hidden>
                 <svg id="volumeCurveSvg" viewBox="0 0 1440 110" role="application" tabindex="0"
                      aria-describedby="volumeCurveHint" data-i18n-aria-label="settings.volume_curve"></svg>

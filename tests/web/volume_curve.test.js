@@ -6,7 +6,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { load, until } = require("./harness");
+const { load, until, STATUS } = require("./harness");
 
 const SETTINGS = { "playback.base_volume": 70, "playback.volume_shape": "curve",
                    "playback.volume_curve_manual": "scaled" };
@@ -85,6 +85,29 @@ test("the arrow keys move the dot the keyboard is on", async (t) => {
   const sent = (await until(() => view.sent("POST", "/api/volume_curve").length
     && view.sent("POST", "/api/volume_curve")))[0];
   assert.equal(sent.body.points[0].level, 45, "up by five");
+  await view.close();
+});
+
+test("the card chooses how the curve answers a hand on the volume", async (t) => {
+  const view = page();
+  await until(() => view.$("volumeCurveSvg").querySelectorAll(".curve-dot").length === 2);
+  assert.equal(view.$("volumeCurveManualRow").hidden, false, "the choice sits with the strip");
+  const options = [...view.$("volumeCurveManual").querySelectorAll("option")]
+    .map((one) => one.value);
+  assert.deepEqual(options, ["scaled", "force", "shifted", "paused"]);
+  assert.equal(view.$("volumeCurveManual").value, "scaled",
+               "the curve multiplies what was chosen, unless asked otherwise");
+  await view.close();
+});
+
+test("the player says when the curve decides the volume", async (t) => {
+  const view = page({ routes: {
+    "GET /api/settings": SETTINGS,
+    "GET /api/volume_curve": { points: POINTS, summary: [], now: { minute: 600, level: 55 } },
+    "GET /api/status": Object.assign({}, STATUS, { volume: 40, volume_forced: true }),
+  }, hash: "#home/player" });
+  await until(() => !view.$("npNotices").hidden);
+  assert.match(view.$("npNotices").textContent, /curve/i, "the notice names the curve");
   await view.close();
 });
 

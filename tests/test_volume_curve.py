@@ -181,6 +181,71 @@ class DaemonCurveTest(DaemonCase):
         applied.assert_called_once()
 
 
+class DaemonCurveManualTest(DaemonCase):
+    """scaled multiplies, force drives and refuses, shifted moves, paused steps aside."""
+
+    def setUp(self):
+        super().setUp()
+        volume_curve.save([(6 * 60, 40), (22 * 60, 100)])
+        self.daemon.cfg.update(VOLUME_SHAPE="curve", VOLUME_CHANGE="instant")
+
+    def at(self, hour, minute=0):
+        return datetime(2026, 10, 10, hour, minute)
+
+    def shape(self, manual):
+        self.daemon.cfg["VOLUME_CURVE_MANUAL"] = manual
+
+    def test_scaled_lets_the_hand_choose_and_multiplies(self):
+        self.shape("scaled")
+        self.daemon._apply_volume_shape(self.at(6), glide=False)
+        self.assertTrue(self.daemon._set_user_volume(80, "web"))
+        self.assertEqual(self.daemon._user_volume, 80)
+        self.assertEqual(self.daemon.mpv.scale, 0.4, "and the curve still multiplies")
+
+    def test_forced_the_curve_is_the_volume_and_the_hand_is_refused(self):
+        self.shape("force")
+        with mock.patch.object(self.daemon, "_bump_state"):
+            self.daemon._apply_volume_shape(self.at(6), glide=False)
+        self.assertEqual(self.daemon._user_volume, 40, "the curve's level is the volume")
+        self.assertEqual(self.daemon.mpv.scale, 1.0, "and nothing multiplies it")
+        self.assertFalse(self.daemon._set_user_volume(80, "web"), "a hand is told no")
+        self.assertEqual(self.daemon._user_volume, 40, "and nothing moved")
+        self.assertTrue(self.daemon._build_status()["volume_forced"])
+
+    def test_shifted_moves_the_whole_curve_with_the_hand(self):
+        self.shape("shifted")
+        with mock.patch.object(self.daemon, "_bump_state"):
+            self.daemon._apply_volume_shape(self.at(6), glide=False)
+        self.assertEqual(self.daemon._user_volume, 40, "the curve's own level")
+        # A hand arrives at whatever the clock says: the test says 06:00 for it.
+        with mock.patch.object(self.daemon, "_curve_level", return_value=40.0):
+            self.assertTrue(self.daemon._set_user_volume(60, "web"))
+        self.assertAlmostEqual(self.daemon._curve_offset, 20.0, msg="raised by twenty")
+        self.daemon._apply_volume_shape(self.at(6), glide=False)
+        self.assertEqual(self.daemon._user_volume, 60, "the same stretch, twenty higher")
+        self.daemon._apply_volume_shape(self.at(22), glide=False)
+        self.assertEqual(self.daemon._user_volume, 100, "and the day's peak, capped at 100")
+
+    def test_paused_steps_aside_until_the_next_dot(self):
+        self.shape("paused")
+        self.daemon._apply_volume_shape(self.at(6), glide=False)
+        self.assertEqual(self.daemon.mpv.scale, 0.4)
+        self.daemon._set_user_volume(70, "web")
+        self.assertTrue(self.daemon._curve_paused(), "the curve stepped aside")
+        self.daemon._apply_volume_shape(self.at(7), glide=False)
+        self.assertEqual(self.daemon.mpv.scale, 1.0, "the volume chosen plays as it is")
+        # The next dot is 22:00: from there the curve applies again.
+        self.daemon._curve_paused_until = None
+        self.daemon._apply_volume_shape(self.at(22), glide=False)
+        self.assertEqual(self.daemon.mpv.scale, 1.0, "the peak is the full volume anyway")
+
+    def test_a_curve_that_is_not_driving_leaves_the_hand_alone(self):
+        self.shape("scaled")
+        self.daemon._apply_volume_shape(self.at(6), glide=False)
+        self.assertEqual(self.daemon._build_status()["volume_forced"], False)
+        self.assertTrue(self.daemon._set_user_volume(55, "web"))
+
+
 try:
     import flask  # noqa: F401
     import web_server as ws
@@ -214,6 +279,12 @@ class CurveRouteTest(unittest.TestCase):
                                                    {"at": 60, "level": 90}]})
         self.assertEqual(answer.status_code, 200)
         self.assertEqual(volume_curve.load(self.document), [(60, 30), (60, 90)])
+
+    def test_the_socket_tells_a_hand_that_the_curve_is_in_charge(self):
+        with mock.patch.object(ws, "control",
+                               return_value={"ok": False, "error": "volume_forced"}):
+            answer = self.client.post("/api/volume", json={"value": 80})
+        self.assertEqual((answer.status_code, answer.get_json()["error"]), (400, "volume_forced"))
 
     def test_what_makes_no_sense_is_dropped_rather_than_stored(self):
         self.client.post("/api/volume_curve", json={"points": [{"at": -1, "level": 30},
