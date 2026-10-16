@@ -183,7 +183,7 @@ cleanup() {
     rm -f "$REMOTE_ARCHIVE" "$REMOTE_APPLY"
 }
 trap cleanup EXIT
-tar xzf "$REMOTE_ARCHIVE" -C "\$STAGING"
+tar --no-same-owner -xzf "$REMOTE_ARCHIVE" -C "\$STAGING"
 chmod +x "\$STAGING/scripts/"*.sh
 sudo "\$STAGING/scripts/install.sh"
 APPLY
