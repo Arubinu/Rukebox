@@ -125,13 +125,73 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         self.assertTrue(all(doc["availability_topic"] == "rukebox/rukebox_pi/availability" for doc in docs.values()))
 
-    def test_the_state_comes_from_the_daemons_status(self):
-        state = mqtt_bridge.state_of({"mode": "music", "paused": False, "track_title": "Fly",
-                                      "track_artist": "Hilary Duff", "volume": 63.6, "muted": True,
-                                      "speaker_connected": True})
-        self.assertEqual(state, {"mode": "music", "title": "Fly", "artist": "Hilary Duff", "volume": 64,
+    def test_the_state_comes_from_the_daemons_status_and_the_songs_tags(self):
+        status = {"mode": "music", "paused": False, "current_track_path": "/m/Hilary Duff/Fly.opus",
+                  "duration": 213.4, "volume": 63.6, "muted": True, "speaker_connected": True}
+        state = mqtt_bridge.state_of(status, {"title": "Fly", "artist": "Hilary Duff", "album": "Metamorphosis"})
+        self.assertEqual(state, {"mode": "music", "title": "Fly", "artist": "Hilary Duff",
+                                 "album": "Metamorphosis", "duration": 213, "volume": 64,
                                  "muted": True, "playing": True, "speaker": True})
+        self.assertEqual(mqtt_bridge.state_of(status)["title"], "Fly", "no tags: the file's own name")
         self.assertFalse(mqtt_bridge.state_of({"mode": "music", "paused": True})["playing"])
+        self.assertIsNone(mqtt_bridge.state_of({"mode": "idle", "duration": 213})["duration"],
+                          "nothing playing, no length")
+
+    def test_the_selects_offer_the_outputs_there_and_the_lists(self):
+        cfg = dict(self.CFG, AUDIO_OUTPUT="bluetooth")
+        offered = mqtt_bridge.choices(cfg, ["usb", "jack", "usb"], [{"id": "l1", "name": "Rock"}])
+        self.assertEqual(offered["output"], {"Selon les réglages": None, "Bluetooth": "bluetooth",
+                                             "Prise jack": "jack", "Carte son USB": "usb"})
+        self.assertEqual(offered["list"], {"Toute la bibliothèque": None, "Rock": "l1"})
+        state = mqtt_bridge.state_of({"output_override": "usb", "active_list": {"id": "l1"}}, offered=offered)
+        self.assertEqual((state["output"], state["list"]), ("Carte son USB", "Rock"))
+        state = mqtt_bridge.state_of({}, offered=offered)
+        self.assertEqual((state["output"], state["list"]), ("Selon les réglages", "Toute la bibliothèque"))
+        docs = mqtt_bridge.discovery(cfg, "rukebox_pi", "rukebox/rukebox_pi", offered)
+        self.assertEqual(docs["homeassistant/select/rukebox_pi/list/config"]["options"],
+                         ["Toute la bibliothèque", "Rock"])
+        with mock.patch.object(mqtt_bridge, "send_control_command", return_value={"ok": True}) as send:
+            mqtt_bridge.command(cfg, "output", "Carte son USB", offered)
+            mqtt_bridge.command(cfg, "list", "Toute la bibliothèque", offered)
+            self.assertEqual(mqtt_bridge.command(cfg, "list", "Jazz", offered)["error"], "invalid_value")
+        self.assertEqual(send.call_args_list, [
+            mock.call("/tmp/s.sock", "set_output_override", output="usb", source="mqtt"),
+            mock.call("/tmp/s.sock", "set_active_list", id=None, source="mqtt"),
+        ])
+
+    def test_the_cover_album_length_and_update_are_entities_too(self):
+        docs = mqtt_bridge.discovery(self.CFG, "rukebox_pi", "rukebox/rukebox_pi")
+        cover = docs["homeassistant/image/rukebox_pi/cover/config"]
+        self.assertEqual((cover["image_topic"], cover["content_type"]), ("rukebox/rukebox_pi/cover", "image/jpeg"))
+        duration = docs["homeassistant/sensor/rukebox_pi/duration/config"]
+        self.assertEqual((duration["device_class"], duration["unit_of_measurement"]), ("duration", "s"))
+        self.assertIn("homeassistant/sensor/rukebox_pi/album/config", docs)
+        self.assertEqual(docs["homeassistant/update/rukebox_pi/update/config"]["state_topic"],
+                         "rukebox/rukebox_pi/update")
+
+    def test_the_update_knows_a_radio_that_runs_the_tagged_tree(self):
+        release = {"tag": "v2.0.0", "url": "https://example/v2.0.0",
+                   "notes": "# Two ![](https://img.shields.io/badge/tree--hash-abc1234def56-blue)"}
+        with mock.patch.object(mqtt_bridge, "read_version_file",
+                               return_value={"release": "v1.19.0", "tree_hash": "abc1234def56aa",
+                                             "tree_hash_short": "abc1234def56"}):
+            self.assertEqual(mqtt_bridge.update_state(self.CFG, release)["installed_version"], "v2.0.0")
+            self.assertEqual(mqtt_bridge.update_state(self.CFG, None),
+                             {"installed_version": "v1.19.0", "title": "Rukebox"},
+                             "offline: what it runs, and nothing said of what is out")
+        with mock.patch.object(mqtt_bridge, "read_version_file",
+                               return_value={"release": "v1.19.0", "tree_hash": "0000"}):
+            doc = mqtt_bridge.update_state(self.CFG, release)
+        self.assertEqual((doc["installed_version"], doc["latest_version"]), ("v1.19.0", "v2.0.0"))
+
+    def test_a_song_without_a_cover_shows_the_radios_own_picture(self):
+        jpeg = b"\xff\xd8\xff" + b"j" * 16
+        with mock.patch.object(mqtt_bridge.track_media, "cover", return_value=(jpeg, "image/jpeg")):
+            self.assertEqual(mqtt_bridge.cover_jpeg("/m/a.opus", self.CFG), jpeg)
+        with mock.patch.object(mqtt_bridge.track_media, "cover", return_value=None), \
+                mock.patch.object(mqtt_bridge.tag_editor, "picture_jpeg", return_value=jpeg) as made:
+            self.assertEqual(mqtt_bridge.cover_jpeg("/m/a.opus", self.CFG), jpeg)
+        self.assertTrue(made.call_args[0][0].startswith(b"\x89PNG"), "the icon, made a JPEG")
 
     def test_commands_become_the_daemons_own(self):
         with mock.patch.object(mqtt_bridge, "send_control_command", return_value={"ok": True}) as send:

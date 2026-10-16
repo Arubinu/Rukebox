@@ -1068,17 +1068,31 @@ Mosquitto add-on of Home Assistant, or any other), where Home Assistant's MQTT
 integration finds it by itself through *MQTT discovery*: one device named like
 the radio (`audio.upnp_name`), with
 
-- sensors: the title, the artist, the state (`music`, `idle`, `stopped`...);
+- sensors: the title, the artist, the album, the length of the song, the
+  state (`music`, `idle`, `stopped`...);
 - binary sensors: playing, and the speaker connected;
 - a volume slider and a mute switch;
+- the **cover** (an image entity): the picture the player shows, sent once per
+  song as a JPEG - Home Assistant may not be able to log in to the radio, so
+  it is handed the picture rather than its address. A song with no cover
+  shows the radio's own picture;
+- two selects: the **audio output** (*As set*, or one of the outputs there
+  now - the same choice as the player's output override) and the **music
+  list** (*Whole library*, or one of the lists, from the next song on);
+- an **update** entity: the version the radio runs, and the latest release
+  of `updates.github_repo` when the radio can reach GitHub (looked at every six
+  hours). It only tells; installing stays in the radio's own page;
 - buttons: play/pause, next, previous, start the music, skip the
   announcement, standby. Switching the radio off is never offered.
 
-The entities are named in the spoken language. Topics, under `home_assistant.topic`
+The entities are named in the spoken language; their ids are English
+(`sensor.rukebox_<host>_title`...). Topics, under `home_assistant.topic`
 (`rukebox`) and this radio's host name: `rukebox/rukebox_<host>/state` (one
-retained JSON document), `/availability` (`online`, or `offline` as the
-broker's last will), and `/set/<command>` for what it is asked (`volume` takes
-0-100, `mute` takes `ON`/`OFF`, a button takes anything).
+retained JSON document), `/cover` (the JPEG), `/update`, `/availability`
+(`online`, or `offline` as the broker's last will), and `/set/<command>` for
+what it is asked (`volume` takes 0-100, `mute` takes `ON`/`OFF`, `output` and
+`list` take one of their options, a button takes anything). The outputs and
+lists offered are looked at again at most once a minute.
 
 The bridge is its own small process (`src/mqtt_bridge.py`, the unit
 `rukebox-mqtt.service`, a child of the supervisor in Docker), written on the
