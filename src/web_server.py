@@ -6911,7 +6911,7 @@ def _cached_probe(key, ttl, compute):
 
 
 SETUP_ITEMS = ("speaker", "speaker_pair", "flic_pair", "clock", "timezone", "music", "password",
-               "ap_open", "storage")
+               "ap_open", "storage", "covers_left")
 
 
 @app.route("/api/diag/audio", methods=["POST"])
@@ -7274,6 +7274,9 @@ def api_setup_pending():
         pending.append("ap_open")
     if any(s["status"] != "ok" for s in _storages()):
         pending.append("storage")
+    if covers_move.waiting(c.get("COVER_DIR")):
+        # The music folder could not be written at the start: those covers are not shown.
+        pending.append("covers_left")
     hidden = [x.strip() for x in str(c.get("SETUP_HIDDEN") or "").split(",") if x.strip() in SETUP_ITEMS]
     # The tree hash the radio serves: a page compares it with the one it loaded, and
     # offers a reload when the radio was updated under it.

@@ -36,6 +36,19 @@ def _kept_name(folder):
     return candidate
 
 
+def waiting(cover_dir):
+    """Whether the old folder still holds pictures it could not hand over."""
+    source = str(cover_dir or "").strip()
+    if not source or not os.path.isdir(source):
+        return False
+    for _folder, dirs, files in os.walk(source):
+        dirs[:] = [d for d in dirs if not prepared_media.system_name(d)]
+        if any(os.path.splitext(f)[1].lower() in track_media.IMAGE_EXTENSIONS
+               and not prepared_media.system_name(f) for f in files):
+            return True
+    return False
+
+
 def move(cover_dir, music_dir):
     """Copies every picture of `cover_dir` into `music_dir`, then renames the
     old folder. None when there is nothing to do, else a summary."""

@@ -674,6 +674,7 @@ const SETUP_TARGETS = {
   music: ["home", "musicTitle", "music"],
   password: ["system", "securityTitle", "key"],
   ap_open: ["network", "apTitle", "wifi"],
+  covers_left: ["system", "healthTitle", "image"],
 };
 let setupHidden = [];
 

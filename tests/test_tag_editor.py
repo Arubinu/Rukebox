@@ -314,3 +314,17 @@ class RouteTest(unittest.TestCase):
         with mock.patch.object(acoustid, "available", return_value=False):
             answer = self.client.post("/api/tags/identify", json={"key": "k1"})
         self.assertEqual((answer.status_code, answer.get_json()["error"]), (501, "fingerprint_missing"))
+
+
+class WaitingTest(unittest.TestCase):
+    def test_a_folder_left_with_pictures_is_said_to_be_waiting(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        self.assertFalse(covers_move.waiting(folder), "empty")
+        write(folder, "LMFAO", "Thumbs.db")
+        write(folder, "LMFAO", "notes.txt")
+        self.assertFalse(covers_move.waiting(folder), "nothing a cover is made of")
+        write(folder, "LMFAO", "_any.jpg", data=JPEG)
+        self.assertTrue(covers_move.waiting(folder))
+        self.assertFalse(covers_move.waiting(os.path.join(folder, "gone")))
+        self.assertFalse(covers_move.waiting(""))
