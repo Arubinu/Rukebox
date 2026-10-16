@@ -3168,6 +3168,18 @@
         <section class="card card-wide" data-level="detail" id="statsTopsCard" data-page="tops" data-tab="stats" aria-labelledby="statsTopsTitle">
           <h2 data-icon="music" id="statsTopsTitle"><span data-i18n="stats.most_played_section">Most played &amp; announcements</span></h2>
           <div class="tops" id="topsBox"></div>
+          <form id="statsPersonForm" class="settings-form">
+            <div class="field-row">
+              <div class="field-text">
+                <label for="statsByPerson" data-i18n="stats.by_person">Count who asks for songs</label>
+                <p class="field-desc" id="statsByPersonDesc" data-i18n="stats.by_person_desc">Each request keeps the name the phone goes by, for a list of who asks the most. Off, no name is kept.</p>
+              </div>
+              <input type="checkbox" id="statsByPerson" data-key="statistics.by_person" class="switch-input" role="switch" aria-describedby="statsByPersonDesc">
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+            </div>
+          </form>
           <p class="select-remote" id="selectRemote-topsBox" hidden>
             <span class="select-remote-text"></span>
             <button type="button" class="btn-link" data-remote-scope="topsBox"></button>

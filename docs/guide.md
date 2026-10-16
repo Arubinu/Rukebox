@@ -2863,7 +2863,10 @@ Open the **Stats** area of the web interface (detailed view), six pages:
   also produced playback errors is drawn in red;
 - **Most played & announcements** — top tracks, and each announcement
   with how many times it ran, including the announcement types you
-  added yourself;
+  added yourself; and, when *Count who asks for songs* is on (off by
+  default, `statistics.by_person`), **who asks the most** - each request
+  counted under the name the phone goes by. Off, a request keeps no name and
+  the list is not shown; an entry is removed like any other line of a top;
 - **Playback errors** — the files that keep failing;
 - **Startups & shutdowns** — one line per boot: time, duration, cause,
   and how the clock was established;

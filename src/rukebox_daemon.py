@@ -1069,6 +1069,11 @@ class RadioDaemon:
                                  music_lists.custom_order(entry))
         return tracks
 
+    def _asker(self, msg):
+        """("person", name) for the statistics' "who asks the most", when they keep it."""
+        name = speech.clean_text(msg.get("person_name"), 40)
+        return ("person", name) if name and self.cfg.get("STATS_BY_PERSON") else None
+
     def _set_active_list(self, list_id, source, start=False):
         """Makes a list (None: everything) what the radio plays from the next
         track on, or right now with `start`."""
@@ -4692,11 +4697,13 @@ class RadioDaemon:
                         self._start_or_restart_playback(log_label="request")
                     self.state.take_from_queue(path)
                     self.stats.record("track_queued", label=os.path.basename(path),
-                                      detail={"source": source, "started": True})
+                                      detail={"source": source, "started": True},
+                                      item=self._asker(msg))
                     return {"ok": True, "data": {"started": True}}
                 position = self.state.enqueue_request(
                     path, msg.get("person") or None, bool(self.cfg.get("QUEUE_FAIR")))
-                self.stats.record("track_queued", label=os.path.basename(path), detail={"source": source})
+                self.stats.record("track_queued", label=os.path.basename(path), detail={"source": source},
+                                  item=self._asker(msg))
                 self._bump_state()
                 return {"ok": True, "data": {"started": False, "position": position + 1}}
             if cmd == "get_queue":

@@ -485,7 +485,7 @@ async function restartDaemon() {
   if (result.ok) showToast(t("alert.service_restarted")); else showError(result.error);
 }
 
-const SETTINGS_FORMS = ["gameVoiceForm", "tagsKeyForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "mqttForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
+const SETTINGS_FORMS = ["gameVoiceForm", "tagsKeyForm", "statsPersonForm", "domainForm", "settingsForm", "playbackForm", "volumeForm", "fadesForm", "lightsForm", "mqttForm", "buttonsForm", "speakerForm", "audioOutputForm", "releaseRepoForm"]
   .map((id) => document.getElementById(id))
   .filter(Boolean);
 

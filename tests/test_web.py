@@ -1950,7 +1950,7 @@ class DedicationAndReminderTest(unittest.TestCase):
         r = self.client.post("/api/library/queue", json={"key": "k", "message": "hello"})
         self.assertEqual((r.status_code, r.get_json()["error"]), (403, "dedications_off"))
         self.client.post("/api/library/queue", json={"key": "k"})
-        self.assertEqual(self.control.call_args.kwargs, {"path": "/music/a.mp3", "person": "p1"})
+        self.assertEqual(self.control.call_args.kwargs, {"path": "/music/a.mp3", "person": "p1", "person_name": "Renard"})
 
     def test_a_message_goes_with_the_song_and_its_sender(self):
         self.values["DEDICATIONS_ENABLED"] = True

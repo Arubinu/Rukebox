@@ -2722,7 +2722,7 @@ def api_library_queue():
         extra["dedication"] = {"from": name, "text": message}
         if voice:
             extra["dedication"]["voice"] = voice
-    result = control("queue_track", path=path, person=person, **extra)
+    result = control("queue_track", path=path, person=person, person_name=name, **extra)
     return jsonify(result), (200 if result.get("ok") else 400)
 
 
@@ -7500,6 +7500,8 @@ def api_ssh_toggle():
 @app.route("/api/journal/summary")
 def api_stats_summary():
     data = stats.summary()
+    if not cfg().get("STATS_BY_PERSON"):
+        (data.get("top") or {}).pop("person", None)
     lib = _get_library()
     for kind in ("music", "error"):
         for row in (data.get("top") or {}).get(kind) or []:

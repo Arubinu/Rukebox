@@ -1111,6 +1111,11 @@ statistics:
   # resettable from the web interface. Nothing ever leaves the Pi.
   enabled: true
 
+  # Counts who asks for songs - the name each phone goes by - for a "Who asks
+  # the most" list in the statistics. Off (default): a request keeps no name
+  # in the statistics, and the list is not shown.
+  by_person: false
+
   database: "/var/lib/rukebox/stats.db"
 
   # How long the detailed event log is kept. Cumulative totals (hours

@@ -926,7 +926,7 @@ class StatsRecorder:
             )
 
             top = {}
-            for kind in ("music", "meme", "cutoff_announce", "error"):
+            for kind in ("music", "meme", "cutoff_announce", "error", "person"):
                 top[kind] = self._rows(
                     "SELECT name, count, seconds, last_at FROM items WHERE kind = ? "
                     "ORDER BY count DESC, seconds DESC LIMIT ?",

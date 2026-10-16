@@ -410,6 +410,8 @@ function renderTopsInto(box, top) {
   renderTopList(box, t("top.meme"), top.meme, { kind: "meme" });
 
   renderTopList(box, t("top.custom"), top.custom_announce, { kind: "custom_announce" });
+  // Only there while the statistics keep who asks: the server leaves it out otherwise.
+  if (top.person) renderTopList(box, t("top.person"), top.person, { kind: "person" });
 }
 
 const SESSIONS_PAGE = 50;

@@ -1125,6 +1125,13 @@ SETTINGS = [
         "resettable from the web interface. Nothing ever leaves the Pi.",
         "Statistics enabled",
     ),
+    Setting(
+        "STATS_BY_PERSON", "statistics", "by_person", "bool", "false",
+        "Counts who asks for songs - the name each phone goes by - for a \"Who asks\n"
+        "the most\" list in the statistics. Off (default): a request keeps no name\n"
+        "in the statistics, and the list is not shown.",
+        "Who asks for songs",
+    ),
     Setting("STATS_DB_FILE", "statistics", "database", "str",
             "/var/lib/rukebox/stats.db",
             "", "Statistics database"),
