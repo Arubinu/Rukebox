@@ -644,7 +644,7 @@ test("a schedule is saved with its days, its times and the settings it holds", a
   page.$("scheduleForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
   const made = (await until(() => page.sent("POST", "/api/schedules").length
     && page.sent("POST", "/api/schedules")))[0].body;
-  assert.deepEqual(made, { name: "Le matin", days: [0, 2], date: null, yearly: false, start: "07:00", stop: null,
+  assert.deepEqual(made, { name: "Le matin", days: [0, 2], date: null, yearly: false, party: false, guests: false, start: "07:00", stop: null,
                            stop_action: "pause", list: null, announcement: null, say: null,
                            settings: { "playback.loop": "false", "schedule.cutoff_hour": "23", "schedule.cutoff_minute": "30",
                                        "playback.base_volume": "30" } });

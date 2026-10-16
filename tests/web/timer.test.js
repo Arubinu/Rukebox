@@ -57,3 +57,29 @@ test("the sleep head asks for the shortest sleep", async (t) => {
   assert.deepEqual(sleep.body, { on: true, minutes: 30 }, "the shortest sleep offered");
   await page.close();
 });
+
+test("a party set adds its own group, and one running says itself and can be ended", async (t) => {
+  const page = load({
+    routes: {
+      "GET /api/status": Object.assign({}, STATUS, {
+        party_ready: true,
+        schedule: { id: "party", name: "Party", party: true, until: "01:30", stop_action: null },
+      }),
+      "POST /api/party": () => ({ ok: true }),
+      "DELETE /api/party": () => ({ ok: true }),
+    },
+  });
+  await until(() => !page.$("npTimers").hidden);
+  assert.match(page.$("npTimers").textContent, /01:30/, "the line under the player says until when");
+  const heads = await openTimer(page);
+  assert.equal(heads.length, 3);
+  const options = [...heads[2].parentNode.querySelectorAll(".timer-option")];
+  assert.equal(options.length, 4, "3 h, 6 h, until stopped, and the end");
+  options[2].click();
+  const started = await until(() => page.sent("POST", "/api/party")[0] || null);
+  assert.deepEqual(started.body, { hours: 0 }, "until stopped");
+  await until(() => page.$("modalOverlay").hidden);
+  (await openTimer(page))[2].parentNode.querySelector(".timer-option-cancel").click();
+  await until(() => page.sent("DELETE", "/api/party")[0] || null);
+  await page.close();
+});

@@ -349,6 +349,7 @@ class RadioDaemon:
         self._lists_stamp = None
         self._schedule_items = []
         self._schedule_say = None
+        self._party_started = None
         self._cast = None
         self._schedules_stamp = False
         self._schedule_active = None
@@ -2815,11 +2816,30 @@ class RadioDaemon:
                 self._schedule_stop(item)
         if self.mode == "shutting_down":
             return
-        self._follow_schedule(schedules.active(items, now))
+        party, fresh = self._party_running(items)
+        self._follow_schedule(party or schedules.active(items, now))
+        if fresh:
+            self._schedule_start(party)
         for item in items:
             if item.get("enabled", True) and schedules.start_due(item, now) \
                     and self._schedule_once("start", item, now):
                 self._schedule_start(item)
+
+    # A party seen for the first time this long after it was started (a reboot) does not start again.
+    PARTY_FRESH_SEC = 120
+
+    def _party_running(self, items):
+        """(the party as a running schedule, True when it has just been started), or (None, False)."""
+        state = schedules.party_state(self.cfg["STATE_DIR"])
+        item = schedules.party_item(items) if state else None
+        if not item:
+            return None, False
+        started = float(state.get("started") or 0)
+        fresh = started != self._party_started and time.time() - started < self.PARTY_FRESH_SEC
+        self._party_started = started
+        running = dict(item, begin=datetime.fromtimestamp(started),
+                       end=datetime.fromtimestamp(float(state["until"])), open=bool(state.get("open")))
+        return running, fresh
 
     def _schedule_once(self, what, item, now):
         """True the first time in this minute. Kept in memory, not per day: a
@@ -2944,6 +2964,10 @@ class RadioDaemon:
         active = self._schedule_active
         if not active:
             return None
+        if active.get("party"):
+            return {"id": active["id"], "name": active["name"], "party": True,
+                    "until": None if active.get("open") else active["end"].strftime("%H:%M"),
+                    "stop_action": None}
         return {"id": active["id"], "name": active["name"], "until": active["end"].strftime("%H:%M"),
                 "stop_action": active.get("stop_action") if active.get("stop") else None}
 
@@ -3025,6 +3049,9 @@ class RadioDaemon:
             self.state.mark_triggered_today("custom_%s" % item["id"])
 
     def _record_cutoff_trigger(self, cutoff_mode):
+        # A party that leaves the cutoff on ends with it, rather than coming back tomorrow.
+        if schedules.end_party(self.cfg["STATE_DIR"]):
+            log.info("The cutoff ends the party")
         self.stats.record(
             "cutoff_triggered", label=cutoff_mode,
             detail={"scheduled": "%02d:%02d" % (self.cfg["CUTOFF_HOUR"], self.cfg["CUTOFF_MINUTE"])},
@@ -4579,6 +4606,7 @@ class RadioDaemon:
             "active_list": self._active_list_status(),
             "schedule": self._schedule_status(),
             "schedule_next": self._next_schedule_status(),
+            "party_ready": schedules.party_item(self._schedule_items) is not None,
             "music_started_today": self.state.already_triggered_today("last_music_start"),
             "version": self._state_version,
             "restart_pending": self._restart_pending,

@@ -10,6 +10,7 @@ from datetime import date as date_type, timedelta
 
 import config_document
 import config_schema
+import json_file
 
 log = logging.getLogger("schedules")
 
@@ -30,7 +31,10 @@ _NOT_OVERRIDABLE = frozenset({
 }) | config_schema.RESTART_REQUIRED | config_schema.GPIO_BUTTON_SETTINGS
 
 OVERRIDABLE = frozenset(s.env for s in config_schema.SETTINGS
-                        if s.section in _SECTIONS and s.env not in _NOT_OVERRIDABLE)
+                        if (s.section in _SECTIONS or s.env.startswith("WLED_SCENE_"))
+                        and s.env not in _NOT_OVERRIDABLE)
+# A party left running "until stopped" still ends a day later.
+PARTY_MAX_SEC = 24 * 3600
 
 
 def _slugify(name):
@@ -97,13 +101,15 @@ def validate(data):
     if len(name) > NAME_MAX:
         raise ValueError("schedule_name_too_long")
 
-    start, stop = _time(data.get("start")), _time(data.get("stop"))
-    if not start and not stop:
+    # A party has no time of its own: it runs when started from the player.
+    party = bool(data.get("party"))
+    start, stop = (None, None) if party else (_time(data.get("start")), _time(data.get("stop")))
+    if not start and not stop and not party:
         raise ValueError("schedule_no_time")
     if start and start == stop:
         raise ValueError("schedule_bad_time")
 
-    day = str(data.get("date") or "").strip() or None
+    day = None if party else (str(data.get("date") or "").strip() or None)
     if day:
         try:
             date_type.fromisoformat(day)
@@ -134,7 +140,7 @@ def validate(data):
     if announcement and (len(announcement) > 80 or not re.match(r"^[a-z0-9-]+$", announcement)):
         raise ValueError("schedule_bad_announcement")
 
-    return {
+    clean = {
         "name": name,
         "enabled": bool(data.get("enabled", True)),
         "date": day,
@@ -145,16 +151,25 @@ def validate(data):
         "stop": stop,
         "stop_action": action,
         "list": music,
-        "announcement": announcement if start else None,
-        "say": (say or None) if start else None,
+        "announcement": announcement if start or party else None,
+        "say": (say or None) if start or party else None,
         "settings": _settings(data.get("settings")),
     }
+    if party:
+        clean.update(party=True, days=[], guests=bool(data.get("guests")))
+    return clean
+
+
+def _one_party(items, clean, own_id=None):
+    if clean.get("party") and any(item.get("party") and item["id"] != own_id for item in items):
+        raise ValueError("schedule_party_exists")
 
 
 def add(data, path=None):
     clean = validate(data)
     with config_document.lock(path):
         items = _strict(path)
+        _one_party(items, clean)
         taken = {item["id"] for item in items}
         new_id = base_id = _slugify(clean["name"])
         suffix = 2
@@ -185,12 +200,52 @@ def update(schedule_id, data, path=None):
                 merged = dict(item)
                 merged.update(data)
                 clean = validate(merged)
+                _one_party(items, clean, schedule_id)
                 clean["id"] = schedule_id
                 clean["created_at"] = item.get("created_at", time.time())
                 items[i] = clean
                 _write(path, items)
                 return clean
     raise KeyError(schedule_id)
+
+
+def party_item(items):
+    """The schedule a party wears, or None when none is set."""
+    return next((item for item in items or [] if item.get("party") and item.get("enabled", True)), None)
+
+
+def _party_file(state_dir):
+    return os.path.join(state_dir, "party.json")
+
+
+def party_state(state_dir, now=None):
+    """The party running now ({started, until, open, guests}), or None."""
+    data = json_file.read(_party_file(state_dir))
+    try:
+        until = float((data or {}).get("until") or 0)
+    except (TypeError, ValueError):
+        return None
+    return data if until > (now or time.time()) else None
+
+
+def start_party(state_dir, hours, guests, now=None):
+    """`hours` 0 is until stopped."""
+    now = now or time.time()
+    data = {"started": now, "until": now + (hours * 3600 if hours else PARTY_MAX_SEC),
+            "open": not hours, "guests": bool(guests)}
+    path = _party_file(state_dir)
+    with json_file.lock(path):
+        json_file.write(path, data)
+    return data
+
+
+def end_party(state_dir):
+    path = _party_file(state_dir)
+    with json_file.lock(path):
+        if not os.path.exists(path):
+            return False
+        os.remove(path)
+    return True
 
 
 def voice_path(state_dir, schedule_id):

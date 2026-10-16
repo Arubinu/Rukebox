@@ -3912,6 +3912,9 @@ select {
   align-items: start;
 }
 .timer-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* A third group takes the whole width, its choices two by two. */
+.timer-group-wide { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+.timer-group-wide .timer-group-head { grid-column: 1 / -1; }
 /* A button, since each head applies the shortest delay of its own group, and
    nothing about it says so. */
 .timer-group-head {

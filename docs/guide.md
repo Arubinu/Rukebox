@@ -1560,8 +1560,8 @@ schedule has a name and:
   lists): set when the schedule begins. When it ends, the usual volume and
   the list that was playing before come back.
 - **Settings during this schedule** (detailed view): pick any playback,
-  volume, fade, button or cutoff setting and give it another value. It
-  replaces the usual one from the start to the stop and is taken back
+  volume, fade, button, cutoff or light scene setting and give it another
+  value. It replaces the usual one from the start to the stop and is taken back
   afterwards; saving the usual settings meanwhile does not disturb the
   running schedule. The cutoff time is one of them, which is how an evening
   can run past the daily cutoff.
@@ -1583,6 +1583,21 @@ bar per schedule, and a mark at the daily cutoff.
 The daily cutoff itself can be switched off (**Evening cutoff** > **Daily
 cutoff**, `schedule.cutoff_enabled`): the radio then only stops when a
 schedule, a button or you say so.
+
+#### The party
+
+One schedule may be set to **On demand: the party** instead of days and
+times. It never runs by the clock: the player's **Timer** button gains a
+**Party** group - 3 h, 6 h, or until stopped - and **End the party** while
+one runs. Started, it is a running schedule like any other: its volume,
+music and settings hold (the daily cutoff can be switched off for the
+evening, the lights can wear other scenes), and what a start says - opening
+announcement, sentence, recorded message - is said once. **Open to guests**
+lets anyone on the radio's network use the interface as a guest while it
+runs, as guest mode does. The line under the player says until when it
+runs. A party left running ends at the cutoff if it kept it, and after a
+day in any case; one found running after a restart keeps its settings
+without starting the music again. Starting or ending one needs an operator.
 
 ### The talking clock
 

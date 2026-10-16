@@ -181,7 +181,7 @@ function renderScheduleWeek() {
   for (let day = -1; day < 7; day += 1) {
     const date = new Date(base + day * 86400000);
     live.forEach((item) => {
-      if (!matches(item, date)) return;
+      if (item.party || !matches(item, date)) return;
       if (!item.start) {
         if (day >= 0) rows[day].marks.push({ at: minutesOfDay(item.stop), kind: "stop", item });
         return;
@@ -313,14 +313,21 @@ function updateScheduleForm() {
   const when = document.getElementById("schedWhen").value;
   document.getElementById("schedDays").hidden = when !== "days";
   document.getElementById("schedDateRow").hidden = when !== "date" && when !== "yearly";
+  const party = when === "party";
   const startOn = document.getElementById("schedStartOn").checked;
   const stopOn = document.getElementById("schedStopOn").checked;
   document.getElementById("schedStart").disabled = !startOn;
   document.getElementById("schedStop").disabled = !stopOn;
-  document.getElementById("schedActionRow").hidden = !stopOn;
-  document.getElementById("schedAnnouncementRow").hidden = !startOn;
-  document.getElementById("schedSayRow").hidden = !startOn;
-  document.getElementById("schedVoiceRow").hidden = !startOn;
+  document.getElementById("schedPartyHint").hidden = !party;
+  document.getElementById("schedGuestsRow").hidden = !party;
+  document.getElementById("schedStartRow").hidden = party;
+  document.getElementById("schedStopRow").hidden = party;
+  document.getElementById("schedActionRow").hidden = !stopOn || party;
+  // A party starts too: what a start says, it says.
+  const opens = startOn || party;
+  document.getElementById("schedAnnouncementRow").hidden = !opens;
+  document.getElementById("schedSayRow").hidden = !opens;
+  document.getElementById("schedVoiceRow").hidden = !opens;
   paintScheduleVoice();
 }
 
@@ -495,8 +502,9 @@ function fillScheduleForm(item) {
   const data = item || { name: "", days: [], date: null, start: "07:00", stop: null,
                          stop_action: "pause", list: null, settings: {} };
   document.getElementById("schedName").value = data.name;
-  document.getElementById("schedWhen").value = data.date ? (data.yearly ? "yearly" : "date")
-    : (data.days || []).length ? "days" : "daily";
+  document.getElementById("schedWhen").value = data.party ? "party"
+    : data.date ? (data.yearly ? "yearly" : "date") : (data.days || []).length ? "days" : "daily";
+  document.getElementById("schedGuests").checked = !!data.guests;
   paintScheduleDays(data.days || []);
   document.getElementById("schedDate").value = data.date || "";
   document.getElementById("schedStartOn").checked = !!data.start;
@@ -564,8 +572,12 @@ schedForm.addEventListener("submit", async (event) => {
       ? Array.from(document.querySelectorAll("#schedDays input:checked")).map((el) => Number(el.value)) : [],
     date: when === "date" || when === "yearly" ? document.getElementById("schedDate").value : null,
     yearly: when === "yearly",
-    start: document.getElementById("schedStartOn").checked ? document.getElementById("schedStart").value : null,
-    stop: document.getElementById("schedStopOn").checked ? document.getElementById("schedStop").value : null,
+    party: when === "party",
+    guests: when === "party" && document.getElementById("schedGuests").checked,
+    start: when !== "party" && document.getElementById("schedStartOn").checked
+      ? document.getElementById("schedStart").value : null,
+    stop: when !== "party" && document.getElementById("schedStopOn").checked
+      ? document.getElementById("schedStop").value : null,
     stop_action: document.getElementById("schedAction").value,
     list: list === "keep" ? null : list === "all" ? "" : list.slice(3),
     announcement: document.getElementById("schedAnnouncement").value || null,

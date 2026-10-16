@@ -225,6 +225,7 @@ class DaemonTest(unittest.TestCase):
     def tick(self, when):
         with mock.patch.object(rukebox_daemon, "datetime") as clock:
             clock.now.return_value = when
+            clock.fromtimestamp.side_effect = datetime.fromtimestamp
             self.daemon._scheduler_tick()
 
     def add(self, **fields):
@@ -257,6 +258,39 @@ class DaemonTest(unittest.TestCase):
                 for _ in range(3):
                     self.daemon._check_reminders()
         self.assertEqual([c.args[0] for c in say.call_args_list], ["/s.wav", voice])
+
+    def test_a_party_started_its_settings_hold_and_the_music_starts_then_all_comes_back(self):
+        schedules.add({"name": "Party", "party": True, "settings": {"BASE_VOLUME": 90, "CUTOFF_ENABLED": False}},
+                      self.path)
+        self.tick(datetime.now())
+        self.assertTrue(self.daemon._build_status()["party_ready"])
+        self.assertEqual(self.daemon.mode, "idle", "a party set is not a party started")
+        schedules.start_party(self.dir, 6, guests=False)
+        self.tick(datetime.now())
+        self.assertEqual((self.daemon.mode, self.daemon.cfg["BASE_VOLUME"]), ("music", 90))
+        self.assertIs(self.daemon.cfg["CUTOFF_ENABLED"], False)
+        status = self.daemon._build_status()["schedule"]
+        self.assertTrue(status["party"])
+        self.assertTrue(status["until"])
+        played = len(self.daemon.mpv.files)
+        self.tick(datetime.now())
+        self.assertEqual(len(self.daemon.mpv.files), played, "started once")
+        schedules.end_party(self.dir)
+        self.tick(datetime.now())
+        self.assertEqual(self.daemon.cfg["BASE_VOLUME"], 70)
+        self.assertIsNone(self.daemon._build_status()["schedule"])
+
+    def test_a_party_found_after_a_reboot_holds_without_starting_again(self):
+        schedules.add({"name": "Party", "party": True}, self.path)
+        schedules.start_party(self.dir, 0, guests=False, now=time.time() - 3600)
+        self.tick(datetime.now())
+        self.assertEqual(self.daemon.mode, "idle")
+        self.assertIsNone(self.daemon._build_status()["schedule"]["until"], "until stopped")
+
+    def test_the_cutoff_ends_a_party(self):
+        schedules.start_party(self.dir, 0, guests=False)
+        self.daemon._record_cutoff_trigger("exact")
+        self.assertIsNone(schedules.party_state(self.dir))
 
     def test_the_start_starts_the_music_once(self):
         self.add()

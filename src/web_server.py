@@ -283,8 +283,16 @@ def _guest_pages_off():
     return sorted(wanted & set(GUEST_PAGE_PATHS))
 
 
+def _guest_access():
+    """Guest mode is on, or a party that opens the radio to guests is running."""
+    if cfg().get("GUEST_MODE_ENABLED"):
+        return True
+    party = schedules.party_state(cfg()["STATE_DIR"])
+    return bool(party and party.get("guests"))
+
+
 def _guest_allowed(path, method):
-    if not cfg().get("GUEST_MODE_ENABLED"):
+    if not _guest_access():
         return False
     if path not in _GUEST_PATHS:
         return False
@@ -2027,13 +2035,13 @@ def api_portal_status():
         "on_ap": captive_portal.is_ap_client(_client_ip(), c.get("AP_INTERFACE", "uap0")),
         "released": _portal_is_released(_client_ip()),
         "released_at": _portal_release_time(_client_ip()),
-        "guest_mode": bool(c.get("GUEST_MODE_ENABLED")),
+        "guest_mode": _guest_access(),
         "auth_required": accounts.owner_has_password() or bool(c.get("WEB_PASSWORD_HASH")),
         "authenticated": _is_authenticated(),
         # What the page is answered as, the paths it may call, and the names
         # the login form offers: no hash, no date, nothing else.
         "role": _role(),
-        "paths": roles.allowed_paths(_role(), guest_access=bool(c.get("GUEST_MODE_ENABLED")),
+        "paths": roles.allowed_paths(_role(), guest_access=_guest_access(),
                                      pages_off=_guest_pages_off()),
         "accounts": [{"id": one["id"], "name": one["name"], "role": one["role"]}
                      for one in accounts.load()],
@@ -2870,6 +2878,31 @@ def _with_voices(items):
     for item in items:
         item["voice"] = bool(schedules.voice(state_dir, item["id"]))
     return items
+
+
+@app.route("/api/party", methods=["POST", "DELETE"])
+def api_party():
+    """{hours}: the party schedule's settings hold for that long (0: until stopped); DELETE ends it."""
+    state_dir = cfg()["STATE_DIR"]
+    if request.method == "DELETE":
+        if schedules.end_party(state_dir):
+            stats.record("party_ended")
+        notify_daemon("reload_schedules")
+        return jsonify({"ok": True})
+    item = schedules.party_item(schedules.load())
+    if not item:
+        return jsonify({"ok": False, "error": "party_not_set"}), 409
+    body = request.get_json(silent=True) or {}
+    try:
+        hours = float(body.get("hours") or 0)
+    except (TypeError, ValueError):
+        hours = -1
+    if not 0 <= hours <= 24:
+        return jsonify({"ok": False, "error": "bad_request"}), 400
+    data = schedules.start_party(state_dir, hours, item.get("guests"))
+    stats.record("party_started", label=item["name"], detail={"hours": hours or None})
+    notify_daemon("reload_schedules")
+    return jsonify({"ok": True, "data": data})
 
 
 @app.route("/api/schedules/<schedule_id>/voice", methods=["GET", "POST", "DELETE"])

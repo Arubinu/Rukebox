@@ -643,7 +643,8 @@ function applyNotices(d) {
   } else if (d.mode === "stopped") {
     add("info", "play", "notice.stopped");
   }
-  if (d.schedule) {
+  // A party says itself in the timers' line, under the player.
+  if (d.schedule && !d.schedule.party) {
     add("info", "calendar", "notice.schedule", { name: d.schedule.name, time: d.schedule.until });
   } else if (["idle", "stopped"].includes(d.mode) && d.schedule_next) {
     add("info", "calendar", "notice.schedule_next",
@@ -771,6 +772,8 @@ function paintTimers() {
   const parts = [];
   if (timerEnds.resume) parts.push(t("timer.resume_in", { t: formatLeft(timerEnds.resume - now) }));
   if (timerEnds.sleep) parts.push(t("timer.sleep_in", { t: formatLeft(timerEnds.sleep - now) }));
+  const party = playerStatus && playerStatus.schedule && playerStatus.schedule.party ? playerStatus.schedule : null;
+  if (party) parts.push(party.until ? t("timer.party_until", { time: party.until }) : t("timer.party_on"));
   const line = document.getElementById("npTimers");
   line.textContent = parts.join(" \u00b7 ");
   line.hidden = !parts.length;
@@ -845,7 +848,7 @@ function timerChoiceBody(groups, intro) {
 
   groups.forEach((group) => {
     const box = document.createElement("div");
-    box.className = "timer-group";
+    box.className = "timer-group" + (group.wide ? " timer-group-wide" : "");
     // The head is a button: it applies the shortest delay of its own group.
     const head = document.createElement("button");
     head.type = "button";
@@ -870,8 +873,7 @@ function timerChoiceBody(groups, intro) {
   });
 
   // Drawn icons, not the unicode pause/moon: many phone fonts have no glyph.
-  wrap.appendChild(legendLines([["pause", t("timer.legend_pause")],
-                               ["moon", t("timer.legend_sleep")]]));
+  wrap.appendChild(legendLines(groups.map((group) => [group.icon, group.legend])));
 
   if (intro) {
     const line = document.createElement("p");
@@ -973,12 +975,23 @@ document.getElementById("btnTimer").addEventListener("click", async () => {
     sleepOptions.push({ value: "sleep_off", label: t("timer.sleep_cancel"), quiet: true });
   }
 
+  const groups = [
+    { icon: "pause", title: t("timer.group_pause"), options: pauseOptions, legend: t("timer.legend_pause") },
+    { icon: "moon", title: t("timer.group_sleep"), options: sleepOptions, legend: t("timer.legend_sleep") },
+  ];
+  if (d.party_ready && mayCall("/api/party")) {
+    const partyOptions = [3, 6].map((n) => ({ value: "party:" + n, label: t("timer.hours", { n }) }));
+    partyOptions.push({ value: "party:0", label: t("timer.party_open") });
+    if (d.schedule && d.schedule.party) {
+      partyOptions.push({ value: "party_off", label: t("timer.party_end"), quiet: true });
+    }
+    groups.push({ icon: "sparkles", title: t("timer.group_party"), options: partyOptions, wide: true,
+                  legend: t("timer.legend_party") });
+  }
+
   const choice = await openModal({
     title: t("timer.title"),
-    bodyNode: timerChoiceBody([
-      { icon: "pause", title: t("timer.group_pause"), options: pauseOptions },
-      { icon: "moon", title: t("timer.group_sleep"), options: sleepOptions },
-    ], t("timer.body")),
+    bodyNode: timerChoiceBody(groups, t("timer.body")),
     actions: false,
   });
   if (!choice) return;
@@ -987,6 +1000,10 @@ document.getElementById("btnTimer").addEventListener("click", async () => {
     result = await apiPost("/api/action/timed_pause", { minutes: Number(choice.slice(6)) });
   } else if (choice.startsWith("sleep:")) {
     result = await apiPost("/api/action/sleep_timer", { on: true, minutes: Number(choice.slice(6)) });
+  } else if (choice.startsWith("party:")) {
+    result = await apiPost("/api/party", { hours: Number(choice.slice(6)) });
+  } else if (choice === "party_off") {
+    result = await apiDelete("/api/party");
   } else if (choice === "resume") {
     result = await apiPost("/api/action/toggle_pause");
   } else {

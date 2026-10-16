@@ -386,6 +386,7 @@ function scheduleYearlyMatches(iso, date) {
 }
 
 function scheduleDaysLabel(item) {
+  if (item.party) return t("schedules.when_party");
   if (item.date && item.yearly) {
     const day = new Intl.DateTimeFormat(currentLang, { day: "numeric", month: "long", timeZone: "UTC" })
       .format(new Date(item.date + "T00:00:00Z"));
@@ -403,7 +404,8 @@ function scheduleDaysLabel(item) {
 
 function scheduleMeta(item) {
   const bits = [scheduleDaysLabel(item)];
-  if (item.start && item.stop) bits.push(item.start + " → " + item.stop);
+  if (item.party) bits.push(t(item.guests ? "schedules.party_guests" : "schedules.party_no_guests"));
+  else if (item.start && item.stop) bits.push(item.start + " → " + item.stop);
   else if (item.start) bits.push(item.start);
   else bits.push("→ " + item.stop);
   if (item.stop) bits.push(t("schedules.action_" + item.stop_action));

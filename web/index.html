@@ -855,14 +855,23 @@
                   <option value="days" data-i18n="schedules.when_days">Chosen days</option>
                   <option value="date" data-i18n="schedules.when_date">One date</option>
                   <option value="yearly" data-i18n="schedules.when_yearly">Every year</option>
+                  <option value="party" data-i18n="schedules.when_party">On demand: the party</option>
                 </select>
               </div>
+              <p class="hint" id="schedPartyHint" data-i18n="schedules.party_hint" hidden>Started from the player's Timer button, for 3 h, 6 h or until stopped; its settings hold while it runs.</p>
               <div class="day-chips" id="schedDays" role="group" data-i18n-aria-label="schedules.when_days" aria-label="Chosen days" hidden></div>
               <div class="field-row" id="schedDateRow" hidden>
                 <label for="schedDate" data-i18n="schedules.date">Date</label>
                 <input type="date" id="schedDate" class="text-input sched-date">
               </div>
-              <div class="field-row">
+              <div class="field-row" id="schedGuestsRow" hidden>
+                <div class="field-text">
+                  <label for="schedGuests" data-i18n="schedules.guests">Open to guests</label>
+                  <p class="field-desc" id="schedGuestsDesc" data-i18n="schedules.guests_desc">While it runs, anyone on the radio's network uses the interface as a guest, as with guest mode.</p>
+                </div>
+                <input type="checkbox" id="schedGuests" class="switch-input" role="switch" aria-describedby="schedGuestsDesc">
+              </div>
+              <div class="field-row" id="schedStartRow">
                 <label for="schedStartOn" data-i18n="schedules.start">Starts the music at</label>
                 <span class="sched-time">
                   <input type="checkbox" id="schedStartOn" class="switch-input" role="switch" checked>
@@ -870,7 +879,7 @@
                          data-i18n-aria-label="schedules.start" aria-label="Starts the music at">
                 </span>
               </div>
-              <div class="field-row">
+              <div class="field-row" id="schedStopRow">
                 <label for="schedStopOn" data-i18n="schedules.stop">Stops at</label>
                 <span class="sched-time">
                   <input type="checkbox" id="schedStopOn" class="switch-input" role="switch">

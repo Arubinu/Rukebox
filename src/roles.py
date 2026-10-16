@@ -163,6 +163,7 @@ OPERATOR_PATHS = frozenset({
     "/api/schedules",
     "/api/schedules/<schedule_id>",
     "/api/schedules/<schedule_id>/voice",
+    "/api/party",
     "/api/settings",
     "/api/snapcast/client",
     "/api/snapcast/clients",
