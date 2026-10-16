@@ -489,6 +489,14 @@ def api_upnp_event(service):
     return answer
 
 
+def _mqtt_follow():
+    """The bridge's service runs exactly while Home Assistant is switched on."""
+    c = cfg()
+    wanted = bool(c.get("MQTT_ENABLED")) and bool(str(c.get("MQTT_HOST") or "").strip())
+    if not system_actions.follow_mqtt(wanted) and system_actions.is_container() is False:
+        log.warning("Could not %s the Home Assistant bridge", "start" if wanted else "stop")
+
+
 JSON_BODY_MAX_BYTES = 1024 * 1024
 
 
@@ -4315,6 +4323,8 @@ def api_set_settings():
         _ensure_upnp_identity(cfg())
     if (config_schema.STREAM_SETTINGS | config_schema.UPNP_SETTINGS) & set(body):
         _upnp_follow_stream()
+    if {"MQTT_ENABLED", "MQTT_HOST"} & set(body):
+        threading.Thread(target=_mqtt_follow, name="mqtt-follow", daemon=True).start()
     if any(key.startswith("WLED_") for key in body):
         try:
             control("wled_refresh")
@@ -7165,6 +7175,7 @@ def api_config_import():
     notify_daemon("reload_announcements")
     _reload_after_import(summary)
     notify_daemon("reload_config")
+    threading.Thread(target=_mqtt_follow, name="mqtt-follow", daemon=True).start()
     stats.record("config_imported", label=str(summary["settings"]), detail=summary)
     return jsonify({"ok": True, "data": summary})
 
@@ -7930,6 +7941,8 @@ def main():
     if _portal_on(c) and int(c["WEB_PORT"]) != captive_portal.PORTAL_PORT:
         captive_portal.start(c.get("AP_INTERFACE", "uap0"), c["WEB_PORT"])
     _upnp_follow_stream()
+    # A setting changed by hand in the file is followed at the next start.
+    threading.Thread(target=_mqtt_follow, name="mqtt-follow", daemon=True).start()
     threading.Thread(target=_upnp_watch, name="upnp-watch", daemon=True).start()
     try:
         _get_library()

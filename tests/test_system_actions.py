@@ -238,6 +238,27 @@ class ServiceTest(PlatformFixtures):
                 sa.service_action("stop", "flicd.service")
         self.assertEqual(run.call_args[0][0], ["systemctl", "stop", "flicd.service"])
 
+    def test_the_home_assistant_bridge_runs_only_while_switched_on(self):
+        calls = []
+
+        def run(command, timeout=15, sudo=False):
+            calls.append((command, sudo))
+            return fake_result(1 if command[1] in ("is-active", "is-enabled") else 0)
+        with mock.patch.object(sa, "_systemctl_available", return_value=True),                 mock.patch.object(sa, "_run", side_effect=run):
+            self.assertTrue(sa.follow_mqtt(True))
+        self.assertIn((["systemctl", "enable", "--now", sa.MQTT_UNIT], True), calls,
+                      "the exact command the sudoers file grants")
+        calls.clear()
+        with mock.patch.object(sa, "_systemctl_available", return_value=True),                 mock.patch.object(sa, "_run", side_effect=run):
+            self.assertTrue(sa.follow_mqtt(False), "already off: nothing to do")
+        self.assertFalse([c for c in calls if c[1]], "no sudo when it is already as wanted")
+
+    def test_docker_keeps_its_own_bridge(self):
+        self.as_platform(host.DOCKER)
+        with mock.patch.object(sa, "_run") as run:
+            self.assertFalse(sa.follow_mqtt(True))
+        run.assert_not_called()
+
     def test_a_failure_is_false_not_an_exception(self):
         with mock.patch.object(sa, "_systemctl_available", return_value=True):
             with mock.patch.object(sa, "_run", return_value=None):
