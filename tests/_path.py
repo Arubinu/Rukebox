@@ -78,3 +78,14 @@ def app_script():
     """The page's script as the web server serves it, put together from web/js."""
     import web_bundle
     return web_bundle.app_script(repo_file("web"))
+
+
+# A fade waits for real between its steps: the suite would spend half a minute on them.
+import rukebox_daemon  # noqa: E402
+
+rukebox_daemon.RadioDaemon._step_wait = lambda self, seconds: None
+
+# A hash keeps its own count, so a short one still checks; the real count costs a tenth of a second each.
+import web_auth  # noqa: E402
+
+web_auth.ITERATIONS = 1000

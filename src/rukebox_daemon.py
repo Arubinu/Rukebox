@@ -2429,6 +2429,10 @@ class RadioDaemon:
 
         threading.Thread(target=run, daemon=True).start()
 
+    def _step_wait(self, seconds):
+        """The wait between two steps of a fade or a duck (the tests skip it)."""
+        time.sleep(seconds)
+
     def _fade_out_to_zero(self, duration_sec):
         if self._speaker_volume_linked():
             self._stop_volume_glide()
@@ -2436,7 +2440,7 @@ class RadioDaemon:
             steps = 20
             for i in range(steps, -1, -1):
                 self.mpv.set_volume(round(gain * i / steps))
-                time.sleep(duration_sec / steps)
+                self._step_wait(duration_sec / steps)
             return
         self._stop_volume_glide()
         steps = 20
@@ -2445,7 +2449,7 @@ class RadioDaemon:
             vol = round(start_volume * i / steps)
             self._current_volume = vol
             self.mpv.set_volume(vol)
-            time.sleep(duration_sec / steps)
+            self._step_wait(duration_sec / steps)
 
     def _fade_out_and_pause(self, duration_sec):
         """Helper shared by ALL actions that stop the music."""
@@ -3488,7 +3492,7 @@ class RadioDaemon:
             self._duck_factor = start + (factor - start) * i / steps
             base = self._music_gain() if linked else (self._current_volume or self._target_volume())
             self.mpv.set_volume(round(base * self._duck_factor, 1))
-            time.sleep(seconds / steps)
+            self._step_wait(seconds / steps)
 
     def _play_ducked(self, kind, files, volume_key=None, after=None, under=None):
         """Plays `files` over the music, the music kept under them; True when
@@ -4304,7 +4308,7 @@ class RadioDaemon:
         for i in range(1, steps + 1):
             if self._paused or self.mode != "music":
                 return
-            time.sleep(duration_sec / steps)
+            self._step_wait(duration_sec / steps)
             vol = round(gain * i / steps)
             if not linked:
                 self._current_volume = vol

@@ -157,4 +157,28 @@ async function until(check, ms = 8000) {
   }
 }
 
-module.exports = { load, until, wait, STATUS, GUEST_PATHS };
+// Two accounts: the names the login form offers, and a role to test with.
+const OWNER = { id: "owner", name: "Le patron", role: "owner", password: true };
+const MARIE = { id: "marie", name: "Marie", role: "member", password: true };
+
+// The page is closed whatever the test does: its timers would keep the run alive.
+function open(t, options) {
+  const page = load(options);
+  t.after(() => page.close());
+  return page;
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+// What a member may ask for: a guest's paths, and the house's music.
+const MEMBER_PATHS = GUEST_PATHS.concat([
+  "/api/likes", "/api/likes/toggle", "/api/excluded", "/api/excluded/filter",
+  "/api/excluded/restore", "/api/lists", "/api/lists/active", "/api/loop", "/api/mute",
+  "/api/memories", "/api/reminders",
+]);
+
+module.exports = { load, until, wait, open, deferred, STATUS, GUEST_PATHS, MEMBER_PATHS, OWNER, MARIE };

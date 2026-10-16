@@ -57,7 +57,7 @@ class PageTest(unittest.TestCase):
             status=os.path.join(cls.dir, "status.json"), log=os.path.join(cls.dir, "install.log"))
         cls.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), install_status.make_handler(args))
         cls.server.daemon_threads = True
-        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        threading.Thread(target=cls.server.serve_forever, args=(0.05,), daemon=True).start()
 
     @classmethod
     def tearDownClass(cls):

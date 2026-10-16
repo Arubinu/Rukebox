@@ -300,8 +300,7 @@ class ListenerTest(unittest.TestCase):
         """An ffmpeg killed without closing its pipe must end the response
         rather than leave a request thread parked on an empty queue."""
         server = build_server()
-        with mock.patch.object(stream, "CHUNK_WAIT_SEC", 0.01):
-            self.assertEqual(b"".join(server.chunks()), b"")
+        self.assertEqual(b"".join(server.chunks(wait=0.01)), b"")
         self.assertEqual(server.listener_count(), 0, "and it let go of its slot")
 
     def test_an_encoder_that_cannot_start_says_why(self):
@@ -619,8 +618,7 @@ class FreshStartTest(unittest.TestCase):
             server.restart()
         self.assertTrue(server._awaiting, "the listener is held over the change")
         server._awaiting_since = time.monotonic() - stream.AWAIT_MAX_SEC - 1
-        with mock.patch.object(stream, "CHUNK_WAIT_SEC", 0.01):
-            self.assertEqual(b"".join(server.chunks()), b"", "the response ends")
+        self.assertEqual(b"".join(server.chunks(wait=0.01)), b"", "the response ends")
         self.assertFalse(server._awaiting)
         old.stdout.close()
         process.eof()
