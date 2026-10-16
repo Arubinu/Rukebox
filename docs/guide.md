@@ -3532,11 +3532,63 @@ are added to a manual list the same way from anywhere the Library shows them.
 The lists are one block of `rukebox.yaml`, `music_lists:`, written by the
 interface - it travels with the rest in a configuration backup.
 
+### The volume by itself: a cap, or a curve
+
+**Settings > Volume > Volume by itself** (`volume_shape` under `playback:`)
+chooses what the radio does to the volume on its own, and there are three
+answers: **nothing**, the **night cap** below, or a **daily curve**. The
+choice is what counts from then on; a radio that updated from a version before
+2.0.0 has none, and keeps doing what its night cap asked for until the choice
+is made on the card. In every case the volume keeps its scale - the slider
+shows what was chosen, and the shape is applied on top of it.
+
+### The daily curve
+
+The curve is a day of dots: each one is a time and a **share of the volume
+chosen**, and between two dots the share walks in a straight line from one to
+the other. So a dot at 06:00 with 40 and one at 22:00 with 100 is a slow rise
+over sixteen hours, and the same two dots the other way round are a slow fall.
+A **cut** - a rise or a fall with no fade at all, of any size - is two dots at
+the same minute. The last dot of the day leads back to the first one, so
+**midnight is just another hour**: a dot at 21:00 and a dot at 07:00 give a
+night that begins and ends where you meant, with no window to fill in.
+
+Under **the day's curve** (`volume_curve` in `rukebox.yaml`):
+
+- **drag a dot** to move it, anywhere on the strip;
+- **double-click** the strip to add a dot, **right-click** it (or press
+  **Delete**) to take one away;
+- with the keyboard, **arrow keys** move the dot you tabbed to - 15 minutes or
+  5% a press, one minute or 1% with **Shift**;
+- the line under the strip reads the hour the pointer is on (or the radio's
+  own time) and what it means: "22:30 → 42% of the volume · 29% played" - the
+  second number being your chosen volume times the curve;
+- a dashed vertical line marks the time it is, and the hours the level moves
+  are written out below ("06:00: 100% → 40%, falling over 480 min").
+
+**A hand on the volume** (`volume_curve_manual`) is the one thing a curve
+cannot decide by itself, so it is a choice:
+
+| value | what happens when someone moves the volume |
+|---|---|
+| `scaled` (default) | the curve multiplies what was chosen: 100% during a 40% stretch plays at 40% |
+| `force` | the curve *is* the volume: the slider, the buttons and the remote are refused, and the player says why |
+| `shifted` | the hand moves the whole curve up or down by the same amount - the shape stays, the level moves |
+| `paused` | the curve steps aside and the volume plays as chosen, until the curve's next dot |
+
+The curve applies wherever the cap does: music, announcements, the radio host,
+system sounds, the crossfade's second player, and the network stream (which
+encodes what mpv plays). Like the cap, it is re-read on every scheduler turn
+(within 15 s), and the level is worked out **from the clock**, so a radio that
+starts in the middle of a ramp lands where the ramp is - not at its beginning.
+
 ### Night volume: a cap between two times
 
-**Settings > Volume > Night volume** (`volume_cap_enabled`,
+The cap is the simple shape: one level, two times. **Settings > Volume >
+Volume by itself > the night cap** (`volume_cap_enabled`,
 `volume_cap_percent`, `volume_cap_start_*`, `volume_cap_end_*` under
-`playback:`) turns the whole radio down between two times, past midnight when
+`playback:`, and the settings under it) turns the whole radio down between two
+times, past midnight when
 the end comes first. The volume keeps its scale: the slider shows what was
 chosen, and that is played as a share of the cap - with a 60% cap, 100% shown
 plays at 60%, 50% at 30%. Music, announcements, the radio host, system sounds
