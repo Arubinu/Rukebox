@@ -99,11 +99,15 @@ class DocumentTest(unittest.TestCase):
             f.write("cards: nonsense\n")
         self.assertEqual(config_document.read("cards", self.path), {})
 
-    def test_the_document_is_read_again_only_when_it_changed(self):
+    def test_a_block_read_is_a_copy_of_its_own(self):
+        # Every reader gets its own: what one does with what it was handed is
+        # its business, and the document every other reader sees is untouched.
         config_document.write("cards", {"cards": []}, self.path)
         first = config_document.read("cards", self.path)
-        # Same file: the cached document, not another parse.
-        self.assertIs(config_document.read("cards", self.path), first)
+        first["cards"].append({"id": "abcd1234", "name": "Bleue"})
+        self.assertEqual(config_document.read("cards", self.path), {"cards": []},
+                         "the change did not reach the document")
+        # And what the document says now is what the next read gives.
         config_document.write("cards", {"cards": [{"id": "abcd1234", "name": "Bleue"}]}, self.path)
         self.assertEqual(len(config_document.read("cards", self.path)["cards"]), 1)
 
