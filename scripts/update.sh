@@ -550,7 +550,14 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         install -D -m 644 -o root -g root "$SOURCE_DIR/config/rtkit-quiet.conf" \
             /etc/systemd/system/rtkit-daemon.service.d/50-rukebox-quiet.conf 2>/dev/null || true
     fi
-    systemctl enable --now rukebox-mqtt.service 2>/dev/null || true
+    # The Home Assistant bridge runs only while it is switched on in the settings.
+    if [ "$(conf_get HOME_ASSISTANT_ENABLED false)" = "true" ] && [ -n "$(conf_get HOME_ASSISTANT_HOST)" ]; then
+        systemctl enable --now rukebox-mqtt.service 2>/dev/null || true
+    else
+        systemctl disable --now rukebox-mqtt.service 2>/dev/null || true
+        # It was running before the update: start_services must not bring it back.
+        RUNNING_SERVICES="${RUNNING_SERVICES/ rukebox-mqtt.service/}"
+    fi
     if [ "$PROFILE" = "pi" ]; then
         systemctl enable --now rukebox-speaker-buttons.service 2>/dev/null || true
         systemctl enable --now rukebox-bt-buttons.service 2>/dev/null || true

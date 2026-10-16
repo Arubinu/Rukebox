@@ -1097,9 +1097,11 @@ lists offered are looked at again at most once a minute.
 The bridge is its own small process (`src/mqtt_bridge.py`, the unit
 `rukebox-mqtt.service`, a child of the supervisor in Docker), written on the
 standard library alone: MQTT 3.1.1, QoS 0, TLS when asked (the broker's
-certificate must be valid). It waits while the setting is off, reconnects with
-a growing pause when the broker is away, and starts over by itself when one of
-its settings is saved. The card says whether it is connected, or why not.
+certificate must be valid). Its service runs only while the setting is on: the
+page starts or stops it when the card is saved, an update leaves it off when
+Home Assistant is off, and Docker's supervisor keeps it waiting instead. It
+reconnects with a growing pause when the broker is away, and starts over by
+itself when one of its settings is saved. The card says whether it is connected, or why not.
 The password is written from the page but never shown back.
 
 ### A media player tile (DLNA)

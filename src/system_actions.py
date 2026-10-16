@@ -45,6 +45,20 @@ def _systemctl_available():
     return os.path.exists("/run/systemd/system")
 
 
+MQTT_UNIT = "rukebox-mqtt.service"
+
+
+def follow_mqtt(on):
+    """The Home Assistant bridge runs, and starts at boot, only while it is switched on.
+    Docker's supervisor keeps its own child: nothing to do there."""
+    if platform_mod.name() == platform_mod.DOCKER or not _systemctl_available():
+        return False
+    if service_is_active(MQTT_UNIT) == on and service_is_enabled(MQTT_UNIT) == on:
+        return True
+    result = _run(["systemctl", "enable" if on else "disable", "--now", MQTT_UNIT], timeout=30, sudo=True)
+    return bool(result is not None and result.returncode == 0)
+
+
 def can_power_off():
     """Whether switching this machine off means anything."""
     if platform_mod.name() == platform_mod.DOCKER:

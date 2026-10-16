@@ -14,6 +14,9 @@ pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl disable --now flicd.service flic-bridg
 # Bluetooth controller there is, and starts it again once one is free.
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop flicd.service flic-bridge.service
 pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl start flicd.service flic-bridge.service
+# The Home Assistant bridge runs only while it is switched on in the settings.
+pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl enable --now rukebox-mqtt.service
+pi ALL=(ALL) NOPASSWD: /usr/bin/systemctl disable --now rukebox-mqtt.service
 
 pi ALL=(ALL) NOPASSWD: /bin/date, /usr/bin/date
 pi ALL=(ALL) NOPASSWD: /usr/sbin/hwclock, /sbin/hwclock

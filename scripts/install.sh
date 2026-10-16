@@ -415,8 +415,8 @@ PI_UNITS="rukebox-gpio-reset.service bt-connect.service home-wifi-connect.servic
 systemctl enable rukebox-config.service 2>/dev/null || true
 systemctl enable rukebox-daemon.service 2>/dev/null || true
 systemctl enable rukebox-web.service 2>/dev/null || true
-# Waits on its own while Home Assistant is off in the settings.
-systemctl enable rukebox-mqtt.service 2>/dev/null || true
+# Off until Home Assistant is switched on in the settings: the web server starts it then.
+systemctl disable rukebox-mqtt.service 2>/dev/null || true
 if [ "$PROFILE" = "lxc" ]; then
     for unit in $LXC_UNITS; do
         systemctl disable "$unit" 2>/dev/null || true

@@ -1487,6 +1487,8 @@ SHELL_SETTINGS = (
     "folders.restart_sound",
     "hardware.act_led",
     "hardware.usb_port_mode",
+    "home_assistant.enabled",
+    "home_assistant.host",
     "network.ap_gateway",
     "network.ap_interface",
     "network.home_wifi_connection",
