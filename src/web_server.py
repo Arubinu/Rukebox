@@ -685,9 +685,8 @@ def _account_for_login(name, password):
 
     No name means the owner: that is the single password this interface had
     before accounts, and the page it serves still sends only that."""
-    people = accounts.load()
     if name:
-        found = accounts.by_name(name, people) if False else accounts.by_name(name)
+        found = accounts.by_name(name)
         return found if accounts.verify(found, password) else None
     found = accounts.owner()
     if accounts.verify(found, password):
@@ -760,11 +759,10 @@ def api_auth_account_delete(account_id):
         return jsonify({"ok": False, "error": "auth_required", "needs": "owner"}), 401
     if _session_account() is not None and _session_account()["id"] == account_id:
         return jsonify({"ok": False, "error": "cannot_delete_self"}), 400
-    if account_id == "owner" and not any(
-            one["role"] == "owner" and one["id"] != account_id for one in accounts.load()):
-        return jsonify({"ok": False, "error": "last_owner"}), 400
     try:
         accounts.delete(account_id)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
         return jsonify({"ok": False, "error": "account_not_found"}), 404
     stats.record("account_removed", label=account_id)
@@ -4381,6 +4379,23 @@ def api_clear_track_order(source_id):
 _SETTINGS_HIDDEN_KEYS = {"security.password_hash", "security.session_secret"}
 # Written from the page, never read back: a set one shows as this mask, which a save leaves alone.
 _SETTINGS_WRITE_ONLY = {"home_assistant.password"}
+# The machine and its door: where it listens, what it updates from, where it
+# keeps its files, the reset button and the USB port. An operator keeps every
+# other setting (src/roles.py).
+_OWNER_SETTINGS = frozenset(
+    {s.path for s in config_schema.SETTINGS if s.section in ("network", "updates", "paths")}
+    | {"security.gpio_reset_enabled", "security.gpio_reset_pin", "hardware.usb_port_mode"})
+
+
+def _owner_settings_in(keys):
+    """The keys among these only the owner may change, by whatever name they come."""
+    found = set()
+    for key in keys:
+        setting = config_schema.find_setting(key)
+        if setting is not None and setting.path in _OWNER_SETTINGS:
+            found.add(key)
+    return found
+
 _SECRET_MASK = "\u2022" * 8
 
 
@@ -4411,6 +4426,8 @@ def api_set_settings():
     if unknown:
         return jsonify({"ok": False, "error": "unknown_setting"}), 400
     body = named
+    if _role() != "owner" and _owner_settings_in(body):
+        return jsonify({"ok": False, "error": "auth_required", "needs": "owner"}), 401
     if _SETTINGS_HIDDEN_KEYS & set(body):
         return jsonify({"ok": False, "error": "use_auth_endpoint"}), 400
     body = {k: v for k, v in body.items() if not (k in _SETTINGS_WRITE_ONLY and v == _SECRET_MASK)}
@@ -7324,6 +7341,10 @@ def api_config_import():
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
         return jsonify({"ok": False, "error": "not_a_bundle"}), 400
+    if _role() != "owner" and isinstance(body.get("settings"), dict):
+        # An operator's import leaves the owner's settings as they are.
+        kept = _owner_settings_in(body["settings"])
+        body = dict(body, settings={k: v for k, v in body["settings"].items() if k not in kept})
 
     try:
         summary = config_bundle.import_bundle(body, cfg())

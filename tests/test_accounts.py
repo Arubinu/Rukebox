@@ -92,6 +92,18 @@ class AccountStoreTest(unittest.TestCase):
         accounts.delete("marie", self.path)
         self.assertIsNone(accounts.by_id("marie", self.path))
 
+    def test_the_last_owner_is_neither_demoted_nor_removed(self):
+        accounts.add({"name": "Le patron", "role": "owner", "password": "mot-de-passe-owner"},
+                     self.path)
+        accounts.add({"name": "Marie", "role": "member", "password": "mot-de-passe-marie"},
+                     self.path)
+        for change in (lambda: accounts.update("le-patron", {"role": "operator"}, self.path),
+                       lambda: accounts.delete("le-patron", self.path)):
+            with self.assertRaises(ValueError) as caught:
+                change()
+            self.assertEqual(str(caught.exception), "last_owner")
+        self.assertTrue(accounts.owner_has_password(self.path), "the door stays closed")
+
     def test_an_unknown_account_is_a_key_error(self):
         for call in (lambda: accounts.update("nobody", {"role": "member"}, self.path),
                      lambda: accounts.delete("nobody", self.path)):
@@ -234,6 +246,15 @@ class GateTest(unittest.TestCase):
             self.assertEqual(self.client.get(path).status_code, 401, path)
         self.assertEqual(self.client.post("/api/action/poweroff").status_code, 401)
         self.assertEqual(self.client.post("/api/system/reboot").status_code, 401)
+
+    def test_an_operator_leaves_the_machines_settings_to_the_owner(self):
+        self.people()
+        self.assertEqual(self.login("Paul", "mot-de-passe-paul").status_code, 200)
+        for key in ("network.ap_gateway", "AP_GATEWAY_ENABLED", "updates.github_repo",
+                    "paths.state_dir", "hardware.usb_port_mode"):
+            answer = self.client.post("/api/settings", json={key: "x"})
+            self.assertEqual(answer.status_code, 401, key)
+            self.assertEqual(answer.get_json()["needs"], "owner")
 
     def test_the_owner_reaches_everything(self):
         self.people()

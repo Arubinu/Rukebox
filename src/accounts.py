@@ -110,6 +110,13 @@ def validate(data, people=None):
     return clean
 
 
+def _keep_an_owner(before, after):
+    """Refuses a change that leaves accounts but no owner: with no owner the
+    door opens, and every member's password would stop meaning anything."""
+    if after and any(item["role"] == "owner" for item in before)             and not any(item["role"] == "owner" for item in after):
+        raise ValueError("last_owner")
+
+
 def by_id(account_id, path=None):
     for item in load(path):
         if item["id"] == account_id:
@@ -177,6 +184,7 @@ def update(account_id, data, path=None):
                     raise ValueError("password_too_short")
                 merged["hash"] = web_auth.hash_password(password)
             clean = validate(merged, doc["items"])
+            _keep_an_owner(doc["items"], doc["items"][:index] + [clean] + doc["items"][index + 1:])
             doc["items"][index] = clean
             found.append(clean)
             return doc
@@ -203,6 +211,7 @@ def delete(account_id, path=None):
         remaining = [item for item in doc["items"] if item["id"] != account_id]
         if len(remaining) == len(doc["items"]):
             return None
+        _keep_an_owner(doc["items"], remaining)
         doc["items"] = remaining
         found.append(True)
         return doc
