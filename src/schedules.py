@@ -1,6 +1,7 @@
 """Schedules: start the music, stop it, or both, on chosen days or one date, with settings that
 only hold while the schedule runs."""
 
+import calendar
 import logging
 import re
 import time
@@ -131,6 +132,8 @@ def validate(data):
         "name": name,
         "enabled": bool(data.get("enabled", True)),
         "date": day,
+        # The same day every year: a birthday, a feast.
+        "yearly": bool(day and data.get("yearly")),
         "days": [] if day else days,
         "start": start,
         "stop": stop,
@@ -221,7 +224,12 @@ def _clock(text):
 def day_matches(item, day):
     """A date beats the weekdays; neither means every day."""
     if item.get("date"):
-        return item["date"] == day.isoformat()
+        if not item.get("yearly"):
+            return item["date"] == day.isoformat()
+        month, date = int(item["date"][5:7]), int(item["date"][8:10])
+        if (month, date) == (2, 29) and not calendar.isleap(day.year):
+            date = 28          # a 29 February comes on the 28th in the other years
+        return (day.month, day.day) == (month, date)
     days = item.get("days") or []
     return not days or day.weekday() in days
 

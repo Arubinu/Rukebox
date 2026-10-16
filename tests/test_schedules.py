@@ -52,6 +52,22 @@ class RulesTest(unittest.TestCase):
         self.assertEqual(clean["days"], [])
         self.assertEqual(clean["date"], "2026-10-10")
 
+    def test_a_date_can_come_back_every_year(self):
+        birthday = schedules.validate({"name": "Marie", "start": "08:00", "date": "2020-03-14",
+                                       "yearly": True})
+        self.assertTrue(birthday["yearly"])
+        self.assertFalse(schedules.validate({"name": "A", "start": "08:00", "yearly": True})["yearly"],
+                         "every year needs a date")
+        for day, expected in ((datetime(2026, 3, 14).date(), True), (datetime(2031, 3, 14).date(), True),
+                              (datetime(2026, 3, 15).date(), False), (datetime(2026, 4, 14).date(), False)):
+            self.assertEqual(schedules.day_matches(birthday, day), expected, day)
+        leap = schedules.validate({"name": "B", "start": "08:00", "date": "2024-02-29", "yearly": True})
+        self.assertTrue(schedules.day_matches(leap, datetime(2028, 2, 29).date()))
+        self.assertTrue(schedules.day_matches(leap, datetime(2027, 2, 28).date()), "the 28th otherwise")
+        self.assertFalse(schedules.day_matches(leap, datetime(2028, 2, 28).date()), "not in a leap year")
+        once = schedules.validate({"name": "C", "start": "08:00", "date": "2026-03-14"})
+        self.assertFalse(schedules.day_matches(once, datetime(2027, 3, 14).date()), "one date stays one")
+
     def test_settings_are_kept_as_text_and_read_typed(self):
         clean = schedules.validate({"name": "A", "start": "07:00",
                                     "settings": {"BASE_VOLUME": 35, "MUSIC_LOOP": False}})

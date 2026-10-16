@@ -375,7 +375,22 @@ function weekdayNames() {
   return [0, 1, 2, 3, 4, 5, 6].map((i) => format.format(new Date(Date.UTC(2024, 0, 1 + i))).replace(/\.$/, ""));
 }
 
+/* The same day as `iso` in any year; a 29 February comes on the 28th otherwise. */
+function scheduleYearlyMatches(iso, date) {
+  const month = Number(iso.slice(5, 7));
+  let day = Number(iso.slice(8, 10));
+  const year = date.getUTCFullYear();
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  if (month === 2 && day === 29 && !leap) day = 28;
+  return date.getUTCMonth() + 1 === month && date.getUTCDate() === day;
+}
+
 function scheduleDaysLabel(item) {
+  if (item.date && item.yearly) {
+    const day = new Intl.DateTimeFormat(currentLang, { day: "numeric", month: "long", timeZone: "UTC" })
+      .format(new Date(item.date + "T00:00:00Z"));
+    return t("schedules.every_year", { day });
+  }
   if (item.date) {
     return new Intl.DateTimeFormat(currentLang, { dateStyle: "medium", timeZone: "UTC" })
       .format(new Date(item.date + "T00:00:00Z"));

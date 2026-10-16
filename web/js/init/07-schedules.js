@@ -173,6 +173,7 @@ function renderScheduleWeek() {
   const base = new Date(today + "T00:00:00Z").getTime();
   const rows = [0, 1, 2, 3, 4, 5, 6].map(() => ({ segments: [], marks: [] }));
   const matches = (item, date) => {
+    if (item.date && item.yearly) return scheduleYearlyMatches(item.date, date);
     if (item.date) return item.date === date.toISOString().slice(0, 10);
     const days = item.days || [];
     return !days.length || days.includes((date.getUTCDay() + 6) % 7);
@@ -309,7 +310,7 @@ function paintScheduleDays(chosen) {
 function updateScheduleForm() {
   const when = document.getElementById("schedWhen").value;
   document.getElementById("schedDays").hidden = when !== "days";
-  document.getElementById("schedDateRow").hidden = when !== "date";
+  document.getElementById("schedDateRow").hidden = when !== "date" && when !== "yearly";
   const startOn = document.getElementById("schedStartOn").checked;
   const stopOn = document.getElementById("schedStopOn").checked;
   document.getElementById("schedStart").disabled = !startOn;
@@ -462,7 +463,8 @@ function fillScheduleForm(item) {
   const data = item || { name: "", days: [], date: null, start: "07:00", stop: null,
                          stop_action: "pause", list: null, settings: {} };
   document.getElementById("schedName").value = data.name;
-  document.getElementById("schedWhen").value = data.date ? "date" : (data.days || []).length ? "days" : "daily";
+  document.getElementById("schedWhen").value = data.date ? (data.yearly ? "yearly" : "date")
+    : (data.days || []).length ? "days" : "daily";
   paintScheduleDays(data.days || []);
   document.getElementById("schedDate").value = data.date || "";
   document.getElementById("schedStartOn").checked = !!data.start;
@@ -527,7 +529,8 @@ schedForm.addEventListener("submit", async (event) => {
     name: document.getElementById("schedName").value,
     days: when === "days"
       ? Array.from(document.querySelectorAll("#schedDays input:checked")).map((el) => Number(el.value)) : [],
-    date: when === "date" ? document.getElementById("schedDate").value : null,
+    date: when === "date" || when === "yearly" ? document.getElementById("schedDate").value : null,
+    yearly: when === "yearly",
     start: document.getElementById("schedStartOn").checked ? document.getElementById("schedStart").value : null,
     stop: document.getElementById("schedStopOn").checked ? document.getElementById("schedStop").value : null,
     stop_action: document.getElementById("schedAction").value,
@@ -539,7 +542,7 @@ schedForm.addEventListener("submit", async (event) => {
     showError("schedule_bad_days");
     return;
   }
-  if (when === "date" && !body.date) {
+  if ((when === "date" || when === "yearly") && !body.date) {
     showError("schedule_bad_date");
     return;
   }
