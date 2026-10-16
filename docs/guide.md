@@ -1540,7 +1540,7 @@ schedule has a name and:
   date - a birthday, a feast; its year does not matter, and a 29 February
   comes on the 28th in the other years. A date beats the weekdays; when two
   weekly schedules overlap, the first of the list wins.
-- **Says**: a sentence the radio's voice says once the schedule has started -
+- **Spoken sentence**: a sentence the radio's voice says once the schedule has started -
   after its opening announcement, if it has one - such as "Happy birthday
   Marie". With *every year*, a birthday says itself.
 - **Recorded message**: someone's own voice, played after the sentence - up to
