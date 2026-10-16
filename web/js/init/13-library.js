@@ -150,7 +150,7 @@ function voiceRecorder(limitSec) {
 const NAME_VOICE_SEC = 6;
 
 /* A name said in its owner's voice: recorded here (https only), or sent as a file by the owner. */
-async function editNameVoice({ url, has, title, hint, file }) {
+async function editNameVoice({ url, has, title, hint, file, limit }) {
   const box = document.createElement("div");
   box.className = "name-voice-box";
   const intro = document.createElement("p");
@@ -167,7 +167,7 @@ async function editNameVoice({ url, has, title, hint, file }) {
     current.src = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
     box.append(label, current);
   }
-  const recorder = voiceRecorder(NAME_VOICE_SEC);
+  const recorder = voiceRecorder(limit || NAME_VOICE_SEC);
   box.append(recorder.node);
   let picker = null;
   if (file) {

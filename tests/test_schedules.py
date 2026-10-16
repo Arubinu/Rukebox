@@ -244,6 +244,20 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual(said, ["Joyeux anniversaire Marie"])
         say.assert_called_once()
 
+    def test_the_recorded_message_follows_the_sentence(self):
+        self.add(say="Joyeux anniversaire Marie")
+        voice = schedules.voice_path(self.dir, "morning")
+        os.makedirs(os.path.dirname(voice))
+        with open(voice, "wb") as f:
+            f.write(b"x")
+        with mock.patch.object(self.daemon, "_speech_text_file", return_value="/s.wav"), \
+                mock.patch.object(self.daemon, "_say_path") as say:
+            self.tick(datetime(2026, 10, 5, 7, 0))
+            with mock.patch.object(rukebox_daemon.time, "time", return_value=time.time() + 10):
+                for _ in range(3):
+                    self.daemon._check_reminders()
+        self.assertEqual([c.args[0] for c in say.call_args_list], ["/s.wav", voice])
+
     def test_the_start_starts_the_music_once(self):
         self.add()
         self.tick(at(5, 6, 59, 45))

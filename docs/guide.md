@@ -1543,6 +1543,11 @@ schedule has a name and:
 - **Says**: a sentence the radio's voice says once the schedule has started -
   after its opening announcement, if it has one - such as "Happy birthday
   Marie". With *every year*, a birthday says itself.
+- **Recorded message**: someone's own voice, played after the sentence - up to
+  30 seconds, recorded in the browser (the microphone needs the HTTPS
+  address) or sent as an audio file. Silences are cut and the level matched,
+  as for a name in its owner's voice. A schedule is saved before it can hold
+  one, and deleting the schedule deletes it.
 - **Starts the music at** and **Stops at**: one, the other, or both. A start
   only starts the music when nothing is playing - like the daily start, it is
   a floor, not a leash. A stop at or before the start is the next morning

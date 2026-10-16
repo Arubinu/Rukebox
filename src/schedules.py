@@ -3,6 +3,7 @@ only hold while the schedule runs."""
 
 import calendar
 import logging
+import os
 import re
 import time
 from datetime import date as date_type, timedelta
@@ -16,6 +17,7 @@ BLOCK = "schedules"
 
 STOP_ACTIONS = ("pause", "standby", "poweroff")
 SAY_MAX = 200
+VOICE_MAX_SEC = 30.0
 NAME_MAX = 40
 VALUE_MAX = 200
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
@@ -189,6 +191,17 @@ def update(schedule_id, data, path=None):
                 _write(path, items)
                 return clean
     raise KeyError(schedule_id)
+
+
+def voice_path(state_dir, schedule_id):
+    """Where a schedule's recorded message lives, or None for an id that cannot name a file."""
+    safe = re.sub(r"[^A-Za-z0-9_-]", "", str(schedule_id or ""))[:64]
+    return os.path.join(state_dir, "schedule-voices", safe + ".wav") if safe else None
+
+
+def voice(state_dir, schedule_id):
+    found = voice_path(state_dir, schedule_id)
+    return found if found and os.path.isfile(found) else None
 
 
 def delete(schedule_id, path=None):

@@ -307,6 +307,8 @@ function paintScheduleDays(chosen) {
   }));
 }
 
+const SCHEDULE_VOICE_SEC = 30;
+
 function updateScheduleForm() {
   const when = document.getElementById("schedWhen").value;
   document.getElementById("schedDays").hidden = when !== "days";
@@ -318,7 +320,36 @@ function updateScheduleForm() {
   document.getElementById("schedActionRow").hidden = !stopOn;
   document.getElementById("schedAnnouncementRow").hidden = !startOn;
   document.getElementById("schedSayRow").hidden = !startOn;
+  document.getElementById("schedVoiceRow").hidden = !startOn;
+  paintScheduleVoice();
 }
+
+function editedSchedule() {
+  return editingScheduleId ? (schedulesData || []).find((one) => one.id === editingScheduleId) : null;
+}
+
+// The recording needs the schedule's id: a schedule being created has none yet.
+function paintScheduleVoice() {
+  const item = editedSchedule();
+  const button = document.getElementById("schedVoice");
+  button.disabled = !item;
+  button.dataset.i18n = item && item.voice ? "name_voice.edit" : "name_voice.add";
+  button.textContent = t(button.dataset.i18n);
+  document.getElementById("schedVoiceLater").hidden = !!item;
+}
+
+document.getElementById("schedVoice").addEventListener("click", async () => {
+  const item = editedSchedule();
+  if (!item) return;
+  const changed = await editNameVoice({
+    url: "/api/schedules/" + encodeURIComponent(item.id) + "/voice", has: !!item.voice,
+    title: t("schedules.voice_title", { name: item.name }), hint: t("schedules.voice_hint"), file: true,
+    limit: SCHEDULE_VOICE_SEC,
+  });
+  if (!changed) return;
+  await refreshSchedules();
+  paintScheduleVoice();
+});
 ["schedWhen", "schedStartOn", "schedStopOn"].forEach((id) => {
   document.getElementById(id).addEventListener("change", updateScheduleForm);
 });

@@ -79,6 +79,19 @@ class NameVoiceRouteTest(unittest.TestCase):
         self.assertTrue(name_voice.existing(self.dir, "p2"))
         self.assertEqual(self.send("/api/devices/name_voice?device_id=nobody").status_code, 404)
 
+    def test_a_schedule_keeps_a_longer_message_dropped_with_it(self):
+        mock.patch.object(ws.schedules, "load", return_value=[{"id": "birthday", "name": "Birthday"}]).start()
+        mock.patch.object(ws, "notify_daemon").start()
+        self.assertEqual(self.send("/api/schedules/birthday/voice", length=31).get_json()["error"],
+                         "schedule_voice_too_long")
+        self.assertTrue(self.send("/api/schedules/birthday/voice", length=20).get_json()["ok"],
+                        "longer than a name")
+        self.assertTrue(self.client.get("/api/schedules").get_json()["data"]["schedules"][0]["voice"])
+        self.assertEqual(self.send("/api/schedules/nobody/voice").status_code, 404)
+        with mock.patch.object(ws.schedules, "delete"):
+            self.client.delete("/api/schedules/birthday")
+        self.assertIsNone(ws.schedules.voice(self.dir, "birthday"))
+
     def test_the_game_says_a_recorded_name_and_synthesises_the_rest(self):
         os.makedirs(name_voice.folder(self.dir))
         with open(name_voice.path(self.dir, "p1"), "wb") as f:

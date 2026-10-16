@@ -2622,39 +2622,46 @@ def api_dedication_voice():
 
 def _name_voice_answer(person):
     """GET plays the recording, POST (the body is audio) replaces it, DELETE drops it."""
-    state_dir = cfg()["STATE_DIR"]
-    if not person or not name_voice.path(state_dir, person):
+    target = name_voice.path(cfg()["STATE_DIR"], person) if person else None
+    return _voice_file_answer(target, name_voice.MAX_SEC, VOICE_MAX_BYTES, "name_voice_too_long")
+
+
+# A file sent for a schedule may be a whole MP3, not a short recording made here.
+SCHEDULE_VOICE_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _voice_file_answer(target, max_sec, max_bytes, too_long):
+    """A recording kept at `target`, levelled by name_voice.prepare(): GET, POST (audio body), DELETE."""
+    if not target:
         return jsonify({"ok": False, "error": "not_found"}), 404
     if request.method == "GET":
-        found = name_voice.existing(state_dir, person)
-        if not found:
+        if not os.path.isfile(target):
             return jsonify({"ok": False, "error": "not_found"}), 404
-        return send_file(found, mimetype="audio/wav", max_age=0)
+        return send_file(target, mimetype="audio/wav", max_age=0)
     if request.method == "DELETE":
-        name_voice.remove(state_dir, person)
+        if os.path.isfile(target):
+            os.remove(target)
         return jsonify({"ok": True})
     if not (request.mimetype or "").lower().startswith("audio/"):
         return jsonify({"ok": False, "error": "voice_bad_type"}), 400
     data = request.get_data(cache=False)
     if not data:
         return jsonify({"ok": False, "error": "voice_empty"}), 400
-    if len(data) > VOICE_MAX_BYTES:
+    if len(data) > max_bytes:
         return jsonify({"ok": False, "error": "voice_too_long"}), 413
-    folder = name_voice.folder(state_dir)
+    folder = os.path.dirname(target)
     os.makedirs(folder, exist_ok=True)
     raw = os.path.join(folder, "upload-%s" % secrets.token_hex(8))
     try:
         with open(raw, "wb") as f:
             f.write(data)
-        target = name_voice.path(state_dir, person)
         trial = target + ".new.wav"
         length = name_voice.prepare(raw, trial)
         if not length:
             return jsonify({"ok": False, "error": "name_voice_unreadable"}), 400
-        if length > name_voice.MAX_SEC:
+        if length > max_sec:
             os.remove(trial)
-            return jsonify({"ok": False, "error": "name_voice_too_long",
-                            "detail": int(name_voice.MAX_SEC)}), 413
+            return jsonify({"ok": False, "error": too_long, "detail": int(max_sec)}), 413
         os.replace(trial, target)
     finally:
         if os.path.exists(raw):
@@ -2853,9 +2860,28 @@ def _active_list_id():
 def api_schedules():
     """Every schedule, and the settings one may hold for itself."""
     return jsonify({"ok": True, "data": {
-        "schedules": schedules.load(),
+        "schedules": _with_voices(schedules.load()),
         "settings": sorted(config_schema.BY_ENV[key].path for key in schedules.OVERRIDABLE),
     }})
+
+
+def _with_voices(items):
+    state_dir = cfg()["STATE_DIR"]
+    for item in items:
+        item["voice"] = bool(schedules.voice(state_dir, item["id"]))
+    return items
+
+
+@app.route("/api/schedules/<schedule_id>/voice", methods=["GET", "POST", "DELETE"])
+def api_schedule_voice(schedule_id):
+    """A message recorded or sent for a schedule, played once it has started."""
+    if not any(item["id"] == schedule_id for item in schedules.load()):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    answer = _voice_file_answer(schedules.voice_path(cfg()["STATE_DIR"], schedule_id),
+                                schedules.VOICE_MAX_SEC, SCHEDULE_VOICE_MAX_BYTES, "schedule_voice_too_long")
+    if request.method != "GET":
+        notify_daemon("reload_schedules")
+    return answer
 
 
 @app.route("/api/schedules", methods=["POST"])
@@ -2880,7 +2906,7 @@ def api_order_schedules():
         return jsonify({"ok": False, "error": str(e)}), 400
     notify_daemon("reload_schedules")
     stats.record("schedule_changed", label="order", detail={"order": [item["id"] for item in items]})
-    return jsonify({"ok": True, "data": {"schedules": items}})
+    return jsonify({"ok": True, "data": {"schedules": _with_voices(items)}})
 
 
 @app.route("/api/schedules/<schedule_id>", methods=["POST"])
@@ -2906,6 +2932,9 @@ def api_delete_schedule(schedule_id):
         return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
         return jsonify({"ok": False, "error": "not_found"}), 404
+    voice = schedules.voice(cfg()["STATE_DIR"], schedule_id)
+    if voice:
+        os.remove(voice)
     notify_daemon("reload_schedules")
     stats.record("schedule_removed", label=schedule_id)
     return jsonify({"ok": True})

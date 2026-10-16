@@ -2881,9 +2881,11 @@ class RadioDaemon:
 
     def _schedule_start(self, item):
         log.info("Schedule '%s': start", item["name"])
-        if item.get("say"):
+        voice = schedules.voice(self.cfg["STATE_DIR"], item["id"])
+        if item.get("say") or voice:
             # Said once the music or the opening announcement has started (_check_reminders).
-            self._schedule_say = (item["say"], time.time() + 3)
+            parts = [("say", item["say"])] if item.get("say") else []
+            self._schedule_say = (parts + ([("file", voice)] if voice else []), time.time() + 3)
         opening = self._schedule_announcement(item)
         if self.mode in ("idle", "stopped"):
             self.state.mark_triggered_today("last_music_start")
@@ -3551,11 +3553,19 @@ class RadioDaemon:
         if self._schedule_say and now >= self._schedule_say[1]:
             if self.mode not in ("music", "idle", "stopped") or self._duck_proc is not None:
                 return
-            text, _due = self._schedule_say
-            self._schedule_say = None
-            path = self._speech_text_file(speech.clean_text(text, schedules.SAY_MAX))
+            parts, _due = self._schedule_say
+            kind, part = parts.pop(0)
+            if not parts:
+                self._schedule_say = None
+            # The sentence first, then the recorded message: one per tick, each waits for the last.
+            if kind == "file":
+                path = part
+                self.stats.record("reminder_said", label=os.path.basename(part))
+            else:
+                path = self._speech_text_file(speech.clean_text(part, schedules.SAY_MAX))
+                if path:
+                    self.stats.record("reminder_said", label=speech.clean_text(part, 80))
             if path:
-                self.stats.record("reminder_said", label=speech.clean_text(text, 80))
                 self._say_path(path, under=self._music_under() or self.REMINDER_UNDER)
                 return
         for item in self.state.reminders():
