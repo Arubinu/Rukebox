@@ -15,6 +15,7 @@ log = logging.getLogger("schedules")
 BLOCK = "schedules"
 
 STOP_ACTIONS = ("pause", "standby", "poweroff")
+SAY_MAX = 200
 NAME_MAX = 40
 VALUE_MAX = 200
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
@@ -125,6 +126,9 @@ def validate(data):
     music = None if music is None else str(music).strip()
 
     announcement = str(data.get("announcement") or "").strip() or None
+    say = " ".join(str(data.get("say") or "").split())
+    if len(say) > SAY_MAX:
+        raise ValueError("schedule_say_too_long")
     if announcement and (len(announcement) > 80 or not re.match(r"^[a-z0-9-]+$", announcement)):
         raise ValueError("schedule_bad_announcement")
 
@@ -140,6 +144,7 @@ def validate(data):
         "stop_action": action,
         "list": music,
         "announcement": announcement if start else None,
+        "say": (say or None) if start else None,
         "settings": _settings(data.get("settings")),
     }
 

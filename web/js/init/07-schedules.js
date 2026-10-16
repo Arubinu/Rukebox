@@ -317,6 +317,7 @@ function updateScheduleForm() {
   document.getElementById("schedStop").disabled = !stopOn;
   document.getElementById("schedActionRow").hidden = !stopOn;
   document.getElementById("schedAnnouncementRow").hidden = !startOn;
+  document.getElementById("schedSayRow").hidden = !startOn;
 }
 ["schedWhen", "schedStartOn", "schedStopOn"].forEach((id) => {
   document.getElementById(id).addEventListener("change", updateScheduleForm);
@@ -477,6 +478,7 @@ function fillScheduleForm(item) {
     "playback.base_volume" in settings ? settings["playback.base_volume"] : "";
   fillScheduleLists(data.list);
   fillScheduleAnnouncements(data.announcement);
+  document.getElementById("schedSay").value = data.say || "";
   schedOverrides.replaceChildren();
   Object.keys(settings).forEach((key) => {
     if (key === "playback.base_volume") return;
@@ -536,6 +538,7 @@ schedForm.addEventListener("submit", async (event) => {
     stop_action: document.getElementById("schedAction").value,
     list: list === "keep" ? null : list === "all" ? "" : list.slice(3),
     announcement: document.getElementById("schedAnnouncement").value || null,
+    say: document.getElementById("schedSay").value.trim() || null,
     settings: collectScheduleSettings(),
   };
   if (when === "days" && !body.days.length) {

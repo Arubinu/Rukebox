@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 import unittest
 from datetime import datetime
 from unittest import mock
@@ -51,6 +52,14 @@ class RulesTest(unittest.TestCase):
         clean = schedules.validate({"name": "Party", "start": "20:00", "days": [4, 5], "date": "2026-10-10"})
         self.assertEqual(clean["days"], [])
         self.assertEqual(clean["date"], "2026-10-10")
+
+    def test_a_sentence_is_said_only_with_a_start(self):
+        self.assertEqual(schedules.validate({"name": "A", "start": "08:00", "say": "  Bon\n matin "})["say"],
+                         "Bon matin")
+        self.assertIsNone(schedules.validate({"name": "A", "stop": "23:00", "say": "Bonne nuit"})["say"])
+        with self.assertRaises(ValueError) as refused:
+            schedules.validate({"name": "A", "start": "08:00", "say": "x" * 201})
+        self.assertEqual(str(refused.exception), "schedule_say_too_long")
 
     def test_a_date_can_come_back_every_year(self):
         birthday = schedules.validate({"name": "Marie", "start": "08:00", "date": "2020-03-14",
@@ -222,6 +231,18 @@ class DaemonTest(unittest.TestCase):
         base = {"name": "Morning", "start": "07:00", "stop": "09:00"}
         base.update(fields)
         return schedules.add(base, self.path)
+
+    def test_a_schedule_says_its_sentence_once_it_has_started(self):
+        self.add(say="Joyeux anniversaire Marie")
+        said = []
+        with mock.patch.object(self.daemon, "_speech_text_file", side_effect=lambda text: said.append(text) or "/s.wav"),                 mock.patch.object(self.daemon, "_say_path") as say:
+            self.tick(datetime(2026, 10, 5, 7, 0))
+            self.assertEqual(said, [], "not in the same breath as the start")
+            with mock.patch.object(rukebox_daemon.time, "time", return_value=time.time() + 10):
+                self.daemon._check_reminders()
+                self.daemon._check_reminders()
+        self.assertEqual(said, ["Joyeux anniversaire Marie"])
+        say.assert_called_once()
 
     def test_the_start_starts_the_music_once(self):
         self.add()

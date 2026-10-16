@@ -1519,9 +1519,10 @@ schedule has a name and:
 - **Days**: every day, chosen weekdays, one date, or **every year** on a
   date - a birthday, a feast; its year does not matter, and a 29 February
   comes on the 28th in the other years. A date beats the weekdays; when two
-  weekly schedules overlap, the first of the list wins. With an opening
-  announcement made of a spoken sentence, "Happy birthday Marie" says itself
-  every year.
+  weekly schedules overlap, the first of the list wins.
+- **Says**: a sentence the radio's voice says once the schedule has started -
+  after its opening announcement, if it has one - such as "Happy birthday
+  Marie". With *every year*, a birthday says itself.
 - **Starts the music at** and **Stops at**: one, the other, or both. A start
   only starts the music when nothing is playing - like the daily start, it is
   a floor, not a leash. A stop at or before the start is the next morning
