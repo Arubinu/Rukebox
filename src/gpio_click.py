@@ -15,7 +15,9 @@ from gpio_reset import is_raspberry_pi, pinctrl_available, pin_is_grounded  # no
 
 log = logging.getLogger("gpio_click")
 
-CONTROL_SOCKET = os.environ.get("CONTROL_SOCKET", "/tmp/rukebox_control.sock")
+# PATHS_CONTROL_SOCKET is what rukebox.env writes; CONTROL_SOCKET was its older name.
+CONTROL_SOCKET = (os.environ.get("PATHS_CONTROL_SOCKET") or os.environ.get("CONTROL_SOCKET")
+                  or "/tmp/rukebox_control.sock")
 
 
 def send_command(cmd):

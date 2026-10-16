@@ -17,7 +17,9 @@ import fliclib  # noqa: E402  (provided by the Flic SDK, see path above)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [flic] %(message)s")
 log = logging.getLogger("flic")
 
-CONTROL_SOCKET = os.environ.get("CONTROL_SOCKET", "/tmp/rukebox_control.sock")
+# PATHS_CONTROL_SOCKET is what rukebox.env writes; CONTROL_SOCKET was its older name.
+CONTROL_SOCKET = (os.environ.get("PATHS_CONTROL_SOCKET") or os.environ.get("CONTROL_SOCKET")
+                  or "/tmp/rukebox_control.sock")
 FLICD_HOST = os.environ.get("FLICD_HOST", "localhost")
 
 

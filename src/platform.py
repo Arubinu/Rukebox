@@ -145,10 +145,12 @@ def _has_media_upload():
 def _music_dir():
     """The folder the library is read from, resolved as the rest of the project
     resolves it: RUKEBOX_MUSIC_DIR, then the environment the units carry
-    (MUSIC_DIR, which is what the generated rukebox.env writes), then the root a
-    first start defaults to. `paths.music_dir()` alone answers /home/pi/audio on
-    an LXC, whose music is under /srv/rukebox/audio/music and named in the YAML."""
+    (FOLDERS_MUSIC, which is what the generated rukebox.env writes, or MUSIC_DIR,
+    its older name a container's own file may still use), then the root a first
+    start defaults to. `paths.music_dir()` alone answers /home/pi/audio on an
+    LXC, whose music is under /srv/rukebox/audio/music and named in the YAML."""
     return (os.environ.get("RUKEBOX_MUSIC_DIR")
+            or os.environ.get("FOLDERS_MUSIC")
             or os.environ.get("MUSIC_DIR")
             or paths.music_dir())
 

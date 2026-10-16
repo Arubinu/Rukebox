@@ -102,6 +102,11 @@ class DetectionTest(unittest.TestCase):
             self.assertTrue(host.has("media_upload"))
         with mock.patch.dict(os.environ, {"MUSIC_DIR": os.path.join(folder, "gone")}):
             self.assertFalse(host.has("media_upload"))
+        # The name the generated rukebox.env carries since the settings took their own names.
+        with mock.patch.dict(os.environ, {"FOLDERS_MUSIC": folder}):
+            self.assertTrue(host.has("media_upload"))
+        with mock.patch.dict(os.environ, {"FOLDERS_MUSIC": os.path.join(folder, "gone")}):
+            self.assertFalse(host.has("media_upload"))
 
     def test_the_container_manager_systemd_names(self):
         """The file systemd writes is what a Proxmox LXC is recognised by: it
