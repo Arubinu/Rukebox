@@ -349,6 +349,7 @@ class RadioDaemon:
         self._lists_stamp = None
         self._schedule_items = []
         self._schedule_say = None
+        self._cast = None
         self._schedules_stamp = False
         self._schedule_active = None
         self._schedule_signature = None
@@ -715,6 +716,8 @@ class RadioDaemon:
             if self._paused:
                 return "pause"
             return "start" if time.monotonic() < self._light_start_until else "play"
+        if mode == "cast":
+            return "pause" if self._paused else "play"
         if self._dawn_left():
             return "dawn"
         return "idle"
@@ -954,7 +957,7 @@ class RadioDaemon:
 
     def _leveled(self, kind, path):
         """Whether a file is an announcement, brought to the music's loudness (a spoken text is not)."""
-        return (kind not in ("music", "speech", "restart_cue", "game")
+        return (kind not in ("music", "speech", "restart_cue", "game", "cast")
                 and os.path.dirname(path) != self._speech_dir())
 
     def _announce_gain(self, path, wait=False):
@@ -2692,6 +2695,63 @@ class RadioDaemon:
         else:
             self._faded_in(self._play_next_track, self._interactive_fade(), music_only=True)
 
+    # What a controller sends is played only from the network, never a file of the radio.
+    CAST_SCHEMES = ("http://", "https://")
+    CAST_GRACE_SEC = 6
+
+    def _cast_url(self, value):
+        text = str(value or "").strip()
+        if not text.lower().startswith(self.CAST_SCHEMES) or len(text) > 2048 \
+                or any(c.isspace() for c in text):
+            return None
+        return text
+
+    def _cast_play(self, msg, source):
+        """Plays what a DLNA controller sent; the radio's own music waits, faded out."""
+        url = self._cast_url(msg.get("url"))
+        if not url:
+            return {"ok": False, "error": "bad_url"}
+        if self.mode not in ("music", "idle", "stopped", "cast"):
+            return {"ok": False, "error": "busy"}
+        meta = {key: speech.clean_text(msg.get(key), 120) or None for key in ("title", "artist", "album")}
+        meta["art"] = self._cast_url(msg.get("art"))
+        self._set_timer("cast_end", None)
+        if self.mode != "cast":
+            if self.mode == "music":
+                self._resume_track = (self._last_music_track, self._position)
+                if self._paused:
+                    self._end_play("interrupted")
+                else:
+                    self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
+            self._resume_mode = self.mode
+            self._restore_base_volume()
+        self._paused = False
+        self.mode = "cast"
+        self._cast = dict(meta, url=url)
+        log.info("Receiving: %s", meta["title"] or url)
+        self.stats.record("cast_started", label=meta["title"] or url.split("/")[2][:80],
+                          detail={"source": source})
+        self._begin_play("cast", url)
+        self.mpv.set_pause(False)
+        return {"ok": True}
+
+    def _end_cast(self, resume=True):
+        """Back to the radio's own music, or to the quiet it was in."""
+        self._set_timer("cast_end", None)
+        self._cast = None
+        self._end_play("stopped")
+        self.mpv.stop_playback()
+        self._paused = False
+        if not resume:
+            return
+        if self._resume_mode in ("idle", "stopped"):
+            self.mode, self._resume_mode = self._resume_mode, None
+            self._start_keepalive(target_mode=self.mode, quiet=True)
+        else:
+            self._resume_mode = "music"
+            self._resume_after_announce()
+        self._bump_state()
+
     def _after_announce_finished(self, mode_name):
         if mode_name == "cutoff_announce":
             self._do_shutdown_sequence(tail=True)
@@ -3769,6 +3829,11 @@ class RadioDaemon:
         if self.mode == "game":
             return
 
+        if self.mode == "cast":
+            self._set_timer("cast_end", self.CAST_GRACE_SEC,
+                            lambda: self._end_cast() if self.mode == "cast" else None)
+            return
+
         if self.mode in ("idle", "stopped"):
             self._start_keepalive(target_mode=self.mode)
             return
@@ -4024,7 +4089,7 @@ class RadioDaemon:
 
     def _set_pause(self, paused, source):
         """Pauses or resumes what is playing."""
-        pausable = self.mode == "music" or self.mode == "meme" \
+        pausable = self.mode in ("music", "meme", "cast") \
             or self.mode.startswith(("custom:", "button_announce:"))
         if not pausable:
             return "not_playing_music"
@@ -4367,6 +4432,11 @@ class RadioDaemon:
                 self._record_cutoff_trigger("after_game")
                 self.state.mark_triggered_today("last_cutoff_trigger")
                 self._standby_after_game = True
+            elif self.mode == "cast":
+                log.info("Cutoff while receiving: the sent music stops")
+                self._end_cast(resume=False)
+                self.mode = "idle"
+                self._trigger_cutoff_from_idle()
             elif self.mode in ("idle", "stopped") or (self.mode == "music" and not self._current_track):
                 self._trigger_cutoff_from_idle()
             elif self.cfg["CUTOFF_MODE"] == "exact":
@@ -4514,6 +4584,7 @@ class RadioDaemon:
             "loop_mode": self._loop_mode,
             "muted": self._muted,
             "output_override": self._output_override,
+            "cast": dict(self._cast) if self._cast and self.mode == "cast" else None,
             "usb_music": self._usb_music_status(),
             "pause_durations": self._pause_durations(),
             "sleep_durations": self._sleep_durations(),
@@ -4586,6 +4657,10 @@ class RadioDaemon:
             if cmd == "next_track":
                 if self.mode == "shutting_down":
                     return {"ok": False, "error": "shutting_down"}
+                if self.mode == "cast":
+                    # Next leaves what was sent: the radio's own music comes back.
+                    self._end_cast()
+                    return {"ok": True}
                 self.stats.record(
                     "track_skipped", label=source,
                     detail={"source": source, "mode": self.mode},
@@ -4780,6 +4855,13 @@ class RadioDaemon:
                 return self._reload_hidden()
             if cmd == "set_active_list":
                 return self._set_active_list(msg.get("id"), source, bool(msg.get("start")))
+            if cmd == "cast_play":
+                return self._cast_play(msg, source)
+            if cmd == "cast_stop":
+                if self.mode != "cast":
+                    return {"ok": False, "error": "nothing_to_stop"}
+                self._end_cast()
+                return {"ok": True}
             if cmd == "skip_sound":
                 mode = self.mode
                 if self._skip_ducked():

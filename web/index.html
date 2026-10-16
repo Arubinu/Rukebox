@@ -1534,6 +1534,13 @@
               </div>
               <input type="checkbox" id="dlnaRenderer" data-key="audio.dlna_renderer" class="switch-input" role="switch" aria-describedby="dlnaRendererDesc">
             </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="dlnaReceive" data-i18n="mqtt.dlna_receive">Play what is sent</label>
+                <p class="field-desc" id="dlnaReceiveDesc" data-i18n="mqtt.dlna_receive_desc">A phone or Home Assistant can then send it a song or a web radio; the radio's own music waits and comes back after.</p>
+              </div>
+              <input type="checkbox" id="dlnaReceive" data-key="audio.dlna_receive" class="switch-input" role="switch" aria-describedby="dlnaReceiveDesc">
+            </div>
             <p class="hint" id="mqttStatus" role="status"></p>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>

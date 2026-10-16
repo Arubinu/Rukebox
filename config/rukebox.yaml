@@ -90,9 +90,16 @@ audio:
   # Assistant then makes it a media player tile - play, pause, next,
   # previous, volume, mute, and what plays with its cover - and DLNA apps on a
   # phone can drive it too. Anyone on the same network may then use those
-  # controls, without the interface's password. It plays only its own music:
-  # nothing can be sent to it.
+  # controls, without the interface's password. What a controller sends is
+  # played only with dlna_receive below.
   dlna_renderer: false
+
+  # With the DLNA media player on: also plays what a controller sends - a
+  # song from a phone app, a web radio from Home Assistant. The radio's own
+  # music fades out and waits, then comes back where it was. Only web
+  # addresses are played, never a file of the radio; the nightly cutoff
+  # ends what was sent. Off (default): nothing can be sent to it.
+  dlna_receive: false
 
 # ---------------------------------------------------------------
 # Bluetooth: speaker, and which controller does what

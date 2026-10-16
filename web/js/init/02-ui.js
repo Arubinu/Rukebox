@@ -175,7 +175,8 @@ function setVolumeFill(el) {
   el.style.setProperty("--pct", el.value + "%");
 }
 
-const MODE_KEYS = ["music", "idle", "stopped", "meme", "cutoff_announce", "shutting_down", "restarting", "game"];
+const MODE_KEYS = ["music", "idle", "stopped", "meme", "cutoff_announce", "shutting_down", "restarting", "game",
+                   "cast"];
 
 function modeLabel(mode) {
   if (MODE_KEYS.includes(mode)) return t("mode." + mode);

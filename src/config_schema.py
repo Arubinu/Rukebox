@@ -139,9 +139,18 @@ SETTINGS = [
         "Assistant then makes it a media player tile - play, pause, next,\n"
         "previous, volume, mute, and what plays with its cover - and DLNA apps on a\n"
         "phone can drive it too. Anyone on the same network may then use those\n"
-        "controls, without the interface's password. It plays only its own music:\n"
-        "nothing can be sent to it.",
+        "controls, without the interface's password. What a controller sends is\n"
+        "played only with dlna_receive below.",
         "DLNA media player",
+    ),
+    Setting(
+        "DLNA_RECEIVE", "audio", "dlna_receive", "bool", "false",
+        "With the DLNA media player on: also plays what a controller sends - a\n"
+        "song from a phone app, a web radio from Home Assistant. The radio's own\n"
+        "music fades out and waits, then comes back where it was. Only web\n"
+        "addresses are played, never a file of the radio; the nightly cutoff\n"
+        "ends what was sent. Off (default): nothing can be sent to it.",
+        "Play what is sent",
     ),
     Setting(
         "SPEAKER_MAC", "bluetooth", "speaker_mac", "str", "",

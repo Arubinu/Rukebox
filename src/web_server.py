@@ -518,6 +518,7 @@ def api_upnp_event(service):
 
 def _dlna_follow():
     """Announces the renderer exactly while the setting asks for it."""
+    dlna_renderer.options["receiving"] = bool(cfg().get("DLNA_RECEIVE"))
     if cfg().get("DLNA_RENDERER"):
         dlna_renderer.start(cfg()["WEB_PORT"])
     else:
@@ -3739,6 +3740,12 @@ def api_status():
     info = track_media.tags(track_path) if track_path else {}
     data["track_title"] = info.get("title")
     data["track_artist"] = info.get("artist")
+    cast = data.get("cast") if data.get("mode") == "cast" else None
+    if cast:
+        # What was sent, not the song of the radio that waits under it.
+        data["track_title"] = cast.get("title") or (cast.get("url") or "").rsplit("/", 1)[-1]
+        data["track_artist"] = cast.get("artist")
+        data["track_key"] = None
     data["speaker_mac"] = cfg().get("SPEAKER_MAC", "")
     mac = data["speaker_mac"]
     link = _status_probe(("speaker", mac), lambda: _speaker_link(mac))
@@ -4909,7 +4916,7 @@ def api_set_settings():
         _ensure_upnp_identity(cfg())
     if (config_schema.STREAM_SETTINGS | config_schema.UPNP_SETTINGS) & changed:
         _upnp_follow_stream()
-    if "DLNA_RENDERER" in changed or "UPNP_NAME" in changed:
+    if changed & {"DLNA_RENDERER", "DLNA_RECEIVE", "UPNP_NAME"}:
         # A new name is a new description: said again under it.
         dlna_renderer.stop()
         _dlna_follow()

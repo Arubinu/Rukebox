@@ -292,11 +292,12 @@ function applyTrackProgress(d) {
 
   const btn = document.getElementById("btnPause");
   const skippable = d.mode === "meme" || /^(custom:|button_announce:)/.test(d.mode || "");
-  const playing = d.mode === "music" && !d.paused;
+  const listening = d.mode === "music" || d.mode === "cast";
+  const playing = listening && !d.paused;
   btn.dataset.action = skippable ? "skip" : "pause";
   btn.dataset.icon = skippable ? "skip" : (playing ? "pause" : "play");
   btn.dataset.i18n = skippable ? "home.skip"
-    : (playing ? "home.pause" : (d.mode === "music" ? "home.resume" : "home.play"));
+    : (playing ? "home.pause" : (listening ? "home.resume" : "home.play"));
   btn.textContent = t(btn.dataset.i18n);
   applyLoopAndTimers(d);
   applyNowMeta(d);

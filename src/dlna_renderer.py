@@ -2,9 +2,11 @@
 the radio as a media player - play, pause, next, previous, volume, mute, and
 what is playing with its cover.
 
-It plays nothing it is sent: there is no SetAVTransportURI, so a controller
-offers no "play this" - the radio keeps choosing its own music. Changes reach a
-controller as GENA events (LastChange), so it does not have to poll.
+What a controller sends is played only while `receiving` is on: then
+SetAVTransportURI exists, and the next Play hands the daemon that address (a
+web address only) as a cast. Off, the action does not exist and no controller
+offers "play this". Changes reach a controller as GENA events (LastChange), so
+it does not have to poll.
 """
 
 import http.client
@@ -13,6 +15,7 @@ import threading
 import time
 import urllib.parse
 import uuid
+import xml.etree.ElementTree as ElementTree
 from xml.sax.saxutils import escape, quoteattr
 
 import upnp
@@ -31,6 +34,16 @@ SERVICES = (
 )
 DEVICE = upnp.Device(DEVICE_TYPE, SERVICES, PATH, "rukebox-dlna-")
 SUBSCRIPTION_SEC = 1800
+# What mpv plays, said the way a controller checks a file before it sends it.
+SINK_PROTOCOLS = ",".join("http-get:*:%s:*" % mime for mime in (
+    "audio/mpeg", "audio/mp3", "audio/flac", "audio/x-flac", "audio/ogg", "audio/opus", "audio/wav",
+    "audio/x-wav", "audio/aac", "audio/mp4", "audio/x-m4a", "audio/L16", "audio/webm",
+    "application/ogg"))
+# Whether what is sent is played (DLNA_RENDERER's companion setting), and what was
+# sent but not played yet: the web server sets one, a controller the other.
+options = {"receiving": False}
+_pending = {}
+_pending_lock = threading.Lock()
 NOTIFY_TIMEOUT_SEC = 3
 TRACK_CLASS = "object.item.audioItem.musicTrack"
 # What the radio plays by itself rather than music: still "playing" to a controller.
@@ -97,6 +110,9 @@ AVT_ACTIONS = [
                               ("RecQualityMode", "out", "CurrentRecordQualityMode")]),
     ("GetCurrentTransportActions", [("InstanceID", "in", "A_ARG_TYPE_InstanceID"),
                                     ("Actions", "out", "CurrentTransportActions")]),
+    ("SetAVTransportURI", [("InstanceID", "in", "A_ARG_TYPE_InstanceID"),
+                           ("CurrentURI", "in", "AVTransportURI"),
+                           ("CurrentURIMetaData", "in", "AVTransportURIMetaData")]),
     ("Play", [("InstanceID", "in", "A_ARG_TYPE_InstanceID"), ("Speed", "in", "TransportPlaySpeed")]),
     ("Pause", [("InstanceID", "in", "A_ARG_TYPE_InstanceID")]),
     ("Stop", [("InstanceID", "in", "A_ARG_TYPE_InstanceID")]),
@@ -190,6 +206,8 @@ def service_description(name):
     if name not in SCPD:
         return None
     actions, variables = SCPD[name]
+    if not options["receiving"]:
+        actions = [one for one in actions if one[0] != "SetAVTransportURI"]
     out = ['<?xml version="1.0" encoding="utf-8"?><scpd xmlns="urn:schemas-upnp-org:service-1-0">'
            "<specVersion><major>1</major><minor>0</minor></specVersion><actionList>"]
     for action, arguments in actions:
@@ -221,7 +239,7 @@ def clock(seconds):
 
 def transport_state(status):
     mode = str(status.get("mode") or "idle")
-    if mode == "music":
+    if mode in ("music", "cast"):
         return "PAUSED_PLAYBACK" if status.get("paused") else "PLAYING"
     if mode == "restarting":
         return "TRANSITIONING"
@@ -264,14 +282,26 @@ def state(status, tags, base, key):
     mark = urllib.parse.quote(key or "now")
     track_url = "%s%s/track?k=%s" % (base, PATH, mark) if path else ""
     cover_url = "%s%s/cover.jpg?k=%s" % (base, PATH, mark) if path else ""
-    meta = metadata(title, tags.get("artist") or "", tags.get("album") or "", cover_url, duration,
-                    track_url)
-    if transport == "PLAYING":
+    artist, album = tags.get("artist") or "", tags.get("album") or ""
+    cast = status.get("cast") if status.get("mode") == "cast" else None
+    if cast:
+        title = cast.get("title") or cast.get("url", "").rsplit("/", 1)[-1]
+        artist, album = cast.get("artist") or "", cast.get("album") or ""
+        track_url, cover_url = cast.get("url") or "", cast.get("art") or ""
+        duration = status.get("duration") or 0
+        path = track_url
+    meta = metadata(title, artist, album, cover_url, duration, track_url)
+    if cast:
+        actions = "Pause,Stop" if transport == "PLAYING" else "Play,Stop"
+    elif transport == "PLAYING":
         actions = "Pause,Stop,Next,Previous"
     elif transport == "PAUSED_PLAYBACK":
         actions = "Play,Stop,Next,Previous"
     else:
         actions = "Play,Next,Previous"
+    if pending() and "Play" not in actions:
+        # Something was sent: a controller waits for Play before it asks for it.
+        actions = "Play," + actions
     return {
         "TransportState": transport,
         "TransportStatus": "OK",
@@ -290,6 +320,7 @@ def state(status, tags, base, key):
         "RelativeTimePosition": clock(status.get("position") if path else 0),
         "Volume": str(int(round(float(status.get("volume") or 0)))),
         "Mute": "1" if status.get("muted") else "0",
+        "Casting": bool(cast),
     }
 
 
@@ -324,7 +355,39 @@ def property_set(variables):
 
 
 def connection_variables():
-    return {"SourceProtocolInfo": "", "SinkProtocolInfo": "", "CurrentConnectionIDs": "0"}
+    sink = SINK_PROTOCOLS if options["receiving"] else ""
+    return {"SourceProtocolInfo": "", "SinkProtocolInfo": sink, "CurrentConnectionIDs": "0"}
+
+
+def pending():
+    """Whether something was sent and waits for Play."""
+    with _pending_lock:
+        return bool(_pending)
+
+
+def sent_metadata(text):
+    """{title, artist, album, art} of the DIDL-Lite a controller sent with its address."""
+    found = {}
+    try:
+        root = ElementTree.fromstring(str(text or "")) if text else None
+    except ElementTree.ParseError:
+        root = None
+    if root is None:
+        return found
+    for element in root.iter():
+        tag = element.tag.rsplit("}", 1)[-1]
+        value = (element.text or "").strip()
+        if not value:
+            continue
+        if tag == "title":
+            found.setdefault("title", value)
+        elif tag in ("artist", "creator"):
+            found.setdefault("artist", value)
+        elif tag == "album":
+            found.setdefault("album", value)
+        elif tag == "albumArtURI":
+            found.setdefault("art", value)
+    return found
 
 
 def _reply(name, action, values):
@@ -360,6 +423,33 @@ def handle(name, action, arguments, now, send):
             return _reply(name, action, [("PlayMode", "NORMAL"), ("RecQualityMode", "NOT_IMPLEMENTED")])
         if action == "GetCurrentTransportActions":
             return _reply(name, action, [("Actions", now["CurrentTransportActions"])])
+        if action == "SetAVTransportURI":
+            if not options["receiving"]:
+                return upnp.fault(401, "Invalid Action")
+            url = str(arguments.get("CurrentURI") or "").strip()
+            if not url.lower().startswith(("http://", "https://")):
+                return upnp.fault(714, "Illegal MIME-type")
+            with _pending_lock:
+                _pending.clear()
+                _pending.update(sent_metadata(arguments.get("CurrentURIMetaData")), url=url)
+            return _reply(name, action, [])
+        if action == "Play" and options["receiving"] and pending():
+            with _pending_lock:
+                sent = dict(_pending)
+                _pending.clear()
+            answer = send("cast_play", **sent)
+            if not answer.get("ok"):
+                return upnp.fault(701, "Transition not available")
+            return _reply(name, action, [])
+        if action in ("Play", "Pause", "Stop", "Next", "Previous") and now.get("Casting"):
+            command = "cast_stop" if action == "Stop" else None
+            if action in ("Play", "Pause") and (action == "Play") == (now["TransportState"] == "PAUSED_PLAYBACK"):
+                command = "toggle_pause"
+            if action in ("Next", "Previous"):
+                return upnp.fault(701, "Transition not available")
+            if command and not send(command).get("ok"):
+                return upnp.fault(701, "Transition not available")
+            return _reply(name, action, [])
         if action in ("Play", "Pause", "Stop", "Next", "Previous"):
             command = {"Next": "next_track", "Previous": "previous_track"}.get(action)
             if action == "Play":
@@ -396,7 +486,8 @@ def handle(name, action, arguments, now, send):
             return _reply(name, action, [])
     if name == "ConnectionManager":
         if action == "GetProtocolInfo":
-            return _reply(name, action, [("Source", ""), ("Sink", "")])
+            return _reply(name, action, [("Source", ""),
+                                         ("Sink", SINK_PROTOCOLS if options["receiving"] else "")])
         if action == "GetCurrentConnectionIDs":
             return _reply(name, action, [("ConnectionIDs", "0")])
         if action == "GetCurrentConnectionInfo":

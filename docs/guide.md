@@ -1117,12 +1117,22 @@ Changes reach Home Assistant as UPnP events (GENA `LastChange`) the moment they
 happen, so it does not poll. Any DLNA controller app on a phone sees the same
 player.
 
-What it does not do, on purpose: play what it is sent. There is no
-`SetAVTransportURI`, so neither Home Assistant nor an app offers "play this" -
-the radio keeps choosing its own music - and there is no seeking inside a
-song. *Stop* pauses, like the radio's own buttons. And mind who is on the
-network: like every DLNA device, these controls need no password, so anyone
-on the same network can use them.
+**Play what is sent** (`audio.dlna_receive`, off by default, under the media
+player switch) lets a controller send it music: a song from a phone app, a
+web radio or a file from Home Assistant's media browser. The radio's own music
+fades out and waits; what was sent plays, its title, artist and picture in the
+player and the tile; then, a few seconds after it ends (time for the
+controller to send the next one), the radio's music comes back where it was.
+*Stop* in the controller or *Next* on the radio ends it at once, and the
+nightly cutoff ends it too, so a web radio that never stops cannot keep the
+radio up. Only web addresses are played - never a file of the radio itself.
+Switching it on or off is said again on the network; Home Assistant may need
+the integration reloaded to offer, or stop offering, "play this".
+
+Off, the tile does not offer "play this" at all, and *Stop* pauses, like the
+radio's own buttons. There is no seeking inside a song either way. And mind
+who is on the network: like every DLNA device, these controls need no
+password, so anyone on the same network can use them.
 
 The renderer runs inside the web server (`src/dlna_renderer.py`): one more
 announcement on the network every fifteen minutes, an answer when a
