@@ -1173,6 +1173,16 @@ same network. **Settings > Light strips** holds everything.
 The strip is a light, not a part of the radio: if it does not answer, the
 radio plays on and logs it once an hour.
 
+
+**Dawn before the morning music.** *Dawn* picks a preset that rises slowly
+before the music starts by itself - the daily start time
+(`playback.start_mode: scheduled`) or a schedule's start - over *Dawn length*
+minutes (20 by default, 109 at most). It is WLED's own transition: the radio
+sends the preset once, with its length, and the strip goes from off to the
+preset's brightness by itself. The radio has to be on at that time, in
+standby (`schedule.shutdown_after_cutoff: false`): a radio switched off at
+night cannot light anything.
+
 ## Cards and barcodes (RFID reader, barcode scanner)
 
 A cheap USB RFID reader (125 kHz or 13.56 MHz, the kind sold as a "USB ID

@@ -1393,6 +1393,20 @@ SETTINGS = [
         "On an alert",
     ),
     Setting(
+        "WLED_SCENE_DAWN", "lights", "scene_dawn", "int", "0",
+        "A dawn before the music starts by itself in the morning (the daily start\n"
+        "time, or a schedule's start): this preset rises slowly over dawn_min\n"
+        "minutes, from off to its own brightness - WLED's own transition. The\n"
+        "radio has to be on, in standby: a radio switched off at night wakes\n"
+        "nothing. 0 means no dawn.",
+        "Dawn before the morning music",
+    ),
+    Setting(
+        "WLED_DAWN_MIN", "lights", "dawn_min", "int", "20",
+        "How many minutes the dawn takes, up to 109 (WLED's own limit).",
+        "Dawn length (minutes)",
+    ),
+    Setting(
         "WLED_OFF_AT_POWEROFF", "lights", "off_at_poweroff", "bool", "true",
         "Switch the light strips off when the radio switches itself off.",
         "Off with the radio",

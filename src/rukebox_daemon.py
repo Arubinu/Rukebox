@@ -304,7 +304,9 @@ class RadioDaemon:
         self._dj_count = 0
         self._time_source = None
         self._clock_lock = threading.Lock()
-        self._lights = wled.Lights(lambda: self.cfg, self._light_scene, self._light_turn)
+        self._lights = wled.Lights(lambda: self.cfg, self._light_scene, self._light_turn,
+                                   transition=self._dawn_left)
+        self._dawn_cache = (float("-inf"), None)
         self._light_start_until = 0.0
         self._light_audio = None
         self._light_audio_key = None
@@ -713,7 +715,45 @@ class RadioDaemon:
             if self._paused:
                 return "pause"
             return "start" if time.monotonic() < self._light_start_until else "play"
+        if self._dawn_left():
+            return "dawn"
         return "idle"
+
+    DAWN_LOOK_SEC = 30
+
+    def _next_morning(self, now):
+        """When the music starts next by itself: the daily start, or a schedule's."""
+        found = []
+        if self.cfg.get("MUSIC_START_MODE") == "scheduled" \
+                and not self.state.already_triggered_today("last_music_start"):
+            daily = now.replace(hour=int(self.cfg.get("MUSIC_START_HOUR") or 0),
+                                minute=int(self.cfg.get("MUSIC_START_MINUTE") or 0),
+                                second=0, microsecond=0)
+            if daily > now:
+                found.append(daily)
+        upcoming = schedules.next_start(self._schedules(), now, horizon_days=2)
+        if upcoming:
+            found.append(upcoming[1])
+        return min(found) if found else None
+
+    def _dawn_left(self):
+        """Seconds until the music starts by itself while the dawn is rising, or None."""
+        if self.mode not in ("idle", "stopped") or not self._clock_ready.is_set():
+            return None
+        try:
+            minutes = int(self.cfg.get("WLED_DAWN_MIN") or 0)
+        except (TypeError, ValueError):
+            minutes = 0
+        if minutes <= 0 or not wled.scene_preset(self.cfg, "dawn") > 0:
+            return None
+        checked, start = self._dawn_cache
+        if time.monotonic() - checked > self.DAWN_LOOK_SEC:
+            start = self._next_morning(datetime.now())
+            self._dawn_cache = (time.monotonic(), start)
+        if start is None:
+            return None
+        left = (start - datetime.now()).total_seconds()
+        return left if 0 < left <= minutes * 60 else None
 
     def _light_turn(self, cfg):
         self._follow_light_audio(cfg)

@@ -494,6 +494,16 @@ lights:
   # 0 leaves the light as it is, -1 switches it off.
   scene_alert: 0
 
+  # A dawn before the music starts by itself in the morning (the daily start
+  # time, or a schedule's start): this preset rises slowly over dawn_min
+  # minutes, from off to its own brightness - WLED's own transition. The
+  # radio has to be on, in standby: a radio switched off at night wakes
+  # nothing. 0 means no dawn.
+  scene_dawn: 0
+
+  # How many minutes the dawn takes, up to 109 (WLED's own limit).
+  dawn_min: 20
+
   # Switch the light strips off when the radio switches itself off.
   off_at_poweroff: true
 

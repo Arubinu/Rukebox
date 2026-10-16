@@ -81,6 +81,9 @@ class ModuleTest(unittest.TestCase):
         self.assertEqual(wled.state_for(wled.scene_preset(cfg, "pause")), {"on": False})
         self.assertIsNone(wled.state_for(wled.scene_preset(cfg, "idle")))
         self.assertIsNone(wled.state_for(wled.scene_preset(cfg, "game")))
+        self.assertEqual(wled.state_for(4, seconds=1200), {"on": True, "ps": 4, "tt": 12000},
+                         "a dawn is WLED's own transition, in tenths of a second")
+        self.assertEqual(wled.state_for(4, seconds=86400)["tt"], wled.TRANSITION_MAX)
 
     def test_wled_s_clock_is_read_with_its_twelve_hour_form(self):
         self.assertEqual(wled.parse_time("2026-10-9, 07:03:05"), datetime(2026, 10, 9, 7, 3, 5))
@@ -231,6 +234,27 @@ class DaemonTest(unittest.TestCase):
         d.mode = "music"
         d._powering_off = True
         self.assertIsNone(d._light_scene())
+
+    def test_the_dawn_rises_before_the_morning_music_only(self):
+        d = self.daemon
+        d.mode = "idle"
+        d._clock_ready.set()
+        d.cfg.update({"WLED_SCENE_DAWN": 7, "WLED_DAWN_MIN": 20, "MUSIC_START_MODE": "scheduled",
+                      "MUSIC_START_HOUR": 7, "MUSIC_START_MINUTE": 0})
+        with mock.patch.object(rukebox_daemon, "datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime(2026, 10, 19, 6, 50)
+            self.assertEqual(d._light_scene(), "dawn")
+            self.assertAlmostEqual(d._dawn_left(), 600, delta=1)
+            d._dawn_cache = (float("-inf"), None)
+            clock.now.return_value = datetime(2026, 10, 19, 6, 30)
+            self.assertEqual(d._light_scene(), "idle", "too early")
+            d._dawn_cache = (float("-inf"), None)
+            d.cfg["WLED_SCENE_DAWN"] = 0
+            clock.now.return_value = datetime(2026, 10, 19, 6, 50)
+            self.assertEqual(d._light_scene(), "idle", "no dawn chosen")
+            d.cfg["WLED_SCENE_DAWN"] = 7
+            d.mode = "music"
+            self.assertNotEqual(d._light_scene(), "dawn", "the music is already there")
 
     def test_a_trusted_clock_is_given_and_its_timezone_remembered(self):
         self.daemon._declare_clock("rtc")

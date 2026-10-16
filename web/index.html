@@ -1430,6 +1430,17 @@
               <div class="field-row"><label for="wledSceneAlert" data-i18n="lights.scene_alert">On an alert</label>
                 <div class="input-with-action"><select id="wledSceneAlert" data-key="lights.scene_alert" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneAlert" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="wledSceneDawn" data-i18n="lights.scene_dawn">Dawn before the morning music</label>
+                  <p class="field-desc" id="wledSceneDawnDesc" data-i18n="lights.scene_dawn_desc">This preset rises slowly before the music starts by itself in the morning. The radio has to be in standby, not switched off.</p>
+                </div>
+                <select id="wledSceneDawn" data-key="lights.scene_dawn" class="wled-scene" aria-describedby="wledSceneDawnDesc"></select>
+              </div>
+              <div class="field-row">
+                <label for="wledDawnMin" data-i18n="lights.dawn_min">Dawn length (minutes)</label>
+                <input type="number" id="wledDawnMin" data-key="lights.dawn_min" class="text-input" min="1" max="109" step="1">
+              </div>
               <div class="field-row" data-level="detail"><label for="wledSceneGame" data-i18n="lights.scene_game">During the blind test</label>
                 <div class="input-with-action"><select id="wledSceneGame" data-key="lights.scene_game" class="wled-scene"></select>
                   <button type="button" class="btn btn-icon wled-test" data-icon="play" data-for="wledSceneGame" data-i18n-aria-label="lights.try" aria-label="Show it now"></button></div></div>

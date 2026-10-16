@@ -20,10 +20,12 @@ from datetime import datetime, timezone
 log = logging.getLogger("wled")
 
 TIMEOUT = 2.0
-SCENES = ("start", "play", "pause", "idle", "announce", "cutoff", "game", "button", "alert")
+SCENES = ("start", "play", "pause", "idle", "announce", "cutoff", "game", "button", "alert", "dawn")
 FLASHES = ("button", "alert", "cutoff")
 OFF = -1
 FLASH_SEC = 3.0
+# WLED's transition is in tenths of a second, on 16 bits: about 109 minutes at most.
+TRANSITION_MAX = 65535
 # WLED rounds every timezone it knows to a quarter of an hour.
 TZ_STEP = 900
 EARLIEST_YEAR = 2025
@@ -92,12 +94,16 @@ def presets(host, timeout=TIMEOUT):
     return sorted(found)
 
 
-def state_for(preset):
-    """The JSON a preset becomes: off, a preset, or nothing at all."""
+def state_for(preset, seconds=None):
+    """The JSON a preset becomes: off, a preset, or nothing at all; `seconds`
+    is how long WLED takes to get there (a dawn)."""
     if preset == OFF:
         return {"on": False}
     if preset > 0:
-        return {"on": True, "ps": preset}
+        state = {"on": True, "ps": preset}
+        if seconds:
+            state["tt"] = max(1, min(TRANSITION_MAX, int(seconds * 10)))
+        return state
     return None
 
 
@@ -221,9 +227,10 @@ def read_time(host, offset, not_before=0.0, timeout=TIMEOUT):
 class Lights:
     """Sends each device the preset of the scene the radio is in, and flashes on events."""
 
-    def __init__(self, cfg, scene, turn=None):
+    def __init__(self, cfg, scene, turn=None, transition=None):
         self._cfg = cfg
         self._scene = scene
+        self._transition = transition
         self._turn = turn
         self._current = None
         self._flash_until = 0.0
@@ -262,8 +269,8 @@ class Lights:
         if enabled(cfg) and cfg.get("WLED_OFF_AT_POWEROFF", True):
             self.send(OFF, wait=True)
 
-    def send(self, preset, wait=False):
-        state = state_for(preset)
+    def send(self, preset, wait=False, seconds=None):
+        state = state_for(preset, seconds)
         if state is None:
             return
         for host in hosts(self._cfg()):
@@ -305,7 +312,11 @@ class Lights:
             if scene == self._current:
                 return
             self._current = scene
-        self.send(scene_preset(cfg, scene) if scene else 0)
+        preset = scene_preset(cfg, scene) if scene else 0
+        if scene == "dawn" and self._transition:
+            self.send(preset, seconds=self._transition())
+        else:
+            self.send(preset)
 
 
 def _fft(values):
