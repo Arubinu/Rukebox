@@ -2,6 +2,7 @@
 """The web interface: Flask API and static files."""
 
 import gzip
+import hashlib
 import ipaddress
 import json
 import logging
@@ -58,6 +59,7 @@ import system_actions  # noqa: E402
 import upnp  # noqa: E402
 import volume_curve  # noqa: E402
 import web_auth  # noqa: E402
+import web_bundle  # noqa: E402
 import roles  # noqa: E402
 from config_and_scan import (DEFAULTS, get_music_list, load_config, scan_audio_dir,  # noqa: E402
                              update_config_file)
@@ -1723,6 +1725,41 @@ def i18n_script():
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "no-cache"
     response.headers["Vary"] = "Cookie, Accept-Language, Accept-Encoding"
+    return response
+
+
+_app_script_cache = {}
+_app_script_lock = threading.Lock()
+
+
+def _app_script():
+    """(body, gzipped body, etag) of the page's script, built again when a part changed."""
+    stamp = web_bundle.stamp(WEB_DIR)
+    with _app_script_lock:
+        if _app_script_cache.get("stamp") == stamp:
+            return _app_script_cache["entry"]
+    body = web_bundle.app_script(WEB_DIR).encode("utf-8")
+    etag = '"%s"' % hashlib.sha1(body).hexdigest()[:16]
+    entry = (body, gzip.compress(body, compresslevel=6), etag)
+    with _app_script_lock:
+        _app_script_cache.update(stamp=stamp, entry=entry)
+    return entry
+
+
+@app.route("/app.js")
+def app_script():
+    """The interface's script: the files of web/js, served as one (src/web_bundle.py)."""
+    body, packed, etag = _app_script()
+    if etag in (request.headers.get("If-None-Match") or ""):
+        response = Response(status=304)
+    else:
+        zipped = "gzip" in request.headers.get("Accept-Encoding", "").lower()
+        response = Response(packed if zipped else body, mimetype="text/javascript")
+        if zipped:
+            response.headers["Content-Encoding"] = "gzip"
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Vary"] = "Accept-Encoding"
     return response
 
 

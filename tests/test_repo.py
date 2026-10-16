@@ -66,7 +66,7 @@ class TranslationsTest(unittest.TestCase):
         self.assertEqual(used - keys, set())
 
     def test_every_event_has_a_label(self):
-        app = _path.read("web", "app.js")
+        app = _path.app_script()
         listed = set(re.findall(r'"(\w+)"', app[app.index("const EVENT_TYPE_KEYS"):app.index("function eventLabel")]))
         keys = i18n_blocks()["en"]
         self.assertEqual({k for k in listed if "event." + k not in keys}, set())
@@ -116,7 +116,7 @@ class IconsTest(unittest.TestCase):
 
     def test_every_icon_used_is_defined(self):
         used = set(re.findall(r'data-icon="([^"]+)"', _path.read("web", "index.html")))
-        used |= set(re.findall(r'dataset\.icon = "([^"]+)"', _path.read("web", "app.js")))
+        used |= set(re.findall(r'dataset\.icon = "([^"]+)"', _path.app_script()))
         css = _path.read("web", "style.css")
         defined = set(re.findall(r'\[data-icon="([^"]+)"\]\s*\{', css))
         self.assertEqual(used - defined, set())
@@ -356,7 +356,7 @@ class GuestPathsTest(unittest.TestCase):
     def test_the_page_keeps_no_list_of_its_own(self):
         # The server says what a role may call (roles.allowed_paths): a list
         # here as well is one that falls out of step with it.
-        app = _path.read("web", "app.js")
+        app = _path.app_script()
         self.assertNotIn("GUEST_API_PATHS", app)
         self.assertIn("mayCallPaths", app)
 

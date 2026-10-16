@@ -26,6 +26,7 @@ jobs:
       - name: JavaScript parses
         run: |
           for f in web/*.js bootstrap/setup/setup.js; do node --check "$f"; done
+          node tests/web/app_script.js
       - name: Shell scripts parse
         run: |
           for f in scripts/*.sh bootstrap/*.sh; do bash -n "$f"; done

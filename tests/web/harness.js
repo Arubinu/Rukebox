@@ -1,10 +1,11 @@
 "use strict";
-// Loads the real index.html, i18n.js, qr.js and app.js into jsdom, with the
+// Loads the real index.html, i18n.js, qr.js and app.js (web/js, put together) into jsdom, with the
 // API answered by a table of fakes. No stylesheet: layout is not jsdom's job.
 
 const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM, VirtualConsole } = require("jsdom");
+const { appScript } = require("./app_script");
 
 const WEB = path.join(__dirname, "..", "..", "web");
 const read = (name) => fs.readFileSync(path.join(WEB, name), "utf8");
@@ -121,7 +122,7 @@ function load(options = {}) {
   // The <head> script that sets the view before the first paint does not run here.
   if (options.view) window.document.documentElement.dataset.view = options.view;
   const exposed = options.expose ? "\n;window.__exposed = { " + options.expose.join(", ") + " };" : "";
-  window.eval(["i18n.js", "qr.js", "app.js"].map(read).join("\n;\n") + exposed);
+  window.eval([read("i18n.js"), read("qr.js"), appScript()].join("\n;\n") + exposed);
 
   return {
     window,

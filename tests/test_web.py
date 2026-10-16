@@ -10,6 +10,7 @@ not installed - run them on the Pi:
     scp -r tests pi@169.254.7.7:/tmp/rukebox-tests
     ssh pi@169.254.7.7 'RUKEBOX_SRC=/opt/rukebox/src python3 -m unittest discover -s /tmp/rukebox-tests -v'
 """
+import gzip
 import io
 import json
 import os
@@ -2725,3 +2726,21 @@ class EraseRunRouteTest(unittest.TestCase):
         self.assertEqual(self.calls, [], "and the daemon is not asked to erase anything")
 
 
+
+
+@unittest.skipUnless(flask, "Flask is not installed (run these on the Pi)")
+class AppScriptRouteTest(unittest.TestCase):
+    """The interface's script: the files of web/js, served as the one script the page loads."""
+
+    def test_the_parts_are_served_as_one_script(self):
+        client = ws.app.test_client()
+        answer = client.get("/app.js")
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(answer.mimetype, "text/javascript")
+        self.assertEqual(answer.get_data(as_text=True), _path.app_script())
+        self.assertIn("async function initApp() {", answer.get_data(as_text=True))
+        again = client.get("/app.js", headers={"If-None-Match": answer.headers["ETag"]})
+        self.assertEqual(again.status_code, 304, "a page that has it is not sent it twice")
+        packed = client.get("/app.js", headers={"Accept-Encoding": "gzip"})
+        self.assertEqual(packed.headers.get("Content-Encoding"), "gzip")
+        self.assertEqual(gzip.decompress(packed.get_data()).decode("utf-8"), _path.app_script())

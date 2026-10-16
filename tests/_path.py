@@ -72,3 +72,9 @@ def repo_file(*parts):
 def read(*parts):
     with open(repo_file(*parts), encoding="utf-8", newline="") as f:
         return f.read()
+
+
+def app_script():
+    """The page's script as the web server serves it, put together from web/js."""
+    import web_bundle
+    return web_bundle.app_script(repo_file("web"))
