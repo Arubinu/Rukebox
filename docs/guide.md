@@ -25,7 +25,7 @@ src/config_schema.py        Every setting, with its default and documentation
 src/config_file.py          Reads/writes rukebox.yaml, generates rukebox.env
 src/config_bundle.py        Configuration export / import
 src/paths.py                The four roots (/config, /data, /music) and how they move
-src/platform.py             What the machine is and what it can do
+src/machine.py              What the machine is and what it can do
 src/system_actions.py       Services, power and the clock: one call per platform
 src/stream.py               The network output: encoded and served over HTTP
 src/stats.py                Usage statistics (SQLite)
@@ -507,7 +507,7 @@ first listener, which makes the stream a player is given begin at zero.
 
 ### What a machine can do
 
-`src/platform.py` decides, once, what the machine is (`pi`, `lxc`, `docker`,
+`src/machine.py` decides, once, what the machine is (`pi`, `lxc`, `docker`,
 `host`) and what it can do — an access point, Bluetooth, GPIO, a hardware
 clock, a local sound card, switching itself off, updating itself in place.
 `/api/status` publishes that list, the interface hides what is missing, and

@@ -15,7 +15,7 @@ import unittest
 from unittest import mock
 
 import _path  # noqa: F401
-import platform as host
+import machine as host
 import system_actions as sa
 
 

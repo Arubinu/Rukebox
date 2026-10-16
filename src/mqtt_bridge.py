@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config_file  # noqa: E402
 import json_file  # noqa: E402
 import mqtt_client  # noqa: E402
-import platform as platform_mod  # noqa: E402
+import machine as platform_mod  # noqa: E402
 from config_and_scan import load_config  # noqa: E402
 from control_client import send_control_command  # noqa: E402
 

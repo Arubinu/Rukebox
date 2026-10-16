@@ -30,7 +30,7 @@ import library  # noqa: E402
 from mpv_controller import LEAN as MPV_LEAN, MPVController, audio_chain, audio_env, compression_filter  # noqa: E402
 import music_lists  # noqa: E402
 import playlist  # noqa: E402
-import platform as platform_mod  # noqa: E402
+import machine as platform_mod  # noqa: E402
 import schedules  # noqa: E402
 import snapcast  # noqa: E402
 import speech  # noqa: E402
