@@ -57,7 +57,7 @@ import captive_portal  # noqa: E402
 import config_schema  # noqa: E402
 import gpio_pins  # noqa: E402
 import gpio_reset  # noqa: E402
-import platform as platform_mod  # noqa: E402
+import machine as platform_mod  # noqa: E402
 import stream as stream_mod  # noqa: E402
 import system_actions  # noqa: E402
 import upnp  # noqa: E402

@@ -19,7 +19,7 @@ import config_file  # noqa: E402
 import json_file  # noqa: E402
 import mqtt_client  # noqa: E402
 import music_lists  # noqa: E402
-import platform as platform_mod  # noqa: E402
+import machine as platform_mod  # noqa: E402
 import tag_editor  # noqa: E402
 import track_media  # noqa: E402
 from config_and_scan import load_config  # noqa: E402

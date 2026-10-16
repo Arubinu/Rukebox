@@ -1050,8 +1050,11 @@ class WebTest(unittest.TestCase):
             return [l for l in ws.I18N_LANGS if "\n  %s: {" % l in body or "I18N.%s =" % l in body]
 
         self.assertEqual(langs(client.get("/i18n.js", headers={"Accept-Language": "de-DE,de;q=0.9"})), ["en", "de"])
-        client.set_cookie(ws.LANG_COOKIE, "it")
-        self.assertEqual(langs(client.get("/i18n.js", headers={"Accept-Language": "de-DE"})), ["en", "it"],
+        # A header on a client with no cookie jar: set_cookie() takes other arguments on the
+        # Pi's Werkzeug, and its jar replaces a Cookie header there.
+        chosen = {"Accept-Language": "de-DE", "Cookie": "%s=it" % ws.LANG_COOKIE}
+        bare = ws.app.test_client(use_cookies=False)
+        self.assertEqual(langs(bare.get("/i18n.js", headers=chosen)), ["en", "it"],
                          "the page's own choice beats the browser's")
         added = client.get("/i18n.js?add=1&lang=nl")
         self.assertEqual(langs(added), ["nl"], "a language added later comes alone")

@@ -4,6 +4,7 @@ and what a picture that cannot be read does."""
 import os
 import shutil
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -150,6 +151,28 @@ class CoverTest(unittest.TestCase):
             self.assertEqual(self.cover(), (PNG, "image/png"))
             self.song("LMFAO", "Sorry For Party Rocking", "cover.jpg", data=JPEG)
             self.assertEqual(self.cover(), (JPEG, "image/jpeg"))
+
+    def test_a_lookup_is_kept_only_once_the_folders_have_settled(self):
+        """A FAT key keeps a folder's time to two seconds: a picture added in the same
+        tick would otherwise stay unseen behind a lookup kept too early."""
+        found = []
+        real = track_media._find_cover
+
+        def counted(*args):
+            found.append(1)
+            return real(*args)
+        with mock.patch.object(track_media, "_embedded_picture", return_value=None),                 mock.patch.object(track_media, "_find_cover", side_effect=counted):
+            self.cover()
+            self.cover()
+            self.assertEqual(len(found), 2, "just changed: looked up again")
+            old = time.time() - 60
+            for folder, _dirs, files in os.walk(self.dir, topdown=False):
+                for name in files:
+                    os.utime(os.path.join(folder, name), (old, old))
+                os.utime(folder, (old, old))
+            self.cover()
+            self.cover()
+            self.assertEqual(len(found), 3, "settled: kept")
 
     def test_a_track_outside_the_music_folder_only_looks_beside_itself(self):
         self.song("cover.png")

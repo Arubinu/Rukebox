@@ -8,7 +8,7 @@ fi
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Same signs as src/platform.py. LXC creates no /dev/lxc and keeps
+# Same signs as src/machine.py. LXC creates no /dev/lxc and keeps
 # `container=lxc` in PID 1's environment only: this file is what a shell sees.
 CONTAINER_KIND=""
 if [ -r /run/systemd/container ]; then

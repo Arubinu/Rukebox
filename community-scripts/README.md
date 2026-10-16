@@ -80,7 +80,7 @@ declared as `var_*` variables on the website record, the way
 ## What is deliberately not here
 
 - **No access point, no USB gadget, no GPIO, no hardware clock, no activity
-  LED.** A container has none of them, and `src/platform.py` reaches the same
+  LED.** A container has none of them, and `src/machine.py` reaches the same
   conclusion at run time: the interface hides those cards and the routes
   behind them answer `unsupported_here`.
 - **No Bluetooth of its own.** The daemon can drive the host's BlueZ through
@@ -94,7 +94,7 @@ declared as `var_*` variables on the website record, the way
 
 1. **Test it on a real Proxmox host.** So far the container profile has been
    exercised in a Debian container with systemd (the installer completes, the
-   services are enabled, the paths are right, `src/platform.py` reports
+   services are enabled, the paths are right, `src/machine.py` reports
    `lxc`), and the Docker image has been run for real — but not LXC on
    Proxmox, which is the only thing that matters here.
 2. Re-read their CONTRIBUTING.md on that day: the file layout, the helper

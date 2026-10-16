@@ -1,4 +1,4 @@
-"""What this machine can do (src/platform.py).
+"""What this machine can do (src/machine.py).
 
 The point of the whole module is that a container cannot have an access point,
 GPIO, a hardware clock or a USB gadget, and that the interface must find that
@@ -12,7 +12,7 @@ import unittest
 from unittest import mock
 
 import _path  # noqa: F401
-import platform as host
+import machine as host
 
 
 class DetectionTest(unittest.TestCase):

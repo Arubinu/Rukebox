@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import threading
+import time
 from collections import OrderedDict
 
 log = logging.getLogger("track_media")
@@ -225,6 +226,16 @@ def _cover_stamps(path, music_dir):
     return tuple(stamps)
 
 
+# A folder's time can be this coarse (FAT keeps two seconds): what is found so
+# soon after a change is not kept, or a picture added in the same tick stays unseen.
+SETTLE_NS = 2 * 10 ** 9
+
+
+def _settled(key):
+    stamps = [stamp for _folder, stamp in key[3] if stamp is not None] + [key[0][2] * 10 ** 9]
+    return time.time_ns() - max(stamps) > SETTLE_NS
+
+
 def _cover_key(path, music_dir, priority):
     key = _file_key(path)
     if key is None:
@@ -260,6 +271,8 @@ def cover(path, music_dir=None, priority=None):
     except Exception:
         log.exception("Cover lookup failed for %s", path)
         result = None
+    if not _settled(key):
+        return result
     with _lock:
         _cover_cache[key] = result
         _cover_cache_bytes += len(result[0]) if result else 0

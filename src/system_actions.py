@@ -8,7 +8,7 @@ import threading
 import time
 
 import paths
-import platform as platform_mod
+import machine as platform_mod
 
 log = logging.getLogger("system_actions")
 

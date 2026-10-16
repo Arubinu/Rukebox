@@ -1,5 +1,5 @@
 """What this machine can do: the platform, and the features it allows."""
-# Named like the stdlib module; nothing here imports that one.
+# Not named platform.py: that name would hide the standard module, which uuid imports on Linux.
 
 import glob
 import os
