@@ -8,6 +8,7 @@ Cover Art Archive gives the album's front picture by its release group.
 
 import json
 import logging
+import re
 import shutil
 import subprocess
 import urllib.error
@@ -125,7 +126,7 @@ def lookup(key, duration, print_):
 
 def cover(release_group):
     """The front picture of a release group, as bytes."""
-    if not release_group or not all(c.isalnum() or c == "-" for c in release_group):
+    if not re.fullmatch(r"[0-9A-Za-z-]{1,64}", str(release_group or "")):
         raise AcoustidError("bad_release_group")
     request = urllib.request.Request(COVER_URL % release_group, headers={"User-Agent": USER_AGENT})
     try:

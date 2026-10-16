@@ -147,6 +147,28 @@ class EventsTest(unittest.TestCase):
         events.subscriptions[sid]["expires"] = time.monotonic() - 1
         self.assertFalse(events.watched())
 
+    def test_the_radio_only_calls_back_the_controller_that_asked(self):
+        header = "<http://192.168.1.9:8123/n><http://127.0.0.1:80/admin><http://192.168.1.9/b>"
+        self.assertEqual(dr.own_callbacks(header, "192.168.1.9"), ["http://192.168.1.9:8123/n", "http://192.168.1.9/b"])
+        self.assertEqual(dr.own_callbacks(header, "::ffff:192.168.1.9")[0], "http://192.168.1.9:8123/n")
+        self.assertEqual(dr.own_callbacks("<http://10.0.0.1/x>", "192.168.1.9"), [])
+
+    def test_subscriptions_are_kept_to_a_few(self):
+        events = dr.Events(post=lambda *a: True)
+        first = events.subscribe("AVTransport", ["http://a/n"], 60)
+        for _ in range(dr.SUBSCRIPTIONS_MAX + 5):
+            events.subscribe("AVTransport", ["http://a/n"], 1800)
+        self.assertEqual(len(events.subscriptions), dr.SUBSCRIPTIONS_MAX)
+        self.assertNotIn(first, events.subscriptions, "the one lapsing first made room")
+
+    def test_a_document_with_entities_is_not_read(self):
+        bomb = ('<?xml version="1.0"?><!DOCTYPE l [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;">]>'
+                '<s:Envelope xmlns:s="x"><s:Body><u:Play xmlns:u="y"><InstanceID>&b;</InstanceID>'
+                '</u:Play></s:Body></s:Envelope>')
+        self.assertEqual(upnp.arguments_of(bomb), {})
+        self.assertEqual(upnp.action_of("", bomb), "")
+        self.assertEqual(dr.sent_metadata(bomb), {})
+
     def test_the_headers_are_read(self):
         self.assertEqual(dr.parse_callbacks("<http://a:1/x><http://b/y>"), ["http://a:1/x", "http://b/y"])
         self.assertEqual(dr.parse_timeout("Second-300"), 300)
@@ -161,6 +183,15 @@ class RouteTest(unittest.TestCase):
         mock.patch.object(ws.track_media, "tags", return_value=dict(TAGS)).start()
         self.client = ws.app.test_client()
 
+    def test_a_foreign_name_is_refused_like_the_api(self):
+        with mock.patch.object(dr, "running", return_value=True):
+            refused = self.client.get("/dlna/rootDesc.xml", headers={"Host": "attacker.example"})
+            self.assertEqual(refused.status_code, 403, "a page of another site rebound to the radio")
+            self.assertEqual(self.client.get("/dlna/rootDesc.xml", headers={"Host": "192.168.1.5"}).status_code, 200)
+            refused = self.client.open("/dlna/AVTransport/event", method="SUBSCRIBE", headers={
+                "CALLBACK": "<http://10.0.0.1/notify>", "NT": "upnp:event"})
+            self.assertEqual(refused.status_code, 412, "a callback elsewhere than the controller")
+
     def test_nothing_answers_while_the_setting_is_off(self):
         with mock.patch.object(dr, "running", return_value=False):
             self.assertEqual(self.client.get("/dlna/rootDesc.xml").status_code, 404)
@@ -171,7 +202,7 @@ class RouteTest(unittest.TestCase):
                 mock.patch.object(ws.threading, "Timer") as timer:
             self.assertEqual(self.client.get("/dlna/rootDesc.xml").status_code, 200)
             answer = self.client.open("/dlna/AVTransport/event", method="SUBSCRIBE", headers={
-                "CALLBACK": "<http://ha:8123/api/notify>", "NT": "upnp:event", "TIMEOUT": "Second-300"})
+                "CALLBACK": "<http://127.0.0.1:8123/api/notify>", "NT": "upnp:event", "TIMEOUT": "Second-300"})
             self.assertEqual(answer.status_code, 200)
             sid = answer.headers["SID"]
             self.assertTrue(sid.startswith("uuid:"))

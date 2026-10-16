@@ -1132,7 +1132,10 @@ the integration reloaded to offer, or stop offering, "play this".
 Off, the tile does not offer "play this" at all, and *Stop* pauses, like the
 radio's own buttons. There is no seeking inside a song either way. And mind
 who is on the network: like every DLNA device, these controls need no
-password, so anyone on the same network can use them.
+password, so anyone on the same network can use them. They are only
+answered under the radio's own name or address (a web page of another site
+cannot reach them), and the radio sends its change notices to the address of
+the controller that asked, never to another one.
 
 The renderer runs inside the web server (`src/dlna_renderer.py`): one more
 announcement on the network every fifteen minutes, an answer when a

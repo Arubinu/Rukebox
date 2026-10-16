@@ -56,6 +56,10 @@ def move(cover_dir, music_dir):
     target = os.path.abspath(str(music_dir or "").strip()) if music_dir else ""
     if not source or not os.path.isdir(source) or not target or source == target:
         return None
+    if target.startswith(source.rstrip(os.sep) + os.sep):
+        # The music lies inside the old folder: renaming it would take the music away.
+        log.warning("The music folder %s is inside %s: the covers are left where they are", target, source)
+        return None
     if not os.path.isdir(target) or not os.access(target, os.W_OK):
         log.warning("The music folder %s cannot be written: the covers stay in %s", target, source)
         return None

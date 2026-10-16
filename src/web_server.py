@@ -609,7 +609,7 @@ def dlna_event(service):
         if not events.renew(sid, timeout):
             return Response("", status=412)
     else:
-        callbacks = dlna_renderer.parse_callbacks(request.headers.get("CALLBACK"))
+        callbacks = dlna_renderer.own_callbacks(request.headers.get("CALLBACK"), request.remote_addr)
         if not callbacks or request.headers.get("NT") != "upnp:event":
             return Response("", status=412)
         sid = events.subscribe(service, callbacks, timeout)
@@ -697,7 +697,8 @@ def _known_host():
 
 @app.before_request
 def _refuse_foreign_requests():
-    if request.path.startswith("/api/") and not _known_host():
+    guarded = request.path.startswith(("/api/", upnp.PATH + "/", dlna_renderer.PATH + "/"))
+    if guarded and not _known_host():
         _note_refused_host(request.host)
         return jsonify({"ok": False, "error": "bad_host", "detail": request.host}), 403
     if request.method in ("GET", "HEAD", "OPTIONS"):

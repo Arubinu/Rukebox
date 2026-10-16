@@ -29,7 +29,7 @@ POINTS_MAX = 48
 def _minute(value):
     try:
         minute = int(round(float(value)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return minute if 0 <= minute < MINUTES_PER_DAY else None
 
@@ -37,7 +37,7 @@ def _minute(value):
 def _level(value):
     try:
         level = int(round(float(value)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return max(LEVEL_MIN, min(LEVEL_MAX, level))
 

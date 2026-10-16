@@ -328,3 +328,18 @@ class WaitingTest(unittest.TestCase):
         self.assertTrue(covers_move.waiting(folder))
         self.assertFalse(covers_move.waiting(os.path.join(folder, "gone")))
         self.assertFalse(covers_move.waiting(""))
+
+
+class ReviewGuardsTest(unittest.TestCase):
+    def test_music_inside_the_old_covers_folder_is_never_moved_away(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        music = os.path.join(folder, "music")
+        os.makedirs(music)
+        self.assertIsNone(covers_move.move(folder, music))
+        self.assertTrue(os.path.isdir(music))
+
+    def test_a_release_group_is_plain_letters_digits_and_dashes(self):
+        for bad in ("", "caf\u00e9", "../x", "a/b", "x" * 65):
+            with self.assertRaises(acoustid.AcoustidError):
+                acoustid.cover(bad)

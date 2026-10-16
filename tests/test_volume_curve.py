@@ -6,6 +6,7 @@ point back to the first crosses midnight.
 """
 import os
 import shutil
+import socket
 import tempfile
 import unittest
 from datetime import datetime
@@ -13,6 +14,7 @@ from unittest import mock
 
 import _path  # noqa: F401
 import config_document
+import control_client
 import volume_curve
 from test_empty_library import DaemonCase
 
@@ -79,6 +81,15 @@ class CurveMathsTest(unittest.TestCase):
         four = volume_curve.MINUTES_PER_DAY - 1
         self.assertIsNone(volume_curve.clean_points([{"at": four + 1, "level": 10}]) or None,
                           "a minute past the day is not a minute")
+
+
+class CurveValuesTest(unittest.TestCase):
+    def test_a_value_that_is_no_number_is_dropped(self):
+        self.assertEqual(volume_curve.clean_points([{"at": float("inf"), "level": 50},
+                                                    {"at": 60, "level": float("nan")},
+                                                    {"at": 120, "level": float("-inf")},
+                                                    {"at": 180, "level": 40}]),
+                         [(180, 40)])
 
 
 class CurveBlockTest(unittest.TestCase):
@@ -254,6 +265,20 @@ except ImportError:  # the Pi always has Flask; a checkout may not
 
 
 @unittest.skipUnless(ws is not None, "Flask is not installed (run these on the Pi)")
+@unittest.skipUnless(hasattr(socket, "AF_UNIX"), "the control socket is a Unix socket")
+class VolumeNumberTest(DaemonCase):
+    def test_a_volume_that_is_no_number_is_refused(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        path = os.path.join(folder, "control.sock")
+        self.daemon.cfg["CONTROL_SOCKET"] = path
+        self.daemon._start_control_socket()
+        self.addCleanup(self.daemon._stop_event.set)
+        for value in ("nan", "inf", "-inf"):
+            answer = control_client.send_control_command(path, "set_volume", value=value)
+            self.assertEqual(answer.get("error"), "invalid_value", value)
+
+
 class CurveRouteTest(unittest.TestCase):
     """The route the strip talks to: the points, the words, the level now."""
 

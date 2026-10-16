@@ -409,11 +409,22 @@ def running():
     return _responder is not None
 
 
+def parse_xml(text):
+    """The root of a document a client sent, or None; one with a DOCTYPE is
+    refused rather than parsed (its entities can grow without end)."""
+    text = str(text or "")
+    if not text.strip() or "<!doctype" in text.lower() or "<!entity" in text.lower():
+        return None
+    try:
+        return ElementTree.fromstring(text)
+    except ElementTree.ParseError:
+        return None
+
+
 def arguments_of(body):
     """{name: text} of a SOAP request's action arguments, whatever prefixes it uses."""
-    try:
-        root = ElementTree.fromstring(body or "")
-    except ElementTree.ParseError:
+    root = parse_xml(body)
+    if root is None:
         return {}
     found = {}
     for element in root.iter():
@@ -427,9 +438,8 @@ def action_of(header, body):
     """The action asked for: the SOAPAction header, or the body's own name."""
     if header:
         return header.split("#")[-1].strip().strip('"').strip("'")
-    try:
-        root = ElementTree.fromstring(body or "")
-    except ElementTree.ParseError:
+    root = parse_xml(body)
+    if root is None:
         return ""
     for element in root.iter():
         if list(element) and element.tag.rsplit("}", 1)[-1] not in ("Body", "Envelope"):

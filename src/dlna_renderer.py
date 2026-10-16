@@ -34,6 +34,8 @@ SERVICES = (
 )
 DEVICE = upnp.Device(DEVICE_TYPE, SERVICES, PATH, "rukebox-dlna-")
 SUBSCRIPTION_SEC = 1800
+SUBSCRIPTIONS_MAX = 32
+CALLBACKS_MAX = 3
 # What mpv plays, said the way a controller checks a file before it sends it.
 SINK_PROTOCOLS = ",".join("http-get:*:%s:*" % mime for mime in (
     "audio/mpeg", "audio/mp3", "audio/flac", "audio/x-flac", "audio/ogg", "audio/opus", "audio/wav",
@@ -368,10 +370,7 @@ def pending():
 def sent_metadata(text):
     """{title, artist, album, art} of the DIDL-Lite a controller sent with its address."""
     found = {}
-    try:
-        root = ElementTree.fromstring(str(text or "")) if text else None
-    except ElementTree.ParseError:
-        root = None
+    root = upnp.parse_xml(text)
     if root is None:
         return found
     for element in root.iter():
@@ -503,6 +502,14 @@ def parse_callbacks(header):
             if part.strip().startswith("http://")]
 
 
+def own_callbacks(header, remote_addr):
+    """The callbacks that point back at the controller asking, a few at most."""
+    own = str(remote_addr or "")
+    own = own[7:] if own.startswith("::ffff:") else own
+    return [url for url in parse_callbacks(header)
+            if urllib.parse.urlsplit(url.strip()).hostname == own][:CALLBACKS_MAX]
+
+
 def parse_timeout(header):
     text = str(header or "").strip().lower()
     if text.startswith("second-"):
@@ -541,6 +548,9 @@ class Events:
     def subscribe(self, service, callbacks, timeout):
         sid = "uuid:%s" % uuid.uuid4()
         with self.lock:
+            while len(self.subscriptions) >= SUBSCRIPTIONS_MAX:
+                # Full: the one that would lapse first makes room.
+                del self.subscriptions[min(self.subscriptions, key=lambda one: self.subscriptions[one]["expires"])]
             self.subscriptions[sid] = {"service": service, "callbacks": callbacks, "seq": 0,
                                        "expires": time.monotonic() + timeout}
         return sid
