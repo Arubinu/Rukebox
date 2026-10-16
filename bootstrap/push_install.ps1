@@ -184,7 +184,7 @@ cleanup() {
     rm -f "__ARCHIVE__" "__APPLY__"
 }
 trap cleanup EXIT
-tar xzf "__ARCHIVE__" -C "$STAGING"
+tar --no-same-owner -xzf "__ARCHIVE__" -C "$STAGING"
 chmod +x "$STAGING/scripts/"*.sh
 sudo "$STAGING/scripts/install.sh"
 '@
