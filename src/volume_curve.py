@@ -42,6 +42,21 @@ def _level(value):
     return max(LEVEL_MIN, min(LEVEL_MAX, level))
 
 
+MODES = ("off", "cap", "curve")
+
+
+def shape_of(config):
+    """Which shape the volume takes by itself: nothing, the cap, the curve.
+
+    A radio that never named one keeps the cap's own switch, which is how it
+    worked before the curve existed."""
+    config = config or {}
+    mode = str(config.get("VOLUME_SHAPE") or "").strip().lower()
+    if mode in MODES:
+        return mode
+    return "cap" if config.get("VOLUME_CAP_ENABLED") else "off"
+
+
 def clean_points(raw):
     """The `points` of the block as [(minute, level)], in clock order.
 

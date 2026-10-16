@@ -56,6 +56,7 @@ import platform as platform_mod  # noqa: E402
 import stream as stream_mod  # noqa: E402
 import system_actions  # noqa: E402
 import upnp  # noqa: E402
+import volume_curve  # noqa: E402
 import web_auth  # noqa: E402
 import roles  # noqa: E402
 from config_and_scan import (DEFAULTS, get_music_list, load_config, scan_audio_dir,  # noqa: E402
@@ -3257,6 +3258,35 @@ def api_status_wait():
     if not result.get("ok"):
         return jsonify({"ok": False, "error": "daemon_unreachable"}), 503
     return jsonify(result)
+
+
+@app.route("/api/volume_curve", methods=["GET", "POST"])
+def api_volume_curve():
+    """The daily volume curve: its dots, and what they do in words.
+
+    The line under the strip is written here, from the same rule the daemon
+    applies - src/volume_curve.py - so the words and the sound agree."""
+    if request.method == "POST":
+        body = request.get_json(silent=True) or {}
+        if "points" in body:
+            try:
+                volume_curve.save(body.get("points"))
+            except (ValueError, TypeError):
+                return jsonify({"ok": False, "error": "invalid_value"}), 400
+            stats.record("volume_curve_changed", label="curve",
+                         detail={"points": len(volume_curve.load() or [])})
+    points = volume_curve.load()
+    if points is None:
+        return jsonify({"ok": False, "error": "file_unreadable"}), 500
+    now = datetime.now()
+    level = volume_curve.level_at(points, now.hour * 60 + now.minute)
+    return jsonify({"ok": True, "data": {
+        "points": [{"at": at, "level": level} for at, level in points],
+        "summary": volume_curve.describe(points),
+        "shape": volume_curve.shape_of(cfg()),
+        "now": {"minute": now.hour * 60 + now.minute,
+                "level": None if level is None else round(level, 1)},
+    }})
 
 
 @app.route("/api/status")

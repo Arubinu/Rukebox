@@ -1622,14 +1622,8 @@ class RadioDaemon:
             * self._duck_factor * self.mpv.scale
 
     def _volume_shape(self):
-        """Which shape the volume takes by itself: nothing, the cap, the curve.
-
-        A radio that never touched the setting has none, and the cap's own
-        switch decides then - which is how it worked before the curve."""
-        mode = str(self.cfg.get("VOLUME_SHAPE") or "").strip().lower()
-        if mode in ("off", "cap", "curve"):
-            return mode
-        return "cap" if self.cfg.get("VOLUME_CAP_ENABLED") else "off"
+        """Which shape the volume takes by itself: nothing, the cap, the curve."""
+        return volume_curve.shape_of(self.cfg)
 
     def _curve(self):
         """The curve's points, read again whenever the document changed."""

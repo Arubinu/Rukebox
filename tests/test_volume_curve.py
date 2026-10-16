@@ -181,5 +181,45 @@ class DaemonCurveTest(DaemonCase):
         applied.assert_called_once()
 
 
+try:
+    import flask  # noqa: F401
+    import web_server as ws
+except ImportError:  # the Pi always has Flask; a checkout may not
+    ws = None
+
+
+@unittest.skipUnless(ws is not None, "Flask is not installed (run these on the Pi)")
+class CurveRouteTest(unittest.TestCase):
+    """The route the strip talks to: the points, the words, the level now."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.document = _path.document(self.dir)
+        self.client = ws.app.test_client()
+        volume_curve.save([(360, 40), (1320, 100)], self.document)
+
+    def test_it_gives_the_points_the_words_and_the_level_now(self):
+        data = self.client.get("/api/volume_curve").get_json()["data"]
+        self.assertEqual([one["at"] for one in data["points"]], [360, 1320])
+        self.assertEqual([one["kind"] for one in data["summary"]], ["fall", "rise"])
+        self.assertEqual(data["summary"][0]["seconds"], 28800, "eight hours down to 06:00")
+        self.assertIn(data["shape"], ("off", "cap", "curve"))
+        self.assertEqual(data["now"]["minute"], datetime.now().hour * 60 + datetime.now().minute)
+        self.assertIsNotNone(data["now"]["level"])
+
+    def test_it_saves_what_the_page_sends(self):
+        answer = self.client.post("/api/volume_curve",
+                                  json={"points": [{"at": 60, "level": 30},
+                                                   {"at": 60, "level": 90}]})
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(volume_curve.load(self.document), [(60, 30), (60, 90)])
+
+    def test_what_makes_no_sense_is_dropped_rather_than_stored(self):
+        self.client.post("/api/volume_curve", json={"points": [{"at": -1, "level": 30},
+                                                               {"at": 90, "level": 42}]})
+        self.assertEqual(volume_curve.load(self.document), [(90, 42)])
+
+
 if __name__ == "__main__":
     unittest.main()

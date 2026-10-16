@@ -1149,14 +1149,21 @@
               </select>
             </div>
             <details class="subsection" id="volumeCapSection">
-              <summary><span data-i18n="settings.group_volume_cap">Night volume</span></summary>
+              <summary><span data-i18n="settings.group_volume_cap">Volume by itself</span></summary>
               <div class="field-row">
                 <div class="field-text">
-                  <label for="volumeCapOn" data-i18n="settings.volume_cap">Volume capped at night</label>
-                  <p class="field-desc" id="volumeCapOnDesc" data-i18n="settings.volume_cap_desc">Between the two times below, the whole radio plays lower: music, announcements and sounds. The volume shown stays the one chosen.</p>
+                  <label for="volumeShape" data-i18n="settings.volume_shape">By the clock</label>
+                  <p class="field-desc" id="volumeShapeDesc" data-i18n="settings.volume_shape_desc">What the radio does to the volume on its own. The volume shown stays the one chosen, in both cases.</p>
                 </div>
-                <input type="checkbox" id="volumeCapOn" data-key="playback.volume_cap_enabled" class="switch-input" role="switch"
-                       aria-describedby="volumeCapOnDesc">
+                <select id="volumeShape" data-key="playback.volume_shape" aria-describedby="volumeShapeDesc">
+                  <option value="off" data-i18n="settings.volume_shape_none">Nothing - the volume is the one you set</option>
+                  <option value="cap" data-i18n="settings.volume_shape_cap">Turned down between two times (night)</option>
+                  <option value="curve" data-i18n="settings.volume_shape_curve">Following a daily curve</option>
+                </select>
+              </div>
+              <p class="field-desc" id="volumeShapeOld" data-i18n="settings.volume_shape_old" hidden>This radio turned the volume down at night: the choice above is what counts from now on.</p>
+              <div class="field-row" id="volumeCapOldRow" hidden>
+                <input type="checkbox" id="volumeCapOn" data-key="playback.volume_cap_enabled" class="switch-input" role="switch">
               </div>
               <div class="field-row" id="volumeCapRow">
                 <div class="field-text">
@@ -1184,6 +1191,19 @@
                 <input type="number" id="volumeCapFade" min="0" max="600" step="5" data-key="playback.volume_cap_fade_sec"
                        class="num-input" inputmode="numeric" aria-describedby="volumeCapFadeDesc">
               </div>
+              <div class="field-row" id="volumeCurveRow">
+                <div class="field-text">
+                  <label for="volumeCurveSvg" data-i18n="settings.volume_curve">The day's curve</label>
+                  <p class="field-desc" id="volumeCurveDesc" data-i18n="settings.volume_curve_desc">The volume is a share of the one you chose, hour by hour. Drag a dot, double-click the strip to add one, right-click or Delete to remove it.</p>
+                </div>
+              </div>
+              <figure class="curve-editor" id="volumeCurveEditor" hidden>
+                <svg id="volumeCurveSvg" viewBox="0 0 1440 110" role="application" tabindex="0"
+                     aria-describedby="volumeCurveHint" data-i18n-aria-label="settings.volume_curve"></svg>
+                <p class="hint" id="volumeCurveReadout" aria-live="polite"></p>
+                <ul class="device-list" id="volumeCurveSummary"></ul>
+                <p class="hint help-text" id="volumeCurveHint" data-i18n="settings.volume_curve_hint">The hours run left to right, midnight at both ends: a curve that starts at 21:00 and ends at 07:00 simply crosses the right edge. Two dots at the same time change the level at once - a cut.</p>
+              </figure>
             </details>
             <details data-level="detail" class="subsection" id="volumeChangeSection">
               <summary><span data-i18n="settings.group_volume_change">How the volume changes</span></summary>
