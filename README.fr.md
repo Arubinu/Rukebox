@@ -54,6 +54,7 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
 
 - Un Raspberry Pi Zero 2 W (les autres Raspberry Pi fonctionnent aussi)
 - Une carte microSD (8 Go ou plus) et une alimentation
+- Raspberry Pi OS Bookworm ou plus récent (ou Debian 12+ pour un conteneur) : Python 3.11 au minimum
 - Une enceinte Bluetooth - ou une sortie filaire : jack, carte son USB ou
   HDMI
 - Conseillé : un module horloge DS3231, pour que le Pi garde l'heure sans

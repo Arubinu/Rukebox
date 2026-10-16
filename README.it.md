@@ -53,6 +53,7 @@ della cassa o qualsiasi telefono collegato al Wi-Fi del Pi.
 
 - Un Raspberry Pi Zero 2 W (vanno bene anche gli altri modelli)
 - Una scheda microSD (8 GB o più) e un alimentatore
+- Raspberry Pi OS Bookworm o successivo (o Debian 12+ per un container): almeno Python 3.11
 - Una cassa Bluetooth - oppure un'uscita via cavo: jack, scheda audio USB o
   HDMI
 - Consigliato: un modulo orologio DS3231, perché il Pi mantenga l'ora

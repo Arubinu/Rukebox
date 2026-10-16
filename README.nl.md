@@ -53,6 +53,7 @@ speaker of elke telefoon op de wifi van de Pi is genoeg.
 
 - Een Raspberry Pi Zero 2 W (andere Raspberry Pi-modellen werken ook)
 - Een microSD-kaart (8 GB of meer) en een voeding
+- Raspberry Pi OS Bookworm of nieuwer (of Debian 12+ voor een container): minstens Python 3.11
 - Een Bluetooth-speaker - of een bedrade uitgang: jack, USB-geluidskaart
   of HDMI
 - Aanbevolen: een DS3231-klokmodule, zodat de Pi de tijd bijhoudt zonder

@@ -317,6 +317,10 @@ SOURCE_DIR="$(readlink -f "$SOURCE_DIR")"
 [ -d "$SOURCE_DIR" ] || fail "source directory not found: $SOURCE_DIR"
 [ "$SOURCE_DIR" != "$INSTALL_DIR" ] || fail "the source cannot be $INSTALL_DIR itself."
 
+# Python 3.11 at least: Raspberry Pi OS / Debian 12 Bookworm or later.
+python_recent() { python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; }
+python_recent || fail "$(python3 -V 2>&1) is too old: this version needs Python 3.11 or newer (Raspberry Pi OS or Debian 12 Bookworm, or later). Nothing was changed: reinstall on a newer system."
+
 mark_updating
 step "Checking the new version"
 for required in src/rukebox_daemon.py src/web_server.py src/config_and_scan.py \

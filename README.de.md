@@ -55,6 +55,7 @@ Lautsprechers oder ein beliebiges Handy im WLAN des Pi genügen.
 
 - Einen Raspberry Pi Zero 2 W (andere Raspberry-Pi-Modelle gehen auch)
 - Eine microSD-Karte (ab 8 GB) und ein Netzteil
+- Raspberry Pi OS Bookworm oder neuer (oder Debian 12+ für einen Container): mindestens Python 3.11
 - Einen Bluetooth-Lautsprecher - oder einen Kabelausgang: Klinke,
   USB-Soundkarte oder HDMI
 - Empfohlen: ein DS3231-Uhrmodul, damit der Pi die Uhrzeit ohne Internet

@@ -52,6 +52,7 @@ cualquier móvil conectado al Wi-Fi de la Pi.
 
 - Una Raspberry Pi Zero 2 W (otros modelos de Raspberry Pi también sirven)
 - Una tarjeta microSD (8 GB o más) y una fuente de alimentación
+- Raspberry Pi OS Bookworm o posterior (o Debian 12+ para un contenedor): Python 3.11 como mínimo
 - Un altavoz Bluetooth - o una salida por cable: jack, tarjeta de sonido
   USB o HDMI
 - Recomendado: un módulo de reloj DS3231, para que la Pi conserve la hora

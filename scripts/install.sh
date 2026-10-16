@@ -186,6 +186,17 @@ if [ "$internet" = "no" ]; then
     exit 1
 fi
 
+# Python 3.11 at least: Raspberry Pi OS / Debian 12 Bookworm or later.
+python_recent() { python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; }
+too_old() {
+    echo "!! $(python3 -V 2>&1) is too old: Rukebox needs Python 3.11 or newer" >&2
+    echo "!! (Raspberry Pi OS or Debian 12 Bookworm, or later). Start from a newer system." >&2
+    exit 1
+}
+if command -v python3 >/dev/null 2>&1 && ! python_recent; then
+    too_old
+fi
+
 echo "== Installing system packages =="
 apt-get update
 # util-linux-extra carries hwclock; a container template has neither sudo nor
@@ -238,6 +249,8 @@ if [ "$SYSTEM_UPGRADE" = "yes" ]; then
 else
     echo "System packages not upgraded (do it later with: sudo apt update && sudo apt full-upgrade)."
 fi
+
+python_recent || too_old
 
 echo "== Creating folders =="
 mkdir -p /opt/rukebox /etc/rukebox /var/lib/rukebox

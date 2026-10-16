@@ -50,6 +50,7 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
 
 - A Raspberry Pi Zero 2 W (other Raspberry Pi models work too)
 - A microSD card (8 GB or more) and a power supply
+- Raspberry Pi OS Bookworm or later (or Debian 12+ for a container): Python 3.11 at least
 - A Bluetooth speaker - or a wired output: jack, USB sound card or HDMI
 - Recommended: a DS3231 real-time clock module, so the Pi keeps the time
   without Internet
