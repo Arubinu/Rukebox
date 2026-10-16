@@ -404,6 +404,22 @@ SETTINGS = [
             "always applies at once.",
             "Night volume transition (sec)"),
     Setting(
+        "VOLUME_SHAPE", "playback", "volume_shape", "str", "",
+        "Which shape the volume takes by itself: nothing, the night cap above,\n"
+        "or the daily curve (the volume_curve block below). Empty, which is what\n"
+        "a radio that updated has, means the night cap's own switch decides -\n"
+        "set it from the interface and this is what counts.",
+        "Volume by itself",
+    ),
+    Setting(
+        "VOLUME_CURVE_MANUAL", "playback", "volume_curve_manual", "str", "scaled",
+        "What a hand on the volume does while the curve applies: scaled, the curve\n"
+        "multiplies what was chosen; force, the curve decides and the volume is no\n"
+        "longer adjustable; shifted, the whole curve moves with the hand; paused,\n"
+        "the curve steps aside until its next point.",
+        "The curve and the volume control",
+    ),
+    Setting(
         "AUDIO_COMPRESSION", "playback", "audio_compression", "str", "off",
         "Loudness filter mpv applies to everything it plays, before the\n"
         "volume control - see \"Getting more volume\" in docs/guide.md:\n"

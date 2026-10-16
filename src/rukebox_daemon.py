@@ -41,6 +41,7 @@ from stats import StatsRecorder  # noqa: E402
 import system_actions  # noqa: E402
 import track_media  # noqa: E402
 import track_order  # noqa: E402
+import volume_curve  # noqa: E402
 import stream  # noqa: E402
 import usb_storage  # noqa: E402
 import wled  # noqa: E402
@@ -54,6 +55,9 @@ log = logging.getLogger("radio")
 # "No list remembered" - None already means "the whole library".
 _NO_LIST = object()
 NEVER = float("-inf")
+# The curve walks in the scheduler tick's own steps: over hours that is a
+# fraction of a percent each time, and a restart lands where the clock says.
+CURVE_GLIDE_SEC = 1.0
 
 
 def _file_stamp(path):
@@ -317,6 +321,9 @@ class RadioDaemon:
         # The night cap mpv is going to (the glide towards it may still run), and that glide's turn.
         self._cap_scale = 1.0
         self._cap_glide_gen = 0
+        self._curve_stamp = None
+        self._curve_points = []
+        self._volume_shape_last = None
         self._volume_glide_target = None
         self._sink_level = None
         self._sink_name = None
@@ -766,7 +773,7 @@ class RadioDaemon:
         system_actions.on_exit(self._on_process_end)
         self._init_clock_sync()
         self.mpv.start()
-        self._apply_volume_cap(glide=False)
+        self._apply_volume_shape(glide=False)
         self._apply_audio_output(force=True)
         self.mpv.set_replaygain(self.cfg["REPLAYGAIN_MODE"])
         self._apply_compression()
@@ -861,7 +868,10 @@ class RadioDaemon:
         if "SPEAKER_VOLUME_LINK" in applied:
             self._apply_volume_link()
         if any(key.startswith("VOLUME_CAP_") for key in applied):
-            self._apply_volume_cap(glide=False)
+            self._apply_volume_shape(glide=False)
+        if any(key.startswith("VOLUME_SHAPE") or key.startswith("VOLUME_CURVE_")
+               for key in applied):
+            self._apply_volume_shape(glide=False)
         if "MUSIC_ORDER_MODE" in applied or "MUSIC_DIR" in applied:
             tracks = self._playable_tracks()
             if tracks:
@@ -1610,6 +1620,64 @@ class RadioDaemon:
             return self._music_gain() * self._duck_factor * self.mpv.scale
         return (self._current_volume if self._current_volume is not None else self._target_volume()) \
             * self._duck_factor * self.mpv.scale
+
+    def _volume_shape(self):
+        """Which shape the volume takes by itself: nothing, the cap, the curve.
+
+        A radio that never touched the setting has none, and the cap's own
+        switch decides then - which is how it worked before the curve."""
+        mode = str(self.cfg.get("VOLUME_SHAPE") or "").strip().lower()
+        if mode in ("off", "cap", "curve"):
+            return mode
+        return "cap" if self.cfg.get("VOLUME_CAP_ENABLED") else "off"
+
+    def _curve(self):
+        """The curve's points, read again whenever the document changed."""
+        stamp = config_document.stamp()
+        if stamp != self._curve_stamp:
+            points = volume_curve.load()
+            if points is None:
+                log.error("Could not read the volume curve: keeping the %d point(s) loaded",
+                          len(self._curve_points))
+            else:
+                self._curve_points = points
+            self._curve_stamp = stamp
+        return self._curve_points
+
+    def _curve_level(self, now=None):
+        """The share the curve gives now, in percent, or None with no curve."""
+        points = self._curve()
+        if not points:
+            return None
+        now = now or datetime.now()
+        level = volume_curve.level_at(points, now.hour * 60 + now.minute)
+        return None if level is None else level
+
+    def _apply_volume_shape(self, now=None, glide=True):
+        """Sets what mpv plays at: the cap's scale, the curve's, or none."""
+        mode = self._volume_shape()
+        if mode != "curve":
+            if self._volume_shape_last == "curve":
+                # Back to the cap: its own scale is the one that counts, even
+                # when the two happen to agree.
+                self._cap_scale = -1.0
+            self._volume_shape_last = mode
+            return self._apply_volume_cap(now, glide=glide)
+        self._volume_shape_last = mode
+        level = self._curve_level(now)
+        scale = 1.0 if level is None else max(0.0, min(1.0, level / 100.0))
+        if scale == self._cap_scale and (glide or scale == self.mpv.scale):
+            return
+        self._cap_scale = scale
+        now = now or datetime.now()
+        minute = now.hour * 60 + now.minute
+        # A cut lands at once; the rest of the ramp walks in the tick's own
+        # steps, which keeps it smooth and right after a restart.
+        seconds = 0.0 if (not glide or volume_curve.is_cut(self._curve(), minute)) \
+            else CURVE_GLIDE_SEC
+        log.info("Volume curve: %s", "off" if level is None else "%g%% of the volume chosen" % level)
+        self._glide_cap(scale, seconds)
+        self._bump_state()
 
     def _volume_cap(self, now=None):
         """The night cap in percent while its hours run, or None."""
@@ -4138,7 +4206,7 @@ class RadioDaemon:
             time.sleep(15)
 
     def _scheduler_tick(self):
-        self._apply_volume_cap()
+        self._apply_volume_shape()
         self._announcements()
         self._check_usb_music()
         now = datetime.now()
@@ -4285,6 +4353,8 @@ class RadioDaemon:
             "volume": self._shown_volume,
             "base_volume": self.cfg["BASE_VOLUME"],
             "volume_cap": self._volume_cap(),
+            "volume_curve": self._curve_level() if self._volume_shape() == "curve" else None,
+            "volume_shape": self._volume_shape(),
             "current_track": os.path.basename(music_track) if music_track else None,
             "current_track_path": music_track,
             "sound": sound,

@@ -316,6 +316,18 @@ playback:
   # always applies at once.
   volume_cap_fade_sec: 60
 
+  # Which shape the volume takes by itself: nothing, the night cap above,
+  # or the daily curve (the volume_curve block below). Empty, which is what
+  # a radio that updated has, means the night cap's own switch decides -
+  # set it from the interface and this is what counts.
+  volume_shape: ""
+
+  # What a hand on the volume does while the curve applies: scaled, the curve
+  # multiplies what was chosen; force, the curve decides and the volume is no
+  # longer adjustable; shifted, the whole curve moves with the hand; paused,
+  # the curve steps aside until its next point.
+  volume_curve_manual: "scaled"
+
   # Loudness filter mpv applies to everything it plays, before the
   # volume control - see "Getting more volume" in docs/guide.md:
   #   off    -> exactly what the files contain (the default)
@@ -1209,4 +1221,11 @@ track_order: {}
 # ---------------------------------------------------------------
 people:
   items: []
+
+
+# ---------------------------------------------------------------
+# The daily volume curve
+# ---------------------------------------------------------------
+volume_curve:
+  points: []
 

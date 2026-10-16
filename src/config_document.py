@@ -49,9 +49,10 @@ BLOCKS = {
     "schedules": ("SCHEDULES_FILE", "schedules_file", "schedules.json"),
     "cards": ("CARDS_FILE", "cards_file", "cards.json"),
     "track_order": ("TRACK_ORDER_FILE", "track_order_file", "track_order.json"),
-    # The accounts were never a file of their own: nothing to take in, but the
-    # document holds them like the other lists.
+    # The accounts and the volume curve were never files of their own:
+    # nothing to take in, but the document holds them like the other lists.
     "people": (None, "people", "people.json"),
+    "volume_curve": (None, "volume_curve", "volume_curve.json"),
 }
 
 # What a block added to the end of a document is introduced by.
@@ -62,6 +63,7 @@ COMMENTS = {
     "cards": "# The RFID cards and what each one starts.",
     "track_order": "# The play order saved for an announcement folder, when one was chosen.",
     "people": "# The people who may log in: name, role, and the password they chose.",
+    "volume_curve": "# The daily volume curve: points on the clock, level by level.",
 }
 
 # What a new document shows of each block, so that the shape is there to read.
@@ -72,6 +74,7 @@ EMPTY = {
     "cards": {"cards": []},
     "track_order": {},
     "people": {"items": []},
+    "volume_curve": {"points": []},
 }
 
 DESCRIPTIONS = {
@@ -81,6 +84,7 @@ DESCRIPTIONS = {
     "cards": "The cards, and what each one starts",
     "track_order": "The play order chosen for an announcement folder",
     "people": "Who may log in, and as what",
+    "volume_curve": "The daily volume curve",
 }
 
 _cache = {}
