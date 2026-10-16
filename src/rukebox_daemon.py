@@ -2909,7 +2909,7 @@ class RadioDaemon:
         if item.get("say") or voice:
             # Said once the music or the opening announcement has started (_check_reminders).
             parts = [("say", item["say"])] if item.get("say") else []
-            self._schedule_say = (parts + ([("file", voice)] if voice else []), time.time() + 3)
+            self._schedule_say = (parts + ([("file", voice)] if voice else []), time.time() + 3, item["id"])
         opening = self._schedule_announcement(item)
         if self.mode in ("idle", "stopped"):
             self.state.mark_triggered_today("last_music_start")
@@ -3581,17 +3581,21 @@ class RadioDaemon:
         minutes (the radio was off) is dropped. A schedule's own sentence
         comes first, as soon as nothing else is being said."""
         now = time.time()
+        if self._schedule_say and (self._schedule_active or {}).get("id") != self._schedule_say[2]:
+            # Its schedule is over (a party ended at once): what it had left to say goes with it.
+            self._schedule_say = None
         if self._schedule_say and now >= self._schedule_say[1]:
             if self.mode not in ("music", "idle", "stopped") or self._duck_proc is not None:
                 return
-            parts, _due = self._schedule_say
+            parts, _due, _owner = self._schedule_say
             kind, part = parts.pop(0)
             if not parts:
                 self._schedule_say = None
             # The sentence first, then the recorded message: one per tick, each waits for the last.
             if kind == "file":
-                path = part
-                self.stats.record("reminder_said", label=os.path.basename(part))
+                path = part if os.path.isfile(part) else None
+                if path:
+                    self.stats.record("reminder_said", label=os.path.basename(part))
             else:
                 path = self._speech_text_file(speech.clean_text(part, schedules.SAY_MAX))
                 if path:

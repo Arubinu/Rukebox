@@ -292,6 +292,18 @@ class DaemonTest(unittest.TestCase):
         self.daemon._record_cutoff_trigger("exact")
         self.assertIsNone(schedules.party_state(self.dir))
 
+    def test_a_party_ended_at_once_says_nothing_after(self):
+        schedules.add({"name": "Party", "party": True, "say": "Bonne soirée"}, self.path)
+        schedules.start_party(self.dir, 3, guests=False)
+        with mock.patch.object(self.daemon, "_speech_text_file", return_value="/s.wav"), \
+                mock.patch.object(self.daemon, "_say_path") as say:
+            self.tick(datetime.now())
+            schedules.end_party(self.dir)
+            self.tick(datetime.now())
+            with mock.patch.object(rukebox_daemon.time, "time", return_value=time.time() + 10):
+                self.daemon._check_reminders()
+        say.assert_not_called()
+
     def test_the_start_starts_the_music_once(self):
         self.add()
         self.tick(at(5, 6, 59, 45))
