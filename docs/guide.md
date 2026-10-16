@@ -1102,6 +1102,35 @@ a growing pause when the broker is away, and starts over by itself when one of
 its settings is saved. The card says whether it is connected, or why not.
 The password is written from the page but never shown back.
 
+### A media player tile (DLNA)
+
+MQTT cannot make a Home Assistant *media player*: its discovery has no such
+entity. **Media player tile (DLNA)** (`audio.dlna_renderer`, in the same card,
+off by default) does it another way: the radio announces itself on the
+network as a DLNA **MediaRenderer**, and Home Assistant's DLNA Digital Media
+Renderer integration finds it by itself (it is offered under *Discovered*;
+otherwise add the integration with `http://<radio>/dlna/rootDesc.xml`).
+
+The tile then has play/pause, stop, next, previous, the volume and mute, and
+what plays - title, artist, album, its length and position, and the cover.
+Changes reach Home Assistant as UPnP events (GENA `LastChange`) the moment they
+happen, so it does not poll. Any DLNA controller app on a phone sees the same
+player.
+
+What it does not do, on purpose: play what it is sent. There is no
+`SetAVTransportURI`, so neither Home Assistant nor an app offers "play this" -
+the radio keeps choosing its own music - and there is no seeking inside a
+song. *Stop* pauses, like the radio's own buttons. And mind who is on the
+network: like every DLNA device, these controls need no password, so anyone
+on the same network can use them.
+
+The renderer runs inside the web server (`src/dlna_renderer.py`): one more
+announcement on the network every fifteen minutes, an answer when a
+controller asks, and a thread that sleeps until the radio's state changes
+while a controller is watching. Its name is the radio's network name
+(`audio.upnp_name`), and it is a device of its own beside the media server of
+the network stream.
+
 ## Light strips (WLED)
 
 [WLED](https://kno.wled.ge) is the usual firmware for an ESP32 or ESP8266

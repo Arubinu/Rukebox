@@ -86,6 +86,14 @@ audio:
   # two radios that were given the same name are still two devices.
   upnp_uid: ""
 
+  # Shows the radio on the network as a DLNA media player (a renderer): Home
+  # Assistant then makes it a media player tile - play, pause, next,
+  # previous, volume, mute, and what plays with its cover - and DLNA apps on a
+  # phone can drive it too. Anyone on the same network may then use those
+  # controls, without the interface's password. It plays only its own music:
+  # nothing can be sent to it.
+  dlna_renderer: false
+
 # ---------------------------------------------------------------
 # Bluetooth: speaker, and which controller does what
 # ---------------------------------------------------------------

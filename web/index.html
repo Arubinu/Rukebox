@@ -1505,6 +1505,13 @@
                 <input type="text" id="mqttDiscovery" data-key="home_assistant.discovery_prefix" class="text-input" autocapitalize="off" spellcheck="false">
               </div>
             </details>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="dlnaRenderer" data-i18n="mqtt.dlna">Media player tile (DLNA)</label>
+                <p class="field-desc" id="dlnaRendererDesc" data-i18n="mqtt.dlna_desc">Home Assistant and DLNA apps see the radio as a media player: play, pause, next, volume, and what plays with its cover. Anyone on the network can then use those controls.</p>
+              </div>
+              <input type="checkbox" id="dlnaRenderer" data-key="audio.dlna_renderer" class="switch-input" role="switch" aria-describedby="dlnaRendererDesc">
+            </div>
             <p class="hint" id="mqttStatus" role="status"></p>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>

@@ -64,14 +64,6 @@ def device_name():
     return _device["name"]
 
 
-def udn():
-    """A name that survives a restart, so a player that has seen this radio
-    once does not end up listing it twice - and that follows the identity, not
-    the name, so renaming relabels the device instead of making a second one."""
-    seed = "rukebox-upnp-" + (_device["uid"] or socket.gethostname())
-    return "uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
-
-
 def base_url(address, port):
     """The address a client reaches the web interface on, without a port when
     it is the default one."""
@@ -79,8 +71,38 @@ def base_url(address, port):
     return "http://%s%s" % (address, "" if port == 80 else ":%d" % port)
 
 
+class Device:
+    """One root device this radio announces: what it is, its services, where it
+    is described. The media server is one; the renderer (src/dlna_renderer.py)
+    is another, announced on the same port by a responder of its own."""
+
+    def __init__(self, device_type, services, path, seed):
+        self.device_type = device_type
+        self.services = services
+        self.path = path
+        self.seed = seed
+
+    def udn(self):
+        """A name that survives a restart, so a player that has seen this radio
+        once does not end up listing it twice - and that follows the identity,
+        not the name, so renaming relabels the device instead of making a
+        second one."""
+        return "uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL,
+                                        self.seed + (_device["uid"] or socket.gethostname())))
+
+    def description_url(self, address, port):
+        return base_url(address, port) + self.path + "/rootDesc.xml"
+
+
+SERVER = Device(DEVICE_TYPE, SERVICES, PATH, "rukebox-upnp-")
+
+
+def udn():
+    return SERVER.udn()
+
+
 def description_url(address, port):
-    return base_url(address, port) + PATH + "/rootDesc.xml"
+    return SERVER.description_url(address, port)
 
 
 def device_description():
@@ -151,30 +173,32 @@ def parse_search(data):
     return headers
 
 
-def search_targets(st):
+def search_targets(st, device=None):
     """The (NT, USN) pairs this machine answers a given search target with."""
-    name = udn()
+    device = device or SERVER
+    name = device.udn()
     pairs = [
         (name, name),
         ("upnp:rootdevice", name + "::upnp:rootdevice"),
-        (DEVICE_TYPE, name + "::" + DEVICE_TYPE),
+        (device.device_type, name + "::" + device.device_type),
     ]
     pairs += [(service_type, name + "::" + service_type)
-              for _service, service_type, _id in SERVICES]
+              for _service, service_type, _id in device.services]
     if not st or st == "ssdp:all":
         return pairs
     return [pair for pair in pairs if pair[0] == st]
 
 
-def search_replies(data, sender, port, addresses=None):
+def search_replies(data, sender, port, addresses=None, device=None):
     """What to answer one datagram with: one message per service searched for."""
+    device = device or SERVER
     headers = parse_search(data)
     if headers is None:
         return []
     address = pick_address(sender, addresses)
     if not address:
         return []
-    location = description_url(address, port)
+    location = device.description_url(address, port)
     return [
         _message("HTTP/1.1 200 OK", [
             ("CACHE-CONTROL", "max-age=%d" % MAX_AGE),
@@ -187,23 +211,24 @@ def search_replies(data, sender, port, addresses=None):
             ("BOOTID.UPNP.ORG", BOOT_ID),
             ("CONFIGID.UPNP.ORG", 1),
         ]).encode("ascii")
-        for nt, usn in search_targets(headers.get("st"))
+        for nt, usn in search_targets(headers.get("st"), device)
     ]
 
 
-def notify_messages(port, alive=True, addresses=None):
+def notify_messages(port, alive=True, addresses=None, device=None):
     """The announcements sent without being asked, one per local address: a
     player that was already open learns about us no other way."""
+    device = device or SERVER
     if addresses is None:
         addresses = local_addresses()
     messages = []
     for address in addresses:
-        for nt, usn in search_targets(None):
+        for nt, usn in search_targets(None, device):
             headers = [("HOST", "%s:%d" % (SSDP_ADDRESS, SSDP_PORT))]
             if alive:
                 headers += [
                     ("CACHE-CONTROL", "max-age=%d" % MAX_AGE),
-                    ("LOCATION", description_url(address, port)),
+                    ("LOCATION", device.description_url(address, port)),
                     ("SERVER", SERVER_NAME),
                 ]
             headers += [
@@ -270,7 +295,8 @@ def pick_address(sender, addresses=None):
 class Responder:
     """The SSDP side: answers searches, and says who it is without being asked."""
 
-    def __init__(self, port, ssdp_port=SSDP_PORT, interval=NOTIFY_INTERVAL):
+    def __init__(self, port, ssdp_port=SSDP_PORT, interval=NOTIFY_INTERVAL, device=None):
+        self.device = device or SERVER
         self.port = int(port)
         self.ssdp_port = int(ssdp_port)
         self.interval = interval
@@ -329,11 +355,11 @@ class Responder:
             log.debug("UPnP: could not answer %s (%s)", address, e)
 
     def _announce(self, alive):
-        for message in notify_messages(self.port, alive=alive):
+        for message in notify_messages(self.port, alive=alive, device=self.device):
             self._send(message, (SSDP_ADDRESS, self.ssdp_port))
 
     def _answer(self, data, sender):
-        replies = search_replies(data, sender[0], self.port)
+        replies = search_replies(data, sender[0], self.port, device=self.device)
         for reply in replies:
             self._send(reply, sender)
         self.answers += len(replies)

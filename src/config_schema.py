@@ -134,6 +134,16 @@ SETTINGS = [
         "Identity",
     ),
     Setting(
+        "DLNA_RENDERER", "audio", "dlna_renderer", "bool", "false",
+        "Shows the radio on the network as a DLNA media player (a renderer): Home\n"
+        "Assistant then makes it a media player tile - play, pause, next,\n"
+        "previous, volume, mute, and what plays with its cover - and DLNA apps on a\n"
+        "phone can drive it too. Anyone on the same network may then use those\n"
+        "controls, without the interface's password. It plays only its own music:\n"
+        "nothing can be sent to it.",
+        "DLNA media player",
+    ),
+    Setting(
         "SPEAKER_MAC", "bluetooth", "speaker_mac", "str", "",
         "MAC address of the \"master\" speaker (the other speaker of a stereo\n"
         "pair is handled by the speakers themselves, not our concern here).\n"

@@ -39,6 +39,7 @@ import audio_diag  # noqa: E402
 import net_diag  # noqa: E402
 import bt_codec  # noqa: E402
 import config_bundle  # noqa: E402
+import dlna_renderer  # noqa: E402
 import covers_move  # noqa: E402
 import duplicates  # noqa: E402
 import hidden_tracks  # noqa: E402
@@ -471,6 +472,7 @@ def _upnp_watch():
         try:
             _reconnect_a_silent_stream()
             _upnp_follow_stream()
+            _dlna_follow()
         except Exception:  # noqa: BLE001
             log.exception("The stream watchdog failed")
 
@@ -511,6 +513,117 @@ def api_upnp_event(service):
     answer.headers["TIMEOUT"] = "Second-1800"
     answer.headers["SERVER"] = upnp.SERVER_NAME
     return answer
+
+
+def _dlna_follow():
+    """Announces the renderer exactly while the setting asks for it."""
+    if cfg().get("DLNA_RENDERER"):
+        dlna_renderer.start(cfg()["WEB_PORT"])
+    else:
+        dlna_renderer.stop()
+
+
+def _dlna_now(base):
+    """The renderer's state variables, from the daemon's status."""
+    result = control("get_status")
+    status = (result.get("data") or {}) if result.get("ok") else {}
+    path = status.get("current_track_path") or ""
+    tags = track_media.tags(path) if path else {}
+    return dlna_renderer.state(status, tags, base, track_media.track_key(path) if path else "")
+
+
+def _dlna_watch():
+    """Tells the controllers watching the renderer what changed, as it changes."""
+    version = -1
+    while True:
+        try:
+            if not dlna_renderer.running() or not dlna_renderer.events.watched():
+                time.sleep(2)
+                continue
+            answer = send_control_command(cfg()["CONTROL_SOCKET"], "wait_change", timeout=30,
+                                          since=version)
+            if not answer.get("ok"):
+                time.sleep(5)
+                continue
+            version = int((answer.get("data") or {}).get("version") or version)
+            base = upnp.base_url(upnp.route_address() or "127.0.0.1", cfg()["WEB_PORT"])
+            dlna_renderer.events.publish(_dlna_now(base))
+        except Exception:  # noqa: BLE001
+            log.exception("The renderer's events failed")
+            time.sleep(5)
+
+
+def _dlna_base():
+    """The address the controller asking reached us on."""
+    return request.host_url.rstrip("/")
+
+
+@app.route(dlna_renderer.PATH + "/rootDesc.xml")
+def dlna_description():
+    if not dlna_renderer.running():
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return Response(dlna_renderer.device_description(), mimetype="text/xml")
+
+
+@app.route(dlna_renderer.PATH + "/<service>/scpd.xml")
+def dlna_service_description(service):
+    text = dlna_renderer.service_description(service)
+    if text is None or not dlna_renderer.running():
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return Response(text, mimetype="text/xml")
+
+
+@app.route(dlna_renderer.PATH + "/<service>/control", methods=["POST"])
+def dlna_control(service):
+    if dlna_renderer.service_type(service) is None or not dlna_renderer.running():
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    body = request.get_data(as_text=True)
+    action = upnp.action_of(request.headers.get("SOAPAction", ""), body)
+    status, text = dlna_renderer.handle(
+        service, action, upnp.arguments_of(body), _dlna_now(_dlna_base()),
+        lambda command, **arguments: control(command, source="dlna", **arguments))
+    return Response(text, status=status, mimetype='text/xml; charset="utf-8"')
+
+
+@app.route(dlna_renderer.PATH + "/<service>/event", methods=["SUBSCRIBE", "UNSUBSCRIBE"])
+def dlna_event(service):
+    """GENA: a controller asks to be told of changes, renews, or stops listening."""
+    if dlna_renderer.service_type(service) is None or not dlna_renderer.running():
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    events = dlna_renderer.events
+    sid = request.headers.get("SID")
+    timeout = dlna_renderer.parse_timeout(request.headers.get("TIMEOUT"))
+    if request.method == "UNSUBSCRIBE":
+        return Response("", status=200 if sid and events.unsubscribe(sid) else 412)
+    if sid:
+        if not events.renew(sid, timeout):
+            return Response("", status=412)
+    else:
+        callbacks = dlna_renderer.parse_callbacks(request.headers.get("CALLBACK"))
+        if not callbacks or request.headers.get("NT") != "upnp:event":
+            return Response("", status=412)
+        sid = events.subscribe(service, callbacks, timeout)
+        now = _dlna_now(_dlna_base())
+        # The first event follows the answer: the controller learns the SID first.
+        threading.Timer(0.3, events.welcome, args=(sid, now)).start()
+    answer = Response("", status=200)
+    answer.headers["SID"] = sid
+    answer.headers["TIMEOUT"] = "Second-%d" % timeout
+    answer.headers["SERVER"] = upnp.SERVER_NAME
+    return answer
+
+
+@app.route(dlna_renderer.PATH + "/cover.jpg")
+def dlna_cover():
+    """The playing song's cover, for a controller that cannot log in."""
+    path = None
+    result = control("get_status")
+    if result.get("ok") and dlna_renderer.running():
+        path = (result.get("data") or {}).get("current_track_path")
+    art = _cover_of(path) if path else None
+    if not art:
+        return jsonify({"ok": False, "error": "no_cover"}), 404
+    return Response(art[0], mimetype=art[1], headers={"Cache-Control": "private, max-age=300"})
 
 
 JSON_BODY_MAX_BYTES = 1024 * 1024
@@ -1996,7 +2109,7 @@ def api_now_cover():
         response.headers["Cache-Control"] = "no-store"
         return response, 404
     data, mime = art
-    # Short-lived on purpose: a picture dropped in the covers folder, or the
+    # Short-lived on purpose: a picture dropped beside the music, or the
     # priority changed, is then seen on the next reload instead of tomorrow.
     return Response(data, mimetype=mime, headers={"Cache-Control": "private, max-age=300"})
 
@@ -4748,6 +4861,10 @@ def api_set_settings():
         _ensure_upnp_identity(cfg())
     if (config_schema.STREAM_SETTINGS | config_schema.UPNP_SETTINGS) & changed:
         _upnp_follow_stream()
+    if "DLNA_RENDERER" in changed or "UPNP_NAME" in changed:
+        # A new name is a new description: said again under it.
+        dlna_renderer.stop()
+        _dlna_follow()
     if any(config_schema.find_setting(key).section == "lights" for key in body):
         try:
             control("wled_refresh")
@@ -8427,7 +8544,9 @@ def main():
     if _portal_on(c) and int(c["WEB_PORT"]) != captive_portal.PORTAL_PORT:
         captive_portal.start(c.get("AP_INTERFACE", "uap0"), c["WEB_PORT"])
     _upnp_follow_stream()
+    _dlna_follow()
     threading.Thread(target=_upnp_watch, name="upnp-watch", daemon=True).start()
+    threading.Thread(target=_dlna_watch, name="dlna-watch", daemon=True).start()
     try:
         _get_library()
     except Exception:  # noqa: BLE001
