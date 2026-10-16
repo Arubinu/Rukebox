@@ -297,7 +297,7 @@ cleanup() {
     rm -f "$REMOTE_ARCHIVE" "$REMOTE_APPLY"
 }
 trap cleanup EXIT
-tar xzf "$REMOTE_ARCHIVE" -C "\$STAGING"
+tar --no-same-owner -xzf "$REMOTE_ARCHIVE" -C "\$STAGING"
 chmod +x "\$STAGING/scripts/update.sh"
 sudo "\$STAGING/scripts/update.sh" --source "\$STAGING"$EXTRA_UPDATE_ARGS
 APPLY
