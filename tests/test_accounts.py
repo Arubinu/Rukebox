@@ -256,6 +256,21 @@ class GateTest(unittest.TestCase):
             self.assertEqual(answer.status_code, 401, key)
             self.assertEqual(answer.get_json()["needs"], "owner")
 
+    def test_an_operators_export_leaves_the_secrets_out(self):
+        self.people()
+        with mock.patch.object(ws.config_bundle, "export_bundle",
+                               side_effect=lambda *a, **k: {"settings": {
+                                   "home_assistant.password": "s3cret",
+                                   "home_assistant.host": "ha.local"}}):
+            self.assertEqual(self.login("Paul", "mot-de-passe-paul").status_code, 200)
+            settings = self.client.get("/api/config/export").get_json()["settings"]
+            self.assertNotIn("home_assistant.password", settings)
+            self.assertEqual(settings["home_assistant.host"], "ha.local")
+            self.client.post("/api/auth/logout")
+            self.assertEqual(self.login("Le patron", "mot-de-passe-owner").status_code, 200)
+            settings = self.client.get("/api/config/export").get_json()["settings"]
+            self.assertEqual(settings["home_assistant.password"], "s3cret", "a backup the owner can restore")
+
     def test_the_owner_reaches_everything(self):
         self.people()
         self.assertEqual(self.login("Le patron", "mot-de-passe-owner").status_code, 200)

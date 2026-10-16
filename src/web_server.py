@@ -7322,6 +7322,10 @@ def api_config_export():
     c = cfg()
     bundle = config_bundle.export_bundle(c, read_version_file(c["UPDATE_VERSION_FILE"]),
                                          flic_buttons=_flic_button_count())
+    if _role() != "owner":
+        # The secrets the page never shows stay the owner's in a file too.
+        for key in _SETTINGS_WRITE_ONLY:
+            bundle["settings"].pop(key, None)
     payload = json.dumps(bundle, ensure_ascii=False, indent=2)
     filename = "rukebox-config-%s.json" % time.strftime("%Y%m%d-%H%M%S")
     stats.record("config_exported", detail={"settings": len(bundle["settings"])})
