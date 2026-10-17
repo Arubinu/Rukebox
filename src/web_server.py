@@ -3245,11 +3245,20 @@ def _forget_status_probes(response):
     return response
 
 
+KEEPER_CLICK_ACTIONS = ("poweroff", "standby", "sleep")
+
+
 @app.route("/api/action/<name>", methods=["POST"])
 def api_action(name):
     if name not in ("single_click", "double_click", "long_press", "start_music",
                     "next_track", "previous_track", "toggle_pause", "skip_sound", "standby"):
         return jsonify({"ok": False, "error": "unknown_action"}), 404
+    # A click does what the radio's button is set to: never power or a timer for a guest.
+    if name in ("single_click", "double_click") and cfg().get("WEB_PASSWORD_HASH") \
+            and not _is_authenticated():
+        action = cfg().get("SINGLE_CLICK_ACTION" if name == "single_click" else "DOUBLE_CLICK_ACTION")
+        if action in KEEPER_CLICK_ACTIONS:
+            return jsonify({"ok": False, "error": "click_action_not_allowed", "detail": action}), 403
     result = control(name)
     status_code = 200 if result.get("ok") else 400
     return jsonify(result), status_code

@@ -5,6 +5,7 @@ import shutil
 import socket
 import tempfile
 import unittest
+from unittest import mock
 
 import _path  # noqa: F401
 import control_client
@@ -33,6 +34,27 @@ class HostTest(unittest.TestCase):
         client = ws.app.test_client()
         self.assertEqual(client.get("/upnp/rootDesc.xml", headers={"Host": "attacker.example"}).status_code, 403)
         self.assertEqual(client.get("/upnp/rootDesc.xml", headers={"Host": "192.168.1.5"}).status_code, 200)
+
+
+@unittest.skipUnless(ws, "Flask is not installed (run these on the Pi)")
+class GuestClickTest(unittest.TestCase):
+    def test_a_guest_never_switches_the_radio_off_through_the_button(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        # Guest credits off, and a device store of its own: what is checked is the click alone.
+        values = dict(ws.cfg(), WEB_PASSWORD_HASH="x", GUEST_MODE_ENABLED=True, GUEST_QUOTA_ENABLED=False,
+                      SUGGESTIONS_DB_FILE=os.path.join(folder, "suggestions.db"),
+                      SINGLE_CLICK_ACTION="poweroff", DOUBLE_CLICK_ACTION="next")
+        clicked = []
+        with mock.patch.object(ws, "cfg", return_value=values), \
+                mock.patch.object(ws, "control", side_effect=lambda cmd, **kw: clicked.append(cmd) or {"ok": True}):
+            client = ws.app.test_client()
+            answer = client.post("/api/action/single_click")
+            self.assertEqual((answer.status_code, answer.get_json()["error"]), (403, "click_action_not_allowed"))
+            self.assertEqual(client.post("/api/action/double_click").status_code, 200)
+            with mock.patch.object(ws, "_is_authenticated", return_value=True):
+                self.assertEqual(client.post("/api/action/single_click").status_code, 200)
+        self.assertEqual(clicked, ["double_click", "single_click"])
 
 
 @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "the control socket is a Unix socket")
