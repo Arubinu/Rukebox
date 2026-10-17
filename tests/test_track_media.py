@@ -161,7 +161,8 @@ class CoverTest(unittest.TestCase):
         def counted(*args):
             found.append(1)
             return real(*args)
-        with mock.patch.object(track_media, "_embedded_picture", return_value=None),                 mock.patch.object(track_media, "_find_cover", side_effect=counted):
+        with mock.patch.object(track_media, "_embedded_picture", return_value=None), \
+                mock.patch.object(track_media, "_find_cover", side_effect=counted):
             self.cover()
             self.cover()
             self.assertEqual(len(found), 2, "just changed: looked up again")
