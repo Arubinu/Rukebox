@@ -9,8 +9,6 @@ import socket
 import sys
 import threading
 import time
-import urllib.error
-import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -18,6 +16,7 @@ import audio_output  # noqa: E402
 import config_file  # noqa: E402
 import json_file  # noqa: E402
 import mqtt_client  # noqa: E402
+import releases  # noqa: E402
 import music_lists  # noqa: E402
 import machine as platform_mod  # noqa: E402
 import tag_editor  # noqa: E402
@@ -267,20 +266,21 @@ def installed_version(cfg):
     return data.get("release") or data.get("tree_hash_short") or "", (data.get("tree_hash") or "").lower()
 
 
-def latest_release(repo, timeout=10):
-    """{"tag", "url", "notes"} of the repository's latest release, or None."""
-    if not repo or not re.fullmatch(r"[\w.-]+/[\w.-]+", repo):
-        return None
-    request = urllib.request.Request("https://api.github.com/repos/%s/releases/latest" % repo,
-                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "Rukebox"})
+def latest_release(cfg, timeout=10):
+    """{"tag", "url", "notes"} of the release this radio may move to, else of the
+    one it runs, or None."""
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as reply:
-            info = json.loads(reply.read().decode("utf-8"))
-    except (urllib.error.URLError, OSError, ValueError):
+        listed = releases.fetch((cfg.get("UPDATE_GITHUB_REPO") or "").strip(), timeout=timeout)
+    except releases.LookupFailed:
         return None
-    if not info.get("tag_name"):
+    installed = releases.installed_release(cfg.get("UPDATE_VERSION_FILE") or "", listed)
+    release, _crosses = releases.target(listed, installed)
+    if release is None:
+        release = next((found for _parts, found in releases.published(listed)
+                        if found["tag_name"] == installed), None)
+    if not release:
         return None
-    return {"tag": info["tag_name"], "url": info.get("html_url") or "", "notes": info.get("body") or ""}
+    return {"tag": release["tag_name"], "url": release.get("html_url") or "", "notes": release.get("body") or ""}
 
 
 def update_state(cfg, release):
@@ -335,7 +335,7 @@ class Bridge:
         if now - self.release_at < RELEASE_SEC:
             return
         self.release_at = now
-        found = latest_release((self.cfg.get("UPDATE_GITHUB_REPO") or "").strip())
+        found = latest_release(self.cfg)
         if found:
             self.release = found
         self.client.publish(self.base + "/update", json.dumps(update_state(self.cfg, self.release)), retain=True)

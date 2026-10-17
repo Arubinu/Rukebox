@@ -354,6 +354,105 @@ async function refreshUpdate() {
 
 let latestRelease = null;
 
+/* Release notes are Markdown written by the project: headings, lists, quotes, bold,
+   code and links are drawn as elements, and nothing in them is ever read as HTML. */
+function notesInline(text) {
+  const out = document.createDocumentFragment();
+  const pattern = /\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  let last = 0;
+  let match;
+  while ((match = pattern.exec(text))) {
+    out.append(text.slice(last, match.index));
+    let el;
+    if (match[1] !== undefined) {
+      el = document.createElement("strong");
+      el.textContent = match[1];
+    } else if (match[2] !== undefined) {
+      el = document.createElement("code");
+      el.textContent = match[2];
+    } else {
+      el = document.createElement("a");
+      el.textContent = match[3];
+      el.href = match[4];
+      el.target = "_blank";
+      el.rel = "noopener noreferrer";
+    }
+    out.append(el);
+    last = pattern.lastIndex;
+  }
+  out.append(text.slice(last));
+  return out;
+}
+
+function renderNotes(markdown) {
+  const out = document.createDocumentFragment();
+  let list = null;
+  String(markdown || "").split(/\r?\n/).forEach((raw) => {
+    // Badges are pictures from another site: never fetched from the radio's page.
+    const line = raw.replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim();
+    const item = /^[-*] +(.*)$/.exec(line);
+    if (!item) list = null;
+    if (!line) return;
+    if (item) {
+      if (!list) {
+        list = document.createElement("ul");
+        out.append(list);
+      }
+      const li = document.createElement("li");
+      li.append(notesInline(item[1]));
+      list.append(li);
+      return;
+    }
+    const heading = /^(#{1,4}) +(.*)$/.exec(line);
+    const quote = /^> ?(.*)$/.exec(line);
+    let el;
+    if (heading) {
+      el = document.createElement(heading[1].length === 1 ? "h4" : "h5");
+      el.append(notesInline(heading[2]));
+    } else {
+      el = document.createElement("p");
+      if (quote) el.className = "release-callout";
+      el.append(notesInline(quote ? quote[1] : line));
+    }
+    out.append(el);
+  });
+  return out;
+}
+
+function paintReleaseChanges(r) {
+  const box = document.getElementById("releaseChanges");
+  const listBox = document.getElementById("releaseChangesList");
+  listBox.replaceChildren();
+  const changes = (r && r.newer && r.changes) || [];
+  box.hidden = !changes.length;
+  changes.forEach((step) => {
+    const section = document.createElement("section");
+    section.className = "release-step";
+    const head = document.createElement("p");
+    head.className = "release-step-head";
+    const when = step.published_at ? new Date(step.published_at).toLocaleDateString(currentLang) : "";
+    head.textContent = step.tag + (when ? " \u00b7 " + when : "");
+    section.append(head, renderNotes(step.notes));
+    listBox.append(section);
+  });
+}
+
+async function confirmRelease(r) {
+  if (!r.major) return showConfirm(t("update.confirm_release", { tag: r.tag }));
+  const body = document.createElement("div");
+  body.className = "release-notes release-major";
+  const said = document.createElement("p");
+  said.textContent = t("update.major_body", { tag: r.tag });
+  body.append(said);
+  const answer = await openModal({
+    title: t("update.major_title", { tag: r.tag }),
+    bodyNode: body,
+    confirm: true,
+    choices: [{ label: t("update.major_go", { tag: r.tag }), value: true }],
+  });
+  return answer === true;
+}
+
 async function checkRelease(force) {
   const status = document.getElementById("releaseStatus");
   const install = document.getElementById("btnReleaseInstall");
@@ -362,23 +461,27 @@ async function checkRelease(force) {
   status.textContent = t("update.release_checking");
   status.classList.remove("warning");
   try {
-    const result = await apiGet("/api/update/release" + (force ? "?force=1" : ""));
+    const result = await apiGet("/api/update/release?lang=" + encodeURIComponent(currentLang)
+      + (force ? "&force=1" : ""));
     latestRelease = result.ok ? result.data : null;
     install.hidden = true;
+    paintReleaseChanges(latestRelease);
     if (!result.ok) {
       status.textContent = errorLabel(result.error);
       status.classList.toggle("warning", result.error !== "release_none");
       return;
     }
     const r = result.data;
-    const when = r.published_at ? new Date(r.published_at).toLocaleDateString() : "";
+    const when = r.published_at ? new Date(r.published_at).toLocaleDateString(currentLang) : "";
+    const available = t(r.major ? "update.release_major_available" : "update.release_available",
+      { tag: r.tag, date: when });
     if (!r.newer) {
       status.textContent = "";
       if (force) showToast(t("update.release_current", { tag: r.tag }));
     } else if (!r.allowed) {
-      status.textContent = t("update.release_available", { tag: r.tag, date: when }) + " " + t("update.release_not_allowed");
+      status.textContent = available + " " + t("update.release_not_allowed");
     } else {
-      status.textContent = t("update.release_available", { tag: r.tag, date: when });
+      status.textContent = available;
       install.hidden = false;
       install.textContent = t("update.release_install", { tag: r.tag });
     }
@@ -394,13 +497,15 @@ document.getElementById("releaseRepoForm").addEventListener("submit", () => {
   latestRelease = null;
   document.getElementById("btnReleaseInstall").hidden = true;
   document.getElementById("releaseStatus").textContent = "";
+  paintReleaseChanges(null);
 });
 document.getElementById("btnReleaseInstall").addEventListener("click", async () => {
   if (!latestRelease) return;
-  if (!(await showConfirm(t("update.confirm_release", { tag: latestRelease.tag })))) return;
+  const chosen = latestRelease;
+  if (!(await confirmRelease(chosen))) return;
   const hint = document.getElementById("gitUpdateHint");
   hint.textContent = t("update.starting");
-  const result = await apiPost("/api/update/release");
+  const result = await apiPost("/api/update/release", chosen.major ? { major: true } : {});
   if (!result.ok) {
     hint.textContent = t("common.failed_prefix", { error: errorLabel(result.error) });
     return;

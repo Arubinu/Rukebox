@@ -61,3 +61,4 @@ pi ALL=(ALL) NOPASSWD: /etc/NetworkManager/dispatcher.d/90-rukebox-ap-isolate ua
 pi ALL=(ALL) NOPASSWD: /usr/local/sbin/rukebox-update --from-git
 pi ALL=(ALL) NOPASSWD: /usr/local/sbin/rukebox-update --from-git --quiet
 pi ALL=(ALL) NOPASSWD: /usr/local/sbin/rukebox-update --from-release
+pi ALL=(ALL) NOPASSWD: /usr/local/sbin/rukebox-update --from-release --major

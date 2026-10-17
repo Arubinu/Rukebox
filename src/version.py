@@ -7,6 +7,9 @@ import re
 import subprocess
 import time
 
+# The major version this tree belongs to: raised with the first release of the next one.
+MAJOR = 2
+
 # Only what a release installs: hashing bootstrap/ and the docs made one build look like two.
 VERSIONED_DIRS = ("src", "scripts", "web", "config", "systemd", os.path.join("assets", "sounds"))
 
