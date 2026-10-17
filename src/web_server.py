@@ -2893,6 +2893,9 @@ def _with_voices(items):
 def api_party():
     """{hours}: the party schedule's settings hold for that long (0: until stopped); DELETE ends it."""
     state_dir = cfg()["STATE_DIR"]
+    body = request.get_json(silent=True) or {}
+    if "finish_track" in body:
+        control("set_finish_track", on=bool(body["finish_track"]))
     if request.method == "DELETE":
         if schedules.end_party(state_dir):
             stats.record("party_ended")
@@ -2901,7 +2904,6 @@ def api_party():
     item = schedules.party_item(schedules.load())
     if not item:
         return jsonify({"ok": False, "error": "party_not_set"}), 409
-    body = request.get_json(silent=True) or {}
     try:
         hours = float(body.get("hours") or 0)
     except (TypeError, ValueError):

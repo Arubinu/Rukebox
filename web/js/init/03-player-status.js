@@ -773,8 +773,11 @@ function paintTimers() {
   if (timerEnds.resume) parts.push(t("timer.resume_in", { t: formatLeft(timerEnds.resume - now) }));
   if (timerEnds.sleep) parts.push(t("timer.sleep_in", { t: formatLeft(timerEnds.sleep - now) }));
   if (playerStatus && playerStatus.sleep_at_end) parts.push(t("timer.sleep_at_end"));
+  if (playerStatus && playerStatus.party_at_end) parts.push(t("timer.party_at_end"));
   const party = playerStatus && playerStatus.schedule && playerStatus.schedule.party ? playerStatus.schedule : null;
-  if (party) parts.push(party.until ? t("timer.party_until", { time: party.until }) : t("timer.party_on"));
+  if (party && !playerStatus.party_at_end) {
+    parts.push(party.until ? t("timer.party_until", { time: party.until }) : t("timer.party_on"));
+  }
   const line = document.getElementById("npTimers");
   line.textContent = parts.join(" \u00b7 ");
   line.hidden = !parts.length;
@@ -843,7 +846,7 @@ function stopChoiceBody() {
                       ["power", t("home.legend_poweroff")]]);
 }
 
-function timerChoiceBody(groups, intro) {
+function timerChoiceBody(groups, intro, after) {
   const wrap = document.createElement("div");
   wrap.className = "timer-groups";
 
@@ -870,10 +873,10 @@ function timerChoiceBody(groups, intro) {
       btn.addEventListener("click", () => closeModal(option.value));
       box.appendChild(btn);
     });
-    if (group.extra) box.appendChild(group.extra);
     wrap.appendChild(box);
   });
 
+  if (after) wrap.appendChild(after);
   // Drawn icons, not the unicode pause/moon: many phone fonts have no glyph.
   wrap.appendChild(legendLines(groups.map((group) => [group.icon, group.legend])));
 
@@ -976,21 +979,32 @@ document.getElementById("btnTimer").addEventListener("click", async () => {
   if (timerEnds.sleep || d.sleep_at_end) {
     sleepOptions.push({ value: "sleep_off", label: t("timer.sleep_cancel"), quiet: true });
   }
-  // The radio keeps the last choice: the buttons' sleep follows it too.
-  const finishBox = document.createElement("label");
-  finishBox.className = "timer-check";
+  // A settings row, as in every card: the sleep and a party's end both follow it, and the
+  // radio keeps the last choice for the buttons too.
+  const finishRow = document.createElement("div");
+  finishRow.className = "field-row timer-finish";
+  const finishText = document.createElement("div");
+  finishText.className = "field-text";
+  const finishLabel = document.createElement("label");
+  finishLabel.htmlFor = "timerFinishTrack";
+  finishLabel.textContent = t("timer.finish_track");
+  const finishDesc = document.createElement("p");
+  finishDesc.className = "field-desc";
+  finishDesc.id = "timerFinishTrackDesc";
+  finishDesc.textContent = t("timer.finish_track_desc");
+  finishText.append(finishLabel, finishDesc);
   const finish = document.createElement("input");
   finish.type = "checkbox";
-  finish.id = "timerSleepFinish";
-  finish.checked = !!d.sleep_finish;
-  const finishText = document.createElement("span");
-  finishText.textContent = t("timer.sleep_finish");
-  finishBox.append(finish, finishText);
+  finish.id = "timerFinishTrack";
+  finish.className = "switch-input";
+  finish.setAttribute("role", "switch");
+  finish.setAttribute("aria-describedby", finishDesc.id);
+  finish.checked = !!d.finish_track;
+  finishRow.append(finishText, finish);
 
   const groups = [
     { icon: "pause", title: t("timer.group_pause"), options: pauseOptions, legend: t("timer.legend_pause") },
-    { icon: "moon", title: t("timer.group_sleep"), options: sleepOptions, legend: t("timer.legend_sleep"),
-      extra: finishBox },
+    { icon: "moon", title: t("timer.group_sleep"), options: sleepOptions, legend: t("timer.legend_sleep") },
   ];
   if (d.party_ready && mayCall("/api/party")) {
     const partyOptions = [3, 6].map((n) => ({ value: "party:" + n, label: t("timer.hours", { n }) }));
@@ -1004,7 +1018,7 @@ document.getElementById("btnTimer").addEventListener("click", async () => {
 
   const choice = await openModal({
     title: t("timer.title"),
-    bodyNode: timerChoiceBody(groups, t("timer.body")),
+    bodyNode: timerChoiceBody(groups, t("timer.body"), finishRow),
     actions: false,
   });
   if (!choice) return;
@@ -1015,9 +1029,10 @@ document.getElementById("btnTimer").addEventListener("click", async () => {
     result = await apiPost("/api/action/sleep_timer", { on: true, minutes: Number(choice.slice(6)),
                                                          finish_track: finish.checked });
   } else if (choice.startsWith("party:")) {
-    result = await apiPost("/api/party", { hours: Number(choice.slice(6)) });
+    result = await apiPost("/api/party", { hours: Number(choice.slice(6)), finish_track: finish.checked });
   } else if (choice === "party_off") {
-    result = await apiDelete("/api/party");
+    result = await apiFetch("/api/party", { method: "DELETE", headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ finish_track: finish.checked }) });
   } else if (choice === "resume") {
     result = await apiPost("/api/action/toggle_pause");
   } else {

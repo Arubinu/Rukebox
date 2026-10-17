@@ -374,9 +374,11 @@ class RadioDaemon:
         self._muted = False
         self._timer_gen = {}
         self._timer_due = {}
-        # The sleep timer may wait for the song to end; the last choice made also serves the buttons.
-        self._sleep_finish = False
+        # The sleep and a party's end may wait for the song to end; the last choice also serves the buttons.
+        self._finish_track = False
         self._sleep_at_end = False
+        self._party_last = None
+        self._party_hold = None
         self._track_count = None
         self._output_override = None
         # The USB key the library reads from, while one is in use: None means
@@ -1672,7 +1674,7 @@ class RadioDaemon:
             self.mpv.seek_end()
 
     def _crossfade_ok(self):
-        if self._sleep_at_end or self._restart_pending or self._speaker_lost_at is not None \
+        if self._sleep_at_end or self._party_hold or self._restart_pending or self._speaker_lost_at is not None \
                 or self._duck_proc is not None:
             return False
         if self.state.is_pending_cutoff():
@@ -2850,13 +2852,36 @@ class RadioDaemon:
         state = schedules.party_state(self.cfg["STATE_DIR"])
         item = schedules.party_item(items) if state else None
         if not item:
-            return None, False
+            return self._party_held(), False
+        self._party_hold = None
         started = float(state.get("started") or 0)
         fresh = started != self._party_started and time.time() - started < self.PARTY_FRESH_SEC
         self._party_started = started
         running = dict(item, begin=datetime.fromtimestamp(started),
                        end=datetime.fromtimestamp(float(state["until"])), open=bool(state.get("open")))
+        self._party_last = running
         return running, fresh
+
+    def _party_held(self):
+        """A party just over keeps its settings to the end of the song playing, when that was asked."""
+        last, track = self._party_last, self._last_music_track
+        playing = self.mode == "music" and not self._paused and track
+        if last is not None and self._finish_track and playing:
+            if self._party_hold is None:
+                left = (self._tail_at or self._duration or 0) - (self._position or 0)
+                if 0 < left <= self.SLEEP_FINISH_MAX_SEC:
+                    log.info("The party ends with this song (%d s)", left)
+                    self._party_hold = track
+                    self._bump_state()
+            if self._party_hold == track:
+                return last
+        self._party_last = self._party_hold = None
+        return None
+
+    def _party_release(self):
+        """The song a party was held for has ended: the usual settings come back before the next one."""
+        self._party_last = self._party_hold = None
+        self._follow_schedule(schedules.active(self._schedules(), datetime.now()))
 
     def _schedule_once(self, what, item, now):
         """True the first time in this minute. Kept in memory, not per day: a
@@ -3902,6 +3927,8 @@ class RadioDaemon:
         if self.mode == "music":
             if reason == "error" and self._should_back_off():
                 return
+            if self._party_hold:
+                self._party_release()
             if self.state.is_pending_cutoff() and self.cfg["CUTOFF_MODE"] == "end_of_track" \
                     and self._pending_cutoff_still_due():
                 self._start_cutoff_announce_now()
@@ -4314,7 +4341,7 @@ class RadioDaemon:
         """Pauses the song with a fade, or lets it end first when that was asked."""
         if self.mode == "music" and not self._paused:
             left = (self._tail_at or self._duration or 0) - (self._position or 0)
-            if self._sleep_finish and 0 < left <= self.SLEEP_FINISH_MAX_SEC:
+            if self._finish_track and 0 < left <= self.SLEEP_FINISH_MAX_SEC:
                 # _near_end() fades it out over its own last seconds.
                 log.info("Sleep timer: the music pauses at the end of this song (%d s)", left)
                 self._sleep_at_end = True
@@ -4674,7 +4701,8 @@ class RadioDaemon:
             "pause_durations": self._pause_durations(),
             "sleep_durations": self._sleep_durations(),
             "sleep_at_end": self._sleep_at_end,
-            "sleep_finish": self._sleep_finish,
+            "finish_track": self._finish_track,
+            "party_at_end": bool(self._party_hold),
             "timers": {name: (round(max(0.0, due - time.monotonic())) if due else None)
                        for name, due in (("resume", self._timer_due.get("resume")),
                                          ("sleep", self._timer_due.get("sleep")))},
@@ -4799,9 +4827,13 @@ class RadioDaemon:
                 self._set_timer("resume", minutes * 60, self._timed_pause_over)
                 self.stats.record("timed_pause", label=str(minutes), detail={"source": source})
                 return {"ok": True}
+            if cmd == "set_finish_track":
+                self._finish_track = bool(msg.get("on"))
+                self._bump_state()
+                return {"ok": True}
             if cmd == "sleep_timer":
                 if "finish_track" in msg:
-                    self._sleep_finish = bool(msg["finish_track"])
+                    self._finish_track = bool(msg["finish_track"])
                 if not msg.get("on", True):
                     if self._timer_due.get("sleep") or self._sleep_at_end:
                         self._set_timer("sleep", None)

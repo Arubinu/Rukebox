@@ -280,6 +280,22 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual(self.daemon.cfg["BASE_VOLUME"], 70)
         self.assertIsNone(self.daemon._build_status()["schedule"])
 
+    def test_a_party_ended_keeps_its_settings_to_the_end_of_the_song_when_asked(self):
+        schedules.add({"name": "Party", "party": True, "settings": {"BASE_VOLUME": 90}}, self.path)
+        schedules.start_party(self.dir, 3, guests=False)
+        self.tick(datetime.now())
+        self.assertEqual((self.daemon.mode, self.daemon.cfg["BASE_VOLUME"]), ("music", 90))
+        self.daemon._finish_track = True
+        self.daemon._duration, self.daemon._position = 200.0, 120.0
+        schedules.end_party(self.dir)
+        self.tick(datetime.now())
+        self.assertEqual(self.daemon.cfg["BASE_VOLUME"], 90, "the song playing ends at the party's volume")
+        self.assertTrue(self.daemon._build_status()["party_at_end"])
+        self.assertFalse(self.daemon._crossfade_ok())
+        self.daemon._on_mpv_event({"event": "end-file", "reason": "eof"})
+        self.assertEqual(self.daemon.cfg["BASE_VOLUME"], 70, "the next song is the usual one")
+        self.assertFalse(self.daemon._build_status()["party_at_end"])
+
     def test_a_party_found_after_a_reboot_holds_without_starting_again(self):
         schedules.add({"name": "Party", "party": True}, self.path)
         schedules.start_party(self.dir, 0, guests=False, now=time.time() - 3600)

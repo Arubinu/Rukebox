@@ -24,7 +24,7 @@ class SleepEndTest(DaemonCase):
                           side_effect=lambda name, delay, fn=None: fn() if fn and delay else None).start()
 
     def test_it_waits_for_the_end_of_the_song_then_fades_there(self):
-        self.daemon._sleep_finish = True
+        self.daemon._finish_track = True
         self.daemon._sleep_timer_over()
         self.assertFalse(self.daemon._paused, "the song goes on")
         self.assertTrue(self.daemon._build_status()["sleep_at_end"])
@@ -39,19 +39,19 @@ class SleepEndTest(DaemonCase):
         self.assertFalse(self.daemon._sleep_at_end)
 
     def test_without_the_choice_it_fades_at_once(self):
-        self.daemon._sleep_finish = False
+        self.daemon._finish_track = False
         self.daemon._sleep_timer_over()
         self.assertTrue(self.daemon._paused)
 
     def test_a_song_far_too_long_is_not_waited_for(self):
-        self.daemon._sleep_finish = True
+        self.daemon._finish_track = True
         self.daemon._duration = 3600.0
         self.daemon._sleep_timer_over()
         self.assertTrue(self.daemon._paused)
         self.assertFalse(self.daemon._sleep_at_end)
 
     def test_a_button_cancels_the_wait_and_a_new_timer_forgets_it(self):
-        self.daemon._sleep_finish = True
+        self.daemon._finish_track = True
         self.daemon._sleep_timer_over()
         self.assertEqual(self.daemon._perform_direct_action("sleep", "test"), "sleep_off")
         self.assertFalse(self.daemon._sleep_at_end)

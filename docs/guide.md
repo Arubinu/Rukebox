@@ -901,10 +901,11 @@ Playing also has **Previous**, a **loop** button (none → album → track,
 for this session) and **Timer…**: pause for a while (`pause_durations`,
 the music starts again by itself) or fall asleep after one of
 `sleep_durations` minutes (a fade, then silence). With **Let the song end
-first** ticked, the sleep waits for the song playing then and fades over its
-own last seconds instead of cutting it - unless it still has more than 15
-minutes to go. The radio keeps that choice, and a button's sleep follows it
-too. **Previous** says what
+first** switched on, under the sleep and the party, the sleep waits for the
+song playing then and fades over its own last seconds instead of cutting it,
+and a party that ends keeps its settings (its volume) until that song is
+over - unless it still has more than 15 minutes to go. The radio keeps that
+choice, and a button's sleep follows it too. **Previous** says what
 it will do: once the song has played a few seconds
 (`PREVIOUS_RESTART_AFTER_SEC`, 5) it reads *Back to the start* and does
 exactly that, and earlier in the song it reads *Previous* and goes back

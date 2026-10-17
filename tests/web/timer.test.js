@@ -77,7 +77,7 @@ test("a party set adds its own group, and one running says itself and can be end
   assert.equal(options.length, 4, "3 h, 6 h, until stopped, and the end");
   options[2].click();
   const started = await until(() => page.sent("POST", "/api/party")[0] || null);
-  assert.deepEqual(started.body, { hours: 0 }, "until stopped");
+  assert.deepEqual(started.body, { hours: 0, finish_track: false }, "until stopped");
   await until(() => page.$("modalOverlay").hidden);
   (await openTimer(page))[2].parentNode.querySelector(".timer-option-cancel").click();
   await until(() => page.sent("DELETE", "/api/party")[0] || null);
@@ -87,18 +87,38 @@ test("a party set adds its own group, and one running says itself and can be end
 test("the sleep can let the song end first, as the radio last remembered it", async (t) => {
   const page = load({
     routes: {
-      "GET /api/status": Object.assign({}, STATUS, { sleep_finish: true, sleep_at_end: true }),
+      "GET /api/status": Object.assign({}, STATUS, { finish_track: true, sleep_at_end: true }),
       "POST /api/action/sleep_timer": () => ({ ok: true }),
     },
   });
   await until(() => /end of this song/.test(page.$("npTimers").textContent));
   const heads = await openTimer(page);
-  const box = page.$("timerSleepFinish");
+  const box = page.$("timerFinishTrack");
   assert.equal(box.checked, true, "the last choice is the radio's");
   assert.ok(heads[1].parentNode.querySelector(".timer-option-cancel"), "a wait for the end can be cancelled");
   box.checked = false;
   heads[1].parentNode.querySelector(".timer-option").click();
   const sent = await until(() => page.sent("POST", "/api/action/sleep_timer")[0] || null);
   assert.deepEqual(sent.body, { on: true, minutes: 30, finish_track: false });
+  await page.close();
+});
+
+test("the same switch goes with a party's start and end", async (t) => {
+  const page = load({
+    routes: {
+      "GET /api/status": Object.assign({}, STATUS, { party_ready: true, finish_track: false,
+        schedule: { id: "party", name: "Party", party: true, until: "01:30", stop_action: null } }),
+      "POST /api/party": () => ({ ok: true }),
+      "DELETE /api/party": () => ({ ok: true }),
+    },
+  });
+  const heads = await openTimer(page);
+  const row = page.$("timerFinishTrack").closest(".field-row");
+  assert.ok(row.classList.contains("timer-finish"), "a settings row, not a box of its own");
+  assert.equal(page.$("timerFinishTrack").getAttribute("role"), "switch");
+  page.$("timerFinishTrack").checked = true;
+  heads[2].parentNode.querySelector(".timer-option-cancel").click();
+  const ended = await until(() => page.sent("DELETE", "/api/party")[0] || null);
+  assert.deepEqual(ended.body, { finish_track: true });
   await page.close();
 });
