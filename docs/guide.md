@@ -1750,10 +1750,14 @@ The same voice can do three more things.
   languages is said by that language's voice, the rest of the sentence staying
   in the radio's: "Et maintenant : *Who's Laughing Now*, de Jack Harlow". The
   language is guessed from the title's words, letters and contractions, and a
-  doubt keeps the radio's own voice. It needs that language's Piper voice
-  (`sudo rukebox-piper --also en`, about 60 MB each, the radio's own voice
-  untouched); without it, or with a voice of another kind (no robotic voice in
-  the middle of a Piper sentence), the whole sentence is said as before.
+  doubt keeps the radio's own voice. It needs that language's Piper voice:
+  Settings > **The voice** lists the five other languages, each with a button
+  to download its voice (about 60 MB, once, Internet needed) or remove it, the
+  radio's own voice untouched (`sudo rukebox-piper --also en` from SSH). Without
+  it, or with a voice of another kind (no robotic voice in the middle of a Piper
+  sentence), the whole sentence is said as before. **Titles in their own
+  language** (`schedule.dj_title_language`) switched off says everything in the
+  spoken language.
 - **Who says that introduction** (`schedule.dj_announce_mode`): *the radio*,
   as above; *your files*, where nothing is said for a song you have not
   prepared; or *your files, otherwise the radio*, which uses a file when there
