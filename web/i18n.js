@@ -2697,7 +2697,7 @@ const I18N = {
     "update.release_install": "Installer {tag}",
     "update.confirm_release": "Installer {tag} depuis GitHub ? La radio redémarre à la fin ; réglages, musique et statistiques sont conservés.",
     "update.changes": "Nouveautés",
-    "update.release_major_available": "Nouvelle version majeure {tag} ({date}) : lisez ce qu'elle change avant de l'installer.",
+    "update.release_major_available": "Nouvelle version majeure {tag} ({date}) : lis ce qu'elle change avant de l'installer.",
     "update.major_title": "Passer à {tag} ?",
     "update.major_intro": "{tag} est une nouvelle version majeure. Voici ce que ce passage implique :",
     "update.major_generic": "Certains réglages sont renommés ou déplacés, et revenir à la version précédente demande de restaurer la sauvegarde faite avant le passage. Les réglages, la musique et les statistiques sont conservés.",
