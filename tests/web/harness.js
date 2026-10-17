@@ -118,6 +118,8 @@ function load(options = {}) {
 
   // One evaluation: separate ones would not share their top-level const/let.
   // `expose` names top-level functions of the page to hand to a test: the evaluation keeps them to itself.
+  // The guided tour sits over the pages a test drives: off unless a test is about it.
+  if (!options.tour) window.localStorage.setItem("rukebox_tour_off", "1");
   Object.entries(options.storage || {}).forEach(([key, value]) => window.localStorage.setItem(key, value));
   // The <head> script that sets the view before the first paint does not run here.
   if (options.view) window.document.documentElement.dataset.view = options.view;

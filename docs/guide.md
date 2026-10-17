@@ -2487,6 +2487,13 @@ itself and keeps them in `game-sounds/` in the state folder.
   only the essential options. The box at the bottom of each section
   ("Show all options") switches to the detailed view, with everything;
   the same box brings the simple view back. Remembered per browser.
+- **Guided tour**: on the first arrival, a few bubbles show what is always
+  there - the areas, the logo that is also the back button, the header's
+  menu, search, theme and language, the link with the radio, the view. A
+  page that is not obvious (schedules, lists, volume, announcements, button
+  actions) has its own short tour the first time it opens; nothing else
+  interrupts. *Skip the tour* ends one for good, and the **i** button of the
+  header plays the tour again, every page's included. Remembered per browser.
 - **Explanations on demand**: each section heading carries a small
   **?** button. The interface stays uncluttered by default and the
   explanatory text appears only when asked for. Status lines (what was
