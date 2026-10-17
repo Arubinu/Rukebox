@@ -4521,9 +4521,13 @@ class RadioDaemon:
                 return {"ok": True}
             if cmd == "set_volume":
                 try:
-                    vol = max(0, min(100, float(msg.get("value"))))
+                    vol = float(msg.get("value"))
                 except (TypeError, ValueError):
                     return {"ok": False, "error": "invalid_value"}
+                # NaN slips through min/max as 100.
+                if not math.isfinite(vol):
+                    return {"ok": False, "error": "invalid_value"}
+                vol = max(0, min(100, vol))
                 self._set_user_volume(vol, source)
                 return {"ok": True, "volume": vol}
             if cmd == "rescan_music":

@@ -550,7 +550,9 @@ def _known_host():
 
 @app.before_request
 def _refuse_foreign_requests():
-    if request.path.startswith("/api/") and not _known_host():
+    # DNS rebinding: the UPnP routes answer without a login, so they get the API's host check.
+    guarded = request.path.startswith(("/api/", upnp.PATH + "/"))
+    if guarded and not _known_host():
         _note_refused_host(request.host)
         return jsonify({"ok": False, "error": "bad_host", "detail": request.host}), 403
     if request.method in ("GET", "HEAD", "OPTIONS"):
