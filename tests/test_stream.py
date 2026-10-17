@@ -10,6 +10,7 @@ import io
 import json
 import os
 import queue
+import sys
 import time
 import unittest
 from unittest import mock
@@ -256,6 +257,18 @@ class ListenerTest(unittest.TestCase):
         self.assertEqual(b"".join(chunks), b"aaabbb",
                          "every byte reaches the listener")
         self.assertIsNone(chunk, "and then the end")
+
+    def test_a_few_bytes_reach_the_listener_at_once(self):
+        """Paused music encodes to a trickle: what a real encoder wrote is handed on
+        without waiting for a full chunk."""
+        server = build_server()
+        writer = ("import sys, time; sys.stdout.buffer.write(b'OggS'); "
+                  "sys.stdout.flush(); time.sleep(10)")
+        with mock.patch.object(server, "command", return_value=[sys.executable, "-c", writer]):
+            self.assertTrue(server.start())
+        self.addCleanup(server.stop)
+        box = server.listen()
+        self.assertEqual(box.get(timeout=5), b"OggS")
 
     def test_every_listener_gets_what_is_encoded_from_then_on(self):
         """Two listeners, one encoder: the second hears what follows its

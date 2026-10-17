@@ -369,9 +369,11 @@ class StreamServer:
             self._started_at = time.monotonic()
             self._last_chunk_at = None
             try:
+                # Unbuffered: a buffered read waits for 4 KB, and paused music
+                # encodes to so little that a new listener would wait 15 s.
                 self._process = process = subprocess.Popen(
                     self.command(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    stdin=subprocess.DEVNULL, env=self.env)
+                    stdin=subprocess.DEVNULL, env=self.env, bufsize=0)
             except OSError as error:
                 log.exception("Could not start ffmpeg for the network stream")
                 self.last_error = str(error)
