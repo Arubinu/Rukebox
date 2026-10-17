@@ -585,8 +585,14 @@ function railMode() {
   return !guestMode && !!railQuery && railQuery.matches;
 }
 
+// The cards are the page's own markup, never added later: each area's list is read once
+// (the menus ask for it on every card shown or hidden).
+const areaCardLists = {};
 function areaCards(tab) {
-  return Array.from(document.querySelectorAll('.card[data-tab="' + tab + '"][data-page]'));
+  if (!areaCardLists[tab]) {
+    areaCardLists[tab] = Array.from(document.querySelectorAll('.card[data-tab="' + tab + '"][data-page]'));
+  }
+  return areaCardLists[tab];
 }
 
 function cardOfPage(tab, page) {
