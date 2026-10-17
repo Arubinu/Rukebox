@@ -6,6 +6,7 @@ and that a browse says "nothing at all" rather than offering an address that
 would play silence. The socket is exercised for real on a throwaway port:
 multicast is not something a fake would prove anything about."""
 import socket
+import time
 import unittest
 import xml.etree.ElementTree as ElementTree
 from unittest import mock
@@ -334,6 +335,10 @@ class ResponderTest(unittest.TestCase):
         answer = self.ask().decode("ascii")
         self.assertIn("ST: " + upnp.DEVICE_TYPE, answer)
         self.assertIn("LOCATION: http://127.0.0.1:8080/upnp/rootDesc.xml", answer)
+        # The reply leaves before the responder counts it: a busy machine reads the count first.
+        deadline = time.monotonic() + 1
+        while self.responder.answers < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
         self.assertEqual(self.responder.answers, 1)
 
     def test_something_that_is_not_a_search_is_ignored(self):
