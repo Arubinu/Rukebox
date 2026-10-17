@@ -410,11 +410,11 @@ systemctl daemon-reload 2>/dev/null || true
 LXC_UNITS="create-uap0.service rukebox-bt-radio.service rukebox-usb-gadget.service
            rukebox-act-led.service rukebox-gpio-reset.service home-wifi-connect.service
            rukebox-card-reader.service flicd.service flic-bridge.service
-           rukebox-rotary-config.service rukebox-rotary.service"
+           rukebox-rotary-config.service rukebox-rotary.service rukebox-sd-care.service"
 PI_UNITS="rukebox-gpio-reset.service bt-connect.service home-wifi-connect.service
           create-uap0.service rukebox-bt-radio.service rukebox-usb-gadget.service
           rukebox-act-led.service rukebox-card-reader.service rukebox-speaker-buttons.service
-          rukebox-bt-buttons.service rukebox-rotary-config.service"
+          rukebox-bt-buttons.service rukebox-rotary-config.service rukebox-sd-care.service"
 
 systemctl enable rukebox-config.service 2>/dev/null || true
 systemctl enable rukebox-daemon.service 2>/dev/null || true
@@ -466,6 +466,10 @@ else
     for unit in $PI_UNITS; do
         systemctl enable "$unit" 2>/dev/null || true
     done
+    # /tmp in memory from the next boot: one less thing written on the card.
+    if [ -f /usr/share/systemd/tmp.mount ] && [ ! -e /etc/systemd/system/tmp.mount ]; then
+        cp /usr/share/systemd/tmp.mount /etc/systemd/system/tmp.mount && systemctl enable tmp.mount 2>/dev/null || true
+    fi
 fi
 
 if [ "$PROFILE" = "lxc" ]; then

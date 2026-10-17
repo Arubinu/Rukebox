@@ -1,0 +1,14 @@
+[Unit]
+Description=Spares the SD card: no write on each read, writes grouped a minute at a time
+After=local-fs.target
+DefaultDependencies=no
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+# A remount, not fstab: switching this unit off undoes it at the next boot.
+ExecStart=/bin/mount -o remount,noatime,commit=60 /
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

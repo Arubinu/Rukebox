@@ -510,6 +510,11 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         systemctl enable rukebox-gpio-reset.service 2>/dev/null || true
         systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
         systemctl enable rukebox-rotary-config.service 2>/dev/null || true
+        systemctl enable --now rukebox-sd-care.service 2>/dev/null || true
+        # /tmp in memory from the next boot: one less thing written on the card.
+        if [ -f /usr/share/systemd/tmp.mount ] && [ ! -e /etc/systemd/system/tmp.mount ]; then
+            cp /usr/share/systemd/tmp.mount /etc/systemd/system/tmp.mount && systemctl enable tmp.mount 2>/dev/null || true
+        fi
         systemctl enable rukebox-act-led.service 2>/dev/null || true
         systemctl enable --now rukebox-bt-radio.service 2>/dev/null || true
         if [ -d /etc/NetworkManager/dispatcher.d ] && [ -f "$SOURCE_DIR/scripts/ap_isolate.sh" ]; then

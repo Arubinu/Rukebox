@@ -4075,6 +4075,15 @@ read: `journalctl -b -1 -u rukebox-daemon.service`, and `journalctl
 --list-boots` for the earlier ones. To keep it small, rtkit's routine messages
 and the page's successful reads of the API are not written.
 
+The card is spared without being made read-only: on a Pi (never in a
+container), `rukebox-sd-care.service` remounts the system at every boot with
+`noatime` (reading a file writes nothing) and `commit=60` (the file system
+writes a minute at a time rather than every five seconds - a power cut can
+lose that last minute, never the file system), and `/tmp` lives in memory
+(Debian's own `tmp.mount`). Nothing edits `/etc/fstab`: `systemctl disable
+rukebox-sd-care` undoes it at the next boot. The radio itself writes on events
+(a song, an action), not continuously.
+
 > **If the Bluetooth search finds nothing** although devices are nearby: the
 > radio is probably soft-blocked at the kernel level, which BlueZ cannot undo
 > (`bluetoothctl power on` fails while the switch is blocked) — some images
