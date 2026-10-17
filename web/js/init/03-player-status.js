@@ -772,6 +772,7 @@ function paintTimers() {
   const parts = [];
   if (timerEnds.resume) parts.push(t("timer.resume_in", { t: formatLeft(timerEnds.resume - now) }));
   if (timerEnds.sleep) parts.push(t("timer.sleep_in", { t: formatLeft(timerEnds.sleep - now) }));
+  if (playerStatus && playerStatus.sleep_at_end) parts.push(t("timer.sleep_at_end"));
   const party = playerStatus && playerStatus.schedule && playerStatus.schedule.party ? playerStatus.schedule : null;
   if (party) parts.push(party.until ? t("timer.party_until", { time: party.until }) : t("timer.party_on"));
   const line = document.getElementById("npTimers");
@@ -869,6 +870,7 @@ function timerChoiceBody(groups, intro) {
       btn.addEventListener("click", () => closeModal(option.value));
       box.appendChild(btn);
     });
+    if (group.extra) box.appendChild(group.extra);
     wrap.appendChild(box);
   });
 
@@ -971,13 +973,24 @@ document.getElementById("btnTimer").addEventListener("click", async () => {
     pauseOptions.push({ value: "resume", label: t("timer.pause_cancel"), quiet: true });
   }
   const sleepOptions = sleeps.map((n) => ({ value: "sleep:" + n, label: t("timer.minutes", { n }) }));
-  if (timerEnds.sleep) {
+  if (timerEnds.sleep || d.sleep_at_end) {
     sleepOptions.push({ value: "sleep_off", label: t("timer.sleep_cancel"), quiet: true });
   }
+  // The radio keeps the last choice: the buttons' sleep follows it too.
+  const finishBox = document.createElement("label");
+  finishBox.className = "timer-check";
+  const finish = document.createElement("input");
+  finish.type = "checkbox";
+  finish.id = "timerSleepFinish";
+  finish.checked = !!d.sleep_finish;
+  const finishText = document.createElement("span");
+  finishText.textContent = t("timer.sleep_finish");
+  finishBox.append(finish, finishText);
 
   const groups = [
     { icon: "pause", title: t("timer.group_pause"), options: pauseOptions, legend: t("timer.legend_pause") },
-    { icon: "moon", title: t("timer.group_sleep"), options: sleepOptions, legend: t("timer.legend_sleep") },
+    { icon: "moon", title: t("timer.group_sleep"), options: sleepOptions, legend: t("timer.legend_sleep"),
+      extra: finishBox },
   ];
   if (d.party_ready && mayCall("/api/party")) {
     const partyOptions = [3, 6].map((n) => ({ value: "party:" + n, label: t("timer.hours", { n }) }));
@@ -999,7 +1012,8 @@ document.getElementById("btnTimer").addEventListener("click", async () => {
   if (choice.startsWith("pause:")) {
     result = await apiPost("/api/action/timed_pause", { minutes: Number(choice.slice(6)) });
   } else if (choice.startsWith("sleep:")) {
-    result = await apiPost("/api/action/sleep_timer", { on: true, minutes: Number(choice.slice(6)) });
+    result = await apiPost("/api/action/sleep_timer", { on: true, minutes: Number(choice.slice(6)),
+                                                         finish_track: finish.checked });
   } else if (choice.startsWith("party:")) {
     result = await apiPost("/api/party", { hours: Number(choice.slice(6)) });
   } else if (choice === "party_off") {

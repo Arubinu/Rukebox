@@ -372,6 +372,9 @@ class RadioDaemon:
         self._muted = False
         self._timer_gen = {}
         self._timer_due = {}
+        # The sleep timer may wait for the song to end; the last choice made also serves the buttons.
+        self._sleep_finish = False
+        self._sleep_at_end = False
         self._track_count = None
         self._output_override = None
         # The USB key the library reads from, while one is in use: None means
@@ -1639,6 +1642,12 @@ class RadioDaemon:
         if not end:
             return
         pos = self._position
+        if self._sleep_at_end:
+            if pos >= end - self._sleep_fade() - 0.5:
+                self._sleep_at_end = False
+                # Off mpv's event thread, under the command lock like every timer.
+                self._set_timer("sleep", 0.01, self._sleep_pause_if_playing)
+            return
         fade = self._crossfade_sec()
         if fade and end > fade * 3:
             if not self._xfade_checked and pos >= end - fade - self.XFADE_PRELOAD_SEC:
@@ -1660,7 +1669,8 @@ class RadioDaemon:
             self.mpv.seek_end()
 
     def _crossfade_ok(self):
-        if self._restart_pending or self._speaker_lost_at is not None or self._duck_proc is not None:
+        if self._sleep_at_end or self._restart_pending or self._speaker_lost_at is not None \
+                or self._duck_proc is not None:
             return False
         if self.state.is_pending_cutoff():
             return False
@@ -3100,6 +3110,7 @@ class RadioDaemon:
         self._end_play("shutdown")
         self._set_timer("resume", None)
         self._set_timer("sleep", None)
+        self._sleep_at_end = False
         self._announce_queue = []
         self._forced_next = None
         self._resume_track = None
@@ -3668,8 +3679,9 @@ class RadioDaemon:
             self._power_off_now(reason="button")
             return "shutdown"
         if action == "sleep":
-            if self._timer_due.get("sleep"):
+            if self._timer_due.get("sleep") or self._sleep_at_end:
                 self._set_timer("sleep", None)
+                self._sleep_at_end = False
                 self.stats.record("sleep_timer", label="cancelled", detail={"source": source})
                 return "sleep_off"
             self._start_sleep_timer(None, source)
@@ -3795,6 +3807,7 @@ class RadioDaemon:
         song = self._last_music_track if self.mode == "music" else None
         self._set_timer("resume", None)
         self._set_timer("sleep", None)
+        self._sleep_at_end = False
         if fade:
             self._fade_out_and_pause(self.cfg["LONGPRESS_FADE_DURATION_SEC"])
         self._announce_queue = []
@@ -4271,18 +4284,40 @@ class RadioDaemon:
         minutes = max(1, min(600, minutes))
         log.info("Sleep timer: the music pauses in %d min", minutes)
         self.stats.record("sleep_timer", label=str(minutes), detail={"source": source})
+        self._sleep_at_end = False
         self._set_timer("sleep", minutes * 60, self._sleep_timer_over)
 
-    def _sleep_timer_over(self):
-        """Pauses the song with a fade."""
+    # A song longer than this is not waited for (a mix of an hour): the music fades at once.
+    SLEEP_FINISH_MAX_SEC = 900
+
+    def _sleep_fade(self):
+        return min(max(float(self.cfg.get("FADE_DURATION_SEC", 5) or 0), 0.0), 8.0)
+
+    def _sleep_pause_now(self):
+        log.info("Sleep timer: pausing the music")
+        fade = self._sleep_fade()
+        if fade > 0:
+            self._fade_out_to_zero(fade)
+        self.mpv.set_pause(True)
+        self._paused = True
+        self._bump_state()
+        self.stats.record("playback_pause", label="paused", detail={"source": "sleep_timer"})
+
+    def _sleep_pause_if_playing(self):
         if self.mode == "music" and not self._paused:
-            log.info("Sleep timer: pausing the music")
-            fade = min(max(float(self.cfg.get("FADE_DURATION_SEC", 5) or 0), 0.0), 8.0)
-            if fade > 0:
-                self._fade_out_to_zero(fade)
-            self.mpv.set_pause(True)
-            self._paused = True
-            self.stats.record("playback_pause", label="paused", detail={"source": "sleep_timer"})
+            self._sleep_pause_now()
+
+    def _sleep_timer_over(self):
+        """Pauses the song with a fade, or lets it end first when that was asked."""
+        if self.mode == "music" and not self._paused:
+            left = (self._tail_at or self._duration or 0) - (self._position or 0)
+            if self._sleep_finish and 0 < left <= self.SLEEP_FINISH_MAX_SEC:
+                # _near_end() fades it out over its own last seconds.
+                log.info("Sleep timer: the music pauses at the end of this song (%d s)", left)
+                self._sleep_at_end = True
+                self._bump_state()
+                return
+            self._sleep_pause_now()
         elif self.mode != "music" and self.mode not in ("idle", "stopped", "shutting_down"):
             self._set_timer("sleep", 30, self._sleep_timer_over)
 
@@ -4634,6 +4669,8 @@ class RadioDaemon:
             "usb_music": self._usb_music_status(),
             "pause_durations": self._pause_durations(),
             "sleep_durations": self._sleep_durations(),
+            "sleep_at_end": self._sleep_at_end,
+            "sleep_finish": self._sleep_finish,
             "timers": {name: (round(max(0.0, due - time.monotonic())) if due else None)
                        for name, due in (("resume", self._timer_due.get("resume")),
                                          ("sleep", self._timer_due.get("sleep")))},
@@ -4759,9 +4796,13 @@ class RadioDaemon:
                 self.stats.record("timed_pause", label=str(minutes), detail={"source": source})
                 return {"ok": True}
             if cmd == "sleep_timer":
+                if "finish_track" in msg:
+                    self._sleep_finish = bool(msg["finish_track"])
                 if not msg.get("on", True):
-                    if self._timer_due.get("sleep"):
+                    if self._timer_due.get("sleep") or self._sleep_at_end:
                         self._set_timer("sleep", None)
+                        self._sleep_at_end = False
+                        self._bump_state()
                         self.stats.record("sleep_timer", label="cancelled", detail={"source": source})
                     return {"ok": True}
                 try:

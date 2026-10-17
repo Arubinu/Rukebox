@@ -4441,7 +4441,8 @@ def api_action_timed_pause():
 def api_action_sleep_timer():
     """{"on": false} cancels the sleep timer."""
     body = request.get_json(silent=True) or {}
-    result = control("sleep_timer", on=bool(body.get("on", True)), minutes=body.get("minutes"))
+    extra = {"finish_track": bool(body["finish_track"])} if "finish_track" in body else {}
+    result = control("sleep_timer", on=bool(body.get("on", True)), minutes=body.get("minutes"), **extra)
     return jsonify(result), (200 if result.get("ok") else 400)
 
 

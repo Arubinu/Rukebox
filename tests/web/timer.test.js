@@ -54,7 +54,7 @@ test("the sleep head asks for the shortest sleep", async (t) => {
   const heads = await openTimer(page);
   heads[1].click();
   const sleep = await until(() => page.sent("POST", "/api/action/sleep_timer")[0] || null);
-  assert.deepEqual(sleep.body, { on: true, minutes: 30 }, "the shortest sleep offered");
+  assert.deepEqual(sleep.body, { on: true, minutes: 30, finish_track: false }, "the shortest sleep offered");
   await page.close();
 });
 
@@ -81,5 +81,24 @@ test("a party set adds its own group, and one running says itself and can be end
   await until(() => page.$("modalOverlay").hidden);
   (await openTimer(page))[2].parentNode.querySelector(".timer-option-cancel").click();
   await until(() => page.sent("DELETE", "/api/party")[0] || null);
+  await page.close();
+});
+
+test("the sleep can let the song end first, as the radio last remembered it", async (t) => {
+  const page = load({
+    routes: {
+      "GET /api/status": Object.assign({}, STATUS, { sleep_finish: true, sleep_at_end: true }),
+      "POST /api/action/sleep_timer": () => ({ ok: true }),
+    },
+  });
+  await until(() => /end of this song/.test(page.$("npTimers").textContent));
+  const heads = await openTimer(page);
+  const box = page.$("timerSleepFinish");
+  assert.equal(box.checked, true, "the last choice is the radio's");
+  assert.ok(heads[1].parentNode.querySelector(".timer-option-cancel"), "a wait for the end can be cancelled");
+  box.checked = false;
+  heads[1].parentNode.querySelector(".timer-option").click();
+  const sent = await until(() => page.sent("POST", "/api/action/sleep_timer")[0] || null);
+  assert.deepEqual(sent.body, { on: true, minutes: 30, finish_track: false });
   await page.close();
 });
