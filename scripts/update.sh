@@ -49,6 +49,7 @@ GIT_CHECKOUT="$STATE_DIR/git-source"
 
 SOURCE_DIR=""
 RELEASE_TAG=""
+ALLOW_MAJOR=""
 RELEASE_STAMP=""
 SOURCE_KIND=""
 PUSH_KIND=""
@@ -80,7 +81,8 @@ Source (exactly one):
   --from-archive FILE  Extract a .tar.gz, then use it
   --from-git [URL]     Clone/pull a Git repository (URL defaults to
                        UPDATE_GIT_URL in rukebox.yaml). Needs network.
-  --from-release [TAG] Download a GitHub release (the latest one, or TAG)
+  --from-release [TAG] Download a GitHub release (the newest this radio may have, or TAG)
+  --major              With --from-release: the next major version may be installed
                        of UPDATE_GITHUB_REPO in rukebox.yaml. Needs network.
 
 Options:
@@ -125,6 +127,7 @@ while [ $# -gt 0 ]; do
         --keep)          BACKUP_KEEP="${2:-3}"; BACKUP_KEEP_SET=1; shift 2 ;;
         --no-restart)    DO_RESTART=0; shift ;;
         --quiet)         QUIET=1; shift ;;
+        --major)         ALLOW_MAJOR=--major; shift ;;
         --rollback)      ACTION=rollback; shift ;;
         --list-backups)  ACTION=list; shift ;;
         -h|--help)       usage; exit 0 ;;
@@ -282,9 +285,29 @@ if [ "$SOURCE_KIND" = "release" ]; then
     { printf '%s' "$GITHUB_REPO" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' \
         && ! printf '%s' "$GITHUB_REPO" | grep -Eq '(^|/)\.+(/|$)'; } \
         || fail "invalid GitHub repository: $GITHUB_REPO (expected owner/name)."
+    # Never past the newest release of this major, and the next major only when asked.
+    POLICY="$INSTALL_DIR/src/releases.py"
     if [ -n "$RELEASE_TAG" ]; then
         printf '%s' "$RELEASE_TAG" | grep -Eq '^[A-Za-z0-9_.-]+$' || fail "invalid release tag: $RELEASE_TAG"
+        if [ -f "$POLICY" ]; then
+            why="$(python3 "$POLICY" check "$GITHUB_REPO" "$VERSION_FILE" "$RELEASE_TAG" $ALLOW_MAJOR 2>&1 >/dev/null)" \
+                || fail "$why"
+        fi
         api="https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG"
+    elif [ -f "$POLICY" ]; then
+        status=0
+        chosen="$(python3 "$POLICY" target "$GITHUB_REPO" "$VERSION_FILE" $ALLOW_MAJOR 2>/tmp/rukebox-update-policy.log)" \
+            || status=$?
+        why="$(cat /tmp/rukebox-update-policy.log 2>/dev/null)"
+        rm -f /tmp/rukebox-update-policy.log
+        if [ "$status" = 3 ]; then
+            say ""
+            say "Already up to date: $why."
+            exit 0
+        fi
+        [ "$status" = 0 ] || fail "$why"
+        printf '%s' "$chosen" | grep -Eq '^[A-Za-z0-9_.-]+$' || fail "unexpected release tag: $chosen"
+        api="https://api.github.com/repos/$GITHUB_REPO/releases/tags/$chosen"
     else
         api="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
     fi

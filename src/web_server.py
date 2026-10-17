@@ -73,7 +73,9 @@ import likes  # noqa: E402
 import music_lists  # noqa: E402
 import prepared_media  # noqa: E402
 import schedules  # noqa: E402
-from version import is_newer, read_version_file, set_release  # noqa: E402
+import releases as releases_mod  # noqa: E402
+import version as version_mod  # noqa: E402
+from version import read_version_file, set_release  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [web] %(message)s")
 log = logging.getLogger("web")
@@ -7640,44 +7642,73 @@ def api_update_status():
 
 RELEASE_CACHE_SEC = 600
 _release_cache = {"at": 0.0, "repo": None, "result": None}
+# Notes in every language never change once published: kept for the life of the process.
+_release_notes = {}
 _GITHUB_REPO_RE = re.compile(r"^(?!\.+/)[A-Za-z0-9_.-]+/(?!\.+$)[A-Za-z0-9_.-]+$")
-# A release declares its tree hash as a "tree-hash: <hash>" line or a shields.io badge.
-_TREE_HASH_RE = re.compile(r"(?:tree-hash:\s*|badge/[^\s)\"']*?)([0-9a-f]{8,64})", re.IGNORECASE)
 
 
-def _declared_tree_hash(notes):
-    """The tree hash a release declares in its notes, if it declares one."""
-    match = _TREE_HASH_RE.search(notes or "")
-    return match.group(1).lower() if match else None
-
-
-def _latest_release(repo, force=False):
-    """(data, error): the latest published release of `repo` on GitHub, or an
-    error code."""
+def _release_list(repo, force=False):
+    """(releases, error): what the repository publishes, or an error code."""
     now = time.time()
     if (not force and _release_cache["repo"] == repo and _release_cache["result"]
             and now - _release_cache["at"] < RELEASE_CACHE_SEC):
         return _release_cache["result"]
-    req = urllib.request.Request(
-        "https://api.github.com/repos/%s/releases/latest" % repo,
-        headers={"Accept": "application/vnd.github+json", "User-Agent": "Rukebox"})
     try:
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            info = json.loads(resp.read().decode("utf-8"))
-        result = ({
-            "tag": info.get("tag_name"),
-            "name": info.get("name") or info.get("tag_name"),
-            "published_at": info.get("published_at"),
-            "notes": (info.get("body") or "")[:3000],
-            "url": info.get("html_url"),
-        }, None)
-    except urllib.error.HTTPError as e:
-        result = (None, "release_none" if e.code == 404 else "github_error")
-    except (urllib.error.URLError, OSError, ValueError):
-        result = (None, "no_internet")
+        result = (releases_mod.fetch(repo), None)
+    except releases_mod.LookupFailed as e:
+        result = (None, e.code)
     if result[1] != "no_internet":
         _release_cache.update({"at": now, "repo": repo, "result": result})
     return result
+
+
+def _translations(release):
+    tag = release.get("tag_name")
+    if tag not in _release_notes:
+        found = releases_mod.fetch_notes(release)
+        if not found and releases_mod.notes_url(release):
+            return {}
+        _release_notes[tag] = found
+    return _release_notes[tag]
+
+
+def _release_offer(c, listed, lang):
+    """What the update card shows: the release this radio may move to, and what changes."""
+    version = read_version_file(c["UPDATE_VERSION_FILE"])
+    installed = releases_mod.recognised(listed, version.get("release"), version.get("tree_hash"))
+    if installed and installed != version.get("release"):
+        try:
+            set_release(c["UPDATE_VERSION_FILE"], installed)
+        except OSError:
+            pass
+    release, crosses = releases_mod.target(listed, installed)
+    data = {"installed": installed, "newer": release is not None, "major": crosses,
+            "allowed": bool(c["UPDATE_ALLOW_WEB"]), "changes": [], "upgrade": ""}
+    if release is None:
+        newest = releases_mod.newest_of(listed, version_mod.MAJOR)
+        data.update({"tag": installed or (newest or {}).get("tag_name") or ""})
+        return data
+    data.update({
+        "tag": release["tag_name"],
+        "name": release.get("name") or release["tag_name"],
+        "published_at": release.get("published_at"),
+        "url": release.get("html_url"),
+    })
+    upgrade = []
+    for step in releases_mod.changes(listed, installed, release["tag_name"]):
+        texts = _translations(step)
+        data["changes"].append({
+            "tag": step["tag_name"],
+            "name": step.get("name") or step["tag_name"],
+            "published_at": step.get("published_at"),
+            "url": step.get("html_url"),
+            "notes": releases_mod.in_language(texts.get("notes"), lang, step.get("body") or "")[:20000],
+        })
+        said = releases_mod.in_language(texts.get("upgrade"), lang)
+        if crosses and said:
+            upgrade.append(said)
+    data["upgrade"] = "\n\n".join(reversed(upgrade))[:20000]
+    return data
 
 
 def _check_gpio_pins(updates):
@@ -7744,8 +7775,7 @@ def _check_github_repo(updates):
 
 @app.route("/api/update/release", methods=["GET", "POST"])
 def api_update_release():
-    """The latest GitHub release, and whether it is newer than what is
-    installed."""
+    """The release this radio may move to and what it changes (GET), or its install (POST)."""
     c = cfg()
     repo = (c.get("UPDATE_GITHUB_REPO") or "").strip()
     if not repo:
@@ -7753,29 +7783,29 @@ def api_update_release():
     if not _GITHUB_REPO_RE.match(repo):
         return jsonify({"ok": False, "error": "bad_github_repo"}), 400
     if request.method == "GET":
-        data, error = _latest_release(repo, force=request.args.get("force") == "1")
+        listed, error = _release_list(repo, force=request.args.get("force") == "1")
         if error:
             return jsonify({"ok": False, "error": error, "detail": repo}), 200
-        version = read_version_file(c["UPDATE_VERSION_FILE"])
-        installed = version.get("release")
-        declared = _declared_tree_hash(data.get("notes"))
-        tree = (version.get("tree_hash") or "").lower()
-        if data["tag"] and data["tag"] != installed and declared and tree.startswith(declared):
-            installed = data["tag"]
-            try:
-                set_release(c["UPDATE_VERSION_FILE"], installed)
-            except OSError:
-                pass
-        return jsonify({"ok": True, "data": dict(data, repo=repo, installed=installed,
-                                                 newer=is_newer(data["tag"], installed),
-                                                 allowed=bool(c["UPDATE_ALLOW_WEB"]))})
+        return jsonify({"ok": True, "data": dict(_release_offer(c, listed, _page_lang()), repo=repo)})
     if not c["UPDATE_ALLOW_WEB"]:
         return jsonify({"ok": False, "error": "web_updates_disabled"}), 403
     if not os.path.exists(UPDATE_WRAPPER):
         return jsonify({"ok": False, "error": "updater_missing", "detail": UPDATE_WRAPPER}), 500
+    listed, error = _release_list(repo)
+    if error:
+        return jsonify({"ok": False, "error": error, "detail": repo}), 200
+    version = read_version_file(c["UPDATE_VERSION_FILE"])
+    installed = releases_mod.recognised(listed, version.get("release"), version.get("tree_hash"))
+    release, crosses = releases_mod.target(listed, installed)
+    if release is None:
+        return jsonify({"ok": False, "error": "release_current"}), 409
+    # A new major version is installed only once its consequences were shown and accepted.
+    if crosses and not (request.get_json(silent=True) or {}).get("major"):
+        return jsonify({"ok": False, "error": "major_needs_confirmation",
+                        "detail": release["tag_name"]}), 409
     stats.attach_current_session()
-    stats.record("update_started", label="release", detail={"repo": repo})
-    return _start_update("--from-release")
+    stats.record("update_started", label="release", detail={"repo": repo, "tag": release["tag_name"]})
+    return _start_update("--from-release --major" if crosses else "--from-release")
 
 
 def _start_update(argument):

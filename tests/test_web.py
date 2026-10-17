@@ -653,6 +653,51 @@ class WebTest(unittest.TestCase):
             self.assertEqual(ws._effective_music_dir(), ws.cfg()["MUSIC_DIR"],
                              "a daemon that cannot be reached is not a key")
 
+    def test_a_new_major_version_is_offered_with_what_it_implies_and_installed_once_confirmed(self):
+        listed = [
+            {"tag_name": "v2.0.0", "name": "v2.0.0", "body": "# Two", "published_at": "2026-11-01T00:00:00Z",
+             "assets": [{"name": "notes.json", "browser_download_url": "https://example/notes.json"}]},
+            {"tag_name": "v1.19.2", "name": "v1.19.2", "body": "# Last one", "published_at": "2026-10-20T00:00:00Z"},
+        ]
+        notes = {"notes": {"en": "# Two", "fr": "# Deux"}, "upgrade": {"en": "Renamed keys.", "fr": "Clés renommées."}}
+        config = dict(ws.cfg(), UPDATE_ALLOW_WEB=True, UPDATE_GITHUB_REPO="o/r")
+        ws._release_cache.update({"at": 0.0, "repo": None, "result": None})
+        ws._release_notes.clear()
+        client = self.owner()
+        started = []
+
+        def start(argument):
+            started.append(argument)
+            return ws.jsonify({"ok": True, "started": True})
+
+        with unittest.mock.patch.object(ws, "cfg", return_value=config), \
+                unittest.mock.patch.object(ws.releases_mod, "fetch", return_value=listed), \
+                unittest.mock.patch.object(ws.releases_mod, "fetch_notes", return_value=notes), \
+                unittest.mock.patch.object(ws, "read_version_file", return_value={"release": "v1.19.1"}), \
+                unittest.mock.patch.object(ws, "set_release"), \
+                unittest.mock.patch.object(ws, "UPDATE_WRAPPER", __file__), \
+                unittest.mock.patch.object(ws, "_start_update", side_effect=start):
+            data = client.get("/api/update/release?lang=fr").get_json()["data"]
+            self.assertEqual((data["tag"], data["major"]), ("v1.19.2", False), "the newest 1.x first")
+            self.assertEqual(client.post("/api/update/release", json={}).get_json()["ok"], True)
+
+            with unittest.mock.patch.object(ws, "read_version_file", return_value={"release": "v1.19.2"}):
+                data = client.get("/api/update/release?lang=fr").get_json()["data"]
+                self.assertEqual((data["tag"], data["major"], data["newer"]), ("v2.0.0", True, True))
+                self.assertEqual(data["upgrade"], "Clés renommées.", "what it implies, in the reader's language")
+                self.assertEqual([step["notes"] for step in data["changes"]], ["# Deux"])
+                refused = client.post("/api/update/release", json={})
+                self.assertEqual((refused.status_code, refused.get_json()["error"]),
+                                 (409, "major_needs_confirmation"))
+                self.assertTrue(client.post("/api/update/release", json={"major": True}).get_json()["ok"])
+
+            with unittest.mock.patch.object(ws, "read_version_file", return_value={"release": "v2.0.0"}):
+                data = client.get("/api/update/release").get_json()["data"]
+                self.assertEqual((data["newer"], data["tag"]), (False, "v2.0.0"))
+                self.assertEqual(client.post("/api/update/release", json={"major": True}).status_code, 409)
+        self.assertEqual(started, ["--from-release", "--from-release --major"],
+                         "the updater is told it may cross only once that was confirmed")
+
     def test_an_update_that_died_halfway_is_not_still_running(self):
         # The shell appends the end marker after the updater returns, so a killed run leaves none.
         log = os.path.join(self.dir, "update.log")

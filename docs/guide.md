@@ -2919,24 +2919,34 @@ cleared after fifteen minutes.
 
 ### From a GitHub release (needs network)
 
-The **Update** card (System tab, detailed view) checks the latest
-release published on GitHub - `Arubinu/Rukebox` by default, or your
+The **Update** card (System tab, detailed view) checks the releases
+published on GitHub - `Arubinu/Rukebox` by default, or your
 fork: change the **GitHub repository** field (`owner/name`, setting
-`updates: github_repo`). **Check for a new version** asks GitHub (the Pi
+`updates: github_repo`). **Check for a new version** asks GitHub (the radio
 needs Internet for a moment: home Wi-Fi, or the USB cable's second card)
-and says whether a newer release exists; **Install vX** downloads that
-release's source archive over HTTPS and installs it exactly like a USB
-update (validation first, backup, automatic rollback on failure,
-settings, music and statistics kept). The installed release's tag then
-shows beside the version.
+and says whether a newer release exists; **What's new** lists the notes of
+every release between the installed one and it, in the reader's language
+when the release carries a `notes.json` asset, in English otherwise.
+**Install vX** downloads that release's source archive over HTTPS and
+installs it exactly like a USB update (validation first, backup, automatic
+rollback on failure, settings, music and statistics kept). The installed
+release's tag then shows beside the version.
+
+A radio follows its own major version: it is offered the newest release of
+it, and only once it runs that one is the next major offered - never one
+beyond. A new major asks for its own confirmation, which shows what the
+switch implies (the `upgrade` text of `notes.json`); the page then runs
+`rukebox-update --from-release --major`. `src/releases.py` holds that rule,
+for the page, the updater and the Home Assistant entity alike.
 
 Installing from the page needs **Allow updates from the web**
 (`UPDATE_ALLOW_WEB`, the switch at the bottom of the Update card), like
 the Git button below - same reasons. From SSH it needs nothing:
 
 ```bash
-sudo rukebox-update --from-release          # the latest release
-sudo rukebox-update --from-release v1.2.0   # a given tag
+sudo rukebox-update --from-release           # the newest this radio may have
+sudo rukebox-update --from-release --major   # the next major version, once on the newest of this one
+sudo rukebox-update --from-release v1.2.0    # a given tag (never a skipped or older major)
 ```
 
 ### Publishing a release
@@ -2973,6 +2983,18 @@ image and branch), and in the **description**:
   same value: nothing is lost if the terminal is gone. It cannot be
   computed outside the build, because the page ships a subset of the
   repository (no `bootstrap/`, no docs).
+
+Attach a `notes.json` too, for the radios to show the notes in their own
+language (missing languages fall back to English, then to the description):
+
+```json
+{"notes": {"en": "...", "fr": "...", "de": "...", "es": "...", "it": "...", "nl": "..."},
+ "upgrade": {"en": "What switching to this major version implies", "fr": "..."}}
+```
+
+`upgrade` belongs to the first release of a new major version only. That
+release also raises `MAJOR` in `src/version.py`. A tag is a release only as
+`vX.Y.Z`: `v3.0.0-rc1`, a draft and a pre-release are never offered.
 
 Built away from a tag, the page still works but stamps the commit
 (`fdeb1a1-dirty`), and the Pi will report that a newer release exists even
