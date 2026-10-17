@@ -4853,6 +4853,63 @@ def api_speech_test():
     return jsonify({"ok": False, "error": result.get("error", "daemon_unreachable")}), 409
 
 
+INSTALL_PIPER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             "scripts", "install_piper.sh")
+# A voice is a download of tens of megabytes: one at a time, followed by the page.
+_voice_install = {"lang": None, "error": ""}
+_voice_install_lock = threading.Lock()
+
+
+def _title_voices():
+    c = cfg()
+    main = speech.language(c.get("SPEECH_LANGUAGE"))
+    return {"main": main, "voices": speech.title_voices(main),
+            # Titles change voice only within Piper: the downloads matter only there.
+            "piper": speech.engine(main, c.get("PIPER_VOICE")).startswith("piper:"),
+            "installing": _voice_install["lang"], "error": _voice_install["error"]}
+
+
+def _install_title_voice(lang):
+    error = "voice_download_failed"
+    try:
+        env = dict(os.environ, RUKEBOX_PIPER_DIR=speech.piper_folder(),
+                   RUKEBOX_SRC=os.path.dirname(os.path.abspath(__file__)))
+        done = subprocess.run(["bash", INSTALL_PIPER, "--also", lang], env=env,
+                              capture_output=True, text=True, timeout=1800)
+        if done.returncode == 0 and speech.piper_ready(speech.PIPER_VOICES[lang]):
+            error = ""
+        else:
+            log.warning("The %s voice could not be installed: %s", lang, (done.stderr or "").strip()[-300:])
+    except (OSError, subprocess.SubprocessError):
+        log.exception("The %s voice could not be installed", lang)
+    finally:
+        _voice_install.update({"lang": None, "error": error})
+
+
+@app.route("/api/speech/voices", methods=["GET"])
+def api_speech_voices():
+    return jsonify({"ok": True, "data": _title_voices()})
+
+
+@app.route("/api/speech/voices", methods=["POST"])
+def api_speech_voice_change():
+    body = request.get_json(silent=True) or {}
+    lang = str(body.get("lang") or "")
+    if lang not in speech.PIPER_VOICES:
+        return jsonify({"ok": False, "error": "unknown_language"}), 400
+    if lang == speech.language(cfg().get("SPEECH_LANGUAGE")):
+        return jsonify({"ok": False, "error": "voice_in_use"}), 409
+    with _voice_install_lock:
+        if _voice_install["lang"]:
+            return jsonify({"ok": False, "error": "voice_installing"}), 409
+        if body.get("remove"):
+            speech.remove_voice(lang)
+            return jsonify({"ok": True, "data": _title_voices()})
+        _voice_install.update({"lang": lang, "error": ""})
+    threading.Thread(target=_install_title_voice, args=(lang,), name="voice-install", daemon=True).start()
+    return jsonify({"ok": True, "data": _title_voices()})
+
+
 @app.route("/api/announce_files/<path:source_id>", methods=["POST"])
 def api_announce_file_upload(source_id):
     folder, error = _announce_files_folder(source_id)

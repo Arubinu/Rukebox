@@ -1092,6 +1092,18 @@
                  data-i18n-var-folder="dj_announcements">The radio host's recordings are read from {folder}.</p>
               <p class="hint" id="djIntroCount" data-i18n="settings.dj_files_count" hidden
                  data-i18n-var-files="0" data-i18n-var-covered="0" data-i18n-var-tracks="0">Prepared files: {files} · Songs covered: {covered} of {tracks}.</p>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="djTitleLanguage" data-i18n="settings.dj_title_language">Titles in their own language</label>
+                  <p class="field-desc" id="djTitleLanguageDesc" data-i18n="settings.dj_title_language_desc">A title written in another language is said with that language's voice. Off: everything in the spoken language.</p>
+                </div>
+                <input type="checkbox" id="djTitleLanguage" data-key="schedule.dj_title_language" class="switch-input" role="switch"
+                       aria-describedby="djTitleLanguageDesc">
+              </div>
+              <div id="titleVoices" hidden>
+                <p class="hint" id="titleVoicesHint"></p>
+                <ul class="title-voice-list" id="titleVoiceList"></ul>
+              </div>
             </details>
 
             <div class="form-actions">

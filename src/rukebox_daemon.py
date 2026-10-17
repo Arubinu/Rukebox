@@ -1297,7 +1297,8 @@ class RadioDaemon:
                 choice = self.cfg.get("PIPER_VOICE")
                 self._dj_parts = speech.track_parts(
                     info["title"], info["artist"], lang, self._dj_pick,
-                    can_say=lambda other: speech.can_switch(other, lang, choice))
+                    can_say=lambda other: bool(self.cfg.get("DJ_TITLE_LANGUAGE", True))
+                    and speech.can_switch(other, lang, choice))
                 return "".join(text for text, _lang in self._dj_parts), "dj"
         return "", ""
 

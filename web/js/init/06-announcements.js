@@ -48,6 +48,66 @@ document.getElementById("btnSpeechTest").addEventListener("click", async () => {
   if (!r.ok) showError(r.error, t("settings.speech_test"));
 });
 
+const VOICE_LANGUAGE_NAMES = { en: "English", fr: "Français", de: "Deutsch", es: "Español",
+                               it: "Italiano", nl: "Nederlands" };
+let titleVoicesWere = null;
+
+async function refreshTitleVoices() {
+  const box = document.getElementById("titleVoices");
+  const r = await apiGet("/api/speech/voices");
+  if (!r.ok) {
+    box.hidden = true;
+    return;
+  }
+  const d = r.data;
+  // A download that just ended says how it went, once.
+  if (titleVoicesWere && !d.installing) {
+    const name = VOICE_LANGUAGE_NAMES[titleVoicesWere];
+    if (d.error) showError(d.error, name);
+    else showToast(t("voices.done", { name }));
+  }
+  titleVoicesWere = d.installing;
+  box.hidden = !document.getElementById("djTitleLanguage").checked;
+  document.getElementById("titleVoicesHint").textContent = t(d.piper ? "voices.hint" : "voices.no_piper");
+  const list = document.getElementById("titleVoiceList");
+  list.hidden = !d.piper;
+  list.replaceChildren();
+  d.voices.forEach((voice) => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "title-voice-name";
+    name.textContent = VOICE_LANGUAGE_NAMES[voice.lang] || voice.lang;
+    const state = document.createElement("span");
+    state.className = "title-voice-state";
+    const installing = d.installing === voice.lang;
+    state.textContent = t(installing ? "voices.installing" : voice.installed ? "voices.present" : "voices.missing");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-icon";
+    btn.dataset.icon = voice.installed ? "trash" : "download";
+    const label = t(voice.installed ? "voices.remove" : "voices.install", { name: name.textContent });
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+    btn.disabled = !!d.installing;
+    btn.addEventListener("click", async () => {
+      if (voice.installed && !(await showConfirm(t("voices.confirm_remove", { name: name.textContent })))) return;
+      const answer = await apiPost("/api/speech/voices", { lang: voice.lang, remove: voice.installed });
+      if (!answer.ok) showError(answer.error, name.textContent);
+      refreshTitleVoices();
+    });
+    li.append(name, state, btn);
+    list.append(li);
+  });
+  if (d.installing) setTimeout(refreshTitleVoices, 3000);
+}
+
+document.getElementById("djTitleLanguage").addEventListener("change", () => {
+  document.getElementById("titleVoices").hidden = !document.getElementById("djTitleLanguage").checked;
+});
+document.getElementById("voiceSection").addEventListener("toggle", (e) => {
+  if (e.target.open) refreshTitleVoices();
+});
+
 document.querySelectorAll(".click-test-btn").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const field = btn.dataset.click;

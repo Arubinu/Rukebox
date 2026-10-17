@@ -520,6 +520,26 @@ def _remember(text, lang, choice, path):
         log.debug("Could not keep the spoken sentence", exc_info=True)
 
 
+def title_voices(main_lang):
+    """[{"lang", "voice", "installed"}] of the other languages' Piper voices."""
+    main = language(main_lang)
+    return [{"lang": lang, "voice": PIPER_VOICES[lang], "installed": piper_ready(PIPER_VOICES[lang])}
+            for lang in LANGUAGES if lang != main]
+
+
+def remove_voice(lang):
+    """Deletes one language's Piper voice; True when there was one."""
+    voice = PIPER_VOICES.get(language(lang))
+    removed = False
+    for path in piper_files(voice)[1:] if voice else ():
+        try:
+            os.remove(path)
+            removed = True
+        except OSError:
+            pass
+    return removed
+
+
 def can_switch(lang, main_lang, choice=None):
     """Whether a part in `lang` would sound like the rest: the same kind of voice,
     never a robotic fallback in the middle of a Piper sentence."""

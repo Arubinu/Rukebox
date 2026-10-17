@@ -2524,6 +2524,18 @@ select {
 .subsection[open] > summary { border-bottom: 1px solid var(--border); }
 .subsection > summary > span:first-child { min-width: 0; }
 
+.title-voice-list { list-style: none; margin: 4px 0 8px; padding: 0; }
+.title-voice-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border);
+}
+.title-voice-list li:last-child { border-bottom: 0; }
+.title-voice-name { font-weight: 600; min-width: 0; }
+.title-voice-state { margin-left: auto; color: var(--text-muted); font-size: 13px; }
+
 .release-changes .release-notes {
   max-height: 360px;
   overflow-y: auto;

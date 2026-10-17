@@ -770,6 +770,11 @@ SETTINGS = [
         "  files_first -> the file when there is one, the radio's voice otherwise",
         "Who introduces the songs",
     ),
+    Setting("DJ_TITLE_LANGUAGE", "schedule", "dj_title_language", "bool", "true",
+            "A title written in another language is said with that language's\n"
+            "voice, when it is installed (Settings > The voice), the rest in the\n"
+            "spoken language. false = everything in the spoken language.",
+            "Titles in their own language"),
     Setting("GAME_VOICE_START_STOP", "schedule", "game_voice_start_stop", "bool", "false",
             "The blind test says out loud when it begins and when it ends (with\n"
             "the podium, from the third place up).", "Blind test: say the start and the end"),

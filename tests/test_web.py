@@ -684,6 +684,44 @@ class WebTest(unittest.TestCase):
         self.assertEqual(started, ["--from-release", "--from-release --major"],
                          "the updater is told it may cross only once that was confirmed")
 
+    def test_a_voice_for_titles_is_installed_in_the_background_and_removed(self):
+        client = self.owner()
+        config = dict(ws.cfg(), SPEECH_LANGUAGE="fr", PIPER_VOICE="")
+        ready = {"fr_FR-siwis-medium"}
+        ran = []
+
+        def install(command, **kwargs):
+            ran.append(command[-2:])
+            ready.add(ws.speech.PIPER_VOICES[command[-1]])
+            return unittest.mock.Mock(returncode=0, stderr="")
+
+        class Now(threading.Thread):
+            def start(self):
+                self.run()
+
+        with unittest.mock.patch.object(ws, "cfg", return_value=config), \
+                unittest.mock.patch.object(ws.speech, "piper_ready", side_effect=lambda voice: voice in ready), \
+                unittest.mock.patch.object(ws.speech, "engine", return_value="piper:fr_FR-siwis-medium"), \
+                unittest.mock.patch.object(ws.subprocess, "run", side_effect=install), \
+                unittest.mock.patch.object(ws.threading, "Thread", Now), \
+                unittest.mock.patch.object(ws.speech, "remove_voice",
+                                           side_effect=lambda lang: ready.discard(ws.speech.PIPER_VOICES[lang])):
+            data = client.get("/api/speech/voices").get_json()["data"]
+            self.assertEqual([v["lang"] for v in data["voices"]], ["en", "de", "es", "it", "nl"])
+            self.assertTrue(data["piper"])
+            self.assertEqual(client.post("/api/speech/voices", json={"lang": "fr"}).get_json()["error"],
+                             "voice_in_use")
+            self.assertEqual(client.post("/api/speech/voices", json={"lang": "xx"}).status_code, 400)
+            self.assertTrue(client.post("/api/speech/voices", json={"lang": "en"}).get_json()["ok"])
+            self.assertEqual(ran, [["--also", "en"]])
+            data = client.get("/api/speech/voices").get_json()["data"]
+            self.assertEqual((data["installing"], data["error"]), (None, ""))
+            self.assertTrue(next(v for v in data["voices"] if v["lang"] == "en")["installed"])
+            client.post("/api/speech/voices", json={"lang": "en", "remove": True})
+            data = client.get("/api/speech/voices").get_json()["data"]
+            self.assertFalse(next(v for v in data["voices"] if v["lang"] == "en")["installed"])
+        self.assertEqual(client.get("/api/speech/voices").status_code, 200)
+
     def test_an_update_that_died_halfway_is_not_still_running(self):
         # The shell appends the end marker after the updater returns, so a killed run leaves none.
         log = os.path.join(self.dir, "update.log")

@@ -276,6 +276,22 @@ class DaemonTest(unittest.TestCase):
         for before, after in zip(self.said, self.said[1:]):
             self.assertNotEqual(before.replace(before[-3:], ""), after.replace(after[-3:], ""), (before, after))
 
+    def test_titles_in_their_own_language_can_be_switched_off(self):
+        self.daemon.cfg.update({"DJ_ANNOUNCE_EVERY": 1, "SPEECH_LANGUAGE": "fr"})
+        mock.patch.object(speech, "can_switch", return_value=True).start()
+        mock.patch.object(self.daemon, "_track_info",
+                          return_value={"title": "Shape of You", "artist": "Ed Sheeran"}).start()
+        joined = []
+        mock.patch.object(speech, "render_parts",
+                          side_effect=lambda parts, *a, **k: joined.append(parts) or True).start()
+        self.daemon._play_next_track(user=True)
+        self.end_song()
+        self.assertEqual([lang for _text, lang in joined[-1]], ["fr", "en", "fr"])
+        self.daemon.cfg["DJ_TITLE_LANGUAGE"] = False
+        self.end_song()
+        self.end_song()
+        self.assertEqual([lang for _text, lang in joined[-1]], ["fr"], "the whole sentence in French")
+
     def test_a_next_asked_for_is_not_introduced(self):
         self.daemon.cfg["DJ_ANNOUNCE_EVERY"] = 1
         self.daemon._play_next_track(user=True)

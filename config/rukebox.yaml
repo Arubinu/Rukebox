@@ -736,6 +736,11 @@ schedule:
   #   files_first -> the file when there is one, the radio's voice otherwise
   dj_announce_mode: "spoken"
 
+  # A title written in another language is said with that language's
+  # voice, when it is installed (Settings > The voice), the rest in the
+  # spoken language. false = everything in the spoken language.
+  dj_title_language: true
+
   # The blind test says out loud when it begins and when it ends (with
   # the podium, from the third place up).
   game_voice_start_stop: false
