@@ -192,6 +192,16 @@ class RouteTest(unittest.TestCase):
                 "CALLBACK": "<http://10.0.0.1/notify>", "NT": "upnp:event"})
             self.assertEqual(refused.status_code, 412, "a callback elsewhere than the controller")
 
+    def test_saving_play_what_is_sent_reaches_the_renderer(self):
+        was = {key: ws.cfg().get(key) for key in ("DLNA_RENDERER", "DLNA_RECEIVE")}
+        self.addCleanup(ws.update_config_file, was)
+        self.addCleanup(dr.options.update, {"receiving": False})
+        with mock.patch.object(dr, "start"), mock.patch.object(dr, "stop"):
+            self.client.post("/api/settings", json={"audio.dlna_renderer": True, "audio.dlna_receive": True})
+            self.assertTrue(dr.options["receiving"])
+            self.client.post("/api/settings", json={"audio.dlna_receive": False})
+            self.assertFalse(dr.options["receiving"])
+
     def test_nothing_answers_while_the_setting_is_off(self):
         with mock.patch.object(dr, "running", return_value=False):
             self.assertEqual(self.client.get("/dlna/rootDesc.xml").status_code, 404)

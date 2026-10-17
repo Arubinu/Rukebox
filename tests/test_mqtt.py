@@ -14,6 +14,12 @@ import _path  # noqa: F401
 import mqtt_bridge
 import mqtt_client as mc
 
+try:
+    import flask  # noqa: F401
+    import web_server as ws
+except ImportError:  # the Pi always has Flask; a checkout may not
+    ws = None
+
 
 class FakeBroker:
     """Accepts one client: answers CONNECT with `code`, keeps what it is sent, may send one PUBLISH."""
@@ -224,6 +230,43 @@ class BridgeTest(unittest.TestCase):
         self.assertFalse(mqtt_bridge.wanted({"MQTT_ENABLED": True, "MQTT_HOST": " "}))
         self.assertFalse(mqtt_bridge.wanted({"MQTT_ENABLED": False, "MQTT_HOST": "ha.local"}))
         self.assertTrue(mqtt_bridge.wanted({"MQTT_ENABLED": True, "MQTT_HOST": "ha.local"}))
+
+
+@unittest.skipUnless(ws, "Flask is not installed (run these on the Pi)")
+class ServiceFollowsTheCardTest(unittest.TestCase):
+    """The bridge's service runs only while Home Assistant is switched on with a broker."""
+
+    def setUp(self):
+        was = {key: ws.cfg().get(key) for key in ("MQTT_ENABLED", "MQTT_HOST", "BASE_VOLUME")}
+        self.addCleanup(ws.update_config_file, was)
+        self.client = ws.app.test_client()
+
+    def test_a_save_starts_or_stops_it(self):
+        asked = []
+        done = threading.Event()
+
+        def follow(on):
+            asked.append(on)
+            done.set()
+            return True
+        with mock.patch.object(ws.system_actions, "follow_mqtt", side_effect=follow):
+            self.client.post("/api/settings", json={"home_assistant.enabled": True,
+                                                    "home_assistant.host": "192.168.1.9"})
+            self.assertTrue(done.wait(5))
+            done.clear()
+            self.client.post("/api/settings", json={"home_assistant.enabled": False})
+            self.assertTrue(done.wait(5))
+            done.clear()
+            self.client.post("/api/settings", json={"playback.base_volume": 61})
+            self.assertFalse(done.wait(0.3), "another card leaves it alone")
+        self.assertEqual(asked, [True, False])
+
+    def test_switched_on_without_a_broker_it_stays_off(self):
+        ws.update_config_file({"MQTT_ENABLED": True, "MQTT_HOST": ""})
+        with mock.patch.object(ws.system_actions, "follow_mqtt", return_value=True) as follow:
+            ws._mqtt_follow()
+        follow.assert_called_once_with(False)
+
 
 
 if __name__ == "__main__":

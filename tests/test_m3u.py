@@ -87,6 +87,21 @@ class ImportRouteTest(unittest.TestCase):
         self.assertEqual(self.added.call_args[0][0],
                          {"name": "Road trip", "kind": "manual", "tracks": [ROOT + "/LMFAO/Sorry/03 - Party.opus"]})
 
+    def test_a_list_goes_out_as_a_file_named_after_it(self):
+        entry = {"id": "road", "name": "Road / trip", "kind": "manual",
+                 "tracks": [ROOT + "/LMFAO/Sorry/03 - Party.opus"]}
+        with mock.patch.object(ws.music_lists, "get", return_value=entry), \
+                mock.patch.object(FakeLibrary, "items_for_paths", create=True, return_value=[
+                    dict(SONGS[entry["tracks"][0]], path=entry["tracks"][0], duration=262)]):
+            answer = self.client.get("/api/lists/road/m3u")
+        self.assertEqual(answer.status_code, 200)
+        self.assertIn('filename="Road _ trip.m3u8"', answer.headers["Content-Disposition"],
+                      "no slash reaches the file name")
+        self.assertEqual(answer.get_data(as_text=True).splitlines(),
+                         ["#EXTM3U", "#EXTINF:262,LMFAO - Party Rock Anthem", "LMFAO/Sorry/03 - Party.opus"])
+        with mock.patch.object(ws.music_lists, "get", side_effect=KeyError("gone")):
+            self.assertEqual(self.client.get("/api/lists/gone/m3u").status_code, 404)
+
     def test_a_file_with_nothing_known_makes_no_list(self):
         answer = self.send("nothing.mp3\n")
         self.assertEqual((answer.status_code, answer.get_json()["error"]), (400, "m3u_nothing_found"))
