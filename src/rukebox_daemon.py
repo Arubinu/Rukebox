@@ -34,6 +34,7 @@ import music_lists  # noqa: E402
 import playlist  # noqa: E402
 import machine as platform_mod  # noqa: E402
 import schedules  # noqa: E402
+import sd_watchdog  # noqa: E402
 import snapcast  # noqa: E402
 import speech  # noqa: E402
 from state import RadioState  # noqa: E402
@@ -245,6 +246,7 @@ class RadioDaemon:
         self._current_track = None
         self._last_music_track = None
         self._stop_event = threading.Event()
+        self._watchdog = sd_watchdog.Watchdog()
 
         self.stats = StatsRecorder(
             cfg["STATS_DB_FILE"],
@@ -817,6 +819,7 @@ class RadioDaemon:
 
     def start(self):
         os.makedirs(self.cfg["STATE_DIR"], exist_ok=True)
+        self._watchdog.start()
         self._install_signal_handlers()
         self.stats.open_session()
         # In a container "off" ends this process, not the machine: the hook closes
@@ -4474,6 +4477,7 @@ class RadioDaemon:
             self.cfg["CUTOFF_MODE"],
         )
         while not self._stop_event.is_set():
+            self._watchdog.beat()
             if not self._clock_ready.is_set():
                 time.sleep(2)
                 continue

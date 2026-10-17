@@ -12,6 +12,9 @@ EnvironmentFile=-/etc/rukebox/container-runtime.env
 ExecStart=/usr/bin/python3 /opt/rukebox/src/rukebox_daemon.py
 Restart=always
 RestartSec=5
+# Restarted when its scheduler loop stops turning (src/sd_watchdog.py tells systemd it does).
+WatchdogSec=300
+NotifyAccess=main
 User=pi
 
 [Install]
