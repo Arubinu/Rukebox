@@ -308,6 +308,21 @@ function paintScheduleDays(chosen) {
 }
 
 const SCHEDULE_VOICE_SEC = 30;
+// Filled by the web radios' own part (27-stations.js), read by the schedule form.
+let stationsCache = [];
+
+function fillScheduleStations(value) {
+  const select = document.getElementById("schedStation");
+  select.replaceChildren();
+  [["", t("schedules.station_none")]].concat(stationsCache.map((one) => [one.id, one.name]))
+    .forEach(([optionValue, label]) => {
+      const option = document.createElement("option");
+      option.value = optionValue;
+      option.textContent = label;
+      select.appendChild(option);
+    });
+  setFieldValue(select, value || "");
+}
 
 function updateScheduleForm() {
   const when = document.getElementById("schedWhen").value;
@@ -327,6 +342,7 @@ function updateScheduleForm() {
   const opens = startOn || party;
   document.getElementById("schedAnnouncementRow").hidden = !opens;
   document.getElementById("schedSayRow").hidden = !opens;
+  document.getElementById("schedStationRow").hidden = !opens || !stationsCache.length;
   document.getElementById("schedVoiceRow").hidden = !opens;
   // Only what has an end can count down to it.
   document.getElementById("schedEndBox").hidden = !(stopOn || party);
@@ -668,6 +684,7 @@ function fillScheduleForm(item) {
   fillScheduleLists(data.list);
   fillScheduleAnnouncements(data.announcement);
   document.getElementById("schedSay").value = data.say || "";
+  fillScheduleStations(data.station);
   fillEndRows(data.before_end);
   schedOverrides.replaceChildren();
   Object.keys(settings).forEach((key) => {
@@ -733,6 +750,7 @@ schedForm.addEventListener("submit", async (event) => {
     list: list === "keep" ? null : list === "all" ? "" : list.slice(3),
     announcement: document.getElementById("schedAnnouncement").value || null,
     say: document.getElementById("schedSay").value.trim() || null,
+    station: document.getElementById("schedStation").value || null,
     before_end: collectEndRows(),
     settings: collectScheduleSettings(),
   };

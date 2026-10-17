@@ -3692,6 +3692,18 @@ folder, its file name alone, then the "Artist - Title" of its `#EXTINF`; the
 toast says how many songs were found and names the first ones that were not.
 A web address in the file is skipped: the radio plays its own library.
 
+**Web radios.** Under the lists, **Web radios** keeps stations by name and
+stream address (`http://` or `https://` only - the `stations:` block of
+`rukebox.yaml`, kept by a configuration backup). *Listen* plays one in place
+of the radio's own music, the way music sent over DLNA plays: the music fades
+under it and comes back, where it was, when the station is stopped, *Next* is
+pressed, the nightly cutoff comes, or the stream drops (no Internet, a station
+off the air). The player shows the song the station says it plays (its ICY
+title) under the station's name. A schedule's start can **play a web radio**
+instead of the music - with no Internet it falls back to the music. It needs
+Internet, which the radio has on the personal Wi-Fi or through a USB cable to
+a computer.
+
 ### The volume by itself: a cap, or a curve
 
 **Settings > Volume > Volume by itself** (`volume_shape` under `playback:`)

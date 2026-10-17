@@ -734,6 +734,26 @@
                         data-i18n="lists.create">Create</button>
               </div>
             </details>
+
+            <details class="subsection" id="stationsSection">
+              <summary><span data-i18n="stations.section">Web radios</span></summary>
+              <p class="hint" data-i18n="stations.help">A station's stream address, played in place of the radio's own music when the radio has Internet. The music comes back by itself when you stop it, press Next, or the stream drops.</p>
+              <ul class="device-list" id="stationsList"></ul>
+              <p class="hint" id="stationsEmpty" data-i18n="stations.empty">No web radio yet.</p>
+              <div class="field-row">
+                <label for="stationName" data-i18n="stations.name">Name</label>
+                <input type="text" id="stationName" class="text-input" maxlength="40" autocomplete="off">
+              </div>
+              <div class="field-row">
+                <label for="stationUrl" data-i18n="stations.url">Stream address</label>
+                <input type="url" id="stationUrl" class="text-input" maxlength="2048" autocomplete="off"
+                       placeholder="https://…" inputmode="url">
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="stationAdd" data-icon="plus"
+                        data-i18n="stations.add">Add the radio</button>
+              </div>
+            </details>
           </div>
 
           <div id="listsDetail" hidden>
@@ -913,6 +933,13 @@
                   <p class="field-desc" id="schedAnnouncementDesc" data-i18n="schedules.announcement_desc">An announcement played at the start, before the music.</p>
                 </div>
                 <select id="schedAnnouncement" aria-describedby="schedAnnouncementDesc"></select>
+              </div>
+              <div class="field-row" id="schedStationRow">
+                <div class="field-text">
+                  <label for="schedStation" data-i18n="schedules.station">Plays a web radio</label>
+                  <p class="field-desc" id="schedStationDesc" data-i18n="schedules.station_desc">In place of the music, when the radio has Internet.</p>
+                </div>
+                <select id="schedStation" aria-describedby="schedStationDesc"></select>
               </div>
               <div class="field-row" id="schedSayRow">
                 <div class="field-text">

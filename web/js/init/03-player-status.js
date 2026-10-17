@@ -106,7 +106,8 @@ async function refreshStatus() {
   d.sampledAt = sampledAt;
   setGoingDown(d.going_down || (d.updating ? "update" : null), sentAt);
 
-  document.getElementById("npMode").textContent = modeLabel(d.mode);
+  document.getElementById("npMode").textContent = d.mode === "cast" && d.cast && d.cast.origin === "station"
+    ? t("mode.station") : modeLabel(d.mode);
 
   const fileTitle = (d.current_track || "").replace(/\.[a-z0-9]{2,5}$/i, "");
   setNowPlayingText(d.track_title || fileTitle || "\u2014", d.track_artist || "");

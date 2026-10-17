@@ -83,6 +83,7 @@ import likes  # noqa: E402
 import music_lists  # noqa: E402
 import prepared_media  # noqa: E402
 import schedules  # noqa: E402
+import stations  # noqa: E402
 from version import is_newer, read_version_file, set_release  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [web] %(message)s")
@@ -2919,6 +2920,42 @@ def api_party():
     return jsonify({"ok": True, "data": data})
 
 
+@app.route("/api/stations")
+def api_stations():
+    return jsonify({"ok": True, "data": {"stations": stations.load()}})
+
+
+@app.route("/api/stations", methods=["POST"])
+def api_add_station():
+    try:
+        entry = stations.add(request.get_json(silent=True) or {})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    stats.record("station_added", label=entry["name"], detail={"id": entry["id"]})
+    return jsonify({"ok": True, "data": entry})
+
+
+@app.route("/api/stations/<station_id>", methods=["POST", "DELETE"])
+def api_change_station(station_id):
+    try:
+        if request.method == "DELETE":
+            stations.delete(station_id)
+            stats.record("station_removed", label=station_id)
+            return jsonify({"ok": True})
+        entry = stations.update(station_id, request.get_json(silent=True) or {})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return jsonify({"ok": True, "data": entry})
+
+
+@app.route("/api/stations/<station_id>/play", methods=["POST"])
+def api_play_station(station_id):
+    result = control("play_station", id=station_id)
+    return jsonify(result), (200 if result.get("ok") else 400)
+
+
 @app.route("/api/schedules/<schedule_id>/voice", methods=["GET", "POST", "DELETE"])
 def api_schedule_voice(schedule_id):
     """A message recorded or sent for a schedule, played once it has started."""
@@ -3828,6 +3865,9 @@ def api_status():
         data["track_title"] = cast.get("title") or (cast.get("url") or "").rsplit("/", 1)[-1]
         data["track_artist"] = cast.get("artist")
         data["track_key"] = None
+        if cast.get("origin") == "station" and cast.get("now"):
+            # A web radio: the song it says it plays, under the station's name.
+            data["track_title"], data["track_artist"] = cast["now"], cast.get("title")
     data["speaker_mac"] = cfg().get("SPEAKER_MAC", "")
     mac = data["speaker_mac"]
     link = _status_probe(("speaker", mac), lambda: _speaker_link(mac))

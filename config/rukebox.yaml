@@ -1279,3 +1279,10 @@ people:
 volume_curve:
   points: []
 
+
+# ---------------------------------------------------------------
+# The web radios, by name and stream address
+# ---------------------------------------------------------------
+stations:
+  stations: []
+

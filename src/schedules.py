@@ -173,6 +173,9 @@ def validate(data):
     music = None if music is None else str(music).strip()
 
     announcement = str(data.get("announcement") or "").strip() or None
+    station = str(data.get("station") or "").strip() or None
+    if station and not re.match(r"^[a-z0-9-]{1,80}$", station):
+        raise ValueError("schedule_bad_station")
     say = " ".join(str(data.get("say") or "").split())
     if len(say) > SAY_MAX:
         raise ValueError("schedule_say_too_long")
@@ -192,6 +195,7 @@ def validate(data):
         "list": music,
         "announcement": announcement if start or party else None,
         "say": (say or None) if start or party else None,
+        "station": station if start or party else None,
         # Only a schedule that has an end can count down to it.
         "before_end": _before_end(data.get("before_end")) if stop or party else [],
         "settings": _settings(data.get("settings")),

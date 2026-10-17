@@ -17,6 +17,7 @@ import hidden_tracks
 import likes
 import music_lists
 import schedules
+import stations
 import track_order
 
 log = logging.getLogger("config_bundle")
@@ -88,6 +89,7 @@ def export_bundle(cfg, version=None, flic_buttons=None):
         "track_order": track_order.load(),
         "schedules": schedules.load(),
         "music_lists": music_lists.load(),
+        "stations": stations.load(),
         "likes": likes.load(cfg.get("LIKES_FILE", "")),
         "hidden": hidden_tracks.load(cfg.get("HIDDEN_FILE", "")),
         "cards": list(cards.load().values()),
@@ -260,6 +262,10 @@ def import_bundle(data, cfg):
         items = _clean_records(data["schedules"], schedules.validate, schedules._slugify)
         schedules.save_all(items)
         summary["schedules"] = len(items)
+    if isinstance(data.get("stations"), list):
+        items = _clean_records(data["stations"], stations.validate, stations._slugify)
+        stations.save_all(items)
+        summary["stations"] = len(items)
     if isinstance(data.get("music_lists"), list):
         items = _clean_records(data["music_lists"], music_lists.validate, music_lists._slugify)
         music_lists.save_all(items)

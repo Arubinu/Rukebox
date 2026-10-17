@@ -37,6 +37,7 @@ import schedules  # noqa: E402
 import sd_watchdog  # noqa: E402
 import snapcast  # noqa: E402
 import speech  # noqa: E402
+import stations  # noqa: E402
 from state import RadioState  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
 import system_actions  # noqa: E402
@@ -839,6 +840,8 @@ class RadioDaemon:
         self.mpv.observe(1, "time-pos")
         self.mpv.observe(2, "duration")
         self.mpv.observe(3, "pause")
+        # What a web radio says it plays now (its ICY title).
+        self.mpv.observe(4, "metadata/by-key/icy-title")
 
         self._restore_base_volume()
 
@@ -2737,6 +2740,8 @@ class RadioDaemon:
             return {"ok": False, "error": "busy"}
         meta = {key: speech.clean_text(msg.get(key), 120) or None for key in ("title", "artist", "album")}
         meta["art"] = self._cast_url(msg.get("art"))
+        meta["origin"] = "station" if msg.get("origin") == "station" else "dlna"
+        meta["station"] = msg.get("station") if meta["origin"] == "station" else None
         self._set_timer("cast_end", None)
         if self.mode != "cast":
             if self.mode == "music":
@@ -3015,6 +3020,16 @@ class RadioDaemon:
             self.stats.record("schedule_ended", label=before["name"], detail={"id": before["id"]})
         self._bump_state()
 
+    def _play_station(self, station_id, source):
+        """A web radio in place of the radio's own music, which comes back when it stops or drops."""
+        try:
+            station = stations.get(station_id)
+        except KeyError:
+            return {"ok": False, "error": "not_found"}
+        log.info("Web radio: %s", station["name"])
+        return self._cast_play({"url": station["url"], "title": station["name"], "origin": "station",
+                                "station": station["id"]}, source)
+
     def _schedule_start(self, item):
         log.info("Schedule '%s': start", item["name"])
         voice = schedules.voice(self.cfg["STATE_DIR"], item["id"])
@@ -3022,6 +3037,13 @@ class RadioDaemon:
             # Said once the music or the opening announcement has started (_check_reminders).
             parts = [("say", item["say"])] if item.get("say") else []
             self._schedule_say = (parts + ([("file", voice)] if voice else []), time.time() + 3, item["id"])
+        if item.get("station") and self.mode in ("idle", "stopped", "music", "cast"):
+            # A web radio in place of the music: it opens the schedule itself.
+            answer = self._play_station(item["station"], "schedule")
+            if answer.get("ok"):
+                self.state.mark_triggered_today("last_music_start")
+                return
+            log.warning("Schedule '%s': its web radio could not start (%s)", item["name"], answer.get("error"))
         opening = self._schedule_announcement(item)
         if self.mode in ("idle", "stopped"):
             self.state.mark_triggered_today("last_music_start")
@@ -3978,6 +4000,12 @@ class RadioDaemon:
                         log.exception("Could not handle the end of the song")
             elif name == "duration" and isinstance(data, (int, float)):
                 self._duration = float(data)
+            elif name == "metadata/by-key/icy-title":
+                if self._cast is not None and self._cast.get("origin") == "station":
+                    now = speech.clean_text(data, 160) if isinstance(data, str) else None
+                    if now != self._cast.get("now"):
+                        self._cast["now"] = now or None
+                        self._bump_state()
             elif name == "pause":
                 if bool(data) != self._paused:
                     self._paused = bool(data)
@@ -5088,6 +5116,8 @@ class RadioDaemon:
                 return self._set_active_list(msg.get("id"), source, bool(msg.get("start")))
             if cmd == "cast_play":
                 return self._cast_play(msg, source)
+            if cmd == "play_station":
+                return self._play_station(str(msg.get("id") or ""), source)
             if cmd == "cast_stop":
                 if self.mode != "cast":
                     return {"ok": False, "error": "nothing_to_stop"}
