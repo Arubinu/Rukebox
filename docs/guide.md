@@ -495,7 +495,9 @@ A container with no sound card still plays: it plays into a **virtual
 output** of its own (`docker/pipewire-container.conf`, a PipeWire null sink
 named `rukebox_output`), and the network stream encodes that output's
 monitor. That is what "Listen here" on the player plays, and what VLC or a
-network speaker plays from `http://<host>:8080/stream.opus`.
+network speaker plays from `http://<host>:8080/stream.opus`. A stream runs a
+few seconds behind the radio: the button says *Slight delay…* from the tap
+until a moment after the sound starts, then *Stop listening*.
 
 **It is a real output, in the list like any other, and it is the container's
 own.** The first start writes `audio.output: docker` into the configuration,

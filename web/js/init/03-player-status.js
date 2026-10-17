@@ -896,6 +896,17 @@ let listenAudio = null;
 let listenUrl = "";
 let listenWhy = "";
 
+// From the tap until a moment after the sound starts, the button says the stream runs behind.
+const LISTEN_DELAY_SHOWN_MS = 2500;
+let listenStarting = false;
+let listenStartTimer = null;
+
+function listenStarted(done) {
+  clearTimeout(listenStartTimer);
+  listenStartTimer = null;
+  listenStarting = !done;
+}
+
 function paintListen(playing) {
   const btn = document.getElementById("btnListen");
   const tell = document.getElementById("listenWhy");
@@ -903,7 +914,7 @@ function paintListen(playing) {
   if (!btn || !tell || !label) return;
   const on = playing !== undefined ? playing : !!(listenAudio && !listenAudio.paused);
   btn.setAttribute("aria-pressed", on ? "true" : "false");
-  const key = on ? "stream.stop" : "stream.listen";
+  const key = !on ? "stream.listen" : listenStarting ? "stream.delay" : "stream.stop";
   btn.dataset.i18n = key;
   label.dataset.i18n = key;
   label.textContent = t(key);
@@ -944,15 +955,27 @@ document.getElementById("btnListen").addEventListener("click", async () => {
     listenAudio.pause();
     listenAudio.src = "";
     listenAudio = null;
+    listenStarted(true);
     paintListen(false);
     return;
   }
   if (!listenUrl) return;
   listenAudio = new Audio(listenUrl);
-  listenAudio.addEventListener("playing", () => paintListen(true));
+  listenStarted(false);
+  paintListen(true);
+  listenAudio.addEventListener("playing", () => {
+    if (!listenStartTimer && listenStarting) {
+      listenStartTimer = setTimeout(() => {
+        listenStarted(true);
+        paintListen(!!listenAudio);
+      }, LISTEN_DELAY_SHOWN_MS);
+    }
+    paintListen(true);
+  });
   listenAudio.addEventListener("error", () => {
     showToast(t("stream.failed"));
     listenAudio = null;
+    listenStarted(true);
     paintListen(false);
   });
   try {
@@ -961,6 +984,7 @@ document.getElementById("btnListen").addEventListener("click", async () => {
   } catch (error) {
     showToast(t("stream.failed"));
     listenAudio = null;
+    listenStarted(true);
     paintListen(false);
   }
 });
