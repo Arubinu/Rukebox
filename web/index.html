@@ -2816,7 +2816,7 @@
           <p class="hint picker-note" data-note="share.print_note" hidden></p>
         </section>
 
-        <section class="card" id="wifiClientsCard" data-page="clients" data-tab="network" data-needs="access_point"
+        <section class="card" id="wifiClientsCard" data-page="clients" data-tab="network"
                    aria-labelledby="clientsTitle">
           <h2 data-icon="monitor-smartphone" id="clientsTitle"><span data-i18n="clients.title">Connected devices</span></h2>
           <p class="hint" id="clientsSummary"></p>
@@ -2828,7 +2828,7 @@
           <ul class="device-list client-list" id="clientList"></ul>
         </section>
 
-        <section class="card" id="previousClientsCard" data-page="previous" data-tab="network" data-needs="access_point"
+        <section class="card" id="previousClientsCard" data-page="previous" data-tab="network"
                  aria-labelledby="previousTitle">
           <h2 data-icon="history" id="previousTitle"><span data-i18n="clients.previous_title">Previously connected</span></h2>
           <p class="hint" id="previousSummary"></p>
@@ -2843,7 +2843,7 @@
                   data-icon="trash" data-i18n="clients.forget_unnamed" hidden>Delete the unnamed ones</button>
         </section>
 
-        <section class="card" id="bannedClientsCard" data-page="banned" data-tab="network" data-needs="access_point"
+        <section class="card" id="bannedClientsCard" data-page="banned" data-tab="network"
                    aria-labelledby="bannedTitle">
           <h2 data-icon="ban" id="bannedTitle"><span data-i18n="clients.banned">Banned</span></h2>
           <p class="hint" id="bannedSummary"></p>
@@ -2855,7 +2855,7 @@
           <ul class="device-list client-list" id="bannedList"></ul>
         </section>
 
-        <section class="card" data-level="detail" id="guestCard" data-page="guest" data-tab="network" data-needs="access_point"
+        <section class="card" data-level="detail" id="guestCard" data-page="guest" data-tab="network"
                    aria-labelledby="guestTitle">
           <h2 data-icon="user" id="guestTitle"><span data-i18n="guest.title">Guest access</span></h2>
           <p class="hint help-text" data-i18n="guest.section_hint" hidden>
@@ -2866,7 +2866,7 @@
               <label for="guestModeToggle" data-i18n="security.guest_mode">Guest actions without password</label>
               <input type="checkbox" id="guestModeToggle" data-key="security.guest_mode" class="switch-input" role="switch">
             </div>
-            <div class="field-row">
+            <div class="field-row" data-needs="captive_portal">
               <div class="field-text">
                 <label for="captivePortalMode" data-i18n="settings.captive_mode">Captive portal</label>
                 <p class="field-desc" id="captivePortalDesc" data-i18n="portal.desc">When a phone joins the Rukebox's Wi-Fi, it opens this interface by itself.</p>
@@ -2878,7 +2878,7 @@
                 <option value="off" data-i18n="portal.off">Off: the page opens only when typed</option>
               </select>
             </div>
-            <p class="hint help-text" data-i18n="portal.help" hidden>"Once a day" and "Once per device": after "Finish connecting", the phone treats the Wi-Fi as a normal network and stays on it - again 12 hours later, or never again. "At every check": the page comes back at every check, but the phone may drop the Wi-Fi after a few minutes. "Off": no page pops up. The phone then says the Wi-Fi has no internet: if the page does not open, keep the Wi-Fi when it asks, or turn mobile data off.</p>
+            <p class="hint help-text" data-i18n="portal.help" data-needs="captive_portal" hidden>"Once a day" and "Once per device": after "Finish connecting", the phone treats the Wi-Fi as a normal network and stays on it - again 12 hours later, or never again. "At every check": the page comes back at every check, but the phone may drop the Wi-Fi after a few minutes. "Off": no page pops up. The phone then says the Wi-Fi has no internet: if the page does not open, keep the Wi-Fi when it asks, or turn mobile data off.</p>
             <details class="subsection" id="guestAllowedSection">
               <summary><span data-i18n="guest.group_allowed">What guests may do</span></summary>
               <div class="field-row">
