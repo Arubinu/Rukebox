@@ -663,6 +663,7 @@ What changes, compared with a Pi:
 | Flic button | available | disabled (no controller of its own) |
 | Sound | the card, the speaker, the jack | a virtual output, heard over the network |
 | Daemon, web interface, schedules, statistics, updater | yes | yes |
+| Network area of the interface | access point, devices, guests, home Wi-Fi | devices and guests (no captive portal) |
 
 `RUKEBOX_USER` and `RUKEBOX_AUDIO_ROOT` override the account and the audio
 folder; the installer moves the paths in the generated YAML to match.

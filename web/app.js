@@ -12353,8 +12353,10 @@ function initHelpToggles() {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const showing = paragraphs.some((p) => p.hidden);
-      paragraphs.forEach((p) => { p.hidden = !showing; });
+      // An explanation of what this machine cannot do stays hidden.
+      const shown = paragraphs.filter((p) => !p.dataset.needs || canDo(p.dataset.needs));
+      const showing = shown.some((p) => p.hidden);
+      shown.forEach((p) => { p.hidden = !showing; });
       btn.classList.toggle("is-on", showing);
       btn.setAttribute("aria-expanded", showing ? "true" : "false");
       const label = showing ? t("help.hide") : t("help.show");
@@ -12578,7 +12580,9 @@ document.dispatchEvent(new CustomEvent("page-shown", {
 function searchEntries() {
   const out = [];
   document.querySelectorAll(".card[data-page]").forEach((card) => {
-    if (card.hasAttribute("hidden") || (guestMode && !GUEST_PAGES.has(card.dataset.page))) return;
+    // Only what this machine can open: a page it lacks the means for is no answer.
+    if (card.hasAttribute("hidden") || (guestMode && !GUEST_PAGES.has(card.dataset.page))
+        || capabilityHidden(card)) return;
     const titleEl = card.querySelector("h2 [data-i18n]");
     const cardTitle = titleEl ? titleEl.textContent.trim() : "";
     const where = t("tab." + card.dataset.tab) + " \u203a " + cardTitle;
@@ -12586,6 +12590,8 @@ function searchEntries() {
     card.querySelectorAll(".field-row, details.subsection > summary").forEach((row) => {
       const hiddenBy = row.closest("[hidden]");
       if (hiddenBy && hiddenBy !== card) return;
+      const needs = row.closest("[data-needs]");
+      if (needs && needs !== card && capabilityHidden(needs)) return;
       const labelEl = row.matches("summary") ? row : row.querySelector("label, .field-text > span");
       const label = labelEl ? labelEl.textContent.replace(/\s+/g, " ").trim() : "";
       if (!label) return;

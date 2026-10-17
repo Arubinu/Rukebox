@@ -26,8 +26,9 @@ function withCaps(caps, options = {}) {
 }
 
 function rowsOf(document) {
+  // An explanation waits behind its "?" whatever the machine: hidden for its own reason.
   return Array.from(document.querySelectorAll("[data-needs]"))
-    .filter((el) => !el.classList.contains("card"))
+    .filter((el) => !el.classList.contains("card") && !el.classList.contains("help-text"))
     .map((el) => ({ needs: el.dataset.needs, hidden: el.hidden }));
 }
 
@@ -79,10 +80,14 @@ test("a card the machine cannot honour leaves the area's menu", async (t) => {
   const page = withCaps(DOCKER);
   await until(() => page.document.body.dataset.caps !== undefined);
   const network = tilesOf(page.document, "network");
-  for (const wanted of ["accesspoint", "clients", "previous", "banned", "guest", "homewifi"]) {
+  for (const wanted of ["accesspoint", "share", "homewifi"]) {
     const tile = network.find((entry) => entry.page === wanted);
     assert.ok(tile, wanted + " is a page of the network area");
     assert.equal(tile.hidden, true, wanted + " is not offered");
+  }
+  // The devices and the guests are the web interface's, not the access point's.
+  for (const wanted of ["clients", "previous", "banned"]) {
+    assert.equal(network.find((entry) => entry.page === wanted).hidden, false, wanted + " stays");
   }
   // The Clock page is one value to set, and a container can set neither the
   // time nor its zone: there is nothing left on it to offer. The card itself
@@ -103,13 +108,16 @@ test("a card the machine cannot honour leaves the area's menu", async (t) => {
   await page.close();
 });
 
-test("an area with nothing left is not a tab any more", async (t) => {
-  t.diagnostic("on a container the Network area IS the access point and its clients");
-  const page = withCaps(DOCKER);
+test("a container keeps the Network area for its devices and its guests", async (t) => {
+  t.diagnostic("without an access point, the devices and the guest access are still the web interface's");
+  const page = withCaps(DOCKER, { view: "detailed" });
   await until(() => page.document.body.dataset.caps !== undefined);
   const network = page.document.querySelector('.tab-btn[data-tab="network"]');
-  assert.equal(network.hidden, true, "its button goes");
-  assert.ok(network.hasAttribute("data-empty"));
+  assert.equal(network.hidden, false, "its button stays");
+  assert.equal(tilesOf(page.document, "network").find((entry) => entry.page === "guest").hidden, false,
+               "the guests' settings are offered");
+  assert.equal(page.$("captivePortalMode").closest(".field-row").hidden, true,
+               "but not the captive portal, which belongs to the access point");
   const audio = page.document.querySelector('.tab-btn[data-tab="audio"]');
   assert.equal(audio.hidden, false, "a container still has its sound card and Bluetooth");
   await page.close();
@@ -174,17 +182,14 @@ test("a status that says nothing about the stream is not an accusation", async (
   await page.close();
 });
 
-test("a page left open in an area that emptied falls back to Home", async (t) => {
-  t.diagnostic("never an empty grid: the landing page is Home");
+test("a page the machine cannot honour is never the one shown", async (t) => {
+  t.diagnostic("an address to the access point, on a container: its card stays out of sight");
   const page = withCaps(DOCKER);
   await until(() => page.document.body.dataset.caps !== undefined);
   page.window.location.hash = "#network/accesspoint";
   page.window.dispatchEvent(new page.window.Event("hashchange"));
-  await until(() => page.document.body.dataset.tab === "home");
-  const cards = Array.from(page.document.querySelectorAll('.card[data-tab="network"]'))
-    .filter((card) => page.window.getComputedStyle(card).display !== "none"
-                      && !card.classList.contains("tab-hidden"));
-  assert.equal(cards.length, 0, "and no network card is left on screen");
+  // Waiting long enough for a page that never leaves would fail here.
+  await until(() => page.document.body.dataset.page !== "accesspoint");
   await page.close();
 });
 
@@ -232,5 +237,22 @@ test("nothing is dropped before the first status answer", async (t) => {
   assert.equal(page.document.body.dataset.caps, undefined);
   const tiles = tilesOf(page.document, "network").filter((tile) => !tile.hidden);
   assert.ok(tiles.length > 0, "the menu is not empty while waiting");
+  await page.close();
+});
+
+test("the search only answers with what this machine can open", async (t) => {
+  t.diagnostic("a result that cannot be opened is worse than none");
+  const page = withCaps(DOCKER, { view: "detailed" });
+  await until(() => page.document.body.dataset.caps !== undefined && page.$("bootOverlay").hidden);
+  page.$("searchBtn").click();
+  const input = await until(() => page.document.querySelector(".search-box input"));
+  const results = (words) => {
+    input.value = words;
+    input.dispatchEvent(new page.window.Event("input", { bubbles: true }));
+    return [...page.document.querySelectorAll(".search-results .search-label")].map((el) => el.textContent);
+  };
+  assert.ok(results("guest").some((label) => /Guest/.test(label)), "the guests' settings are found");
+  assert.deepEqual(results("captive portal"), [], "the access point's own are not");
+  assert.deepEqual(results("SSID"), []);
   await page.close();
 });
