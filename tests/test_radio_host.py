@@ -59,6 +59,82 @@ class SentencesTest(unittest.TestCase):
         self.assertEqual(speech.track_sentence("Paradise", None, "en"), "Up next: Paradise.")
         self.assertEqual(speech.track_sentence("", "Coldplay", "en"), "")
 
+    def test_a_song_is_brought_in_many_ways_each_naming_it(self):
+        for lang in speech.LANGUAGES:
+            for with_artist in (True, False):
+                count = speech.intro_count(lang, with_artist)
+                self.assertGreaterEqual(count, 4, lang)
+                said = {speech.track_sentence("Fly", "Coldplay" if with_artist else "", lang, pick)
+                        for pick in range(count)}
+                self.assertEqual(len(said), count, "no two ways alike (%s)" % lang)
+                for sentence in said:
+                    self.assertIn("Fly", sentence)
+                    self.assertEqual("Coldplay" in sentence, with_artist)
+
+    def test_an_ampersand_and_a_feat_are_said_out_loud(self):
+        self.assertEqual(speech.spoken_names("Simon & Garfunkel", "fr"), "Simon et Garfunkel")
+        self.assertEqual(speech.spoken_names("Jack Harlow&Drake feat. Lil Wayne", "en"),
+                         "Jack Harlow and Drake featuring Lil Wayne")
+        self.assertEqual(speech.spoken_names("Ft. Me Ft Them", "de"), "featuring Me featuring Them")
+        self.assertEqual(speech.track_sentence("Fly", "A & B", "de"), "Und jetzt: Fly von A und B.")
+
+    def test_french_elides_before_a_vowel_and_joins_its_articles(self):
+        said = [speech.track_sentence("X", artist, "fr", pick) for artist, pick in (
+            ("Indochine", 0), ("Les Rita Mitsouko", 0), ("Le Grand Orchestre", 0), ("Les Rita Mitsouko", 3),
+            ("Hubert", 0))]
+        self.assertEqual(said, ["Et maintenant : X, d'Indochine.", "Et maintenant : X, des Rita Mitsouko.",
+                                "Et maintenant : X, du Grand Orchestre.", "Place aux Rita Mitsouko, avec X.",
+                                "Et maintenant : X, de Hubert."])
+
+    def test_a_title_is_heard_in_its_own_language_and_the_rest_in_the_radios(self):
+        cases = {"Who’s Laughing Now": "en", "Bruxelles je t'aime": "fr", "Sei bellissima": "it",
+                 "Ik hou van jou": "nl", "Ich will": "de", "Shape of You": "en", "Dancing Queen": "en",
+                 "Alors on danse": "fr", "Danser": "fr", "Despacito": "fr", "La Bamba": "fr"}
+        for title, lang in cases.items():
+            self.assertEqual(speech.guess_language(title, "fr"), lang, title)
+        self.assertEqual(speech.guess_language("La Bamba", "es"), "es", "a doubt keeps the radio's own")
+        parts = speech.track_parts("Who’s Laughing Now", "Jack Harlow & Drake", "fr", 0, lambda lang: True)
+        self.assertEqual(parts, [("Et maintenant : ", "fr"), ("Who’s Laughing Now", "en"),
+                                 (", de Jack Harlow et Drake.", "fr")])
+        self.assertEqual(speech.track_parts("Who’s Laughing Now", "", "fr", 0, lambda lang: False),
+                         [("Et maintenant : Who’s Laughing Now.", "fr")],
+                         "without a voice for English, the radio's own says it")
+
+    def test_parts_in_two_languages_are_joined_into_one_file(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        rendered = []
+
+        def render(text, lang, path, choice=None):
+            rendered.append((text, lang, choice))
+            open(path, "wb").close()
+            return True
+
+        def ffmpeg(command, **kwargs):
+            with open(command[-1], "wb") as f:
+                f.write(b"x" * 100)
+            return mock.Mock(returncode=0)
+
+        out = os.path.join(folder, "intro.wav")
+        with mock.patch.object(speech, "render", side_effect=render), \
+                mock.patch.object(speech.subprocess, "run", side_effect=ffmpeg) as run:
+            self.assertTrue(speech.render_parts(
+                [("Et maintenant : ", "fr"), ("Who's Laughing Now", "en"), (", de Jack Harlow.", "fr")],
+                "fr", out, "fr_FR-tom-medium"))
+        self.assertEqual(rendered, [("Et maintenant :", "fr", "fr_FR-tom-medium"),
+                                    ("Who's Laughing Now", "en", None),
+                                    ("de Jack Harlow.", "fr", "fr_FR-tom-medium")],
+                         "the chosen voice for the radio's language, the language's own for the title")
+        self.assertIn("concat=n=3", " ".join(run.call_args[0][0]))
+        self.assertEqual(os.listdir(folder), ["intro.wav"], "the parts are cleared away")
+
+    def test_a_title_switches_voice_only_to_one_of_the_same_kind(self):
+        engines = {"fr": "piper:fr_FR-siwis-medium", "en": "pico2wave", "de": "piper:de_DE-thorsten-medium"}
+        with mock.patch.object(speech, "engine", side_effect=lambda lang, choice=None: engines.get(lang, "")):
+            self.assertFalse(speech.can_switch("en", "fr"), "no robotic voice in a Piper sentence")
+            self.assertTrue(speech.can_switch("de", "fr"))
+            self.assertFalse(speech.can_switch("it", "fr"))
+
     def test_a_dedication_says_who_then_the_song(self):
         self.assertEqual(speech.dedication_sentence("Fly", "Renard bleu", "Pour Marie !", "fr"),
                          "Une dédicace de Renard bleu : Pour Marie ! Voici Fly.")
@@ -161,6 +237,9 @@ class DaemonTest(unittest.TestCase):
             open(path, "wb").close()
             return True
         mock.patch.object(speech, "render", side_effect=render).start()
+        # The plainest way first, unless a test is about the variety.
+        self.choice = mock.patch.object(rukebox_daemon.random, "choice", side_effect=lambda options: options[0])
+        self.choice.start()
         self.daemon = rukebox_daemon.RadioDaemon(cfg)
         self.daemon.mpv = FakeMpv()
         self.daemon._clock_ready = threading.Event()
@@ -184,6 +263,18 @@ class DaemonTest(unittest.TestCase):
         self.end_song()
         self.assertEqual(self.played()[-1], "c.mp3")
         self.assertEqual(self.daemon.mode, "music")
+
+    def test_two_songs_in_a_row_are_not_brought_in_the_same_way(self):
+        self.choice.stop()
+        self.daemon.cfg["DJ_ANNOUNCE_EVERY"] = 1
+        self.daemon._play_next_track(user=True)
+        for _ in range(12):
+            self.end_song()
+            self.end_song()
+        heads = [said.split(":")[0].split(" ")[0] for said in self.said]
+        self.assertGreater(len(heads), 6)
+        for before, after in zip(self.said, self.said[1:]):
+            self.assertNotEqual(before.replace(before[-3:], ""), after.replace(after[-3:], ""), (before, after))
 
     def test_a_next_asked_for_is_not_introduced(self):
         self.daemon.cfg["DJ_ANNOUNCE_EVERY"] = 1

@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import os
+import random
 import signal
 import socket
 import subprocess
@@ -305,6 +306,9 @@ class RadioDaemon:
         self._tail_player_cls = TailPlayer
         self._xfade_in = 0.0
         self._dj_count = 0
+        # The way the last song was introduced: the next one is said differently.
+        self._dj_pick = -1
+        self._dj_parts = []
         self._time_source = None
         self._clock_lock = threading.Lock()
         self._lights = wled.Lights(lambda: self.cfg, self._light_scene, self._light_turn,
@@ -1287,7 +1291,14 @@ class RadioDaemon:
             self._dj_count += 1
             if self._dj_count >= every:
                 self._dj_count = 0
-                return speech.track_sentence(info["title"], info["artist"], lang), "dj"
+                count = speech.intro_count(lang, bool(info["artist"]))
+                choices = [i for i in range(count) if i != self._dj_pick] or [0]
+                self._dj_pick = random.choice(choices)
+                choice = self.cfg.get("PIPER_VOICE")
+                self._dj_parts = speech.track_parts(
+                    info["title"], info["artist"], lang, self._dj_pick,
+                    can_say=lambda other: speech.can_switch(other, lang, choice))
+                return "".join(text for text, _lang in self._dj_parts), "dj"
         return "", ""
 
     def _intro_audio(self, track, text, kind):
@@ -1310,6 +1321,9 @@ class RadioDaemon:
                     return None
         if not text:
             return None
+        if kind == "dj" and self._dj_parts:
+            parts, self._dj_parts = self._dj_parts, []
+            return self._speech_text_file(text, parts)
         return self._speech_text_file(text)
 
     def _play_with_intro(self, track, introduce=False, natural=False):
@@ -3360,8 +3374,9 @@ class RadioDaemon:
         return self._speech_text_file(
             speech.sentence(kind, datetime.now(), self.cfg.get("SPEECH_LANGUAGE"), minutes))
 
-    def _speech_text_file(self, text):
-        """A WAV of `text`, named after its own words; None when it cannot be said."""
+    def _speech_text_file(self, text, parts=None):
+        """A WAV of `text` (or of its [(text, language)] parts), named after its own
+        words; None when it cannot be said."""
         if not text:
             return None
         folder = self._speech_dir()
@@ -3375,8 +3390,13 @@ class RadioDaemon:
         path = os.path.join(folder, name)
         self._speech_busy += 1
         try:
-            return path if speech.render(text, self.cfg.get("SPEECH_LANGUAGE"), path,
-                                         self.cfg.get("PIPER_VOICE")) else None
+            if parts:
+                done = speech.render_parts(parts, self.cfg.get("SPEECH_LANGUAGE"), path,
+                                           self.cfg.get("PIPER_VOICE"))
+            else:
+                done = speech.render(text, self.cfg.get("SPEECH_LANGUAGE"), path,
+                                     self.cfg.get("PIPER_VOICE"))
+            return path if done else None
         finally:
             self._speech_busy -= 1
 

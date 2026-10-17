@@ -1739,10 +1739,21 @@ The same voice can do three more things.
 
 - **Introduce the songs** (Settings > Schedules, **The voice**, **Introduce the
   songs (every N)**, `schedule.dj_announce_every`, 0 = never): every N songs, the
-  next one is announced between the two - "Up next: Paradise, by Coldplay".
-  Only when a song ends by itself: a "next" asked for goes straight to the
-  song, and the first song of a start (which fades in from silence) is not
-  introduced.
+  next one is announced between the two - "Up next: Paradise, by Coldplay",
+  "Here's Coldplay, with Paradise", "Coming up: ..." - in one of several ways a
+  radio host would, never the same twice in a row. "&" is said as the
+  language's "and", "feat." as "featuring", and French elides ("d'Angèle",
+  "des Rita Mitsouko"). Only when a song ends by itself: a "next" asked for goes
+  straight to the song, and the first song of a start (which fades in from
+  silence) is not introduced.
+- **A title in its own language**: a title written in another of the six
+  languages is said by that language's voice, the rest of the sentence staying
+  in the radio's: "Et maintenant : *Who's Laughing Now*, de Jack Harlow". The
+  language is guessed from the title's words, letters and contractions, and a
+  doubt keeps the radio's own voice. It needs that language's Piper voice
+  (`sudo rukebox-piper --also en`, about 60 MB each, the radio's own voice
+  untouched); without it, or with a voice of another kind (no robotic voice in
+  the middle of a Piper sentence), the whole sentence is said as before.
 - **Who says that introduction** (`schedule.dj_announce_mode`): *the radio*,
   as above; *your files*, where nothing is said for a song you have not
   prepared; or *your files, otherwise the radio*, which uses a file when there

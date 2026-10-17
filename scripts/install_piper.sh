@@ -4,6 +4,7 @@ set -euo pipefail
 # Installs Piper and one voice under the state root, which an update keeps.
 #   rukebox-piper              the voice of the spoken language (see speech.py)
 #   rukebox-piper fr_FR-tom-medium   one named voice
+#   rukebox-piper --also en    another language's voice, for titles in it (the radio's own is kept)
 STATE_DIR="${RUKEBOX_STATE_DIR:-/var/lib/rukebox}"
 DEST="${RUKEBOX_PIPER_DIR:-$STATE_DIR/piper}"
 RELEASE="${RUKEBOX_PIPER_RELEASE:-2023.11.14-2}"
@@ -12,7 +13,22 @@ SRC="${RUKEBOX_SRC:-/opt/rukebox/src}"
 
 command -v curl > /dev/null 2>&1 || { echo "curl is missing: apt-get install curl" >&2; exit 1; }
 
+also=0
+if [ "${1:-}" = "--also" ]; then
+    also=1
+    shift
+fi
 voice="${1:-}"
+printf '%s' "$voice" | grep -Eq '^[A-Za-z0-9_.-]*$' || { echo "Invalid voice name: $voice" >&2; exit 1; }
+if [ "$also" = 1 ] && printf '%s' "$voice" | grep -Eq '^[a-z]{2}$'; then
+    voice="$(python3 -c "
+import sys
+sys.path.insert(0, '$SRC')
+import speech
+print(speech.PIPER_VOICES.get('$voice', ''))
+")"
+    [ -n "$voice" ] || { echo "No Piper voice for that language." >&2; exit 1; }
+fi
 if [ -z "$voice" ]; then
     language="$(python3 "$SRC/config_file.py" show | awk '$1 == "schedule.speech_language" { print $2 }')"
     voice="$(python3 -c "
@@ -58,5 +74,9 @@ for suffix in .onnx .onnx.json; do
 done
 chmod 644 "$DEST"/*.onnx "$DEST"/*.onnx.json 2>/dev/null || true
 
+if [ "$also" = 1 ]; then
+    echo "Piper installed in $DEST ($(du -sh "$DEST" | cut -f1)): $voice says the titles in its language."
+    exit 0
+fi
 python3 "$SRC/config_file.py" set "schedule.piper_voice=$voice" > /dev/null
 echo "Piper installed in $DEST ($(du -sh "$DEST" | cut -f1)), saying things with $voice."
