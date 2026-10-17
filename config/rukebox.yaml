@@ -649,6 +649,27 @@ buttons:
   # rather than a click.
   gpio_button_long_press_sec: 1.5
 
+  # A rotary encoder (a KY-040 and the like) wired to GPIO pins: turned, it
+  # changes the volume or the song; pushed, it is one more button with the
+  # same single/double/long-press actions. The kernel reads it
+  # (dtoverlay rotary-encoder in config.txt): a change takes a restart.
+  rotary_enabled: false
+
+  # BCM pin of the encoder's A (CLK) line. Turning the wrong way: swap A and B.
+  rotary_pin_a: 17
+
+  # BCM pin of the encoder's B (DT) line.
+  rotary_pin_b: 27
+
+  # BCM pin of the encoder's push (SW); 0 when it has none.
+  rotary_pin_push: 22
+
+  # What a turn does: volume (up and down), track (next and previous), off.
+  rotary_turn_action: "volume"
+
+  # Volume points for each notch turned.
+  rotary_volume_step: 2
+
   # Bluetooth remotes used as a button (selfie shutters, media remotes),
   # by address, separated by commas. Any key of a remote is one press,
   # read as a single, double or long press like the Flic button. Pair it

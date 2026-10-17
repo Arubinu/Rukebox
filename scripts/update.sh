@@ -488,6 +488,9 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
     if [ -f "$SOURCE_DIR/scripts/usb_gadget.sh" ]; then
         install -m 755 -o root -g root             "$SOURCE_DIR/scripts/usb_gadget.sh" /usr/local/sbin/rukebox-usb-gadget 2>/dev/null || true
     fi
+    if [ -f "$SOURCE_DIR/scripts/rotary.sh" ]; then
+        install -m 755 -o root -g root "$SOURCE_DIR/scripts/rotary.sh" /usr/local/sbin/rukebox-rotary 2>/dev/null || true
+    fi
     if [ -f "$SOURCE_DIR/scripts/usb_music.sh" ]; then
         install -m 755 -o root -g root             "$SOURCE_DIR/scripts/usb_music.sh" /usr/local/sbin/rukebox-usb-music 2>/dev/null || true
         mkdir -p /media/rukebox-usb 2>/dev/null || true
@@ -506,6 +509,7 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         # only gives a red line at every boot.
         systemctl enable rukebox-gpio-reset.service 2>/dev/null || true
         systemctl enable rukebox-usb-gadget.service 2>/dev/null || true
+        systemctl enable rukebox-rotary-config.service 2>/dev/null || true
         systemctl enable rukebox-act-led.service 2>/dev/null || true
         systemctl enable --now rukebox-bt-radio.service 2>/dev/null || true
         if [ -d /etc/NetworkManager/dispatcher.d ] && [ -f "$SOURCE_DIR/scripts/ap_isolate.sh" ]; then

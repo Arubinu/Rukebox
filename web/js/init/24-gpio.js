@@ -264,3 +264,11 @@ document.querySelectorAll("[data-delete-scope]").forEach((btn) => {
 });
 updateDeleteButtons();
 
+/* The knob's pins and turn only matter while it is on. */
+function paintRotary() {
+  const on = document.getElementById("rotaryEnabled").checked;
+  document.querySelectorAll("#rotarySection .rotary-detail").forEach((el) => { el.hidden = !on; });
+}
+document.getElementById("rotaryEnabled").addEventListener("change", paintRotary);
+document.getElementById("rotaryEnabled").addEventListener("input", paintRotary);
+paintRotary();

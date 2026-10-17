@@ -683,6 +683,26 @@ SETTINGS = [
         "GPIO button long-press duration (sec)",
     ),
     Setting(
+        "ROTARY_ENABLED", "buttons", "rotary_enabled", "bool", "false",
+        "A rotary encoder (a KY-040 and the like) wired to GPIO pins: turned, it\n"
+        "changes the volume or the song; pushed, it is one more button with the\n"
+        "same single/double/long-press actions. The kernel reads it\n"
+        "(dtoverlay rotary-encoder in config.txt): a change takes a restart.",
+        "Rotary encoder",
+    ),
+    Setting("ROTARY_PIN_A", "buttons", "rotary_pin_a", "int", "17",
+            "BCM pin of the encoder's A (CLK) line. Turning the wrong way: swap A and B.",
+            "Encoder pin A (CLK)"),
+    Setting("ROTARY_PIN_B", "buttons", "rotary_pin_b", "int", "27",
+            "BCM pin of the encoder's B (DT) line.", "Encoder pin B (DT)"),
+    Setting("ROTARY_PIN_PUSH", "buttons", "rotary_pin_push", "int", "22",
+            "BCM pin of the encoder's push (SW); 0 when it has none.", "Encoder push pin (SW)"),
+    Setting("ROTARY_TURN_ACTION", "buttons", "rotary_turn_action", "str", "volume",
+            "What a turn does: volume (up and down), track (next and previous), off.",
+            "Encoder turn"),
+    Setting("ROTARY_VOLUME_STEP", "buttons", "rotary_volume_step", "int", "2",
+            "Volume points for each notch turned.", "Encoder volume step"),
+    Setting(
         "BT_BUTTONS", "buttons", "bt_buttons", "str", "",
         "Bluetooth remotes used as a button (selfie shutters, media remotes),\n"
         "by address, separated by commas. Any key of a remote is one press,\n"
@@ -1472,6 +1492,10 @@ SHELL_SETTINGS = (
     "bluetooth.flic_hci_device",
     "bluetooth.speaker_mac",
     "buttons.gpio_button_pin",
+    "buttons.rotary_enabled",
+    "buttons.rotary_pin_a",
+    "buttons.rotary_pin_b",
+    "buttons.rotary_pin_push",
     "clock.bluetooth_fallback",
     "clock.bluetooth_mac",
     "clock.sync_grace_sec",
@@ -1607,6 +1631,9 @@ GPIO_BUTTON_SETTINGS = frozenset({
     "GPIO_BUTTON_PIN", "GPIO_BUTTON_DEBOUNCE_SEC",
     "GPIO_BUTTON_DOUBLE_CLICK_WINDOW_SEC", "GPIO_BUTTON_LONG_PRESS_SEC",
 })
+
+# Written into config.txt by scripts/rotary.sh: a change takes a restart of the machine.
+ROTARY_SETTINGS = frozenset({"ROTARY_ENABLED", "ROTARY_PIN_A", "ROTARY_PIN_B", "ROTARY_PIN_PUSH"})
 
 SYSTEM_SOUNDS = ("CLOCK_OK_SOUND", "CLOCK_FALLBACK_SOUND", "AP_CONNECT_SOUND",
                  "BATTERY_LOW_SOUND", "RESTART_SOUND", "KEEPALIVE_SOUND")

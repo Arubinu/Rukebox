@@ -342,6 +342,9 @@ install -m 755 -o root -g root "$PROJECT_ROOT/scripts/update.sh" /usr/local/sbin
 echo "== Installing the USB network gadget helper =="
 install -m 755 -o root -g root "$PROJECT_ROOT/scripts/usb_gadget.sh" /usr/local/sbin/rukebox-usb-gadget
 
+echo "== Installing the rotary encoder helper =="
+install -m 755 -o root -g root "$PROJECT_ROOT/scripts/rotary.sh" /usr/local/sbin/rukebox-rotary
+
 echo "== Installing the USB key helper =="
 install -m 755 -o root -g root "$PROJECT_ROOT/scripts/usb_music.sh" /usr/local/sbin/rukebox-usb-music
 # Where a key is mounted read-only when you play your music from one.
@@ -406,11 +409,12 @@ systemctl daemon-reload 2>/dev/null || true
 # hardware is absent only gives a red line at every boot.
 LXC_UNITS="create-uap0.service rukebox-bt-radio.service rukebox-usb-gadget.service
            rukebox-act-led.service rukebox-gpio-reset.service home-wifi-connect.service
-           rukebox-card-reader.service flicd.service flic-bridge.service"
+           rukebox-card-reader.service flicd.service flic-bridge.service
+           rukebox-rotary-config.service rukebox-rotary.service"
 PI_UNITS="rukebox-gpio-reset.service bt-connect.service home-wifi-connect.service
           create-uap0.service rukebox-bt-radio.service rukebox-usb-gadget.service
           rukebox-act-led.service rukebox-card-reader.service rukebox-speaker-buttons.service
-          rukebox-bt-buttons.service"
+          rukebox-bt-buttons.service rukebox-rotary-config.service"
 
 systemctl enable rukebox-config.service 2>/dev/null || true
 systemctl enable rukebox-daemon.service 2>/dev/null || true

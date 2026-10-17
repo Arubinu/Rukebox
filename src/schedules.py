@@ -33,7 +33,7 @@ _NOT_OVERRIDABLE = frozenset({
     "MUSIC_START_MODE", "MUSIC_START_HOUR", "MUSIC_START_MINUTE",
     "UPCOMING_TRACKS_COUNT", "RECENT_TRACKS_COUNT", "MUSIC_KEEP_PROGRESS", "MUSIC_RESUME_MODE",
     "DLNA_RENDERER", "DLNA_RECEIVE",
-}) | config_schema.RESTART_REQUIRED | config_schema.GPIO_BUTTON_SETTINGS
+}) | config_schema.RESTART_REQUIRED | config_schema.GPIO_BUTTON_SETTINGS | config_schema.ROTARY_SETTINGS
 
 OVERRIDABLE = frozenset(s.env for s in config_schema.SETTINGS
                         if (s.section in _SECTIONS or s.env.startswith("WLED_SCENE_"))

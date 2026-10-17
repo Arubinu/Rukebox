@@ -1,0 +1,11 @@
+[Unit]
+Description=Writes the rotary encoder's overlays into config.txt and runs its listener while it is on
+After=rukebox-config.service
+Requires=rukebox-config.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rukebox-rotary
+
+[Install]
+WantedBy=multi-user.target

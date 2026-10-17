@@ -4982,6 +4982,10 @@ def api_set_settings():
     if "network.ap_gateway" in body and not system_actions.apply_ap_gateway(cfg().get("AP_INTERFACE", "uap0")):
         log.warning("Could not apply the access point gateway setting")
     reboot_needed = False
+    if config_schema.ROTARY_SETTINGS & changed:
+        if not system_actions.service_action("restart", "rukebox-rotary-config", timeout=30):
+            log.warning("Could not apply the rotary encoder settings")
+        reboot_needed = True
     if "hardware.usb_port_mode" in body:
         if not system_actions.service_action("restart", "rukebox-usb-gadget", timeout=30):
             log.warning("Could not apply the USB port mode")

@@ -1,0 +1,14 @@
+[Unit]
+Description=Bridge between a rotary encoder on GPIO pins and the radio daemon
+After=rukebox-daemon.service rukebox-config.service
+Requires=rukebox-config.service
+
+[Service]
+EnvironmentFile=/etc/rukebox/rukebox.env
+ExecStart=/usr/bin/python3 /opt/rukebox/src/rotary.py
+Restart=always
+RestartSec=5
+User=pi
+
+[Install]
+WantedBy=multi-user.target

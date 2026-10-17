@@ -1877,6 +1877,53 @@
                 These fields only matter if a physical button is wired up.
               </p>
             </details>
+            <details data-level="detail" class="subsection" data-needs="gpio" id="rotarySection">
+              <summary><span data-i18n="rotary.section">Rotary knob</span></summary>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="rotaryEnabled" data-i18n="rotary.enabled">Rotary knob</label>
+                  <p class="field-desc" id="rotaryEnabledDesc" data-i18n="rotary.enabled_desc">A rotary encoder (KY-040 and the like) on GPIO pins: turned, it sets the volume or the song; pushed, it does what the button actions say. A change takes a restart of the radio.</p>
+                </div>
+                <input type="checkbox" id="rotaryEnabled" data-key="buttons.rotary_enabled" class="switch-input" role="switch" aria-describedby="rotaryEnabledDesc">
+              </div>
+              <div class="field-row rotary-detail">
+                <label for="rotaryPinA" data-i18n="rotary.pin_a">Pin A (CLK)</label>
+                <div class="pin-field">
+                  <input type="number" id="rotaryPinA" min="0" max="27" step="1" data-key="buttons.rotary_pin_a" class="num-input" inputmode="numeric">
+                  <button type="button" class="btn btn-icon pin-pick-btn" data-icon="chip" data-pin-target="rotaryPinA"
+                          data-i18n-aria-label="gpio.choose" aria-label="Choose" data-i18n-title="gpio.choose" title="Choose"></button>
+                </div>
+              </div>
+              <div class="field-row rotary-detail">
+                <label for="rotaryPinB" data-i18n="rotary.pin_b">Pin B (DT)</label>
+                <div class="pin-field">
+                  <input type="number" id="rotaryPinB" min="0" max="27" step="1" data-key="buttons.rotary_pin_b" class="num-input" inputmode="numeric">
+                  <button type="button" class="btn btn-icon pin-pick-btn" data-icon="chip" data-pin-target="rotaryPinB"
+                          data-i18n-aria-label="gpio.choose" aria-label="Choose" data-i18n-title="gpio.choose" title="Choose"></button>
+                </div>
+              </div>
+              <div class="field-row rotary-detail">
+                <label for="rotaryPinPush" data-i18n="rotary.pin_push">Push pin (SW, 0: none)</label>
+                <div class="pin-field">
+                  <input type="number" id="rotaryPinPush" min="0" max="27" step="1" data-key="buttons.rotary_pin_push" class="num-input" inputmode="numeric">
+                  <button type="button" class="btn btn-icon pin-pick-btn" data-icon="chip" data-pin-target="rotaryPinPush"
+                          data-i18n-aria-label="gpio.choose" aria-label="Choose" data-i18n-title="gpio.choose" title="Choose"></button>
+                </div>
+              </div>
+              <div class="field-row rotary-detail">
+                <label for="rotaryTurnAction" data-i18n="rotary.turn">When it turns</label>
+                <select id="rotaryTurnAction" data-key="buttons.rotary_turn_action">
+                  <option value="volume" data-i18n="rotary.turn_volume">Volume</option>
+                  <option value="track" data-i18n="rotary.turn_track">Next or previous song</option>
+                  <option value="off" data-i18n="rotary.turn_off">Nothing</option>
+                </select>
+              </div>
+              <div class="field-row rotary-detail">
+                <label for="rotaryVolumeStep" data-i18n="rotary.volume_step">Volume per notch</label>
+                <input type="number" id="rotaryVolumeStep" min="1" max="20" step="1" data-key="buttons.rotary_volume_step" class="num-input" inputmode="numeric">
+              </div>
+              <p class="hint rotary-detail" data-i18n="rotary.hint">Turning the wrong way: swap pins A and B.</p>
+            </details>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
             </div>

@@ -40,6 +40,7 @@ src/bt_clock.py             Clock fallback over Bluetooth
 src/captive_portal.py       Captive portal of the access point
 src/flic_click.py           Flic button bridge
 src/gpio_click.py           GPIO button bridge
+src/rotary.py               Rotary knob bridge
 src/speaker_buttons.py      The Bluetooth speaker's own buttons
 src/gpio_reset.py           Password reset by grounding a GPIO pin at boot
 src/gpio_pins.py            The 40-pin header and which pins may be used
@@ -1323,6 +1324,27 @@ you), a plain GPIO button has no concept of "double click" on its own —
 `rukebox-gpio-button.service` classifies the raw press/release signal
 into the same three gestures itself, in software, using the timings
 above.
+
+## Rotary knob
+
+A rotary encoder (a KY-040 module and the like, about two euros) turns the
+volume, or the song, and its push is one more button. Wire **CLK** to
+`buttons.rotary_pin_a` (17 by default), **DT** to `rotary_pin_b` (27), **SW**
+to `rotary_pin_push` (22, or 0 for none), **+** to 3.3 V and **GND** to a
+ground pin, then switch on **Settings > Button actions > Rotary knob** (detailed view)
+and restart the radio.
+
+The kernel reads the encoder: `scripts/rotary.sh` (installed as
+`/usr/local/sbin/rukebox-rotary`, run by `rukebox-rotary-config.service` at
+every boot and when the card is saved) writes `dtoverlay=rotary-encoder` and
+`dtoverlay=gpio-key` between two `# rukebox: rotary encoder` lines of
+`config.txt`, and takes them away when the knob is switched off - hence the
+restart. `rukebox-rotary.service` (`src/rotary.py`) then reads the input
+events: turns close together go to the daemon as one, which applies
+`rotary_turn_action` at that moment (`volume`, by `rotary_volume_step` points
+a notch; `track`, one song a notch at most every 0.6 s; `off`). The push is
+read with the GPIO button's own timings and does the same single, double and
+long press actions. Turning the wrong way: swap pins A and B.
 
 ## How it works
 

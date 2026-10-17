@@ -380,6 +380,7 @@ class RadioDaemon:
         self._party_last = None
         self._party_hold = None
         self._end_said = {}
+        self._rotary_track_at = float("-inf")
         self._track_count = None
         self._output_override = None
         # The USB key the library reads from, while one is in use: None means
@@ -3763,6 +3764,25 @@ class RadioDaemon:
         self._lights.flash("cutoff")
         self._speak("cutoff", "scheduler", minutes=minutes)
 
+    # Turned fast for the next song, one notch is one song: these come in quicker than that.
+    ROTARY_TRACK_GAP_SEC = 0.6
+
+    def _rotary_turn(self, steps, source):
+        """What a turn of the encoder does, read from the settings at that moment."""
+        action = str(self.cfg.get("ROTARY_TURN_ACTION") or "volume")
+        if not steps or action == "off":
+            return "ignored"
+        if action == "track":
+            now = time.monotonic()
+            if now - self._rotary_track_at < self.ROTARY_TRACK_GAP_SEC:
+                return "ignored"
+            self._rotary_track_at = now
+            return self._perform_direct_action("next" if steps > 0 else "previous", source)
+        step = max(1, min(20, int(self.cfg.get("ROTARY_VOLUME_STEP") or 2)))
+        base = self._shown_volume if self._shown_volume is not None else self._target_volume()
+        self._set_user_volume(max(0, min(100, base + steps * step)), source)
+        return "volume"
+
     def _perform_direct_action(self, action, source):
         """The actions that play no sound first."""
         if action in ("playpause", "pause", "play"):
@@ -4909,6 +4929,12 @@ class RadioDaemon:
                 self._set_timer("resume", minutes * 60, self._timed_pause_over)
                 self.stats.record("timed_pause", label=str(minutes), detail={"source": source})
                 return {"ok": True}
+            if cmd == "rotary_turn":
+                try:
+                    steps = max(-20, min(20, int(msg.get("steps"))))
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "invalid_value"}
+                return {"ok": True, "did": self._rotary_turn(steps, source)}
             if cmd == "set_finish_track":
                 self._finish_track = bool(msg.get("on"))
                 self._bump_state()

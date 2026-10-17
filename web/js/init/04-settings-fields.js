@@ -307,6 +307,7 @@ async function loadSettingsIntoForm() {
   updateClickSoundRows();
   paintStreamRows();
   paintVolumeShape();
+  paintRotary();
   loadDjIntroFiles();
 
   if ("hardware.act_led" in result.data) {
