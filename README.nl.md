@@ -4,50 +4,45 @@
 
 # 📻 Rukebox
 
-Een Raspberry Pi Zero, een Bluetooth-speaker en je muziek: Rukebox maakt
-er een kleine radio van die 's ochtends vanzelf begint, de aankondigingen
-speelt die jij kiest en 's avonds zichzelf uitschakelt. Geen internet,
-geen account, geen app om te installeren - een knop, de knoppen van de
-speaker of elke telefoon op de wifi van de Pi is genoeg.
+**Je muziek, een Bluetooth-speaker en een Raspberry Pi Zero: een radio die de
+dag zelf regelt.** Hij maakt het huis wakker, zegt wat je hem vraagt, zet het
+feest in gang en schakelt zichzelf 's nachts uit. Geen internet nodig, geen
+account, geen app: elke telefoon op zijn wifi is de afstandsbediening.
 
-<p align="center"><img src="docs/screenshots/desktop.nl.webp" alt="Nu aan het spelen, op een computer" width="100%"></p>
+<p align="center"><img src="docs/screenshots/desktop.nl.webp" alt="Nu aan het spelen, op de computer" width="100%"></p>
 
-<p align="center"><img src="docs/screenshots/player.nl.webp" alt="Nu aan het spelen, op een telefoon" width="300"> &nbsp; <img src="docs/screenshots/library.nl.webp" alt="De bibliotheek, op een telefoon" width="300"></p>
+<p align="center"><img src="docs/screenshots/player.nl.webp" alt="Nu aan het spelen, op de telefoon" width="300"> &nbsp; <img src="docs/screenshots/library.nl.webp" alt="De muziekbibliotheek, op de telefoon" width="300"></p>
 
-## ✨ Wat het doet
+## ✨ Een dag met Rukebox
 
-- **Begint wanneer jij wilt**: op een vast tijdstip, als de speaker
-  verbindt, bij het opstarten of met een druk op de knop - met een zacht
-  aanzwellend geluid.
-- **Jouw aankondigingen**: een ochtendbericht, een jingle tussen de
-  nummers, een herinnering elk uur... elk met een eigen schema, en zelfs
-  „één keer op de twee” voor een kleine verrassing.
-- **Eén knop is genoeg**: een Flic-knop, een Bluetooth-afstandsbediening, een drukknop aan de Pi, de knoppen
-  van de speaker of de toetsen van de hoofdtelefoon op een USB-geluidskaart -
-  volgende, vorige, pauze, herhalen, volume, slaaptimer, stand-by.
-- **Een overzichtelijke webinterface** op telefoon, tablet of computer: wat
-  er speelt met hoes en songtekst, wat er hierna komt, een doorzoekbare
-  bibliotheek, je eigen lijsten - alles of alleen bepaalde genres -, tags en
-  hoezen in de bestanden zelf geschreven, en alle instellingen. Zes talen, licht en donker thema.
-- **Makkelijk te delen**: gasten verbinden met de wifi via een QR-code,
-  zetten nummers in de wachtrij en stellen nieuwe voor - met tegoed,
-  zodat niemand de radio overneemt.
-- **Ook voor de avond**: hij zegt de tijd hardop, waarschuwt voordat hij
-  stopt en wordt een spel - een blinde test op de telefoons van je
-  gasten, een stemming om een nummer over te slaan en RFID-kaarten of
-  barcodes die een album starten. Een maand- en jaaroverzicht vertelt wat
-  je hebt beluisterd.
-- **Licht dat de muziek volgt**: WLED-ledstrips wisselen van scène als de
-  muziek begint, pauzeert of er een aankondiging speelt, pulseren op de
-  maat en delen de tijd met de radio.
-- **Home Assistant**: via MQTT verschijnt de radio vanzelf, met wat er
-  speelt, het volume en knoppen voor afspelen/pauze, volgende en stand-by.
-- **Gemaakt om zelfstandig te draaien**: houdt de speaker verbonden, weet
-  hoe laat het is zonder internet, slaat onleesbare bestanden over, houdt
-  de SD-kaart in de gaten en meldt op het scherm wanneer iets aandacht
-  nodig heeft.
-- **Alles blijft op de Pi**: statistieken, back-ups en updates zijn er
-  wanneer je ze nodig hebt, nooit verplicht.
+- 🌅 **'s Ochtends** - de lichtstrip gaat op als een dageraad, daarna komt de
+  muziek vanzelf op. Vandaag een verjaardag? De radio zegt het - met je eigen
+  stem als je die hebt opgenomen.
+- 🎶 **De hele dag** - je bibliotheek, je lijsten, een webradio als er
+  internet is, of wat een telefoon hem stuurt. Mededelingen en jingles elk op
+  hun eigen moment, zelfs "één keer op twee".
+- 🎉 **Het feest** - één tik op de timer: het volume, de lichten en de
+  gasttoegang van het feest voor 3 u, 6 u of tot je het stopt, met een woord
+  voor het einde. Gasten scannen een QR-code, zetten nummers in de rij,
+  stemmen om over te slaan, spelen een muziekquiz.
+- 🌙 **'s Nachts** - hij valt in slaap aan het eind van een nummer,
+  waarschuwt voor het uitschakelen en schakelt zichzelf uit.
+- 🎛️ **Bij de hand** - een Flic-knop, een draaiknop, een afstandsbediening,
+  de knoppen van de speaker, RFID-kaarten die een album starten: elk gebaar
+  doet wat jij kiest.
+- 🏠 **In huis** - Home Assistant vindt hem vanzelf (MQTT en een
+  DLNA-mediaspeler), en WLED-lichtstrips volgen de muziek en haar ritme.
+- 🛡️ **Zonder toezicht** - hij houdt de speaker verbonden, kent de tijd zonder
+  internet, start zichzelf opnieuw als hij vastloopt, spaart zijn SD-kaart en
+  zegt het op het scherm als iets jou nodig heeft.
+
+## 📱 Eén pagina voor alles
+
+Op telefoon, tablet of computer, in zes talen, licht of donker: wat nu
+speelt met hoes en songtekst, de bibliotheek, tags en hoezen in de bestanden
+zelf, de statistieken en alle instellingen. Een eenvoudige weergave voor elke
+dag, alle opties als je ze wilt, en de eerste keer een korte rondleiding.
+Accounts laten de instellingen bij wie ze horen.
 
 ## 🧰 Wat je nodig hebt
 
@@ -58,14 +53,14 @@ speaker of elke telefoon op de wifi van de Pi is genoeg.
   of HDMI
 - Aanbevolen: een DS3231-klokmodule, zodat de Pi de tijd bijhoudt zonder
   internet
-- Optioneel: een Flic-knop, of een willekeurige drukknop aan de Pi
+- Optioneel: een Flic-knop, een drukknop of een draaiknop op de GPIO-pinnen
 
 ## 🚀 Aan de slag
 
 1. **Schrijf de kaart** met [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
    en kies *Raspberry Pi OS Lite*. Vul je de instellingen daarvan in, dan
    moet de gebruikersnaam `pi` zijn.
-2. **Bereid de kaart voor**: download `dist/rukebox-setup.html` van de
+2. **Bereid de kaart voor**: download `rukebox-setup.html` van de
    [nieuwste versie](https://github.com/Arubinu/Rukebox/releases), open het
    in je browser, kies de kaart en beantwoord een paar vragen (wifi,
    toegangspunt, tijdzone, muziek).
@@ -91,13 +86,10 @@ docker compose -f docker/compose.stream.yml up -d
 ```
 
 De muziek hoor je met "Hier luisteren" in de interface, in VLC of op een
-netwerkspeaker. Zie
-[In een container draaien](docs/guide.md#running-in-a-container-docker).
-
-**Nog eenvoudiger**: open `rukebox-server.html` uit de
+netwerkspeaker ([details](docs/guide.md#running-in-a-container-docker)). **Nog eenvoudiger**: open `rukebox-server.html` uit de
 [nieuwste versie](https://github.com/Arubinu/Rukebox/releases) en beantwoord een
-paar vragen. De pagina schrijft de `docker-compose.yml` voor Docker, de stack voor
-Portainer of Dockge, of de opdracht voor een Proxmox LXC-container.
+paar vragen - de pagina schrijft de `docker-compose.yml`, de Portainer- of
+Dockge-stack, of de opdracht voor een Proxmox LXC-container.
 
 ## 🎛️ In het dagelijks gebruik
 
@@ -107,15 +99,15 @@ Portainer of Dockge, of de opdracht voor een Proxmox LXC-container.
 | Dubbelklik | Een aankondiging, dan het volgende nummer |
 | Lang indrukken | Uitfaden en de Pi uitschakelen - of alleen stand-by |
 
-Elk gebaar is aan te passen, en alles is ook op het scherm beschikbaar.
-Updates installeer je met één klik vanuit de interface als de Pi internet
-heeft, of vanaf je computer via de USB-kabel.
+Elk gebaar is aan te passen, en alles staat ook op het scherm. Updates
+installeer je met één klik vanuit de interface als de Pi internet heeft, of
+vanaf je computer via de USB-kabel.
 
 ## 📚 Meer weten
 
 - [Referentiegids](docs/guide.md): installatiemogelijkheden, alle
   instellingen, netwerk, updates en probleemoplossing (in het Engels).
-- Tests: `python3 -m unittest discover -s tests`
+- Tests: `python3 tests/run.py`, en `npm test` voor de pagina.
 - Iconen: [Lucide](https://lucide.dev), ISC-licentie - zie de [vermelding](docs/THIRD-PARTY.md).
 
 Ideeën en bijdragen zijn welkom - open een issue of een pull request.

@@ -4,47 +4,44 @@
 
 # 📻 Rukebox
 
-A Raspberry Pi Zero, a Bluetooth speaker and your music: Rukebox turns them
-into a small radio that starts on its own in the morning, plays the
-announcements you choose, and switches itself off in the evening. No
-Internet, no account, no app to install - a button, the speaker's own
-buttons, or any phone through the Pi's own Wi-Fi is all it takes.
+**Your music, a Bluetooth speaker and a Raspberry Pi Zero: a radio that runs
+the day by itself.** It wakes the house, says what you ask it to, throws the
+party and switches itself off at night. No Internet needed, no account, no
+app: any phone on its Wi-Fi is the remote.
 
 <p align="center"><img src="docs/screenshots/desktop.en.webp" alt="Now playing, on a computer" width="100%"></p>
 
 <p align="center"><img src="docs/screenshots/player.en.webp" alt="Now playing, on a phone" width="300"> &nbsp; <img src="docs/screenshots/library.en.webp" alt="The music library, on a phone" width="300"></p>
 
-## ✨ What it does
+## ✨ A day with Rukebox
 
-- **Starts when you want**: at a set time, when the speaker connects, at
-  boot or on a button press, with a gentle fade-in.
-- **Your announcements**: a morning message, a jingle between songs, a
-  reminder every hour... each on its own schedule, and even "one time out
-  of two" for a little surprise.
-- **One button is enough**: a Flic button, a Bluetooth remote, a push-button wired to the Pi,
-  the speaker's own buttons or the headphone keys of a USB sound card - next,
-  previous, pause, loop, volume, sleep timer, standby.
-- **A clear web interface** on phone, tablet or computer: now playing with
-  cover and lyrics, what comes next, a searchable library, lists of your
-  own - everything, or only some genres -, tags and covers written into
-  the files themselves, and every setting. Six
-  languages, light and dark themes.
-- **Easy to share**: guests join the Wi-Fi by scanning a QR code, queue
-  songs and suggest new ones - with credits, so nobody takes over.
-- **For the evenings too**: it tells the time out loud, warns before it
-  stops, and turns into a party game - a blind test on your guests'
-  phones, a vote to skip the song, and RFID cards or barcodes that start
-  an album. A monthly and yearly recap tells you what you listened to.
-- **Lights that follow the music**: WLED light strips change scene when
-  the music starts, pauses or an announcement plays, pulse to the beat,
-  and share the time with the radio.
-- **Home Assistant**: over MQTT, the radio shows up by itself with what
-  plays, its volume and buttons for play/pause, next and standby.
-- **Made to run unattended**: it keeps the speaker connected, knows the
-  time without Internet, skips unreadable files, watches its SD card, and
-  says on screen when something needs attention.
-- **Everything stays on the Pi**: statistics, backups and updates are
-  there when you want them, never required.
+- 🌅 **Morning** - the light strip rises like a dawn, then the music fades in
+  on its own. A birthday today? The radio says it - in your own voice if you
+  recorded it.
+- 🎶 **All day** - your library, your lists, a web radio when there is
+  Internet, or what a phone sends it. Announcements and jingles each on their
+  own schedule, even "one time out of two".
+- 🎉 **The party** - one tap on the timer: the party's volume, lights and
+  guest access for 3 h, 6 h or until you stop it, with a word before it ends.
+  Guests scan a QR code, queue songs, vote to skip, play a blind test.
+- 🌙 **Night** - it falls asleep at the end of a song, warns before the
+  cutoff and switches itself off.
+- 🎛️ **In your hands** - a Flic button, a rotary knob, a remote, the
+  speaker's own buttons, RFID cards that start an album: each gesture does
+  what you choose.
+- 🏠 **At home** - Home Assistant sees it by itself (MQTT, and a DLNA media
+  player), and WLED light strips follow the music and its beat.
+- 🛡️ **Unattended** - it keeps the speaker connected, knows the time without
+  Internet, restarts itself if it ever hangs, spares its SD card, and says
+  on screen when something needs you.
+
+## 📱 One page for everything
+
+On a phone, a tablet or a computer, in six languages, light or dark: now
+playing with cover and lyrics, the library, tags and covers written into
+the files, the statistics and every setting. A simple view for every day,
+every option when you want them, and a short guided tour the first time.
+Accounts keep the settings to whom they belong.
 
 ## 🧰 What you need
 
@@ -54,14 +51,14 @@ buttons, or any phone through the Pi's own Wi-Fi is all it takes.
 - A Bluetooth speaker - or a wired output: jack, USB sound card or HDMI
 - Recommended: a DS3231 real-time clock module, so the Pi keeps the time
   without Internet
-- Optional: a Flic button, or any push-button wired to the Pi
+- Optional: a Flic button, a push-button or a rotary knob on the GPIO pins
 
 ## 🚀 Getting started
 
 1. **Flash the card** with [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
    and choose *Raspberry Pi OS Lite*. If you fill in its settings, the user
    name must be `pi`.
-2. **Prepare the card**: download `dist/rukebox-setup.html` from the
+2. **Prepare the card**: download `rukebox-setup.html` from the
    [latest release](https://github.com/Arubinu/Rukebox/releases), open it
    in your browser, select the card and answer a few questions (Wi-Fi,
    access point, time zone, music).
@@ -86,12 +83,10 @@ docker compose -f docker/compose.stream.yml up -d
 ```
 
 The music is heard with "Listen here" in the interface, in VLC, or on a
-network speaker. See [Running in a container](docs/guide.md#running-in-a-container-docker).
-
-**Simpler still**: open `rukebox-server.html` from the
+network speaker ([details](docs/guide.md#running-in-a-container-docker)). **Simpler still**: open `rukebox-server.html` from the
 [latest release](https://github.com/Arubinu/Rukebox/releases) and answer a few
-questions. It writes the `docker-compose.yml` for Docker, the stack for Portainer
-or Dockge, or the one command to paste into a Proxmox LXC container.
+questions - it writes the `docker-compose.yml`, the Portainer or Dockge stack,
+or the one command for a Proxmox LXC container.
 
 ## 🎛️ Everyday use
 
@@ -101,15 +96,15 @@ or Dockge, or the one command to paste into a Proxmox LXC container.
 | Double click | An announcement, then the next song |
 | Long press | Fades out and switches the Pi off - or only standby |
 
-Every gesture can be changed, and everything is also available on screen.
-Updates install from the interface in one click when the Pi has Internet,
-or from your computer over the USB cable.
+Every gesture can be changed, and everything is also on screen. Updates
+install from the interface in one click when the Pi has Internet, or from
+your computer over the USB cable.
 
 ## 📚 Learn more
 
 - [Reference guide](docs/guide.md): installation options, every setting,
   networking, updates and troubleshooting (in English).
-- Tests: `python3 -m unittest discover -s tests`
+- Tests: `python3 tests/run.py`, and `npm test` for the page.
 - Icons: [Lucide](https://lucide.dev), ISC License - see the [notice](docs/THIRD-PARTY.md).
 
 Ideas and contributions are welcome - open an issue or a pull request.

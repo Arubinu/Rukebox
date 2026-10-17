@@ -4,51 +4,47 @@
 
 # 📻 Rukebox
 
-Un Raspberry Pi Zero, une enceinte Bluetooth et ta musique : Rukebox en
-fait une petite radio qui démarre toute seule le matin, diffuse les
-annonces que tu choisis et s'éteint le soir. Sans Internet, sans compte,
-sans application à installer - un bouton, les boutons de l'enceinte ou
-n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
+**Ta musique, une enceinte Bluetooth et un Raspberry Pi Zero : une radio qui
+mène la journée toute seule.** Elle réveille la maison, dit ce que tu lui
+demandes, lance la soirée et s'éteint la nuit. Sans Internet, sans compte,
+sans application : n'importe quel téléphone sur son Wi-Fi sert de
+télécommande.
 
 <p align="center"><img src="docs/screenshots/desktop.fr.webp" alt="Lecture en cours, sur ordinateur" width="100%"></p>
 
 <p align="center"><img src="docs/screenshots/player.fr.webp" alt="Lecture en cours, sur téléphone" width="300"> &nbsp; <img src="docs/screenshots/library.fr.webp" alt="La bibliothèque, sur téléphone" width="300"></p>
 
-## ✨ Ce qu'il fait
+## ✨ Une journée avec Rukebox
 
-- **Démarre quand tu veux** : à une heure fixe, à la connexion de
-  l'enceinte, au démarrage ou d'un appui sur un bouton, avec une montée
-  du son en douceur.
-- **Tes annonces** : un message du matin, un jingle entre deux morceaux,
-  un rappel toutes les heures... chacune avec son propre horaire, et même
-  « une fois sur deux » pour une petite surprise.
-- **Un seul bouton suffit** : un bouton Flic, une télécommande Bluetooth, un bouton-poussoir branché
-  sur le Pi, les boutons de l'enceinte ou les touches du casque branché sur
-  une carte son USB - suivant, précédent, pause, boucle, volume, minuterie,
-  veille.
-- **Une interface web claire** sur téléphone, tablette ou ordinateur :
-  lecture en cours avec pochette et paroles, la suite, une bibliothèque
-  où chercher, tes propres listes - tout, ou seulement certains genres -,
-  étiquettes et pochettes écrites dans les fichiers eux-mêmes, et tous les réglages. Six langues, thèmes clair et sombre.
-- **Facile à partager** : tes invités rejoignent le Wi-Fi en scannant un
-  QR code, ajoutent des morceaux à la file et en proposent de nouveaux -
-  avec des crédits, pour que personne ne monopolise la radio.
-- **Pour les soirées aussi** : il dit l'heure à voix haute, prévient avant
-  de s'arrêter et devient un jeu - un blind test sur les téléphones de tes
-  invités, un vote pour passer le morceau, et des cartes RFID ou des
-  codes-barres qui lancent un album. Un bilan du mois et de l'année te
-  raconte ce que tu as écouté.
-- **Des lumières qui suivent la musique** : des rubans WLED changent de
-  scène au démarrage, à la pause ou pendant une annonce, battent au
-  rythme, et partagent l'heure avec la radio.
-- **Home Assistant** : par MQTT, la radio apparaît toute seule avec ce
-  qui joue, son volume et des boutons lecture/pause, suivant et veille.
-- **Pensé pour tourner seul** : il garde l'enceinte connectée, connaît
-  l'heure sans Internet, ignore les fichiers illisibles, surveille sa
-  carte SD et te prévient à l'écran quand quelque chose demande ton
-  attention.
-- **Tout reste sur le Pi** : statistiques, sauvegardes et mises à jour
-  sont là quand tu en as besoin, jamais obligatoires.
+- 🌅 **Le matin** - le ruban lumineux se lève comme une aube, puis la
+  musique monte toute seule. Un anniversaire aujourd'hui ? La radio le dit -
+  avec ta propre voix si tu l'as enregistrée.
+- 🎶 **Toute la journée** - ta bibliothèque, tes listes, une radio web quand
+  il y a Internet, ou ce qu'un téléphone lui envoie. Annonces et jingles
+  chacun à son heure, et même « une fois sur deux ».
+- 🎉 **La soirée** - un appui sur la minuterie : le volume, les lumières et
+  l'accès invités de la soirée pour 3 h, 6 h ou jusqu'à ce que tu l'arrêtes,
+  avec un mot avant la fin. Les invités scannent un QR code, ajoutent des
+  morceaux, votent pour passer, jouent au blind test.
+- 🌙 **La nuit** - elle s'endort à la fin d'une chanson, prévient avant la
+  coupure et s'éteint toute seule.
+- 🎛️ **Sous la main** - un bouton Flic, un bouton rotatif, une
+  télécommande, les boutons de l'enceinte, des cartes RFID qui lancent un
+  album : chaque geste fait ce que tu choisis.
+- 🏠 **À la maison** - Home Assistant la voit tout seul (MQTT, et un lecteur
+  multimédia DLNA), et les rubans WLED suivent la musique et son rythme.
+- 🛡️ **Sans surveillance** - elle garde l'enceinte connectée, connaît l'heure
+  sans Internet, redémarre toute seule si elle se fige, ménage sa carte SD
+  et te dit à l'écran quand quelque chose a besoin de toi.
+
+## 📱 Une seule page pour tout
+
+Sur téléphone, tablette ou ordinateur, en six langues, clair ou sombre : la
+lecture en cours avec pochette et paroles, la bibliothèque, les tags et
+pochettes écrits dans les fichiers, les statistiques et tous les réglages.
+Une vue simple pour tous les jours, toutes les options quand tu les veux, et
+une courte visite guidée la première fois. Les comptes gardent les réglages
+à qui ils appartiennent.
 
 ## 🧰 Ce qu'il te faut
 
@@ -59,15 +55,15 @@ n'importe quel téléphone connecté au Wi-Fi du Pi suffisent.
   HDMI
 - Conseillé : un module horloge DS3231, pour que le Pi garde l'heure sans
   Internet
-- En option : un bouton Flic, ou n'importe quel bouton-poussoir branché
-  sur le Pi
+- En option : un bouton Flic, un bouton-poussoir ou un bouton rotatif sur
+  les broches GPIO
 
 ## 🚀 Pour commencer
 
 1. **Prépare le système** avec [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
    en choisissant *Raspberry Pi OS Lite*. Si tu remplis ses réglages, le
    nom d'utilisateur doit être `pi`.
-2. **Prépare la carte** : télécharge `dist/rukebox-setup.html` depuis la
+2. **Prépare la carte** : télécharge `rukebox-setup.html` depuis la
    [dernière version](https://github.com/Arubinu/Rukebox/releases),
    ouvre-le dans ton navigateur, choisis la carte et réponds à quelques
    questions (Wi-Fi, point d'accès, fuseau horaire, musique).
@@ -94,13 +90,10 @@ docker compose -f docker/compose.stream.yml up -d
 ```
 
 La musique s'écoute avec « Écouter ici » dans l'interface, dans VLC, ou sur
-une enceinte réseau. Voir
-[Tourner dans un conteneur](docs/guide.md#running-in-a-container-docker).
-
-**Plus simple encore** : ouvrez `rukebox-server.html` depuis la
-[dernière version](https://github.com/Arubinu/Rukebox/releases) et répondez à
-quelques questions. Elle écrit le `docker-compose.yml` pour Docker, la pile pour
-Portainer ou Dockge, ou la commande à coller dans un conteneur LXC Proxmox.
+une enceinte réseau ([détails](docs/guide.md#running-in-a-container-docker)). **Plus simple encore** : ouvre `rukebox-server.html`
+depuis la [dernière version](https://github.com/Arubinu/Rukebox/releases) et
+réponds à quelques questions - elle écrit le `docker-compose.yml`, la pile
+Portainer ou Dockge, ou la commande pour un conteneur LXC Proxmox.
 
 ## 🎛️ Au quotidien
 
@@ -110,15 +103,15 @@ Portainer ou Dockge, ou la commande à coller dans un conteneur LXC Proxmox.
 | Double clic | Une annonce, puis le morceau suivant |
 | Appui long | Arrêt en fondu et extinction du Pi - ou seulement la mise en veille |
 
-Chaque geste se change, et tout est aussi disponible à l'écran. Les mises
-à jour s'installent depuis l'interface en un clic quand le Pi a Internet,
-ou depuis ton ordinateur par le câble USB.
+Chaque geste se change, et tout est aussi à l'écran. Les mises à jour
+s'installent depuis l'interface en un clic quand le Pi a Internet, ou depuis
+ton ordinateur par le câble USB.
 
 ## 📚 Pour aller plus loin
 
 - [Guide de référence](docs/guide.md) : options d'installation, tous les
   réglages, réseau, mises à jour et dépannage (en anglais).
-- Tests : `python3 -m unittest discover -s tests`
+- Tests : `python3 tests/run.py`, et `npm test` pour la page.
 - Icônes : [Lucide](https://lucide.dev), licence ISC - voir la [notice](docs/THIRD-PARTY.md).
 
 Les idées et contributions sont les bienvenues - ouvre une issue ou une

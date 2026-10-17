@@ -6,58 +6,97 @@ For a first look, start with the [README](../README.md).
 ## Project structure
 
 ```
+The radio
 src/rukebox_daemon.py       The radio daemon: playback, scheduler, control socket
-src/web_server.py           The web interface's API (Flask) and static files
 src/mpv_controller.py       mpv driven through its IPC socket, one file at a time
 src/state.py                Persistent state: play queue, requests, daily triggers
 src/playlist.py             Play orders (random, random by album, ordered)
+src/schedules.py            Schedules, the party, what is said at a start and before the end
+src/volume_curve.py         The daily volume curve: a share of the chosen volume, hour by hour
+src/speech.py               Spoken sentences (the time, the cutoff, reminders), offline
+src/announcements.py        User-defined announcement types
+src/announce_level.py       Announcements brought to the music's loudness
+src/track_order.py          Saved order of announcement folders
+src/dj_intro.py             The DJ's introduction, from a prepared file when there is one
+src/prepared_media.py       The folder of prepared introductions
+src/blind_test.py           The blind test, and src/game_sounds.py its little sounds
+src/name_voice.py           A name recorded in its owner's voice
+src/sd_watchdog.py          systemd's watchdog: a daemon that stops turning is restarted
+
+Music and what goes with it
+src/config_and_scan.py      Configuration loading and the cached scan of the music folder
 src/library.py              Music library catalogue (tags, search, suggestions)
 src/music_lists.py          The music lists: manual, or by genre
-src/schedules.py            Schedules: other hours, other settings, chosen days
+src/m3u.py                  M3U lists out and in
+src/stations.py             Web radios
 src/likes.py                Liked tracks
 src/duplicates.py           Duplicate tracks, from the catalogue
 src/hidden_tracks.py        The tracks the radio must not pick by itself
-src/json_file.py            Locked, atomic writes of the JSON stores
 src/track_media.py          Cover art, tags and lyrics of the playing track
-src/announcements.py        User-defined announcement types
-src/track_order.py          Saved order of announcement folders
+src/tag_editor.py           A file's own tags and pictures, changed in place
+src/acoustid.py             Recognising a song by its sound (AcoustID)
+src/covers_move.py          The old separate covers folder, moved into the music once
+src/usb_storage.py          Music on a USB key
+
+The web server and who may use it
+src/web_server.py           The web interface's API (Flask) and static files
+src/web_bundle.py           The page's script, put together from web/js
+src/roles.py                Who may reach what: guest, member, operator, owner
+src/accounts.py             The accounts (the people block of rukebox.yaml)
+src/web_auth.py             Password hashes (PBKDF2)
+src/suggestions.py          Suggestion box, devices, nicknames and votes
+src/captive_portal.py       Captive portal of the access point
+
+Settings
 src/config_schema.py        Every setting, with its default and documentation
 src/config_file.py          Reads/writes rukebox.yaml, generates rukebox.env
+src/config_document.py      The lists a page writes, kept in rukebox.yaml
 src/config_bundle.py        Configuration export / import
 src/paths.py                The four roots (/config, /data, /music) and how they move
 src/machine.py              What the machine is and what it can do
 src/system_actions.py       Services, power and the clock: one call per platform
-src/stream.py               The network output: encoded and served over HTTP
-src/stats.py                Usage statistics (SQLite)
-src/suggestions.py          Suggestion box, devices, nicknames and votes
+
+Sound out, sound in
 src/audio_output.py         Audio outputs (Bluetooth, jack, USB, HDMI)
 src/audio_diag.py           The audio diagnostic, and when the Flic button is put on hold
-src/net_diag.py             The network diagnostic
 src/bt_link.py              Which Bluetooth controller carries the speaker
 src/bt_codec.py             The Bluetooth codecs offered to the speaker
+src/stream.py               The network output: encoded and served over HTTP
+src/snapcast.py             Multiroom output through Snapcast
+src/upnp.py                 UPnP media server: the stream found by a player
+src/dlna_renderer.py        DLNA renderer: Home Assistant's media player tile, and casting
+
+Buttons, cards, lights, home
 src/control_client.py       The control socket's client (web server, buttons)
-src/bt_clock.py             Clock fallback over Bluetooth
-src/captive_portal.py       Captive portal of the access point
 src/flic_click.py           Flic button bridge
 src/gpio_click.py           GPIO button bridge
 src/rotary.py               Rotary knob bridge
+src/bt_buttons.py           Bluetooth remotes bridge
 src/speaker_buttons.py      The Bluetooth speaker's own buttons
+src/card_reader.py          RFID reader / barcode scanner bridge, and src/cards.py the cards
+src/wled.py                 WLED light strips: scenes, beat, clock
+src/mqtt_bridge.py          Home Assistant over MQTT, on src/mqtt_client.py
 src/gpio_reset.py           Password reset by grounding a GPIO pin at boot
 src/gpio_pins.py            The 40-pin header and which pins may be used
-src/web_auth.py             The optional web password (PBKDF2)
+
+Time, network, installation
+src/bt_clock.py             Clock fallback over Bluetooth
+src/net_diag.py             The network diagnostic
+src/stats.py                Usage statistics (SQLite)
 src/version.py              Installed version (tree hash, git or release)
 src/install_status.py       Progress page of the first-boot installation
-web/                        The web interface (HTML, CSS, JavaScript, six languages)
+web/                        The page: index.html, style.css, i18n.js (six languages),
+                            and its script in web/js (boot.js, then init/NN-*.js in order)
 scripts/install.sh          Installer (run on the Pi)
 scripts/update.sh           Updater: USB, Git or GitHub release, with rollback
 scripts/firstboot.sh        Automatic installation on the first boot
-scripts/*.sh                Access point, USB gadget, Bluetooth, LED, Wi-Fi helpers
+scripts/*.sh                Access point, USB gadget, rotary knob, Bluetooth, LED, Wi-Fi helpers
 systemd/*.service           One unit per component
 docker/                     The container: supervisor, compose files, PipeWire sink
 Dockerfile                  The image (ghcr.io/arubinu/rukebox)
 config/                     Configuration template and sudo grants
 bootstrap/                  Card preparation and pushes from a computer
-tests/                      Unit tests (python3 -m unittest discover -s tests)
+tests/                      Unit tests (python3 tests/run.py), tests/web the page's own
 ```
 
 ## Installing on a blank SD card (macOS / Linux / Windows)
@@ -1861,9 +1900,7 @@ transfers still make it stutter, **Also with a speaker on a USB dongle**
 
 That sharing has a second face, measured while streaming to a speaker: the
 **Wi-Fi link itself gets flaky** — SSH sessions time out, and a file
-transfer can arrive truncated (an update pushed by hand during playback left
-a source file empty and the daemon refused to start until it was sent
-again). `scripts/update.sh` protects you here: it checks that every file at
+transfer can arrive truncated. `scripts/update.sh` protects you here: it checks that every file at
 the other end hashes to what was sent, and refuses code that does not
 import, before it swaps anything in. A hand `scp` does not — if you copy
 files onto the Pi yourself, stop the music first, or check the file sizes
@@ -1894,9 +1931,9 @@ A Bluetooth link can carry nothing at all while every layer above it says it
 is fine: BlueZ reports the speaker as connected, mpv goes on playing, and the
 radio makes no sound because PipeWire has moved the stream to its Dummy
 Output. `bt-connect.sh` notices it (the controller's own byte counter stops
-moving) and repairs the radio, which takes about half a minute - and the music
-used to keep "playing" silently through it. It now **pauses** and says so, and
-the event log gets a *Speaker link silent* line.
+moving) and repairs the radio, which takes about half a minute; meanwhile the
+music **pauses** and says so, and the event log gets a *Speaker link silent*
+line.
 
 To see exactly what the path was made of - the output, the codec, the kernel's
 own radio timeouts, the bitrate the link really carries over a few seconds -
@@ -2341,11 +2378,10 @@ itself and keeps them in `game-sounds/` in the state folder.
   **Test** plays a short chime through it. A wired output is found again
   whenever it is plugged in; while it is missing, the sound goes to the
   default output. **The chosen output keeps the sound**: a speaker connecting
-  no longer takes the music away from a wired card (WirePlumber handed any
-  stream to whatever output became the default, whatever mpv had been told),
-  which is what used to move the sound to the speakers - and to the next song
-  with it. With a wired output, a Bluetooth speaker that drops no
-  longer pauses the music nor powers the Pi off.
+  does not take the music away from a wired card (WirePlumber would hand any
+  stream to whatever output became the default, whatever mpv had been told).
+  With a wired output, a Bluetooth speaker that drops neither pauses the music
+  nor powers the Pi off.
 - **Network audio stream** (*Audio output* card): serves what the radio
   plays over HTTP, so another device can listen to it - a network speaker,
   a browser, `mpv`, VLC. Off on a Pi, because it costs an ffmpeg process;
@@ -3507,8 +3543,7 @@ restart until it is switched on again.
 a connection that failed for missing secrets: one lost packet during the
 WPA handshake makes it ask for the key again, and a headless Pi has no
 agent to answer — it then stays down until someone brings it up by hand.
-That is not hypothetical: it happened here, and the Pi spent twenty
-minutes off its own network. This service checks every few seconds that
+This service checks every few seconds that
 the connection is up and takes it back when it is not, exactly as
 `bt-connect.service` does for the Bluetooth speaker.
 
@@ -4028,15 +4063,17 @@ sounds card.
 - **Watch out for a source left far above the music**, which reads exactly
   like a broken radio: the jingle comes out loud and clear, then the song
   that follows is there but almost inaudible, and nothing in the page looks
-  wrong. It happened for real — music at 19, a button sound at 100, about
-  **40 dB** apart. The row now says so as soon as one of them reaches four
+  wrong (a button sound at 100 over music at 19 is about **40 dB** apart).
+  The row says so as soon as one of them reaches four
   times the music's volume ("Much louder than the music (19): the jingle
   will drown it out."), and the line follows the Home slider as you move it.
 
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests -v
+python3 tests/run.py                  # every module, side by side, in seconds
+python3 tests/run.py test_web         # some modules only
+python3 -m unittest discover -s tests # the same tests, one after the other
 ```
 
 Standard library only. GitHub runs them on every push
@@ -4055,8 +4092,14 @@ it; run the whole suite on the Pi against the installed code:
 
 ```bash
 scp -r tests pi@169.254.7.7:/tmp/rukebox-tests
-ssh pi@169.254.7.7 'RUKEBOX_SRC=/opt/rukebox/src python3 -m unittest discover -s /tmp/rukebox-tests -v'
+ssh pi@169.254.7.7 'RUKEBOX_SRC=/opt/rukebox/src python3 /tmp/rukebox-tests/run.py'
 ```
+
+Some tests only run on Linux (the control socket, the rotary knob's
+`config.txt` helper, systemd's notify socket): on Windows they are skipped,
+and a Debian under WSL runs them - on a copy of the tree in its own file
+system, not on `/mnt/c`, whose coarse times and Windows permissions are not
+Linux's.
 
 ## Logs and troubleshooting
 
@@ -4083,6 +4126,13 @@ lose that last minute, never the file system), and `/tmp` lives in memory
 (Debian's own `tmp.mount`). Nothing edits `/etc/fstab`: `systemctl disable
 rukebox-sd-care` undoes it at the next boot. The radio itself writes on events
 (a song, an action), not continuously.
+
+A daemon that hangs does not wait for someone to notice: its scheduler loop
+tells systemd's watchdog every half minute that it still turns
+(`src/sd_watchdog.py`, `WatchdogSec=300` in its unit), and after five minutes
+without word systemd restarts it - `journalctl -u rukebox-daemon` then shows
+*Watchdog timeout*. A slow start (a first scan of a large library) and a long
+rescan are given room; Docker, without systemd, is left as it was.
 
 > **If the Bluetooth search finds nothing** although devices are nearby: the
 > radio is probably soft-blocked at the kernel level, which BlueZ cannot undo
