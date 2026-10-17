@@ -85,10 +85,12 @@ def validate(data):
     }
 
 
-def add(data, path=None):
+def add(data, path=None, owner=None):
     """Creates a list; its id is a slug of the name, so it stays readable in
-    state.json."""
+    state.json. `owner` is the member account it belongs to, None for the radio's."""
     clean = validate(data)
+    if owner:
+        clean["owner"] = str(owner)
     with config_document.lock(path):
         items = load(path)
         taken = {item["id"] for item in items}
@@ -115,6 +117,9 @@ def update(list_id, data, path=None):
                 clean = validate(merged)
                 clean["id"] = list_id
                 clean["created_at"] = item.get("created_at", time.time())
+                # Whose it is never changes with an edit.
+                if item.get("owner"):
+                    clean["owner"] = item["owner"]
                 items[i] = clean
                 _write(path, items)
                 return clean

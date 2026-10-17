@@ -89,6 +89,9 @@ def validate(data, people=None):
         raise ValueError("account_bad_role")
     account_id = _clean_id(data.get("id")) or _slugify(name)
     clean = {"id": account_id, "name": name, "role": role}
+    # A member may put a list on instead of the library only when allowed to.
+    if role == "member" and data.get("play_lists") in (True, "true", "1", 1):
+        clean["play_lists"] = True
     created = data.get("created_at")
     try:
         clean["created_at"] = float(created) if created else time.time()

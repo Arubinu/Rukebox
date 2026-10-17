@@ -2697,6 +2697,16 @@ nobody but the owner may go without one, since an account with no password
 would open on its name alone. The first owner account takes the password this
 radio already had when it updates, so the same password keeps working.
 
+**Lists and who owns them.** A list a member makes is theirs: they alone, and
+the operators and the owner, may rename it, change its songs or delete it.
+A member sees their own lists and the radio's (the ones an operator or the
+owner made, or those of an account that was removed), never another member's;
+operators and the owner see every list, with whose it is. Any song of a list
+a member sees can be put up next. Putting a list on instead of the library is
+the operators' and the owner's, and a member's only when **May play a list
+instead of the library** is switched on on their line of the People card; an
+operator may put a member's list on.
+
 **Without an owner account holding a password, the interface is open** to
 whoever reaches the access point — this project's original model, kept for
 whoever wants no account, and the first owner password is what closes it. A

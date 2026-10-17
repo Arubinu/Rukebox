@@ -48,6 +48,32 @@ function personRow(person) {
     refreshPeopleCard();
   });
   row.append(name, role, pass, remove);
+  if (person.role === "member") {
+    // Members make their own lists; putting one on instead of the library is granted here.
+    const line = document.createElement("label");
+    line.className = "person-permission";
+    const text = document.createElement("span");
+    text.textContent = t("people.play_lists_short");
+    const lists = document.createElement("input");
+    lists.type = "checkbox";
+    lists.className = "switch-input";
+    lists.setAttribute("role", "switch");
+    lists.checked = !!person.play_lists;
+    const label = t("people.play_lists", { name: person.name });
+    lists.setAttribute("aria-label", label);
+    lists.title = label;
+    lists.addEventListener("change", async () => {
+      const result = await apiPost("/api/auth/accounts", { id: person.id, play_lists: lists.checked });
+      if (!result.ok) {
+        lists.checked = !lists.checked;
+        showError(result.error);
+        return;
+      }
+      showToast(t(lists.checked ? "people.play_lists_on" : "people.play_lists_off", { name: person.name }));
+    });
+    line.append(text, lists);
+    row.append(line);
+  }
   return row;
 }
 

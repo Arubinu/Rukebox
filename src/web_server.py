@@ -864,7 +864,8 @@ def api_auth_accounts():
         return jsonify({"ok": False, "error": "auth_required", "needs": "owner"}), 401
     return jsonify({"ok": True, "data": {
         "accounts": [{"id": one["id"], "name": one["name"], "role": one["role"],
-                      "password": bool(one.get("hash")), "created_at": one.get("created_at")}
+                      "password": bool(one.get("hash")), "created_at": one.get("created_at"),
+                      "play_lists": bool(one.get("play_lists"))}
                      for one in accounts.load()],
         "roles": list(roles.ROLES[1:]),
     }})
@@ -3032,19 +3033,68 @@ def api_delete_schedule(schedule_id):
     return jsonify({"ok": True})
 
 
+def _list_viewer():
+    """(the member account asking, or None for whoever may handle every list;
+    the member accounts' names by id)."""
+    members = {one["id"]: one["name"] for one in accounts.load() if one["role"] == "member"}
+    if roles.allows(_role(), "operator"):
+        return None, members
+    account = _session_account()
+    return (account["id"] if account else ""), members
+
+
+def _list_shown(entry, me, members):
+    # A list of no member (made by the radio's keepers, or of an account gone) is everyone's.
+    return me is None or entry.get("owner") == me or entry.get("owner") not in members
+
+
+def _list_editable(entry, me):
+    return me is None or (bool(me) and entry.get("owner") == me)
+
+
+def _may_play_lists():
+    """Whether this request may put a list on instead of the library."""
+    if roles.allows(_role(), "operator"):
+        return True
+    account = _session_account()
+    return bool(account and account.get("play_lists"))
+
+
+def _list_for(list_id, edit=False):
+    """(the list, None) when this request may see (or change) it, else (None, an error answer)."""
+    try:
+        entry = music_lists.get(list_id)
+    except KeyError:
+        return None, (jsonify({"ok": False, "error": "not_found"}), 404)
+    me, members = _list_viewer()
+    if not _list_shown(entry, me, members):
+        return None, (jsonify({"ok": False, "error": "not_found"}), 404)
+    if edit and not _list_editable(entry, me):
+        return None, (jsonify({"ok": False, "error": "list_not_yours"}), 403)
+    return entry, None
+
+
 @app.route("/api/lists")
 def api_lists():
+    me, members = _list_viewer()
+    shown = [entry for entry in music_lists.load() if _list_shown(entry, me, members)]
+    lists = _with_counts(shown)
+    for entry in lists:
+        entry["editable"] = _list_editable(entry, me)
+        entry["owner_name"] = members.get(entry.get("owner"), "")
     return jsonify({"ok": True, "data": {
-        "lists": _with_counts(music_lists.load()),
+        "lists": lists,
         "active": _active_list_id(),
+        "may_play": _may_play_lists(),
     }})
 
 
 @app.route("/api/lists", methods=["POST"])
 def api_create_list():
     body = request.get_json(silent=True) or {}
+    me, _members = _list_viewer()
     try:
-        entry = music_lists.add(body)
+        entry = music_lists.add(body, owner=me or None)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     notify_daemon("reload_lists")
@@ -3056,6 +3106,9 @@ def api_create_list():
 @app.route("/api/lists/<list_id>", methods=["POST"])
 def api_update_list(list_id):
     body = request.get_json(silent=True) or {}
+    _entry, refused = _list_for(list_id, edit=True)
+    if refused:
+        return refused
     try:
         entry = music_lists.update(list_id, body)
     except ValueError as e:
@@ -3070,6 +3123,9 @@ def api_update_list(list_id):
 
 @app.route("/api/lists/<list_id>", methods=["DELETE"])
 def api_delete_list(list_id):
+    _entry, refused = _list_for(list_id, edit=True)
+    if refused:
+        return refused
     try:
         entry = music_lists.get(list_id)
         music_lists.delete(list_id)
@@ -3087,10 +3143,9 @@ def api_list_tracks(list_id):
     """What a list holds right now, as catalogue rows: the contents of a
     manual list (with the files it kept that are gone from the library), or
     what a genre list resolves to."""
-    try:
-        entry = music_lists.get(list_id)
-    except KeyError:
-        return jsonify({"ok": False, "error": "not_found"}), 404
+    entry, refused = _list_for(list_id)
+    if refused:
+        return refused
     lib = _get_library()
     missing = []
     if entry.get("kind") == "genre":
@@ -3121,6 +3176,9 @@ def _stored_track(body):
 @app.route("/api/lists/<list_id>/tracks", methods=["POST"])
 def api_add_list_track(list_id):
     body = request.get_json(silent=True) or {}
+    _entry, refused = _list_for(list_id, edit=True)
+    if refused:
+        return refused
     path = _stored_track(body)
     if not path:
         return jsonify({"ok": False, "error": "not_found"}), 404
@@ -3139,6 +3197,9 @@ def api_add_list_track(list_id):
 @app.route("/api/lists/<list_id>/tracks", methods=["DELETE"])
 def api_remove_list_track(list_id):
     body = request.get_json(silent=True) or {}
+    _entry, refused = _list_for(list_id, edit=True)
+    if refused:
+        return refused
     path = _stored_track(body)
     if not path:
         return jsonify({"ok": False, "error": "not_found"}), 404
@@ -3160,10 +3221,9 @@ M3U_MAX_BYTES = 2 * 1024 * 1024
 @app.route("/api/lists/<list_id>/m3u")
 def api_list_m3u(list_id):
     """The list as an M3U file, for another player holding the same music folder."""
-    try:
-        entry = music_lists.get(list_id)
-    except KeyError:
-        return jsonify({"ok": False, "error": "not_found"}), 404
+    entry, refused = _list_for(list_id)
+    if refused:
+        return refused
     lib = _get_library()
     paths = lib.paths_for_genres(entry.get("genres") or []) if entry.get("kind") == "genre" \
         else list(entry.get("tracks") or [])
@@ -3190,8 +3250,9 @@ def api_list_import():
         return jsonify({"ok": False, "error": "m3u_nothing_found", "detail": len(entries)}), 400
     name = (request.form.get("name") or os.path.splitext(os.path.basename(upload.filename or ""))[0]
             or "M3U").strip()[:music_lists.NAME_MAX]
+    me, _members = _list_viewer()
     try:
-        entry = music_lists.add({"name": name, "kind": "manual", "tracks": paths})
+        entry = music_lists.add({"name": name, "kind": "manual", "tracks": paths}, owner=me or None)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     notify_daemon("reload_lists")
@@ -3206,9 +3267,13 @@ def api_active_list():
     """{id: null | "list-id", start: true}: what the radio plays from the next
     track on, or right now."""
     body = request.get_json(silent=True) or {}
+    if not _may_play_lists():
+        return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
     list_id = str(body.get("id") or "").strip() or None
-    if list_id and not any(entry["id"] == list_id for entry in music_lists.load()):
-        return jsonify({"ok": False, "error": "not_found"}), 404
+    if list_id:
+        _entry, refused = _list_for(list_id)
+        if refused:
+            return refused
     notify_daemon("reload_lists")
     result = control("set_active_list", id=list_id, start=bool(body.get("start")))
     return jsonify(result), (200 if result.get("ok") else 400)
@@ -3219,6 +3284,8 @@ def api_list_from_genres():
     """{genres: [...], start}: the list for these genres, the one that already
     matches or a fresh one - what the library's genre filter offers."""
     body = request.get_json(silent=True) or {}
+    if not _may_play_lists():
+        return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
     genres = [str(g).strip() for g in (body.get("genres") or []) if str(g).strip()]
     if not genres:
         return jsonify({"ok": False, "error": "list_genres_required"}), 400

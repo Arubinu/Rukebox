@@ -12,6 +12,7 @@ from unittest import mock
 
 import _path  # noqa: F401
 import accounts
+import music_lists
 import config_document
 import roles
 import web_auth
@@ -235,6 +236,45 @@ class GateTest(unittest.TestCase):
         for path in ("/api/settings", "/api/journal/summary", "/api/system/info"):
             self.assertEqual(self.client.get(path).status_code, 401, path)
         self.assertEqual(self.client.post("/api/action/poweroff").status_code, 401)
+
+    def test_a_member_keeps_their_own_lists_and_plays_one_only_when_allowed(self):
+        self.people()
+        accounts.add({"name": "Luc", "role": "member", "password": "mot-de-passe-luc"}, self.path)
+        music_lists.add({"name": "De la radio", "kind": "manual"}, self.path)
+        self.assertEqual(self.login("Marie", "mot-de-passe-marie").status_code, 200)
+        mine = self.client.post("/api/lists", json={"name": "Marie", "kind": "manual"}).get_json()["data"]
+        self.client.post("/api/auth/logout")
+        self.assertEqual(self.login("Luc", "mot-de-passe-luc").status_code, 200)
+        self.client.post("/api/lists", json={"name": "Luc", "kind": "manual"})
+        listed = {one["name"]: one for one in self.client.get("/api/lists").get_json()["data"]["lists"]}
+        self.assertEqual(sorted(listed), ["De la radio", "Luc"], "another member's list is theirs")
+        self.assertEqual((listed["Luc"]["editable"], listed["De la radio"]["editable"]), (True, False))
+        self.assertEqual(self.client.post("/api/lists/" + mine["id"], json={"name": "x"}).status_code, 404)
+        self.assertEqual(self.client.post("/api/lists/de-la-radio", json={"name": "x"}).get_json()["error"],
+                         "list_not_yours")
+        self.assertEqual(self.client.get("/api/lists/de-la-radio/tracks").status_code, 200,
+                         "the radio's lists are there to be listened to")
+        self.assertFalse(self.client.get("/api/lists").get_json()["data"]["may_play"])
+        refused = self.client.post("/api/lists/active", json={"id": listed["Luc"]["id"], "start": True})
+        self.assertEqual((refused.status_code, refused.get_json()["error"]), (403, "lists_play_not_allowed"))
+        self.assertEqual(self.client.post("/api/lists/from_genres", json={"genres": ["Rock"]}).status_code, 403)
+
+        luc = accounts.by_name("Luc", self.path)
+        accounts.update(luc["id"], {"play_lists": True}, self.path)
+        self.assertTrue(self.client.get("/api/lists").get_json()["data"]["may_play"],
+                        "granted, without logging in again")
+        self.assertEqual(self.client.post("/api/lists/active", json={"id": listed["Luc"]["id"]}).status_code, 200)
+        self.assertEqual(self.client.post("/api/lists/active", json={"id": mine["id"]}).status_code, 404)
+
+        self.client.post("/api/auth/logout")
+        self.assertEqual(self.login("Paul", "mot-de-passe-paul").status_code, 200)
+        listed = {one["name"]: one for one in self.client.get("/api/lists").get_json()["data"]["lists"]}
+        self.assertEqual(listed["Marie"]["owner_name"], "Marie", "the radio's keepers see whose it is")
+        self.assertTrue(listed["Marie"]["editable"])
+        self.assertEqual(self.client.post("/api/lists/active", json={"id": mine["id"]}).status_code, 200,
+                         "and may put a member's list on")
+        edited = self.client.post("/api/lists/" + mine["id"], json={"name": "Marie bis"}).get_json()["data"]
+        self.assertEqual(music_lists.get(edited["id"], self.path)["owner"], "marie", "an edit keeps the owner")
 
     def test_an_operator_keeps_the_radio_but_not_the_machine(self):
         self.people()

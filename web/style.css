@@ -955,6 +955,17 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 #reminderEmpty, #likesEmpty, #upnextEmpty,
 #duplicatesSummary, #duplicatesEmpty { text-align: center; }
 
+.person-permission {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 14px;
+}
 .device-list li.duplicate-group { display: block; padding: 0; overflow: hidden; }
 .duplicate-fold { display: block; }
 .duplicate-head {
@@ -2848,7 +2859,9 @@ select {
 .lists-now { text-align: center; }
 .device-list li.ann-item.is-playing { border-color: var(--accent); background: var(--accent-soft); }
 .ann-item.is-playing .ann-name { color: var(--accent); }
+.ann-actions.is-one { grid-template-columns: minmax(0, 1fr); }
 .ann-actions.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ann-actions.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ann-actions.is-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .list-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 /* No nested scroll: it steals the drag meant for the page. */

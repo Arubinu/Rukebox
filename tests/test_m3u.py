@@ -71,7 +71,7 @@ class ImportRouteTest(unittest.TestCase):
         mock.patch.object(ws, "_get_library", return_value=FakeLibrary()).start()
         mock.patch.object(ws, "_library_roots", return_value=(ROOT, None)).start()
         mock.patch.object(ws, "notify_daemon").start()
-        self.added = mock.patch.object(ws.music_lists, "add", side_effect=lambda data: dict(
+        self.added = mock.patch.object(ws.music_lists, "add", side_effect=lambda data, owner=None: dict(
             data, id="road-trip")).start()
         mock.patch.object(ws, "_with_counts", side_effect=lambda items: items).start()
         self.client = ws.app.test_client()

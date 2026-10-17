@@ -30,7 +30,7 @@ const listsGenresRow = document.getElementById("listGenresRow");
 const listsNewBox = document.getElementById("listsNew");
 const libraryGenrePlay = document.getElementById("libraryGenrePlay");
 
-let listsData = { lists: [], active: null };
+let listsData = { lists: [], active: null, may_play: false };
 let listsGenres = [];
 let listsSeq = 0;
 let detailListId = null;
@@ -49,6 +49,7 @@ function listKindLabel(item) {
 
 function listMeta(item) {
   return [listKindLabel(item), tracksLabel(item.count),
+          item.owner_name ? t("lists.of", { name: item.owner_name }) : "",
           item.id === listsData.active ? t("lists.playing") : ""]
     .filter(Boolean).join(" \u00b7 ");
 }
@@ -176,7 +177,8 @@ function paintGenrePlay() {
   // Looked up here, not in a const: this runs before the Lists card below is set up.
   const actions = document.getElementById("libraryGenreActions");
   if (actions) {
-    actions.hidden = !libraryGenre.value || document.body.dataset.access === "guest";
+    actions.hidden = !libraryGenre.value || document.body.dataset.access === "guest"
+      || !listsData.may_play;
   }
 }
 
@@ -205,7 +207,8 @@ function openListsCard() {
 }
 
 async function addToManualList(item) {
-  const manual = (listsData.lists || []).filter((l) => l.kind === "manual");
+  // Only the lists this person may change: their own, or every one for the radio's keepers.
+  const manual = (listsData.lists || []).filter((l) => l.kind === "manual" && l.editable);
   if (!manual.length) {
     showToast(t("lists.none_yet"), t("lists.none_yet_hint"),
               { action: { label: t("lists.open_card"), icon: "list", run: openListsCard } });
@@ -334,6 +337,7 @@ async function loadListTracks(item, holder, editable) {
     li.append(trackMain(track));
     const mark = excludedMark(track);
     if (mark) li.append(mark);
+    if (track.key && !track.missing) li.append(libraryButton(track, true));
     if (!editable) return li;
 
     const remove = document.createElement("button");
@@ -411,28 +415,31 @@ function renderDetail(item) {
   // Rebuilt only on a change: every rebuild refetches the tracks, and the 20s refresh must not.
   const signature = [item.id, item.name, item.count, item.kind,
                      (item.genres || []).join(","), item.id === listsData.active,
-                     editingListId === item.id].join("|");
+                     editingListId === item.id, item.editable, listsData.may_play].join("|");
   if (signature === detailSignature) return;
   detailSignature = signature;
 
-  const editing = editingListId === item.id;
-  listsDetailActions.classList.toggle("is-two", editing);
-  listsDetailActions.classList.toggle("is-four", !editing);
-  listsDetailActions.replaceChildren(...(editing ? [
+  const editing = editingListId === item.id && item.editable;
+  const actions = editing ? [
     listActionButton("check", "common.save", () => saveList(item)),
     listActionButton("x", "common.cancel", () => {
       editingListId = null;
       renderDetail(item);
     }),
   ] : [
-    listActionButton("play", "lists.play", () => playList(item)),
-    listActionButton("pencil", "common.edit", () => {
+    listsData.may_play ? listActionButton("play", "lists.play", () => playList(item)) : null,
+    item.editable ? listActionButton("pencil", "common.edit", () => {
       editingListId = item.id;
       renderDetail(item);
-    }),
+    }) : null,
     listActionButton("download", "lists.export", () => exportList(item)),
-    listActionButton("trash", "common.delete", () => deleteList(item), "btn-danger-outline"),
-  ]));
+    item.editable ? listActionButton("trash", "common.delete", () => deleteList(item), "btn-danger-outline")
+      : null,
+  ].filter(Boolean);
+  ["is-one", "is-two", "is-three", "is-four"].forEach((name, index) => {
+    listsDetailActions.classList.toggle(name, actions.length === index + 1);
+  });
+  listsDetailActions.replaceChildren(...actions);
 
   const parts = [];
   if (editing) {
@@ -463,7 +470,7 @@ function renderDetail(item) {
   tracks.className = "device-list recent-list list-tracks";
   parts.push(tracks);
   listsDetailBody.replaceChildren(...parts);
-  loadListTracks(item, tracks, item.kind === "manual");
+  loadListTracks(item, tracks, item.kind === "manual" && item.editable);
 }
 
 function renderLists() {
@@ -548,6 +555,8 @@ async function refreshLists() {
   }
   listsCard.hidden = false;
   listsData = res.data;
+  document.getElementById("listsPlayAll").hidden = !listsData.may_play;
+  paintGenrePlay();
   if (facets.ok && facets.data) listsGenres = facets.data.genres || [];
 
   const active = listById(listsData.active);
