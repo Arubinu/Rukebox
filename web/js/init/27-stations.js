@@ -1,4 +1,6 @@
 /* Web radios: a name and a stream address, played in place of the radio's own music. */
+let stationsMay = { play: false, edit: false };
+
 function stationRow(station) {
   const li = document.createElement("li");
   const label = document.createElement("span");
@@ -36,6 +38,8 @@ function stationRow(station) {
     if (!result.ok) showError(result.error);
     refreshStations();
   });
+  play.hidden = !stationsMay.play;
+  remove.hidden = !stationsMay.edit;
   actions.append(play, remove);
   li.append(label, actions);
   return li;
@@ -46,6 +50,8 @@ async function refreshStations() {
   const result = await apiGet("/api/stations");
   if (!result.ok || !result.data) return;
   stationsCache = result.data.stations || [];
+  stationsMay = { play: !!result.data.may_play, edit: !!result.data.editable };
+  document.getElementById("stationNew").hidden = !stationsMay.edit;
   const list = document.getElementById("stationsList");
   list.replaceChildren(...stationsCache.map(stationRow));
   list.hidden = !stationsCache.length;

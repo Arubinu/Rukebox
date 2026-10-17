@@ -301,8 +301,6 @@ def _guest_allowed(path, method):
         return False
     if any(path in GUEST_PAGE_PATHS[page] for page in _guest_pages_off()):
         return False
-    if path == "/api/announcements" and method != "GET":
-        return False
     return True
 
 
@@ -329,7 +327,7 @@ def _role():
 def _needed_role():
     """The role this path needs, the owner for anything nobody listed."""
     rule = request.url_rule.rule if request.url_rule is not None else None
-    needed = roles.needed_role(request.path, rule)
+    needed = roles.needed_role(request.path, rule, request.method)
     if needed == "guest" and not _guest_allowed(request.path, request.method):
         # Guest access off, or that page is one the owner keeps: the door.
         return "owner"
@@ -2925,7 +2923,8 @@ def api_party():
 
 @app.route("/api/stations")
 def api_stations():
-    return jsonify({"ok": True, "data": {"stations": stations.load()}})
+    return jsonify({"ok": True, "data": {"stations": stations.load(), "may_play": _may_play_lists(),
+                                         "editable": roles.allows(_role(), "operator")}})
 
 
 @app.route("/api/stations", methods=["POST"])
@@ -2955,6 +2954,9 @@ def api_change_station(station_id):
 
 @app.route("/api/stations/<station_id>/play", methods=["POST"])
 def api_play_station(station_id):
+    # A web radio in place of the music is what a list in place of the library is.
+    if not _may_play_lists():
+        return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
     result = control("play_station", id=station_id)
     return jsonify(result), (200 if result.get("ok") else 400)
 
@@ -3995,11 +3997,19 @@ def _forget_status_probes(response):
     return response
 
 
+KEEPER_CLICK_ACTIONS = ("poweroff", "standby", "sleep")
+
+
 @app.route("/api/action/<name>", methods=["POST"])
 def api_action(name):
     if name not in ("single_click", "double_click", "long_press", "start_music",
                     "next_track", "previous_track", "toggle_pause", "skip_sound", "standby"):
         return jsonify({"ok": False, "error": "unknown_action"}), 404
+    # A click does what the radio's button is set to: never power or a timer below the operator.
+    if name in ("single_click", "double_click") and not roles.allows(_role(), "operator"):
+        action = cfg().get("SINGLE_CLICK_ACTION" if name == "single_click" else "DOUBLE_CLICK_ACTION")
+        if action in KEEPER_CLICK_ACTIONS:
+            return jsonify({"ok": False, "error": "click_action_not_allowed", "detail": action}), 403
     result = control(name)
     status_code = 200 if result.get("ok") else 400
     return jsonify(result), status_code
@@ -7524,6 +7534,9 @@ def api_excluded_restore():
     """{keys: [...]} or {all: true}: the radio picks them again."""
     body = request.get_json(silent=True) or {}
     file_path = cfg().get("HIDDEN_FILE") or ""
+    # Everyone's exclusions at once are the radio's keepers' to undo.
+    if body.get("all") and not roles.allows(_role(), "operator"):
+        return jsonify({"ok": False, "error": "auth_required", "needs": "operator"}), 401
     if body.get("all"):
         count = len(hidden_tracks.keys(file_path))
         hidden_tracks.clear(file_path)

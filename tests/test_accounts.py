@@ -161,6 +161,9 @@ class RoleLadderTest(unittest.TestCase):
     def test_a_rule_with_an_id_is_found_by_its_rule(self):
         self.assertEqual(roles.needed_role("/api/lists/soir", "/api/lists/<list_id>"), "member")
         self.assertEqual(roles.needed_role("/api/schedules/<id>", None), "owner")
+        self.assertEqual(roles.needed_role("/api/announcements", None, "GET"), "guest")
+        self.assertEqual(roles.needed_role("/api/announcements", None, "POST"), "operator")
+        self.assertEqual(roles.needed_role("/api/stations/x", "/api/stations/<station_id>", "DELETE"), "operator")
         self.assertEqual(roles.needed_role("/api/schedules/abc",
                                            "/api/schedules/<schedule_id>"), "operator")
 
@@ -275,6 +278,36 @@ class GateTest(unittest.TestCase):
                          "and may put a member's list on")
         edited = self.client.post("/api/lists/" + mine["id"], json={"name": "Marie bis"}).get_json()["data"]
         self.assertEqual(music_lists.get(edited["id"], self.path)["owner"], "marie", "an edit keeps the owner")
+
+    def test_what_reads_below_the_operator_is_not_written_from_there(self):
+        self.people()
+        self.values.update({"SINGLE_CLICK_ACTION": "poweroff", "DOUBLE_CLICK_ACTION": "next"})
+        clicked = []
+        mock.patch.object(ws, "control", side_effect=lambda cmd, **kw: clicked.append(cmd) or {"ok": True}).start()
+        self.assertEqual(self.client.post("/api/action/single_click").status_code, 403,
+                         "a guest never switches the radio off through its button's setting")
+        self.assertEqual(self.client.post("/api/action/double_click").status_code, 200)
+        self.assertEqual(self.login("Marie", "mot-de-passe-marie").status_code, 200)
+        self.assertEqual(self.client.post("/api/action/single_click").get_json()["error"],
+                         "click_action_not_allowed")
+        self.values["SINGLE_CLICK_ACTION"] = "sleep"
+        self.assertEqual(self.client.post("/api/action/single_click").status_code, 403)
+        self.assertEqual(self.client.get("/api/announcements").status_code, 200)
+        self.assertEqual(self.client.post("/api/announcements", json={"name": "x"}).status_code, 401,
+                         "reading the announcements is not making them")
+        self.assertEqual(self.client.get("/api/stations").status_code, 200)
+        self.assertEqual(self.client.post("/api/stations", json={"name": "x", "url": "https://x"}).status_code, 401)
+        self.assertEqual(self.client.delete("/api/stations/x").status_code, 401)
+        self.assertEqual(self.client.post("/api/stations/x/play").get_json()["error"], "lists_play_not_allowed")
+        self.assertEqual(self.client.post("/api/excluded/restore", json={"all": True}).status_code, 401,
+                         "everyone's exclusions are not undone by one member")
+        self.client.post("/api/auth/logout")
+        self.assertEqual(self.login("Paul", "mot-de-passe-paul").status_code, 200)
+        clicked.clear()
+        self.assertEqual(self.client.post("/api/action/single_click").status_code, 200)
+        self.assertEqual(clicked, ["single_click"], "the radio's keepers press the button as it is set")
+        self.assertEqual(self.client.post("/api/stations/x/play").status_code, 200)
+        self.assertTrue(self.client.get("/api/stations").get_json()["data"]["editable"])
 
     def test_an_operator_keeps_the_radio_but_not_the_machine(self):
         self.people()

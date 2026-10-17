@@ -86,7 +86,6 @@ MEMBER_PATHS = frozenset({
     "/api/lists/from_genres",
     "/api/lists/import",
     "/api/stations",
-    "/api/stations/<station_id>",
     "/api/stations/<station_id>/play",
     "/api/loop",
     "/api/mute",
@@ -168,6 +167,7 @@ OPERATOR_PATHS = frozenset({
     "/api/schedules/<schedule_id>/voice",
     "/api/party",
     "/api/settings",
+    "/api/stations/<station_id>",
     "/api/snapcast/client",
     "/api/snapcast/clients",
     "/api/speech/test",
@@ -191,14 +191,26 @@ OPERATOR_PATHS = frozenset({
 })
 
 
-def needed_role(path, rule=None):
+# Paths read below the operator but written only from there: one path, two doors.
+WRITE_NEEDS = {
+    "/api/announcements": "operator",
+    "/api/stations": "operator",
+}
+
+
+def needed_role(path, rule=None, method="GET"):
     """The role a request needs: the lowest level that lists it, the owner
     otherwise."""
+    found = "owner"
     for role, paths in (("guest", GUEST_PATHS), ("member", MEMBER_PATHS),
                         ("operator", OPERATOR_PATHS)):
         if path in paths or (rule and rule in paths):
-            return role
-    return "owner"
+            found = role
+            break
+    writes = WRITE_NEEDS.get(path) or (WRITE_NEEDS.get(rule) if rule else None)
+    if writes and method not in ("GET", "HEAD", "OPTIONS") and RANK[writes] > RANK[found]:
+        return writes
+    return found
 
 
 def allows(role, needed):
