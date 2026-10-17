@@ -92,6 +92,22 @@ class NameVoiceRouteTest(unittest.TestCase):
             self.client.delete("/api/schedules/birthday")
         self.assertIsNone(ws.schedules.voice(self.dir, "birthday"))
 
+    def test_each_reminder_before_the_end_keeps_its_own_recording(self):
+        mock.patch.object(ws.schedules, "load", return_value=[
+            {"id": "evening", "name": "Evening", "stop": "22:00",
+             "before_end": [{"min": 10, "kind": "voice"}, {"min": 0, "kind": "voice"}]}]).start()
+        mock.patch.object(ws, "notify_daemon").start()
+        self.assertTrue(self.send("/api/schedules/evening/voice?end=10").get_json()["ok"])
+        self.assertTrue(ws.schedules.end_voice(self.dir, "evening", 10))
+        self.assertIsNone(ws.schedules.end_voice(self.dir, "evening", 0), "the other one is its own")
+        listed = self.client.get("/api/schedules").get_json()["data"]["schedules"][0]["before_end"]
+        self.assertEqual([one.get("has_voice") for one in listed], [True, False])
+        self.assertEqual(self.send("/api/schedules/evening/voice?end=999").status_code, 400)
+        self.assertEqual(self.send("/api/schedules/evening/voice?end=x").status_code, 400)
+        with mock.patch.object(ws.schedules, "delete"):
+            self.client.delete("/api/schedules/evening")
+        self.assertIsNone(ws.schedules.end_voice(self.dir, "evening", 10), "gone with its schedule")
+
     def test_the_game_says_a_recorded_name_and_synthesises_the_rest(self):
         os.makedirs(name_voice.folder(self.dir))
         with open(name_voice.path(self.dir, "p1"), "wb") as f:

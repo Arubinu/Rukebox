@@ -2886,6 +2886,9 @@ def _with_voices(items):
     state_dir = cfg()["STATE_DIR"]
     for item in items:
         item["voice"] = bool(schedules.voice(state_dir, item["id"]))
+        for reminder in item.get("before_end") or []:
+            if reminder.get("kind") == "voice":
+                reminder["has_voice"] = bool(schedules.end_voice(state_dir, item["id"], reminder["min"]))
     return items
 
 
@@ -2921,7 +2924,15 @@ def api_schedule_voice(schedule_id):
     """A message recorded or sent for a schedule, played once it has started."""
     if not any(item["id"] == schedule_id for item in schedules.load()):
         return jsonify({"ok": False, "error": "not_found"}), 404
-    answer = _voice_file_answer(schedules.voice_path(cfg()["STATE_DIR"], schedule_id),
+    # ?end=10: the message said ten minutes before the schedule ends.
+    end = request.args.get("end")
+    if end is not None:
+        if not end.isdigit() or int(end) > schedules.END_MINUTES_MAX:
+            return jsonify({"ok": False, "error": "bad_request"}), 400
+        target = schedules.end_voice_path(cfg()["STATE_DIR"], schedule_id, int(end))
+    else:
+        target = schedules.voice_path(cfg()["STATE_DIR"], schedule_id)
+    answer = _voice_file_answer(target,
                                 schedules.VOICE_MAX_SEC, SCHEDULE_VOICE_MAX_BYTES, "schedule_voice_too_long")
     if request.method != "GET":
         notify_daemon("reload_schedules")
@@ -2976,9 +2987,7 @@ def api_delete_schedule(schedule_id):
         return jsonify({"ok": False, "error": str(e)}), 400
     except KeyError:
         return jsonify({"ok": False, "error": "not_found"}), 404
-    voice = schedules.voice(cfg()["STATE_DIR"], schedule_id)
-    if voice:
-        os.remove(voice)
+    schedules.remove_voices(cfg()["STATE_DIR"], schedule_id)
     notify_daemon("reload_schedules")
     stats.record("schedule_removed", label=schedule_id)
     return jsonify({"ok": True})

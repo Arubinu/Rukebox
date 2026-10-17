@@ -29,6 +29,23 @@ def make(**fields):
 
 
 class RulesTest(unittest.TestCase):
+    def test_what_is_said_before_the_end_needs_an_end(self):
+        reminders = [{"min": 10, "kind": "text", "text": "Plus que  dix   minutes"},
+                     {"min": 0, "kind": "announcement", "announcement": "bye"},
+                     {"min": 30, "kind": "voice"}, {"min": 10, "kind": "text", "text": "Twice"}]
+        clean = schedules.validate({"name": "Evening", "start": "20:00", "stop": "22:00",
+                                    "before_end": reminders})["before_end"]
+        self.assertEqual([one["min"] for one in clean], [30, 10, 0], "latest first, one per minute count")
+        self.assertEqual(clean[1]["text"], "Twice")
+        self.assertEqual(schedules.validate({"name": "Morning", "start": "07:00", "before_end": reminders})
+                         ["before_end"], [], "a schedule with no end counts down to nothing")
+        self.assertTrue(schedules.validate({"name": "Party", "party": True, "before_end": reminders})["before_end"])
+        for bad in ([{"min": 300, "kind": "text", "text": "x"}], [{"min": 5, "kind": "shout"}],
+                    [{"min": 5, "kind": "text", "text": ""}], [{"min": 5, "kind": "announcement",
+                                                                  "announcement": "../x"}]):
+            with self.assertRaises(ValueError, msg=bad):
+                schedules.validate({"name": "E", "start": "20:00", "stop": "22:00", "before_end": bad})
+
     def test_a_schedule_needs_a_name_and_a_time(self):
         for data, code in (
             ({"name": "", "start": "07:00"}, "schedule_name_required"),
@@ -319,6 +336,47 @@ class DaemonTest(unittest.TestCase):
             with mock.patch.object(rukebox_daemon.time, "time", return_value=time.time() + 10):
                 self.daemon._check_reminders()
         say.assert_not_called()
+
+    def test_ten_minutes_before_the_end_then_the_end_itself(self):
+        self.add(name="Evening", start="20:00", stop="22:00", before_end=[
+            {"min": 10, "kind": "text", "text": "Plus que dix minutes"},
+            {"min": 0, "kind": "text", "text": "Bonne nuit"}])
+        said = []
+        with mock.patch.object(self.daemon, "_speech_text_file", side_effect=lambda text: "/%s.wav" % text), \
+                mock.patch.object(self.daemon, "_say_path", side_effect=lambda path, under=None: said.append(path)):
+            self.tick(at(5, 20, 0))
+            self.tick(at(5, 21, 49, 45))
+            self.assertIsNone(self.daemon._schedule_say, "not yet")
+            self.tick(at(5, 21, 50))
+            self.tick(at(5, 21, 50, 15))
+            self.tick(at(5, 21, 50, 30))
+            self.tick(at(5, 22, 0))
+        self.assertEqual(said, ["/Plus que dix minutes.wav", "/Bonne nuit.wav"])
+        self.assertTrue(self.daemon._paused, "the end is said once the music has stopped")
+
+    def test_a_radio_that_switches_off_says_its_end_whole_first(self):
+        self.add(name="Evening", start="20:00", stop="22:00", stop_action="poweroff",
+                 before_end=[{"min": 0, "kind": "text", "text": "Bonne nuit"}])
+        order = []
+        with mock.patch.object(self.daemon, "_speech_text_file", return_value="/bye.wav"), \
+                mock.patch.object(self.daemon, "_say_and_wait", side_effect=lambda path: order.append(path)), \
+                mock.patch.object(self.daemon, "_power_off_now", side_effect=lambda reason: order.append("off")):
+            self.tick(at(5, 20, 0))
+            self.tick(at(5, 22, 0))
+        self.assertEqual(order, ["/bye.wav", "off"])
+
+    def test_a_party_says_its_end_when_it_ends(self):
+        schedules.add({"name": "Party", "party": True,
+                       "before_end": [{"min": 0, "kind": "text", "text": "Merci à tous"}]}, self.path)
+        schedules.start_party(self.dir, 3, guests=False)
+        with mock.patch.object(self.daemon, "_speech_text_file", side_effect=lambda text: "/%s.wav" % text), \
+                mock.patch.object(self.daemon, "_say_path") as say:
+            self.tick(datetime.now())
+            say.reset_mock()
+            schedules.end_party(self.dir)
+            self.tick(datetime.now())
+            self.tick(datetime.now())
+        self.assertEqual([c.args[0] for c in say.call_args_list], ["/Merci à tous.wav"], "said once")
 
     def test_the_start_starts_the_music_once(self):
         self.add()

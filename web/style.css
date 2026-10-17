@@ -2386,6 +2386,18 @@ select {
 .week-mark.is-stop { background: var(--warning); }
 .week-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
 .sched-settings { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+/* A list that cannot sit beside the minutes goes under them rather than shrinking. */
+.end-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+           padding: 8px 0; border-bottom: 1px solid var(--border); }
+.end-when { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted);
+            white-space: nowrap; }
+.end-when .num-input { width: 4.5em; }
+.end-row .end-kind { flex: 1 1 12em; min-width: 12em; max-width: none; }
+.end-content { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.end-content > * { min-width: 0; max-width: 100%; }
+.end-content .text-input { flex: 1 1 14em; }
+.end-content select { flex: 1 1 10em; }
+#schedEndAdd { margin-top: 10px; }
 .sched-settings > .field-label { margin: 0; font-weight: 650; }
 .sched-settings > .field-desc { margin: 2px 0 8px; }
 .override-control { display: inline-flex; flex: 0 1 auto; align-items: center; gap: 8px; min-width: 0; margin-left: auto; }

@@ -328,8 +328,158 @@ function updateScheduleForm() {
   document.getElementById("schedAnnouncementRow").hidden = !opens;
   document.getElementById("schedSayRow").hidden = !opens;
   document.getElementById("schedVoiceRow").hidden = !opens;
+  // Only what has an end can count down to it.
+  document.getElementById("schedEndBox").hidden = !(stopOn || party);
   paintScheduleVoice();
+  paintEndVoices();
 }
+
+const END_MINUTES_MAX = 240;
+const END_REMINDERS_MAX = 6;
+const END_SUGGESTIONS = ["schedules.end_suggest_left", "schedules.end_suggest_ends",
+                         "schedules.end_suggest_last", "schedules.end_suggest_over"];
+const schedEndList = document.getElementById("schedEndList");
+
+function endChoice(value, key) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = t(key);
+  return option;
+}
+
+/* One reminder: how long before the end, what kind, and what it says. */
+function endRow(reminder) {
+  const data = reminder || { min: 10, kind: "text", text: "" };
+  const row = document.createElement("div");
+  row.className = "end-row";
+  const when = document.createElement("label");
+  when.className = "end-when";
+  const minutes = document.createElement("input");
+  minutes.type = "number";
+  minutes.className = "num-input end-min";
+  minutes.min = "0";
+  minutes.max = String(END_MINUTES_MAX);
+  minutes.value = String(data.min);
+  minutes.setAttribute("aria-label", t("schedules.before_end_minutes"));
+  const unit = document.createElement("span");
+  unit.textContent = t("schedules.before_end_unit");
+  when.append(minutes, unit);
+  const kind = document.createElement("select");
+  kind.className = "end-kind";
+  kind.setAttribute("aria-label", t("schedules.before_end_kind"));
+  kind.append(endChoice("text", "schedules.end_kind_text"), endChoice("voice", "schedules.end_kind_voice"),
+              endChoice("announcement", "schedules.end_kind_announcement"));
+  kind.value = data.kind;
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "btn btn-icon btn-small end-remove";
+  remove.dataset.icon = "x";
+  remove.setAttribute("aria-label", t("schedules.before_end_remove"));
+  remove.addEventListener("click", () => {
+    row.remove();
+    paintEndAdd();
+  });
+  const content = document.createElement("div");
+  content.className = "end-content";
+
+  const text = document.createElement("input");
+  text.type = "text";
+  text.className = "text-input end-text";
+  text.maxLength = 200;
+  text.value = data.text || "";
+  text.setAttribute("aria-label", t("schedules.end_kind_text"));
+  const suggest = document.createElement("select");
+  suggest.className = "end-suggest";
+  suggest.setAttribute("aria-label", t("schedules.end_suggest"));
+  suggest.append(endChoice("", "schedules.end_suggest"));
+  END_SUGGESTIONS.forEach((key) => suggest.append(endChoice(key, key)));
+  suggest.addEventListener("change", () => {
+    if (!suggest.value) return;
+    const name = document.getElementById("schedName").value.trim() || t("schedules.end_suggest_this");
+    text.value = t(suggest.value, { n: Number(minutes.value) || 0, name });
+    suggest.value = "";
+  });
+
+  const announcement = document.createElement("select");
+  announcement.className = "end-announcement";
+  announcement.setAttribute("aria-label", t("schedules.end_kind_announcement"));
+  customAnnouncementsCache.forEach((one) => {
+    const option = document.createElement("option");
+    option.value = one.id;
+    option.textContent = one.name;
+    announcement.appendChild(option);
+  });
+  if (data.announcement) setFieldValue(announcement, data.announcement);
+
+  const voice = document.createElement("button");
+  voice.type = "button";
+  voice.className = "btn btn-small end-voice";
+  voice.dataset.hasVoice = data.has_voice ? "1" : "";
+  voice.addEventListener("click", async () => {
+    const item = editedSchedule();
+    if (!item) return;
+    const changed = await editNameVoice({
+      url: "/api/schedules/" + encodeURIComponent(item.id) + "/voice?end=" + (Number(minutes.value) || 0),
+      has: voice.dataset.hasVoice === "1",
+      title: t("schedules.voice_title", { name: item.name }), hint: t("schedules.voice_hint"), file: true,
+      limit: SCHEDULE_VOICE_SEC,
+    });
+    if (changed) {
+      voice.dataset.hasVoice = voice.dataset.hasVoice === "1" ? "" : "1";
+      paintEndVoices();
+    }
+  });
+  // A recording belongs to its minute count: one moved is recorded again.
+  minutes.addEventListener("input", () => {
+    voice.dataset.hasVoice = "";
+    paintEndVoices();
+  });
+
+  const paint = () => {
+    text.hidden = suggest.hidden = kind.value !== "text";
+    announcement.hidden = kind.value !== "announcement";
+    voice.hidden = kind.value !== "voice";
+    paintEndVoices();
+  };
+  kind.addEventListener("change", paint);
+  content.append(text, suggest, announcement, voice);
+  row.append(when, kind, remove, content);
+  paint();
+  return row;
+}
+
+function paintEndVoices() {
+  const saved = !!editedSchedule();
+  schedEndList.querySelectorAll(".end-voice").forEach((button) => {
+    button.disabled = !saved;
+    button.textContent = t(!saved ? "schedules.voice_later"
+      : button.dataset.hasVoice === "1" ? "name_voice.edit" : "name_voice.add");
+  });
+}
+
+function paintEndAdd() {
+  document.getElementById("schedEndAdd").hidden = schedEndList.children.length >= END_REMINDERS_MAX;
+}
+
+function fillEndRows(list) {
+  schedEndList.replaceChildren(...(list || []).map(endRow));
+  paintEndAdd();
+}
+
+function collectEndRows() {
+  return [...schedEndList.querySelectorAll(".end-row")].map((row) => {
+    const kind = row.querySelector(".end-kind").value;
+    const reminder = { min: Number(row.querySelector(".end-min").value) || 0, kind };
+    if (kind === "text") reminder.text = row.querySelector(".end-text").value.trim();
+    if (kind === "announcement") reminder.announcement = row.querySelector(".end-announcement").value;
+    return reminder;
+  });
+}
+
+document.getElementById("schedEndAdd").addEventListener("click", () => {
+  schedEndList.appendChild(endRow(null));
+  paintEndAdd();
+});
 
 function editedSchedule() {
   return editingScheduleId ? (schedulesData || []).find((one) => one.id === editingScheduleId) : null;
@@ -518,6 +668,7 @@ function fillScheduleForm(item) {
   fillScheduleLists(data.list);
   fillScheduleAnnouncements(data.announcement);
   document.getElementById("schedSay").value = data.say || "";
+  fillEndRows(data.before_end);
   schedOverrides.replaceChildren();
   Object.keys(settings).forEach((key) => {
     if (key === "playback.base_volume") return;
@@ -582,6 +733,7 @@ schedForm.addEventListener("submit", async (event) => {
     list: list === "keep" ? null : list === "all" ? "" : list.slice(3),
     announcement: document.getElementById("schedAnnouncement").value || null,
     say: document.getElementById("schedSay").value.trim() || null,
+    before_end: collectEndRows(),
     settings: collectScheduleSettings(),
   };
   if (when === "days" && !body.days.length) {

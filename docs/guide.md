@@ -1558,6 +1558,15 @@ schedule has a name and:
   address) or sent as an audio file. Silences are cut and the level matched,
   as for a name in its owner's voice. A schedule is saved before it can hold
   one, and deleting the schedule deletes it.
+- **Before the end** (a schedule with a stop, or the party): up to six
+  reminders, each some minutes before the end - or at the end itself with 0 -
+  and each one a text (typed, or one of the suggested texts filled in and left
+  to edit), a recorded message (microphone or file, as above) or one of your
+  announcements. They play over the music. The one at the end is said once
+  the stop has paused the music or put the radio in standby; before a radio
+  switches itself off, the music fades and the end is heard whole first (90
+  seconds at most). A party says its end when it ends, by its time or by
+  hand, after the song if *Let the song end first* is on.
 - **Starts the music at** and **Stops at**: one, the other, or both. A start
   only starts the music when nothing is playing - like the daily start, it is
   a floor, not a leash. A stop at or before the start is the next morning

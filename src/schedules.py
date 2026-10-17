@@ -18,6 +18,10 @@ BLOCK = "schedules"
 
 STOP_ACTIONS = ("pause", "standby", "poweroff")
 SAY_MAX = 200
+# What is said before a schedule ends: a few of them, up to four hours ahead, 0 being the end itself.
+END_REMINDERS_MAX = 6
+END_MINUTES_MAX = 240
+END_KINDS = ("text", "voice", "announcement")
 VOICE_MAX_SEC = 30.0
 NAME_MAX = 40
 VALUE_MAX = 200
@@ -94,6 +98,40 @@ def _settings(raw):
     return clean
 
 
+def _before_end(raw):
+    """The reminders said before the end, latest first; one per minute count."""
+    if raw in (None, ""):
+        return []
+    if not isinstance(raw, list) or len(raw) > END_REMINDERS_MAX:
+        raise ValueError("schedule_bad_reminder")
+    clean = {}
+    for entry in raw:
+        if not isinstance(entry, dict):
+            raise ValueError("schedule_bad_reminder")
+        try:
+            minutes = int(entry.get("min"))
+        except (TypeError, ValueError):
+            raise ValueError("schedule_bad_reminder")
+        kind = str(entry.get("kind") or "")
+        if not 0 <= minutes <= END_MINUTES_MAX or kind not in END_KINDS:
+            raise ValueError("schedule_bad_reminder")
+        reminder = {"min": minutes, "kind": kind}
+        if kind == "text":
+            text = " ".join(str(entry.get("text") or "").split())
+            if not text:
+                raise ValueError("schedule_bad_reminder")
+            if len(text) > SAY_MAX:
+                raise ValueError("schedule_say_too_long")
+            reminder["text"] = text
+        elif kind == "announcement":
+            wanted = str(entry.get("announcement") or "").strip()
+            if not re.match(r"^[a-z0-9-]{1,80}$", wanted):
+                raise ValueError("schedule_bad_announcement")
+            reminder["announcement"] = wanted
+        clean[minutes] = reminder
+    return [clean[minutes] for minutes in sorted(clean, reverse=True)]
+
+
 def validate(data):
     """Raises ValueError carrying an error CODE, like the other JSON stores."""
     name = str(data.get("name", "")).strip()
@@ -154,6 +192,8 @@ def validate(data):
         "list": music,
         "announcement": announcement if start or party else None,
         "say": (say or None) if start or party else None,
+        # Only a schedule that has an end can count down to it.
+        "before_end": _before_end(data.get("before_end")) if stop or party else [],
         "settings": _settings(data.get("settings")),
     }
     if party:
@@ -258,6 +298,24 @@ def voice_path(state_dir, schedule_id):
 def voice(state_dir, schedule_id):
     found = voice_path(state_dir, schedule_id)
     return found if found and os.path.isfile(found) else None
+
+
+def end_voice_path(state_dir, schedule_id, minutes):
+    """Where the message recorded for `minutes` before the schedule's end lives."""
+    return voice_path(state_dir, "%s-end-%d" % (schedule_id, int(minutes)))
+
+
+def end_voice(state_dir, schedule_id, minutes):
+    found = end_voice_path(state_dir, schedule_id, minutes)
+    return found if found and os.path.isfile(found) else None
+
+
+def remove_voices(state_dir, schedule_id):
+    """Every recording of a schedule: its message and those before its end."""
+    for path in [voice_path(state_dir, schedule_id)] + [
+            end_voice_path(state_dir, schedule_id, minutes) for minutes in range(END_MINUTES_MAX + 1)]:
+        if path and os.path.isfile(path):
+            os.remove(path)
 
 
 def delete(schedule_id, path=None):

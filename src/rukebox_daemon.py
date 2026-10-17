@@ -12,7 +12,7 @@ import sys
 import tempfile
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -379,6 +379,7 @@ class RadioDaemon:
         self._sleep_at_end = False
         self._party_last = None
         self._party_hold = None
+        self._end_said = {}
         self._track_count = None
         self._output_override = None
         # The USB key the library reads from, while one is in use: None means
@@ -2839,6 +2840,7 @@ class RadioDaemon:
         self._follow_schedule(party or schedules.active(items, now))
         if fresh:
             self._schedule_start(party)
+        self._before_end(now)
         for item in items:
             if item.get("enabled", True) and schedules.start_due(item, now) \
                     and self._schedule_once("start", item, now):
@@ -2876,12 +2878,83 @@ class RadioDaemon:
             if self._party_hold == track:
                 return last
         self._party_last = self._party_hold = None
+        if last is not None:
+            self._say_at_end(last)
         return None
 
     def _party_release(self):
         """The song a party was held for has ended: the usual settings come back before the next one."""
+        last = self._party_last
         self._party_last = self._party_hold = None
         self._follow_schedule(schedules.active(self._schedules(), datetime.now()))
+        self._say_at_end(last)
+
+    # A reminder whose minute was missed by more than this (the radio was off) is not said.
+    END_LATE_SEC = 120
+
+    def _before_end(self, now):
+        """Queues what the running schedule says some minutes before its end."""
+        active = self._schedule_active
+        if not active or active.get("open") or not active.get("end"):
+            return
+        for reminder in active.get("before_end") or []:
+            if not reminder.get("min"):
+                continue
+            due = active["end"] - timedelta(minutes=reminder["min"])
+            key = (active["id"], active["end"].isoformat(), reminder["min"])
+            if key in self._end_said or not due <= now < due + timedelta(seconds=self.END_LATE_SEC):
+                continue
+            self._end_said[key] = True
+            part = self._end_part(active, reminder)
+            if part is None:
+                continue
+            log.info("Schedule '%s': %d min before its end", active["name"], reminder["min"])
+            if self._schedule_say and self._schedule_say[2] == active["id"]:
+                self._schedule_say[0].append(part)
+            else:
+                self._schedule_say = ([part], time.time(), active["id"])
+
+    def _end_part(self, item, reminder):
+        """("say", text) or ("file", path) of one reminder, or None when it has nothing to say."""
+        kind = reminder.get("kind")
+        if kind == "text":
+            return ("say", reminder.get("text")) if reminder.get("text") else None
+        if kind == "voice":
+            found = schedules.end_voice(self.cfg["STATE_DIR"], item["id"], reminder["min"])
+            return ("file", found) if found else None
+        if kind == "announcement":
+            found = next((one for one in self._custom_announcements
+                          if one["id"] == reminder.get("announcement") and one.get("enabled", True)), None)
+            files = self._next_announce_file("custom:%s" % found["id"], found["folder"]) if found else []
+            return ("file", files[0]) if files else None
+        return None
+
+    def _end_path(self, item):
+        """The file the end itself says (its 0-minute reminder), or None."""
+        reminder = next((one for one in (item or {}).get("before_end") or [] if one.get("min") == 0), None)
+        part = self._end_part(item, reminder) if reminder else None
+        if part is None:
+            return None
+        kind, value = part
+        return value if kind == "file" else self._speech_text_file(speech.clean_text(value, schedules.SAY_MAX))
+
+    def _say_at_end(self, item):
+        path = self._end_path(item)
+        if path:
+            log.info("Schedule '%s': its end is said", item["name"])
+            self._say_path(path, under=self._music_under() or self.REMINDER_UNDER)
+
+    # Waited for before switching off, so the end is heard whole; a longer file is cut.
+    END_SAY_MAX_SEC = 90
+
+    def _say_and_wait(self, path):
+        command = ["mpv", "--no-terminal", "--really-quiet",
+                   "--audio-device=" + (self._audio_device or "auto")] + MPV_LEAN + [path]
+        try:
+            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           env=audio_env(), timeout=self.END_SAY_MAX_SEC)
+        except (OSError, subprocess.SubprocessError):
+            log.warning("Could not say the end before switching off: %s", path)
 
     def _schedule_once(self, what, item, now):
         """True the first time in this minute. Kept in memory, not per day: a
@@ -2992,15 +3065,24 @@ class RadioDaemon:
         action = item.get("stop_action") or "pause"
         log.info("Schedule '%s': stop (%s)", item["name"], action)
         self.stats.record("schedule_stop", label=item["name"], detail={"id": item["id"], "action": action})
+        end = self._end_path(item)
         if self.mode == "game":
             # A game is never cut short: the radio goes to standby when it ends.
             self._standby_after_game = True
         elif action == "poweroff":
+            if end:
+                # Heard whole before the radio goes: the music first fades away.
+                if self.mode == "music" and not self._paused:
+                    self._fade_out_and_pause(self.cfg["LONGPRESS_FADE_DURATION_SEC"])
+                self._say_and_wait(end)
+                end = None
             self._power_off_now(reason="schedule")
         elif action == "standby":
             self._go_standby("schedule")
         elif self.mode == "music" and not self._paused:
             self._set_pause(True, "schedule")
+        if end:
+            self._say_path(end)
 
     def _schedule_status(self):
         active = self._schedule_active
