@@ -4042,10 +4042,62 @@ def _game_player():
 
 GAME_SPEECH_KEEP_SEC = 600
 _game_speech_seq = 0
+# The sentences a background thread is rendering right now, so none is asked twice.
+_speech_warming = set()
 
 
 def _game_speech_dir():
     return os.path.join(cfg()["STATE_DIR"], "game-speech")
+
+
+def _speech_groups(parts, c):
+    """The parts in the order they are said: ("text", sentence, named) and ("voice", path, False).
+    Consecutive words make one sentence; a recorded name or a sound ends it."""
+    groups, words = [], []
+    named = [False]
+
+    def flush():
+        text = re.sub(r"\s+([.,!])", r"\1", " ".join(words)).strip(" ,")
+        words.clear()
+        if text and text not in ".!":
+            groups.append(("text", text, named[0]))
+        named[0] = False
+
+    for part in parts:
+        voice = name_voice.existing(c["STATE_DIR"], part.get("person")) if "name" in part else None
+        voice = part.get("sound") or voice
+        if voice:
+            flush()
+            groups.append(("voice", voice, False))
+            continue
+        if "name" in part:
+            named[0] = True
+        words.append(part.get("text") if "text" in part else part.get("name") or "")
+    flush()
+    return groups
+
+
+def _warm_texts(texts, lang, voice):
+    """Renders those sentences into the speech cache, one after the other."""
+    try:
+        for text in texts:
+            speech.warm(text, lang, voice)
+    finally:
+        _speech_warming.difference_update(texts)
+
+
+def _warm_speech(parts):
+    """Makes the sentences that carry no name ahead of time: what they say is known before the
+    round ends, and piper takes seconds on a small board."""
+    c = cfg()
+    todo = [value for kind, value, named in _speech_groups(parts, c)
+            if kind == "text" and not named and value not in _speech_warming]
+    if not todo:
+        return
+    _speech_warming.update(todo)
+    threading.Thread(target=_warm_texts,
+                     args=(todo, c.get("SPEECH_LANGUAGE"), c.get("PIPER_VOICE")),
+                     daemon=True).start()
 
 
 def _game_speech(parts):
@@ -4062,28 +4114,15 @@ def _game_speech(parts):
                 os.remove(os.path.join(folder, old))
         except OSError:
             pass
-    pieces, words = [], []
-
-    def said():
-        global _game_speech_seq
-        text = re.sub(r"\s+([.,!])", r"\1", " ".join(words)).strip(" ,")
-        words.clear()
-        if not text or text in ".!":
-            return
+    pieces = []
+    for kind, value, _named in _speech_groups(parts, c):
+        if kind == "voice":
+            pieces.append(value)
+            continue
         _game_speech_seq += 1
         out = os.path.join(folder, "t%d.wav" % _game_speech_seq)
-        if speech.render(text, c.get("SPEECH_LANGUAGE"), out, c.get("PIPER_VOICE")):
+        if speech.render(value, c.get("SPEECH_LANGUAGE"), out, c.get("PIPER_VOICE")):
             pieces.append(out)
-
-    for part in parts:
-        voice = name_voice.existing(c["STATE_DIR"], part.get("person")) if "name" in part else None
-        voice = part.get("sound") or voice
-        if voice:
-            said()
-            pieces.append(voice)
-        else:
-            words.append(part.get("text") if "text" in part else part.get("name") or "")
-    said()
     if not pieces:
         return None, 0
     _game_speech_seq += 1
@@ -4228,6 +4267,9 @@ def _game_run(game):
             if not result.get("ok"):
                 game.finish(result.get("error") or "daemon_unreachable")
                 return
+            # The answer's own words are known now: piper's seconds are better spent while the clip plays.
+            if game.mode == "oral" or c.get("GAME_VOICE_ANSWER"):
+                _warm_speech(speech.game_parts("answer", [question], c.get("SPEECH_LANGUAGE")))
             question["started"] = time.monotonic()
             deadline = question["started"] + game.clip_sec
             while time.monotonic() < deadline and not game.stopped and not game.everyone_answered():

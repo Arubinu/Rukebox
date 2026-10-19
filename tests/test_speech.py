@@ -122,6 +122,34 @@ class RenderTest(unittest.TestCase):
         self.assertNotEqual(said, speech._cache_path("Il est 7 heures.", "nl", None))
         self.assertNotEqual(said, speech._cache_path("Il est 8 heures.", "fr", None))
 
+    def test_a_warmed_sentence_waits_in_the_cache(self):
+        """A sentence made ahead of time costs nothing when it is finally asked for."""
+        self.install_piper()
+        calls, made = [], []
+
+        def run(command, **kwargs):
+            calls.append(command[0])
+            target = next(command[command.index(flag) + 1]
+                          for flag in ("-w", "--output_file", "-f") if flag in command)
+            with open(target, "wb") as handle:
+                handle.write(b"\0" * 100)
+            return mock.Mock(returncode=0, stderr=b"")
+
+        def mkstemp(suffix=""):
+            path = os.path.join(self.dir, "scratch%d%s" % (len(made), suffix))
+            made.append(path)
+            return os.open(path, os.O_CREAT | os.O_WRONLY), path
+
+        sentence = "Le blind test est terminé."
+        with mock.patch.object(speech.shutil, "which", lambda name: name if name == "piper" else None), \
+                mock.patch.object(speech.subprocess, "run", run), \
+                mock.patch.object(speech.tempfile, "mkstemp", mkstemp):
+            self.assertTrue(speech.warm(sentence, "fr"))
+            self.assertTrue(speech.warm(sentence, "fr"), "the second time is a copy")
+        self.assertEqual(len(calls), 1, "the model is loaded once")
+        self.assertTrue(os.path.exists(speech._cache_path(sentence, "fr", None)))
+        self.assertEqual([os.path.exists(path) for path in made], [False], "no scratch file is left")
+
     def test_every_spoken_language_has_a_natural_voice(self):
         for lang in speech.LANGUAGES:
             voice = speech.default_voice(lang)

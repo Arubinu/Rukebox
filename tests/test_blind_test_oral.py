@@ -135,6 +135,44 @@ class SaidAtTheEndOfARoundTest(unittest.TestCase):
         self.assertEqual(len(self.said("phones", GAME_VOICE_ANSWER=True)), 1)
 
 
+class WarmedSpeechTest(unittest.TestCase):
+    """The sentences that carry no name are made while the clip plays, not once it is over."""
+
+    def values(self, **settings):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        return dict(ws.cfg(), STATE_DIR=folder, **settings)
+
+    def test_the_answer_carries_no_name(self):
+        c = self.values()
+        question = {"title": "Song", "artist": "Artist", "kind": "song"}
+        groups = ws._speech_groups(speech.game_parts("answer", [question], c.get("SPEECH_LANGUAGE")), c)
+        self.assertEqual([named for _kind, _value, named in groups], [False])
+
+    def test_who_found_it_is_never_made_ahead(self):
+        c = self.values()
+        parts = [{"text": "Right answer from"}, {"name": "Ana", "person": None}, {"text": "."}]
+        groups = ws._speech_groups(parts, c)
+        self.assertEqual([kind for kind, _value, _named in groups], ["text"])
+        self.assertTrue(groups[0][2], "a name cannot be guessed before the round ends")
+
+    def test_a_sound_keeps_the_sentences_apart(self):
+        c = self.values()
+        parts = [{"text": "Nobody found it."}, {"sound": "/s/ding.wav"}, {"text": "That was Song."}]
+        groups = ws._speech_groups(parts, c)
+        self.assertEqual([(kind, named) for kind, _value, named in groups],
+                         [("text", False), ("voice", False), ("text", False)])
+
+    def test_the_made_ahead_sentences_go_through_the_cache_and_are_released(self):
+        ws._speech_warming.update(["One.", "Two."])
+        warmed = []
+        with mock.patch.object(ws.speech, "warm",
+                               side_effect=lambda text, lang, voice: warmed.append((text, lang))):
+            ws._warm_texts(["One.", "Two."], "fr", "")
+        self.assertEqual(warmed, [("One.", "fr"), ("Two.", "fr")])
+        self.assertEqual(ws._speech_warming, set(), "nothing stays in flight")
+
+
 class HostTapsTest(unittest.TestCase):
     def test_a_click_or_the_page_moves_the_game_on(self):
         game = blind_test.Game(tracks(), rounds=3, mode="oral", pace="host")

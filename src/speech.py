@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 
 import paths
 
@@ -628,3 +629,21 @@ def render(text, lang, path, choice=None):
     if not commands:
         log.warning("No speech program installed (piper, pico2wave or espeak-ng)")
     return False
+
+
+def warm(text, lang, choice=None):
+    """Renders a sentence into the cache before it is asked for; True when it is ready."""
+    text = str(text or "").strip()
+    if not text:
+        return False
+    if os.path.exists(_cache_path(text, language(lang), choice)):
+        return True
+    handle, scratch = tempfile.mkstemp(suffix=".wav")
+    os.close(handle)
+    try:
+        return render(text, lang, scratch, choice)
+    finally:
+        try:
+            os.remove(scratch)
+        except OSError:
+            pass
