@@ -69,7 +69,8 @@ class TurnTest(DaemonCase):
         with mock.patch.object(self.daemon, "_perform_direct_action", return_value="next") as act:
             self.daemon._rotary_turn(1, "rotary")
             self.assertEqual(self.daemon._rotary_turn(1, "rotary"), "ignored", "one song per notch, not a burst")
-            self.daemon._rotary_track_at -= self.daemon.ROTARY_TRACK_GAP_SEC
+            # Past the gap with room to spare: a coarse clock can give the same instant twice.
+            self.daemon._rotary_track_at -= self.daemon.ROTARY_TRACK_GAP_SEC + 1
             self.daemon._rotary_turn(-1, "rotary")
         self.assertEqual([c.args[0] for c in act.call_args_list], ["next", "previous"])
         self.daemon.cfg["ROTARY_TURN_ACTION"] = "off"
