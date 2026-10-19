@@ -10,6 +10,7 @@ from unittest import mock
 import _path  # noqa: F401
 import blind_test
 import game_sounds
+import name_voice
 import speech
 import web_server as ws
 
@@ -171,6 +172,23 @@ class WarmedSpeechTest(unittest.TestCase):
             ws._warm_texts(["One.", "Two."], "fr", "")
         self.assertEqual(warmed, [("One.", "fr"), ("Two.", "fr")])
         self.assertEqual(ws._speech_warming, set(), "nothing stays in flight")
+
+    def test_a_name_with_its_own_recording_leaves_only_the_words_before_it(self):
+        c = self.values()
+        os.makedirs(name_voice.folder(c["STATE_DIR"]))
+        with open(name_voice.path(c["STATE_DIR"], "p1"), "wb") as handle:
+            handle.write(b"x")
+        parts = [{"text": "Right answer from"}, {"name": "Fox", "person": "p1"}, {"text": "and"},
+                 {"name": "Owl", "person": "p9"}, {"text": "."}]
+        groups = ws._speech_groups(parts, c)
+        self.assertEqual([value for kind, value, named in groups if kind == "text" and not named],
+                         ["Right answer from"], "the rest of the sentence names a player")
+
+    def test_a_sentence_that_cannot_be_made_releases_the_guard(self):
+        ws._speech_warming.update(["One."])
+        with mock.patch.object(ws.speech, "warm", side_effect=OSError("no room")):
+            ws._warm_texts(["One."], "fr", "")
+        self.assertEqual(ws._speech_warming, set(), "a failure never blocks that sentence for good")
 
 
 class HostTapsTest(unittest.TestCase):

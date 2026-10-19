@@ -4081,7 +4081,10 @@ def _warm_texts(texts, lang, voice):
     """Renders those sentences into the speech cache, one after the other."""
     try:
         for text in texts:
-            speech.warm(text, lang, voice)
+            try:
+                speech.warm(text, lang, voice)
+            except Exception:  # noqa: BLE001 - a voice that fails never stops the game
+                log.warning("Could not make a sentence ahead of time", exc_info=True)
     finally:
         _speech_warming.difference_update(texts)
 

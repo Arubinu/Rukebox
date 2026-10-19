@@ -508,9 +508,12 @@ def _from_cache(text, lang, choice, path):
 def _remember(text, lang, choice, path):
     """Keeps a copy of what was just said, and drops the oldest when it grows."""
     target = _cache_path(text, lang, choice)
+    scratch = target + ".tmp"
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        shutil.copyfile(path, target)
+        shutil.copyfile(path, scratch)
+        # Renamed into place: two copies of one sentence at once never mix into a broken WAV.
+        os.replace(scratch, target)
         folder = os.path.dirname(target)
         entries = [os.path.join(folder, n) for n in os.listdir(folder)]
         if len(entries) > CACHE_KEEP:
@@ -519,6 +522,10 @@ def _remember(text, lang, choice, path):
                 os.remove(old)
     except OSError:
         log.debug("Could not keep the spoken sentence", exc_info=True)
+        try:
+            os.remove(scratch)
+        except OSError:
+            pass
 
 
 def title_voices(main_lang):

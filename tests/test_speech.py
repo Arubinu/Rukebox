@@ -150,6 +150,25 @@ class RenderTest(unittest.TestCase):
         self.assertTrue(os.path.exists(speech._cache_path(sentence, "fr", None)))
         self.assertEqual([os.path.exists(path) for path in made], [False], "no scratch file is left")
 
+    def test_a_copy_written_into_the_cache_never_lands_half_written(self):
+        """Two copies of one sentence can be made at once: the cache keeps a whole one."""
+        target = speech._cache_path("Il est 7 heures.", "fr", None)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "wb") as handle:
+            handle.write(b"whole")
+
+        def broken_copy(source, destination):
+            with open(destination, "wb") as handle:
+                handle.write(b"hal")
+            raise OSError("no room")
+
+        with mock.patch.object(speech.shutil, "copyfile", side_effect=broken_copy):
+            speech._remember("Il est 7 heures.", "fr", None, os.path.join(self.dir, "said.wav"))
+        with open(target, "rb") as handle:
+            self.assertEqual(handle.read(), b"whole", "the copy said before is still whole")
+        self.assertEqual([name for name in os.listdir(os.path.dirname(target)) if name.endswith(".tmp")],
+                         [], "nothing half written is left behind")
+
     def test_every_spoken_language_has_a_natural_voice(self):
         for lang in speech.LANGUAGES:
             voice = speech.default_voice(lang)
