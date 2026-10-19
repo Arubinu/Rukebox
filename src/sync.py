@@ -282,24 +282,28 @@ def ssh_key(state_dir):
 
 
 def scan_host_key(host, port):
-    """(the server's ed25519 or other key line, its SHA256 fingerprint), or (None, None)."""
+    """(every key line the server offers, their SHA256 fingerprints), or (None, []).
+
+    All of them are pinned: rclone's SSH client may settle on any type the server has."""
     try:
         done = subprocess.run(["ssh-keyscan", "-T", "5", "-p", str(int(port)), "--", host],
                               capture_output=True, text=True, timeout=15)
     except (OSError, subprocess.SubprocessError):
-        return None, None
-    lines = [line for line in done.stdout.splitlines() if line and not line.startswith("#")]
-    lines.sort(key=lambda line: 0 if " ssh-ed25519 " in line else 1)
+        return None, []
+    lines = sorted(line for line in done.stdout.splitlines() if line and not line.startswith("#"))
     if not lines:
-        return None, None
+        return None, []
     with tempfile.NamedTemporaryFile("w", delete=False, suffix=".pub") as f:
-        f.write(lines[0] + "\n")
+        f.write("\n".join(lines) + "\n")
         name = f.name
     try:
         printed = subprocess.run(["ssh-keygen", "-l", "-E", "sha256", "-f", name],
-                                 capture_output=True, text=True, timeout=10).stdout.split()
+                                 capture_output=True, text=True, timeout=10).stdout.splitlines()
     except (OSError, subprocess.SubprocessError):
         printed = []
     finally:
         os.remove(name)
-    return lines[0], (printed[1] if len(printed) > 1 else None)
+    # "256 SHA256:abc... host (ED25519)": the type, then the fingerprint.
+    fingerprints = sorted("%s %s" % (row.split()[-1].strip("()"), row.split()[1])
+                          for row in printed if len(row.split()) >= 3)
+    return "\n".join(lines), fingerprints

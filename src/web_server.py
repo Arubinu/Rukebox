@@ -5151,16 +5151,17 @@ def api_sync_host_key(connection_id):
         return _sync_error(e)
     if conn["type"] != "sftp":
         return jsonify({"ok": False, "error": "sync_not_sftp"}), 400
-    line, fingerprint = sync_mod.scan_host_key(conn["host"], conn["port"])
-    if not line or not fingerprint:
+    lines, fingerprints = sync_mod.scan_host_key(conn["host"], conn["port"])
+    if not lines or not fingerprints:
         return jsonify({"ok": False, "error": "sync_host_unreachable"}), 400
-    wanted = str((request.get_json(silent=True) or {}).get("fingerprint") or "")
+    wanted = (request.get_json(silent=True) or {}).get("fingerprints")
     if not wanted:
-        return jsonify({"ok": True, "data": {"fingerprint": fingerprint}})
-    if wanted != fingerprint:
+        return jsonify({"ok": True, "data": {"fingerprints": fingerprints}})
+    # Pinned only when the server still shows exactly what the owner read.
+    if sorted(str(item) for item in wanted) != fingerprints:
         return jsonify({"ok": False, "error": "sync_host_key_changed"}), 409
-    syncs.pin_host_key(connection_id, line)
-    stats.record("sync_host_key_pinned", label=conn["name"], detail={"fingerprint": fingerprint})
+    syncs.pin_host_key(connection_id, lines)
+    stats.record("sync_host_key_pinned", label=conn["name"], detail={"fingerprints": fingerprints})
     return jsonify({"ok": True, "data": _sync_view()})
 
 

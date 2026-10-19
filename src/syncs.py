@@ -142,7 +142,9 @@ def validate_connection(data):
         clean["vendor"] = _choice(data.get("vendor"), VENDORS, "other")
     # The server's own key, pinned once the owner accepted it: never typed in.
     host_key = str(data.get("host_key") or "").strip()
-    if host_key and (len(host_key) > 2048 or any(ord(c) < 32 for c in host_key)):
+    # One line per key type the server offers, nothing else.
+    if host_key and (len(host_key) > 8192 or len(host_key.splitlines()) > 8
+                     or any(ord(c) < 32 and c != "\n" for c in host_key)):
         raise ValueError("sync_bad_host_key")
     if kind == "sftp":
         clean["host_key"] = host_key
