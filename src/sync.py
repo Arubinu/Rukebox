@@ -75,8 +75,8 @@ def remote_path(conn, job):
     return "%s:%s" % (REMOTE, "/".join(parts))
 
 
-def build_command(job, conn, config_path, limit_kbps=0):
-    """The argument list (never a shell string) for one run."""
+def build_command(job, conn, config_path, limit_kbps=0, room_mb=None):
+    """The argument list (never a shell string) for one run; `room_mb` caps what it brings."""
     extensions = ",".join(job["extensions"])
     command = [
         "rclone", "copy", remote_path(conn, job), job["target"],
@@ -91,6 +91,9 @@ def build_command(job, conn, config_path, limit_kbps=0):
     ]
     if limit_kbps and limit_kbps > 0:
         command += ["--bwlimit", "%dk" % int(limit_kbps)]
+    if room_mb is not None:
+        # The file under way is finished, then the run ends: the card never fills up.
+        command += ["--max-transfer", "%dM" % max(1, int(room_mb)), "--cutoff-mode", "soft"]
     if conn.get("tls") == "self_signed" and conn["type"] == "webdav":
         command.append("--no-check-certificate")
     # Below the music: nice for the processor, idle class for the card.
@@ -129,8 +132,9 @@ def parse_line(line):
 class Run:
     """One rclone process and what it reports; started by start(), ended by itself or stop()."""
 
-    def __init__(self, job, conn, password=None, key_file=None, limit_kbps=0, workdir=None):
+    def __init__(self, job, conn, password=None, key_file=None, limit_kbps=0, workdir=None, room_mb=None):
         self.job = job
+        self.room_mb = room_mb
         self.conn = conn
         self.password = password
         self.key_file = key_file
@@ -165,7 +169,7 @@ class Run:
     def start(self):
         config_path, env = self._prepare()
         os.makedirs(self.job["target"], exist_ok=True)
-        command = build_command(self.job, self.conn, config_path, self.limit_kbps)
+        command = build_command(self.job, self.conn, config_path, self.limit_kbps, self.room_mb)
         self.started = time.time()
         self.status = "running"
         self.process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,

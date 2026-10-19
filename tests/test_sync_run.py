@@ -30,6 +30,9 @@ class CommandTest(unittest.TestCase):
             self.assertNotIn(never, command)
         unlimited = sync.build_command(JOB, CONN, "c", 0)
         self.assertNotIn("--bwlimit", unlimited)
+        capped = sync.build_command(JOB, CONN, "c", 0, room_mb=700)
+        self.assertEqual(capped[capped.index("--max-transfer") + 1], "700M", "never more than the room left")
+        self.assertEqual(capped[capped.index("--cutoff-mode") + 1], "soft")
 
     def test_it_runs_below_the_music(self):
         with mock.patch.object(sync.shutil, "which", return_value="/usr/bin/x"):

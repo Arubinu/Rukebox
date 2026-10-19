@@ -90,7 +90,7 @@ class ConditionTest(unittest.TestCase):
 class FakeRun:
     made = []
 
-    def __init__(self, job, conn, password, key_file, rate, workdir):
+    def __init__(self, job, conn, password, key_file, rate, workdir, room_mb=None):
         self.job, self.rate = job, rate
         self.started, self.ended, self.progress = 1.0, None, {}
         self.added, self.updated = [], []

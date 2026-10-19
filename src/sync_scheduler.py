@@ -208,9 +208,11 @@ class Manager:
             if conn.get("auth") == "key":
                 key_file, _public = sync.ssh_key(self.state_dir)
             try:
-                if _free_bytes(job["target"]) < FREE_FLOOR_BYTES:
+                free = _free_bytes(job["target"])
+                if free < FREE_FLOOR_BYTES:
                     return "no_space"
-                self.run = sync.Run(job, conn, password, key_file, rate or 0, self.state_dir).start()
+                room_mb = (free - FREE_FLOOR_BYTES) // (1024 * 1024)
+                self.run = sync.Run(job, conn, password, key_file, rate or 0, self.state_dir, room_mb).start()
             except (OSError, subprocess.SubprocessError, ValueError):
                 log.exception("The sync %s could not start", job_id)
                 return "sync_failed"
