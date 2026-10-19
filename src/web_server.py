@@ -5065,7 +5065,7 @@ _SETTINGS_WRITE_ONLY = {"home_assistant.password"}
 # keeps its files, the reset button and the USB port. An operator keeps every
 # other setting (src/roles.py).
 _OWNER_SETTINGS = frozenset(
-    {s.path for s in config_schema.SETTINGS if s.section in ("network", "updates", "paths")}
+    {s.path for s in config_schema.SETTINGS if s.section in ("network", "updates", "paths", "sync")}
     | {"security.gpio_reset_enabled", "security.gpio_reset_pin", "hardware.usb_port_mode"})
 
 

@@ -40,6 +40,7 @@ SECTIONS = [
     ("network", "Web interface and Wi-Fi"),
     ("security", "Web interface password (optional) and its GPIO reset"),
     ("suggestions", "Suggestion box: music and announcement ideas, votes, names"),
+    ("sync", "Folders filled from another machine (rclone): what every sync shares"),
     ("hardware", "The Pi itself"),
     ("statistics", "Usage statistics"),
     ("updates", "Updates"),
@@ -1213,6 +1214,33 @@ SETTINGS = [
         "  off    -> never",
         "Limit transfers",
     ),
+    Setting("SYNC_BOOT_DELAY_MIN", "sync", "boot_delay_min", "int", "5",
+            "Minutes after the radio starts before any sync runs, so the music and\n"
+            "the network settle first.",
+            "Wait after starting (min)"),
+    Setting("SYNC_SHUTDOWN_WAIT_MIN", "sync", "shutdown_wait_min", "int", "10",
+            "When the radio is due to switch itself off while a sync runs, it\n"
+            "waits this many minutes at most for the sync to end. 0 = never waits.",
+            "Wait before switching off (min)"),
+    Setting("SYNC_SHUTDOWN_FALLBACK", "sync", "shutdown_fallback", "str", "standby",
+            "A sync still running once that wait is over:\n"
+            "  standby  -> the radio goes on standby instead, the sync finishes\n"
+            "  poweroff -> the sync is stopped and the radio switches off",
+            "If the sync is not over"),
+    Setting("SYNC_LIMIT_KBPS", "sync", "limit_kbps", "int", "0",
+            "Download speed of a sync, in kilobytes per second. 0 = no limit.",
+            "Sync speed (KB/s)"),
+    Setting("SYNC_BT_MODE", "sync", "bt_mode", "str", "limit",
+            "While music plays over the built-in Bluetooth, which shares its radio\n"
+            "with the Wi-Fi:\n"
+            "  limit -> the speed below applies\n"
+            "  pause -> the sync waits until the music stops\n"
+            "  none  -> nothing changes",
+            "While the built-in Bluetooth plays"),
+    Setting("SYNC_LIMIT_BT_KBPS", "sync", "limit_bt_kbps", "int", "100",
+            "Download speed of a sync while music plays over the built-in\n"
+            "Bluetooth, in kilobytes per second.",
+            "Speed while it plays (KB/s)"),
     Setting("TRANSFER_LIMIT_KBPS", "hardware", "transfer_limit_kbps", "int", "200",
             "Upload speed while limited, in kilobytes per second.",
             "Limited speed (KB/s)"),

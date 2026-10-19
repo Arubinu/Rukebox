@@ -1081,6 +1081,37 @@ suggestions:
   database: "/var/lib/rukebox/suggestions.db"
 
 # ---------------------------------------------------------------
+# Folders filled from another machine (rclone): what every sync shares
+# ---------------------------------------------------------------
+sync:
+  # Minutes after the radio starts before any sync runs, so the music and
+  # the network settle first.
+  boot_delay_min: 5
+
+  # When the radio is due to switch itself off while a sync runs, it
+  # waits this many minutes at most for the sync to end. 0 = never waits.
+  shutdown_wait_min: 10
+
+  # A sync still running once that wait is over:
+  #   standby  -> the radio goes on standby instead, the sync finishes
+  #   poweroff -> the sync is stopped and the radio switches off
+  shutdown_fallback: "standby"
+
+  # Download speed of a sync, in kilobytes per second. 0 = no limit.
+  limit_kbps: 0
+
+  # While music plays over the built-in Bluetooth, which shares its radio
+  # with the Wi-Fi:
+  #   limit -> the speed below applies
+  #   pause -> the sync waits until the music stops
+  #   none  -> nothing changes
+  bt_mode: "limit"
+
+  # Download speed of a sync while music plays over the built-in
+  # Bluetooth, in kilobytes per second.
+  limit_bt_kbps: 100
+
+# ---------------------------------------------------------------
 # The Pi itself
 # ---------------------------------------------------------------
 hardware:
@@ -1290,4 +1321,12 @@ volume_curve:
 # ---------------------------------------------------------------
 stations:
   stations: []
+
+
+# ---------------------------------------------------------------
+# Folders filled from another machine, and when
+# ---------------------------------------------------------------
+syncs:
+  connections: []
+  jobs: []
 

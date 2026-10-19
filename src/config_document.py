@@ -55,6 +55,7 @@ BLOCKS = {
     "people": (None, "people", "people.json"),
     "volume_curve": (None, "volume_curve", "volume_curve.json"),
     "stations": (None, "stations", "stations.json"),
+    "syncs": (None, "syncs", "syncs.json"),
 }
 
 # What a block added to the end of a document is introduced by.
@@ -67,6 +68,7 @@ COMMENTS = {
     "people": "# The people who may log in: name, role, and the password they chose.",
     "volume_curve": "# The daily volume curve: points on the clock, level by level.",
     "stations": "# The web radios: a name and the address of the stream.",
+    "syncs": "# Folders filled from another machine: the connections, and the syncs that use them.",
 }
 
 # What a new document shows of each block, so that the shape is there to read.
@@ -79,6 +81,7 @@ EMPTY = {
     "people": {"items": []},
     "volume_curve": {"points": []},
     "stations": {"stations": []},
+    "syncs": {"connections": [], "jobs": []},
 }
 
 DESCRIPTIONS = {
@@ -90,6 +93,7 @@ DESCRIPTIONS = {
     "people": "Who may log in, and as what",
     "volume_curve": "The daily volume curve",
     "stations": "The web radios, by name and stream address",
+    "syncs": "Folders filled from another machine, and when",
 }
 
 _cache = {}
