@@ -19,8 +19,9 @@ account, geen app: elke telefoon op zijn wifi is de afstandsbediening.
   muziek vanzelf op. Vandaag een verjaardag? De radio zegt het - met je eigen
   stem als je die hebt opgenomen.
 - 🎶 **De hele dag** - je bibliotheek, je lijsten, een webradio als er
-  internet is, of wat een telefoon hem stuurt. Mededelingen en jingles elk op
-  hun eigen moment, zelfs "één keer op twee".
+  internet is, of wat een telefoon hem stuurt. Mededelingen en jingles elk
+  op hun eigen moment, zelfs "één keer op twee". Zijn mappen kunnen zich
+  vanzelf vullen vanaf een NAS of computer, op vaste tijden.
 - 🎉 **Het feest** - één tik op de timer: het volume, de lichten en de
   gasttoegang van het feest voor 3 u, 6 u of tot je het stopt, met een woord
   voor het einde. Gasten scannen een QR-code, zetten nummers in de rij,

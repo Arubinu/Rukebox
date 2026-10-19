@@ -19,8 +19,9 @@ app: any phone on its Wi-Fi is the remote.
   on its own. A birthday today? The radio says it - in your own voice if you
   recorded it.
 - 🎶 **All day** - your library, your lists, a web radio when there is
-  Internet, or what a phone sends it. Announcements and jingles each on their
-  own schedule, even "one time out of two".
+  Internet, or what a phone sends it. Announcements and jingles each on
+  their own schedule, even "one time out of two". Its folders can fill
+  themselves from a NAS or a computer, on their own schedule.
 - 🎉 **The party** - one tap on the timer: the party's volume, lights and
   guest access for 3 h, 6 h or until you stop it, with a word before it ends.
   Guests scan a QR code, queue songs, vote to skip, play a blind test.

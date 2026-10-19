@@ -37,6 +37,10 @@ src/tag_editor.py           A file's own tags and pictures, changed in place
 src/acoustid.py             Recognising a song by its sound (AcoustID)
 src/covers_move.py          The old separate covers folder, moved into the music once
 src/usb_storage.py          Music on a USB key
+src/syncs.py                Folders filled from another machine: connections and syncs
+src/sync.py                 One sync run (rclone, copy only)
+src/sync_scheduler.py       When syncs run, and the switch-off that waits for one
+src/secret_box.py           Passwords sealed with a key of this machine
 
 The web server and who may use it
 src/web_server.py           The web interface's API (Flask) and static files
@@ -3723,6 +3727,59 @@ The same thing by hand, over SSH or the USB cable:
 ```bash
 rsync -av --info=progress2 ~/Music/ pi@rukebox.local:/home/pi/audio/music/
 ```
+
+### Sync from another device
+
+**Sync from another device** (Home, the owner only) fills the radio's folders
+from a computer, a NAS or a cloud folder by itself, with
+[rclone](https://rclone.org) (installed with the radio, and by an update when it
+is missing). Files are **added and updated, never deleted**: a song removed on
+the other side stays on the radio. A container does not offer the page: its
+folders are the host's volumes, filled from the host.
+
+- **Connections** say where and how: a shared folder of a PC or a NAS (SMB),
+  SFTP, WebDAV (Nextcloud, ownCloud) or FTP, an address, a user, a password and
+  a folder. **Try** lists that folder before anything else runs. An SFTP server
+  shows the fingerprints of all its keys once, to compare with the server's own
+  (`ssh-keygen -lf /etc/ssh/ssh_host_*_key.pub`); they are kept, and a server
+  that later shows other keys is refused. In the detailed view, SFTP can sign in
+  with the radio's own SSH key instead: the page shows the line to add to that
+  user's `~/.ssh/authorized_keys`.
+- **Syncs** say what fills what, and when: a folder of the connection, a folder
+  of the radio (the music, an announcement's folder, the button sounds, the
+  radio host's recordings, a system sound), and how often (by hand, every hour
+  to every week). Each folder of the radio fetches only the files it needs: the
+  audio formats, plus covers and lyrics for the music, never anything else
+  (*File types* changes the list). **Add music** offers *Sync this folder from
+  another device*, which opens the form already filled with it.
+- **Conditions** (detailed view): hours of the day (which may cross midnight),
+  after each start, *only with Internet*, *only without Internet* (a NAS on the
+  local network), on the personal Wi-Fi or a given network, and whether music
+  playing makes it wait. A sync held says why on its line.
+- **Options for every sync** (detailed view, `sync:` in `rukebox.yaml`): the wait
+  after starting (`boot_delay_min`), the speed (`limit_kbps`, 0 = no limit), and
+  what the built-in Bluetooth changes while it plays (`bt_mode`: slower at
+  `limit_bt_kbps`, wait for the music to stop, or nothing), since it shares its
+  radio with the Wi-Fi. A run always goes below the music (nice, idle I/O), and
+  starts again at the new speed when the music starts or stops, keeping what
+  was already copied.
+- **The nightly switch-off** waits up to `shutdown_wait_min` for a sync under
+  way, the radio on standby meanwhile; still running after that, it keeps the
+  radio on standby (`shutdown_fallback: standby`) or stops the sync and switches
+  off (`poweroff`). A switch-off asked for by hand never waits.
+- **After a run**: the library is scanned again, the songs a music sync brought
+  go first in the **Recent additions** list (made the first time), the journal
+  keeps a *Sync run* line, and whoever has the page sees a toast when a sync
+  starts and when it ends.
+
+**Passwords** are never stored in clear: they are sealed in
+`/etc/rukebox/sync-secrets.json` (mode 600) with a key of the state folder
+(`/var/lib/rukebox/secret.key`) mixed with the machine's id, and never shown
+again. A backup or an export by the owner carries them sealed, so they are
+useless on another machine: restored elsewhere, **To finish** says that a
+sync's password must be typed again, and those syncs wait until it is. This
+protects a copy of the files, not a radio someone is root on; an app password
+(Nextcloud) or the radio's SSH key are better than a main account's password.
 
 ### Your own lists: everything, or only some of it
 

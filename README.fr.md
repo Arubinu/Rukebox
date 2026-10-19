@@ -21,7 +21,8 @@ télécommande.
   avec ta propre voix si tu l'as enregistrée.
 - 🎶 **Toute la journée** - ta bibliothèque, tes listes, une radio web quand
   il y a Internet, ou ce qu'un téléphone lui envoie. Annonces et jingles
-  chacun à son heure, et même « une fois sur deux ».
+  chacun à son heure, et même « une fois sur deux ». Ses dossiers peuvent se
+  remplir seuls depuis un NAS ou un ordinateur, à heure fixe.
 - 🎉 **La soirée** - un appui sur la minuterie : le volume, les lumières et
   l'accès invités de la soirée pour 3 h, 6 h ou jusqu'à ce que tu l'arrêtes,
   avec un mot avant la fin. Les invités scannent un QR code, ajoutent des

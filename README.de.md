@@ -21,7 +21,8 @@ Fernbedienung.
   mit deiner eigenen Stimme, wenn du sie aufgenommen hast.
 - 🎶 **Den ganzen Tag** - deine Bibliothek, deine Listen, ein Webradio, wenn
   es Internet gibt, oder was ein Handy ihm schickt. Ansagen und Jingles
-  jeweils zu ihrer Zeit, sogar „jedes zweite Mal".
+  jeweils zu ihrer Zeit, sogar „jedes zweite Mal". Seine Ordner füllen sich
+  auf Wunsch selbst von einem NAS oder Computer, nach Zeitplan.
 - 🎉 **Die Party** - ein Tipp auf den Timer: Lautstärke, Licht und
   Gastzugang der Party für 3 h, 6 h oder bis du sie beendest, mit einem Wort
   vor dem Ende. Gäste scannen einen QR-Code, wünschen Lieder, stimmen fürs

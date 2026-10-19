@@ -18,9 +18,10 @@ account, nessuna app: qualsiasi telefono sul suo Wi-Fi è il telecomando.
 - 🌅 **Al mattino** - la striscia luminosa sorge come un'alba, poi la musica
   sale da sola. Oggi è un compleanno? La radio lo dice - con la tua voce, se
   l'hai registrata.
-- 🎶 **Tutto il giorno** - la tua libreria, le tue liste, una web radio quando
-  c'è Internet, o quello che un telefono le manda. Annunci e jingle ciascuno
-  alla sua ora, persino «una volta su due».
+- 🎶 **Tutto il giorno** - la tua libreria, le tue liste, una web radio
+  quando c'è Internet, o quello che un telefono le manda. Annunci e jingle
+  ciascuno alla sua ora, persino «una volta su due». Le sue cartelle possono
+  riempirsi da sole da un NAS o un computer, all'ora che scegli.
 - 🎉 **La festa** - un tocco sul timer: il volume, le luci e l'accesso degli
   ospiti della festa per 3 h, 6 h o finché non la fermi, con una parola prima
   della fine. Gli ospiti inquadrano un codice QR, aggiungono brani, votano per
