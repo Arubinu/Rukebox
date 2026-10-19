@@ -3114,7 +3114,11 @@ select {
 
 .device-list .device-name, .device-list .device-sub { display: block; }
 #deviceList .device-name, #deviceList .device-sub { text-align: center; }
-#wledDevices .device-sub, #remoteList .device-sub { margin-top: 2px; color: var(--text-muted); font-size: 13px; font-weight: 500; }
+#wledDevices .device-sub, #remoteList .device-sub, #syncJobList .device-sub, #syncConnList .device-sub,
+#syncRunList .device-sub { margin-top: 2px; color: var(--text-muted); font-size: 13px; font-weight: 500; }
+.device-list .device-label { min-width: 0; flex: 1 1 12rem; overflow-wrap: anywhere; }
+.sync-fingerprints { margin: 8px 0 0; padding-left: 18px; font-family: ui-monospace, monospace; font-size: 12px;
+  overflow-wrap: anywhere; }
 #remoteList .device-mac + .badge { margin-left: 7px; }
 .device-list .device-mac {
   font-family: ui-monospace, monospace;

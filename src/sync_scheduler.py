@@ -81,7 +81,7 @@ def rate_for(cfg, builtin_bt_playing):
     """The speed limit in KB/s (0 = none), or None when the sync must wait for the music."""
     try:
         normal = max(0, int(cfg.get("SYNC_LIMIT_KBPS") or 0))
-        while_bt = max(16, int(cfg.get("SYNC_LIMIT_BT_KBPS") or 100))
+        while_bt = max(10, int(cfg.get("SYNC_LIMIT_BT_KBPS") or 100))
     except (TypeError, ValueError):
         normal, while_bt = 0, 100
     if not builtin_bt_playing:

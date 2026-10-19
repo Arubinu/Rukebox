@@ -679,6 +679,7 @@ const SETUP_TARGETS = {
   password: ["system", "securityTitle", "key"],
   ap_open: ["network", "apTitle", "wifi"],
   covers_left: ["system", "healthTitle", "image"],
+  sync_secret: ["home", "syncTitle", "key"],
 };
 let setupHidden = [];
 

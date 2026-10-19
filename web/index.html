@@ -601,12 +601,297 @@
             </div>
           </div>
 
+          <div class="sync-here" data-sync-place="music" hidden></div>
+
           <p class="hint help-text" data-i18n="music.help" hidden>
             A file already on the radio with the same size and date is left alone.
           </p>
           <p class="hint help-text" data-i18n="music.companions" hidden>
             Lyrics and covers travel with the tracks.
           </p>
+        </section>
+
+        <section class="card" id="syncCard" data-page="sync" data-tab="home" data-owner aria-labelledby="syncTitle">
+          <h2 data-icon="refresh" id="syncTitle"><span data-i18n="sync.title">Sync from another device</span></h2>
+          <p class="hint" data-i18n="sync.intro">Fills the radio's folders from a computer, a NAS or a cloud folder, on its own schedule. Files are added and updated, never deleted.</p>
+          <p class="hint warning" id="syncNoRclone" data-i18n="sync.no_rclone" hidden>rclone is not installed on this radio: the next update installs it.</p>
+
+          <div id="syncNow" hidden>
+            <p class="hint" id="syncNowLine" role="status"></p>
+            <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="syncProgressBar"></div></div>
+            <div class="actions-row">
+              <button type="button" class="btn" id="syncStop" data-icon="stop" data-i18n="sync.stop">Stop</button>
+            </div>
+          </div>
+
+          <ul class="device-list" id="syncJobList"></ul>
+          <p class="hint" id="syncEmpty" data-i18n="sync.empty">No sync yet.</p>
+          <div class="actions-row">
+            <button type="button" class="btn btn-primary" id="syncAdd" data-icon="plus" data-i18n="sync.add">Add a sync</button>
+          </div>
+
+          <form id="syncJobForm" class="settings-form sync-form" hidden>
+            <div class="field-row">
+              <label for="sjName" data-i18n="sync.f_name">Name</label>
+              <input type="text" id="sjName" class="text-input" maxlength="40" autocomplete="off">
+            </div>
+            <div class="field-row">
+              <label for="sjConnection" data-i18n="sync.f_connection">Connection</label>
+              <select id="sjConnection"></select>
+            </div>
+            <div class="field-row">
+              <div class="field-text">
+                <label for="sjRemote" data-i18n="sync.f_remote">Folder on the other device</label>
+                <p class="field-desc" id="sjRemoteDesc" data-i18n="sync.f_remote_desc">Inside the connection's folder; empty for that folder itself.</p>
+              </div>
+              <input type="text" id="sjRemote" class="text-input" maxlength="512" autocomplete="off" spellcheck="false"
+                     aria-describedby="sjRemoteDesc" placeholder="Rock">
+            </div>
+            <div class="field-row">
+              <label for="sjPlace" data-i18n="sync.f_place">Folder of the radio</label>
+              <select id="sjPlace"></select>
+            </div>
+            <div class="field-row" data-level="detail">
+              <div class="field-text">
+                <label for="sjTarget" data-i18n="sync.f_target">Exact folder</label>
+                <p class="field-desc" id="sjTargetDesc" data-i18n="sync.f_target_desc">The chosen folder, or one inside it.</p>
+              </div>
+              <input type="text" id="sjTarget" class="text-input" maxlength="512" autocomplete="off" spellcheck="false"
+                     aria-describedby="sjTargetDesc">
+            </div>
+            <div class="field-row">
+              <label for="sjEvery" data-i18n="sync.f_every">How often</label>
+              <select id="sjEvery">
+                <option value="0" data-i18n="sync.every_0">Only when asked</option>
+                <option value="1" data-i18n="sync.every_1">Every hour</option>
+                <option value="6" data-i18n="sync.every_6">Every 6 hours</option>
+                <option value="12" data-i18n="sync.every_12">Every 12 hours</option>
+                <option value="24" data-i18n="sync.every_24">Every day</option>
+                <option value="168" data-i18n="sync.every_168">Every week</option>
+              </select>
+            </div>
+            <div class="field-row" id="sjRecentRow">
+              <div class="field-text">
+                <label for="sjRecent" data-i18n="sync.f_recent">"Recent additions" list</label>
+                <p class="field-desc" id="sjRecentDesc" data-i18n="sync.f_recent_desc">The songs it brings go first in that list.</p>
+              </div>
+              <input type="checkbox" id="sjRecent" class="switch-input" role="switch" aria-describedby="sjRecentDesc">
+            </div>
+            <div class="field-row">
+              <label for="sjEnabled" data-i18n="sync.f_enabled">On</label>
+              <input type="checkbox" id="sjEnabled" class="switch-input" role="switch">
+            </div>
+            <details class="subsection" data-level="detail">
+              <summary><span data-i18n="sync.f_when">When and on what conditions</span></summary>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="sjWindowStart" data-i18n="sync.f_window">Between</label>
+                  <p class="field-desc" id="sjWindowDesc" data-i18n="sync.f_window_desc">Empty for any time of the day.</p>
+                </div>
+                <div class="input-with-action">
+                  <input type="time" id="sjWindowStart" class="text-input" aria-describedby="sjWindowDesc">
+                  <input type="time" id="sjWindowEnd" class="text-input" data-i18n-aria-label="sync.f_window_end" aria-label="and">
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="sjAtBoot" data-i18n="sync.f_at_boot">After each start</label>
+                  <p class="field-desc" id="sjAtBootDesc" data-i18n="sync.f_at_boot_desc">Once the wait after starting is over.</p>
+                </div>
+                <input type="checkbox" id="sjAtBoot" class="switch-input" role="switch" aria-describedby="sjAtBootDesc">
+              </div>
+              <div class="field-row">
+                <label for="sjInternet" data-i18n="sync.f_internet">Internet</label>
+                <select id="sjInternet">
+                  <option value="any" data-i18n="sync.internet_any">Does not matter</option>
+                  <option value="needed" data-i18n="sync.internet_needed">Only with Internet</option>
+                  <option value="forbidden" data-i18n="sync.internet_forbidden">Only without Internet (local network)</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="sjWifi" data-i18n="sync.f_wifi">Wi-Fi</label>
+                <select id="sjWifi">
+                  <option value="any" data-i18n="sync.wifi_any">Does not matter</option>
+                  <option value="home" data-i18n="sync.wifi_home">On the personal Wi-Fi</option>
+                  <option value="ssid" data-i18n="sync.wifi_ssid">On a given network</option>
+                </select>
+              </div>
+              <div class="field-row" id="sjSsidRow" hidden>
+                <label for="sjSsid" data-i18n="sync.f_ssid">Network name</label>
+                <input type="text" id="sjSsid" class="text-input" maxlength="32" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="field-row">
+                <label for="sjPlayback" data-i18n="sync.f_playback">While music plays</label>
+                <select id="sjPlayback">
+                  <option value="idle" data-i18n="sync.playback_idle">Wait for it to stop</option>
+                  <option value="any" data-i18n="sync.playback_any">Sync anyway</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="sjExtensions" data-i18n="sync.f_extensions">File types</label>
+                  <p class="field-desc" id="sjExtensionsDesc" data-i18n="sync.f_extensions_desc">Only these are fetched; empty for the folder's own list.</p>
+                </div>
+                <input type="text" id="sjExtensions" class="text-input" maxlength="300" autocomplete="off" spellcheck="false"
+                       aria-describedby="sjExtensionsDesc">
+              </div>
+              <div class="field-row">
+                <label for="sjMaxSize" data-i18n="sync.f_max_size">Largest file (MB)</label>
+                <input type="number" id="sjMaxSize" class="num-input" min="1" max="20000" step="1" inputmode="numeric">
+              </div>
+            </details>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              <button type="button" class="btn" id="sjCancel" data-icon="x" data-i18n="common.cancel">Cancel</button>
+            </div>
+          </form>
+
+          <details class="subsection" id="syncConnSection">
+            <summary><span data-i18n="sync.connections">Connections</span></summary>
+            <ul class="device-list" id="syncConnList"></ul>
+            <p class="hint" id="syncConnEmpty" data-i18n="sync.conn_empty">No connection yet: add the device to sync from.</p>
+            <div class="actions-row">
+              <button type="button" class="btn" id="syncConnAdd" data-icon="plus" data-i18n="sync.conn_add">Add a connection</button>
+            </div>
+            <form id="syncConnForm" class="settings-form sync-form" hidden>
+              <div class="field-row">
+                <label for="scName" data-i18n="sync.c_name">Name</label>
+                <input type="text" id="scName" class="text-input" maxlength="40" autocomplete="off">
+              </div>
+              <div class="field-row">
+                <label for="scType" data-i18n="sync.c_type">Kind of device</label>
+                <select id="scType">
+                  <option value="smb" data-i18n="sync.type_smb">Shared folder of a PC or a NAS (SMB)</option>
+                  <option value="sftp" data-i18n="sync.type_sftp">SFTP (SSH)</option>
+                  <option value="webdav" data-i18n="sync.type_webdav">WebDAV, Nextcloud</option>
+                  <option value="ftp" data-i18n="sync.type_ftp">FTP</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="scHost" data-i18n="sync.c_host">Address</label>
+                <input type="text" id="scHost" class="text-input" maxlength="253" autocomplete="off" spellcheck="false"
+                       autocapitalize="off" placeholder="nas.local">
+              </div>
+              <div class="field-row">
+                <label for="scUser" data-i18n="sync.c_user">User</label>
+                <input type="text" id="scUser" class="text-input" maxlength="64" autocomplete="off" spellcheck="false"
+                       autocapitalize="off">
+              </div>
+              <div class="field-row" id="scPasswordRow">
+                <div class="field-text">
+                  <label for="scPassword" data-i18n="sync.c_password">Password</label>
+                  <p class="field-desc" id="scPasswordDesc" data-i18n="sync.c_password_desc">Kept sealed on the radio, never shown again.</p>
+                </div>
+                <input type="password" id="scPassword" class="text-input" maxlength="256" autocomplete="new-password"
+                       aria-describedby="scPasswordDesc">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="scPath" data-i18n="sync.c_path">Folder</label>
+                  <p class="field-desc" id="scPathDesc" data-i18n="sync.c_path_desc">For SMB, the share first: Music, or Music/Rock.</p>
+                </div>
+                <input type="text" id="scPath" class="text-input" maxlength="512" autocomplete="off" spellcheck="false"
+                       aria-describedby="scPathDesc">
+              </div>
+              <div class="field-row" data-level="detail">
+                <label for="scPort" data-i18n="sync.c_port">Port</label>
+                <input type="number" id="scPort" class="num-input" min="1" max="65535" step="1" inputmode="numeric">
+              </div>
+              <div class="field-row" data-level="detail" id="scAuthRow">
+                <label for="scAuth" data-i18n="sync.c_auth">Sign in with</label>
+                <select id="scAuth">
+                  <option value="password" data-i18n="sync.auth_password">A password</option>
+                  <option value="key" data-i18n="sync.auth_key">The radio's own SSH key</option>
+                  <option value="none" data-i18n="sync.auth_none">Nothing</option>
+                </select>
+              </div>
+              <div id="scKeyBox" hidden>
+                <p class="hint" data-i18n="sync.c_key_desc">Add this line to ~/.ssh/authorized_keys of that user on the other device:</p>
+                <div class="cmd-row">
+                  <code class="cmd-text" id="scKeyText"></code>
+                  <button type="button" class="btn btn-icon btn-small cmd-copy" id="scKeyCopy" data-icon="copy"
+                          data-i18n-aria-label="sync.copy_key" aria-label="Copy the key" data-i18n-title="sync.copy_key" title="Copy the key"></button>
+                </div>
+              </div>
+              <div class="field-row" data-level="detail" id="scVendorRow" hidden>
+                <label for="scVendor" data-i18n="sync.c_vendor">Server</label>
+                <select id="scVendor">
+                  <option value="nextcloud">Nextcloud</option>
+                  <option value="owncloud">ownCloud</option>
+                  <option value="other" data-i18n="sync.vendor_other">Another one</option>
+                </select>
+              </div>
+              <div class="field-row" data-level="detail" id="scTlsRow" hidden>
+                <div class="field-text">
+                  <label for="scTls" data-i18n="sync.c_tls">Encryption</label>
+                  <p class="field-desc" id="scTlsDesc" data-i18n="sync.c_tls_desc">Without it, the password crosses the network in clear.</p>
+                </div>
+                <select id="scTls" aria-describedby="scTlsDesc">
+                  <option value="verify" data-i18n="sync.tls_verify">On, certificate checked</option>
+                  <option value="self_signed" data-i18n="sync.tls_self_signed">On, self-signed certificate accepted</option>
+                  <option value="none" data-i18n="sync.tls_none">Off</option>
+                </select>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+                <button type="button" class="btn" id="scCancel" data-icon="x" data-i18n="common.cancel">Cancel</button>
+              </div>
+            </form>
+          </details>
+
+          <details class="subsection" data-level="detail" id="syncOptionsSection">
+            <summary><span data-i18n="sync.options">Options for every sync</span></summary>
+            <form id="syncOptionsForm" class="settings-form">
+              <div class="field-row">
+                <label for="syncBootDelay" data-i18n="sync.o_boot_delay">Wait after starting (min)</label>
+                <input type="number" id="syncBootDelay" data-key="sync.boot_delay_min" class="num-input" min="0" max="120" step="1" inputmode="numeric">
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="syncShutdownWait" data-i18n="sync.o_shutdown_wait">Wait before switching off (min)</label>
+                  <p class="field-desc" id="syncShutdownWaitDesc" data-i18n="sync.o_shutdown_wait_desc">When the radio switches itself off while a sync runs. 0 = never waits.</p>
+                </div>
+                <input type="number" id="syncShutdownWait" data-key="sync.shutdown_wait_min" class="num-input" min="0" max="240" step="1"
+                       inputmode="numeric" aria-describedby="syncShutdownWaitDesc">
+              </div>
+              <div class="field-row">
+                <label for="syncFallback" data-i18n="sync.o_fallback">If the sync is not over</label>
+                <select id="syncFallback" data-key="sync.shutdown_fallback">
+                  <option value="standby" data-i18n="sync.fallback_standby">Standby, the sync finishes</option>
+                  <option value="poweroff" data-i18n="sync.fallback_poweroff">The sync stops, the radio switches off</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="syncLimit" data-i18n="sync.o_limit">Speed (KB/s)</label>
+                  <p class="field-desc" id="syncLimitDesc" data-i18n="sync.o_limit_desc">0 = no limit.</p>
+                </div>
+                <input type="number" id="syncLimit" data-key="sync.limit_kbps" class="num-input" min="0" max="100000" step="10"
+                       inputmode="numeric" aria-describedby="syncLimitDesc">
+              </div>
+              <div class="field-row">
+                <label for="syncBtMode" data-i18n="sync.o_bt_mode">While the built-in Bluetooth plays</label>
+                <select id="syncBtMode" data-key="sync.bt_mode">
+                  <option value="limit" data-i18n="sync.bt_limit">Slower</option>
+                  <option value="pause" data-i18n="sync.bt_pause">Wait for the music to stop</option>
+                  <option value="none" data-i18n="sync.bt_none">No change</option>
+                </select>
+              </div>
+              <div class="field-row" id="syncLimitBtRow">
+                <label for="syncLimitBt" data-i18n="sync.o_limit_bt">Speed while it plays (KB/s)</label>
+                <input type="number" id="syncLimitBt" data-key="sync.limit_bt_kbps" class="num-input" min="10" max="100000" step="10" inputmode="numeric">
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
+
+          <details class="subsection" data-level="detail" id="syncRunsSection">
+            <summary><span data-i18n="sync.runs">Last runs</span></summary>
+            <ul class="device-list" id="syncRunList"></ul>
+            <p class="hint" id="syncRunsEmpty" data-i18n="sync.runs_empty">No run yet.</p>
+          </details>
         </section>
 
         <section class="card" id="tagsCard" data-page="tags" data-tab="home" data-owner

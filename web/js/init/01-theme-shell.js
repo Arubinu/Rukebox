@@ -174,7 +174,7 @@ const ROLE_PAGES = {
   member: ["player", "upnext", "recent", "today", "library", "lists", "suggest", "game"],
 };
 // The accounts and the password: the owner's own, even of an operator.
-const OWNER_ONLY_PAGES = ["people", "security"];
+const OWNER_ONLY_PAGES = ["people", "security", "sync"];
 
 function pageIsOffered(card) {
   const page = card.dataset.page;

@@ -5079,6 +5079,8 @@ def _sync_places():
         if str(c.get(key) or "").strip():
             places.append({"kind": "system_sounds", "id": "system:" + key,
                            "target": _system_sound_custom_dir(key, c)})
+    for place in places:
+        place["extensions"] = list(syncs.KINDS[place["kind"]])
     return [place for place in places if place["target"]]
 
 
