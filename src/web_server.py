@@ -84,6 +84,10 @@ import music_lists  # noqa: E402
 import prepared_media  # noqa: E402
 import schedules  # noqa: E402
 import stations  # noqa: E402
+import sync as sync_mod  # noqa: E402
+import sync_scheduler  # noqa: E402
+import syncs  # noqa: E402
+import secret_box as secret_box_mod  # noqa: E402
 import releases as releases_mod  # noqa: E402
 import version as version_mod  # noqa: E402
 from version import read_version_file, set_release  # noqa: E402
@@ -1626,6 +1630,19 @@ class _ThrottledInput:
         return len(data)
 
 
+def _bt_on_shared_radio():
+    """Whether the sound goes to a speaker of the built-in chip (or of a USB dongle when
+    TRANSFER_LIMIT_USB says so): the radio whose Wi-Fi a transfer would crowd."""
+    c = cfg()
+    if (c.get("AUDIO_OUTPUT") or "bluetooth") != "bluetooth":
+        return False
+    controllers = _bt_controllers()
+    speaker = _resolve_controller(c.get("SPEAKER_BT_ADAPTER"), controllers)
+    if speaker is None:
+        speaker = controllers[0] if controllers else None
+    return not (speaker is None or (speaker["bus"] == "usb" and not c.get("TRANSFER_LIMIT_USB")))
+
+
 def _transfer_limit():
     """The upload rate limit in bytes per second, or None. "auto" limits only
     while something plays to a connected speaker of the built-in chip, or of a
@@ -1640,13 +1657,7 @@ def _transfer_limit():
         return None
     if mode == "always":
         return rate
-    if (c.get("AUDIO_OUTPUT") or "bluetooth") != "bluetooth":
-        return None
-    controllers = _bt_controllers()
-    speaker = _resolve_controller(c.get("SPEAKER_BT_ADAPTER"), controllers)
-    if speaker is None:
-        speaker = controllers[0] if controllers else None
-    if speaker is None or (speaker["bus"] == "usb" and not c.get("TRANSFER_LIMIT_USB")):
+    if not _bt_on_shared_radio():
         return None
     status = control("get_status")
     data = (status.get("data") or {}) if status.get("ok") else {}
@@ -4987,6 +4998,247 @@ def api_speech_voice_change():
     return jsonify({"ok": True, "data": _title_voices()})
 
 
+_sync_manager = None
+SYNC_RECENT_MARKER = "sync-recent-list.json"
+
+
+def _sync_play():
+    """What the music is doing, as the sync scheduler weighs it."""
+    status = control("get_status")
+    data = (status.get("data") or {}) if status.get("ok") else {}
+    playing = data.get("mode") not in (None, "idle", "stopped") and not data.get("paused")
+    return {"playing": playing,
+            "builtin_bt": bool(playing and data.get("speaker_connected") and _bt_on_shared_radio())}
+
+
+def _sync_after(job, record):
+    """What follows a run: the library sees the new files, the journal says what came in."""
+    if record.get("added") or record.get("updated"):
+        control("rescan_music")
+        _library_wake.set()
+        if job.get("kind") == "music" and job.get("recent_list") and record.get("new_files"):
+            _refresh_recent_list(job, record["new_files"])
+    stats.record("sync_run", label=job.get("name") or job.get("id"), detail={
+        key: record.get(key) for key in ("status", "added", "updated", "bytes")})
+
+
+def _refresh_recent_list(job, names):
+    """The "Recent additions" list: the songs a sync brought, newest first."""
+    audio = [os.path.join(job["target"], name) for name in names
+             if os.path.splitext(name)[1].lower() in AUDIO_EXTENSIONS]
+    if not audio:
+        return
+    marker = os.path.join(cfg()["STATE_DIR"], SYNC_RECENT_MARKER)
+    try:
+        with open(marker, encoding="utf-8") as f:
+            list_id = json.load(f).get("id")
+        entry = music_lists.get(list_id)
+    except (OSError, ValueError, KeyError, AttributeError):
+        entry = music_lists.add({"name": sync_scheduler.recent_list_name(cfg().get("SPEECH_LANGUAGE")),
+                                 "kind": "manual", "tracks": []})
+        with open(marker, "w", encoding="utf-8") as f:
+            json.dump({"id": entry["id"]}, f)
+    tracks = list(reversed(audio)) + [t for t in entry.get("tracks") or [] if t not in audio]
+    music_lists.update(entry["id"], {"tracks": tracks[:sync_scheduler.RECENT_MAX]})
+    notify_daemon("reload_lists")
+
+
+def _sync():
+    global _sync_manager
+    if _sync_manager is None:
+        _sync_manager = sync_scheduler.Manager(cfg, _sync_play, _sync_after, cfg()["STATE_DIR"])
+    return _sync_manager
+
+
+def _sync_target_refusal(target):
+    """Why a sync may not write into `target`, or None: only the radio's own sound folders,
+    never through a link that leaves them, never the USB key."""
+    real = os.path.realpath(str(target or ""))
+    if _usb_music_in_use():
+        key = os.path.realpath(_effective_music_dir())
+        if real == key or real.startswith(key.rstrip(os.sep) + os.sep):
+            return "sync_target_usb"
+    for root in _allowed_roots():
+        base = os.path.realpath(root)
+        if real == base or real.startswith(base.rstrip(os.sep) + os.sep):
+            return None
+    return "sync_bad_target"
+
+
+def _sync_places():
+    """Every folder a sync may fill, with the kind of files it holds."""
+    c = cfg()
+    places = [{"kind": kind, "id": kind, "target": str(c.get(key) or "")}
+              for kind, key in (("music", "MUSIC_DIR"), ("memes", "MEME_DIR"),
+                                ("dj_announcements", "DJ_ANNOUNCE_DIR"))]
+    for item in announcements.load():
+        if item.get("folder"):
+            places.append({"kind": "announcement", "id": "announcement:" + item["id"],
+                           "name": item.get("name") or item["id"], "target": item["folder"]})
+    for key in config_schema.SYSTEM_SOUNDS:
+        if str(c.get(key) or "").strip():
+            places.append({"kind": "system_sounds", "id": "system:" + key,
+                           "target": _system_sound_custom_dir(key, c)})
+    return [place for place in places if place["target"]]
+
+
+def _sync_view():
+    store = syncs.secrets()
+    lost = set(store.lost())
+    data = syncs.load()
+    connections = []
+    for item in data["connections"]:
+        public = dict(item)
+        public["secret_set"] = store.has(item["id"])
+        public["secret_lost"] = item["id"] in lost
+        connections.append(public)
+    return {"connections": connections, "jobs": data["jobs"], "status": _sync().status(),
+            "rclone": sync_mod.rclone_available(), "places": _sync_places(), "lost": sorted(lost)}
+
+
+def _sync_error(error):
+    if isinstance(error, KeyError):
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return jsonify({"ok": False, "error": str(error)}), 400
+
+
+@app.route("/api/sync")
+def api_sync():
+    return jsonify({"ok": True, "data": _sync_view()})
+
+
+@app.route("/api/sync/status")
+def api_sync_status():
+    return jsonify({"ok": True, "data": _sync().status()})
+
+
+@app.route("/api/sync/connections", methods=["POST"])
+@app.route("/api/sync/connections/<connection_id>", methods=["POST"])
+def api_sync_connection_save(connection_id=None):
+    body = request.get_json(silent=True) or {}
+    password = str(body.pop("password", "") or "")
+    clear = bool(body.pop("clear_password", False))
+    try:
+        saved = syncs.save_connection(body, connection_id)
+    except (ValueError, KeyError) as e:
+        return _sync_error(e)
+    store = syncs.secrets()
+    if password:
+        store.put(saved["id"], password)
+    elif clear:
+        store.drop(saved["id"])
+    stats.record("sync_connection_saved", label=saved["name"], detail={"type": saved["type"]})
+    return jsonify({"ok": True, "data": _sync_view()})
+
+
+@app.route("/api/sync/connections/<connection_id>", methods=["DELETE"])
+def api_sync_connection_delete(connection_id):
+    try:
+        syncs.delete_connection(connection_id)
+    except (ValueError, KeyError) as e:
+        return _sync_error(e)
+    syncs.secrets().drop(connection_id)
+    return jsonify({"ok": True, "data": _sync_view()})
+
+
+@app.route("/api/sync/connections/<connection_id>/host_key", methods=["POST"])
+def api_sync_host_key(connection_id):
+    """Without a fingerprint: what the server shows. With the one the owner read: pinned,
+    only if the server still shows that very key."""
+    try:
+        conn = syncs.connection(connection_id)
+    except KeyError as e:
+        return _sync_error(e)
+    if conn["type"] != "sftp":
+        return jsonify({"ok": False, "error": "sync_not_sftp"}), 400
+    line, fingerprint = sync_mod.scan_host_key(conn["host"], conn["port"])
+    if not line or not fingerprint:
+        return jsonify({"ok": False, "error": "sync_host_unreachable"}), 400
+    wanted = str((request.get_json(silent=True) or {}).get("fingerprint") or "")
+    if not wanted:
+        return jsonify({"ok": True, "data": {"fingerprint": fingerprint}})
+    if wanted != fingerprint:
+        return jsonify({"ok": False, "error": "sync_host_key_changed"}), 409
+    syncs.pin_host_key(connection_id, line)
+    stats.record("sync_host_key_pinned", label=conn["name"], detail={"fingerprint": fingerprint})
+    return jsonify({"ok": True, "data": _sync_view()})
+
+
+@app.route("/api/sync/connections/<connection_id>/test", methods=["POST"])
+def api_sync_test(connection_id):
+    if not sync_mod.rclone_available():
+        return jsonify({"ok": False, "error": "rclone_missing"}), 501
+    try:
+        conn = syncs.connection(connection_id)
+        password = syncs.secrets().get(connection_id) if conn.get("auth") == "password" else None
+    except KeyError as e:
+        return _sync_error(e)
+    except secret_box_mod.SecretLost:
+        return jsonify({"ok": False, "error": "secret_lost"}), 409
+    if conn["type"] == "sftp" and not conn.get("host_key"):
+        return jsonify({"ok": False, "error": "host_key_unknown"}), 409
+    key_file = sync_mod.ssh_key(cfg()["STATE_DIR"])[0] if conn.get("auth") == "key" else None
+    ok, said = sync_mod.test(conn, password, key_file, cfg()["STATE_DIR"])
+    if not ok:
+        return jsonify({"ok": False, "error": "sync_test_failed", "detail": said}), 200
+    return jsonify({"ok": True})
+
+
+@app.route("/api/sync/ssh_key")
+def api_sync_ssh_key():
+    """The radio's own public key, to paste on the other machine."""
+    try:
+        _path, public = sync_mod.ssh_key(cfg()["STATE_DIR"])
+    except (OSError, subprocess.SubprocessError):
+        return jsonify({"ok": False, "error": "ssh_keygen_failed"}), 500
+    return jsonify({"ok": True, "data": {"public": public}})
+
+
+@app.route("/api/sync/jobs", methods=["POST"])
+@app.route("/api/sync/jobs/<job_id>", methods=["POST"])
+def api_sync_job_save(job_id=None):
+    body = request.get_json(silent=True) or {}
+    if "target" in body or job_id is None:
+        refused = _sync_target_refusal(body.get("target"))
+        if refused:
+            return jsonify({"ok": False, "error": refused}), 400
+    try:
+        saved = syncs.save_job(body, job_id)
+    except (ValueError, KeyError) as e:
+        return _sync_error(e)
+    stats.record("sync_saved", label=saved["name"], detail={"kind": saved["kind"]})
+    return jsonify({"ok": True, "data": _sync_view()})
+
+
+@app.route("/api/sync/jobs/<job_id>", methods=["DELETE"])
+def api_sync_job_delete(job_id):
+    try:
+        syncs.delete_job(job_id)
+    except (ValueError, KeyError) as e:
+        return _sync_error(e)
+    return jsonify({"ok": True, "data": _sync_view()})
+
+
+@app.route("/api/sync/jobs/<job_id>/run", methods=["POST"])
+def api_sync_run(job_id):
+    try:
+        job = syncs.job(job_id)
+    except KeyError as e:
+        return _sync_error(e)
+    refused = _sync_target_refusal(job["target"])
+    if refused:
+        return jsonify({"ok": False, "error": refused}), 400
+    error = _sync().start(job_id, manual=True)
+    if error:
+        return jsonify({"ok": False, "error": error}), 409
+    return jsonify({"ok": True, "data": _sync().status()})
+
+
+@app.route("/api/sync/stop", methods=["POST"])
+def api_sync_stop():
+    return jsonify({"ok": True, "data": {"stopped": _sync().stop()}})
+
+
 @app.route("/api/announce_files/<path:source_id>", methods=["POST"])
 def api_announce_file_upload(source_id):
     folder, error = _announce_files_folder(source_id)
@@ -7231,7 +7483,7 @@ def _cached_probe(key, ttl, compute):
 
 
 SETUP_ITEMS = ("speaker", "speaker_pair", "flic_pair", "clock", "timezone", "music", "password",
-               "ap_open", "storage", "covers_left")
+               "ap_open", "storage", "covers_left", "sync_secret")
 
 
 @app.route("/api/diag/audio", methods=["POST"])
@@ -7597,6 +7849,9 @@ def api_setup_pending():
         pending.append("ap_open")
     if any(s["status"] != "ok" for s in _storages()):
         pending.append("storage")
+    if syncs.secrets().lost():
+        # A backup restored on another machine: its sync passwords must be typed again.
+        pending.append("sync_secret")
     if covers_move.waiting(c.get("COVER_DIR")):
         # The music folder could not be written at the start: those covers are not shown.
         pending.append("covers_left")
@@ -8012,6 +8267,8 @@ def api_config_export():
         # The secrets the page never shows stay the owner's in a file too.
         for key in _SETTINGS_WRITE_ONLY:
             bundle["settings"].pop(key, None)
+    else:
+        bundle["syncs"] = syncs.export_block()
     payload = json.dumps(bundle, ensure_ascii=False, indent=2)
     filename = "rukebox-config-%s.json" % time.strftime("%Y%m%d-%H%M%S")
     stats.record("config_exported", detail={"settings": len(bundle["settings"])})
@@ -8040,6 +8297,8 @@ def api_config_import():
         summary = config_bundle.import_bundle(body, cfg())
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+    if _role() == "owner" and isinstance(body.get("syncs"), dict):
+        summary["syncs"] = syncs.import_block(body["syncs"], target_ok=lambda t: _sync_target_refusal(t) is None)
 
     notify_daemon("reload_announcements")
     _reload_after_import(summary)
@@ -8151,6 +8410,7 @@ def api_backup():
         with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zf:
             bundle = config_bundle.export_bundle(c, read_version_file(c["UPDATE_VERSION_FILE"]),
                                                  flic_buttons=_flic_button_count())
+            bundle["syncs"] = syncs.export_block()
             zf.writestr("config.json", json.dumps(bundle, ensure_ascii=False, indent=2))
             if "stats" in wanted and c.get("STATS_ENABLED") and _sqlite_snapshot(c["STATS_DB_FILE"], zf, "stats.db"):
                 parts.append("stats")
@@ -8897,6 +9157,7 @@ def main():
         captive_portal.start(c.get("AP_INTERFACE", "uap0"), c["WEB_PORT"])
     _upnp_follow_stream()
     _dlna_follow()
+    _sync().start_thread()
     # A setting changed by hand in the file is followed at the next start.
     threading.Thread(target=_mqtt_follow, name="mqtt-follow", daemon=True).start()
     threading.Thread(target=_upnp_watch, name="upnp-watch", daemon=True).start()

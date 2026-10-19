@@ -6,6 +6,7 @@ are never here: they are sealed apart (secret_box), by connection id.
 """
 
 import ipaddress
+import os
 import re
 
 import config_document
@@ -158,11 +159,11 @@ def validate_job(data, connections):
     kind = _choice(data.get("kind"), tuple(KINDS), "music")
     clean["kind"] = kind
     target = str(data.get("target") or "").strip()
-    if not target or len(target) > PATH_MAX or any(ord(c) < 32 for c in target) or not target.startswith("/"):
+    if not target or len(target) > PATH_MAX or any(ord(c) < 32 for c in target) or not os.path.isabs(target):
         raise ValueError("sync_bad_target")
-    if any(part == ".." for part in target.split("/")):
+    if any(part == ".." for part in target.replace("\\", "/").split("/")):
         raise ValueError("sync_bad_target")
-    clean["target"] = target.rstrip("/") or "/"
+    clean["target"] = target.rstrip("/\\") or target
     clean["extensions"] = clean_extensions(data.get("extensions"), kind)
     try:
         every = int(data.get("every_hours") if data.get("every_hours") not in (None, "") else 24)
@@ -330,6 +331,47 @@ def save_all(data, path=None):
     with config_document.lock(path):
         _write(path, {"connections": list(data.get("connections") or []),
                       "jobs": list(data.get("jobs") or [])})
+
+
+def export_block(state_dir=None):
+    """The connections, the syncs and the sealed passwords, for the owner's own backup."""
+    data = load()
+    data["secrets"] = secrets(state_dir)._read()
+    return data
+
+
+def import_block(data, state_dir=None, target_ok=None):
+    """Takes a backup's syncs back, each entry checked again; sealed passwords are kept as they
+    are and show up as lost when this machine did not seal them. The count taken."""
+    if not isinstance(data, dict):
+        return 0
+    connections, jobs = [], []
+    for item in data.get("connections") or []:
+        try:
+            clean = validate_connection(item)
+        except (ValueError, AttributeError):
+            continue
+        clean["id"] = _slugify(item.get("id"), "connection")
+        if clean["id"] not in {c["id"] for c in connections}:
+            connections.append(clean)
+    for item in data.get("jobs") or []:
+        try:
+            clean = validate_job(item, connections)
+        except (ValueError, AttributeError):
+            continue
+        if target_ok is not None and not target_ok(clean["target"]):
+            continue
+        clean["id"] = _slugify(item.get("id"), "sync")
+        if clean["id"] not in {j["id"] for j in jobs}:
+            jobs.append(clean)
+    save_all({"connections": connections, "jobs": jobs})
+    tokens = data.get("secrets")
+    if isinstance(tokens, dict):
+        store = secrets(state_dir)
+        kept = store._read()
+        kept.update({str(k): str(v) for k, v in tokens.items() if k in {c["id"] for c in connections}})
+        store._save(kept)
+    return len(connections) + len(jobs)
 
 
 def secrets(state_dir=None):

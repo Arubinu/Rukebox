@@ -39,6 +39,7 @@ import sd_watchdog  # noqa: E402
 import snapcast  # noqa: E402
 import speech  # noqa: E402
 import stations  # noqa: E402
+import sync_scheduler  # noqa: E402
 from state import RadioState  # noqa: E402
 from stats import StatsRecorder  # noqa: E402
 import system_actions  # noqa: E402
@@ -282,6 +283,8 @@ class RadioDaemon:
         self._snapcast_sink = False
         self._audio_output_missing = None
         self._powering_off = False
+        # A switch-off held while a sync finishes: (monotonic deadline, reason), or None.
+        self._sync_poweroff = None
         self._music_started_mono = None
         self._delay_progress = {}
         self._last_sound = None
@@ -3234,6 +3237,8 @@ class RadioDaemon:
         if not force and not self.cfg["SHUTDOWN_AFTER_CUTOFF"]:
             self._cutoff_standby()
             return
+        if reason in ("cutoff", "schedule") and self._hold_poweroff_for_sync(reason):
+            return
         self._end_play("shutdown")
         log.info("Shutting down the Raspberry Pi")
         self.stats.record("shutdown", label=reason, detail={"poweroff": True})
@@ -3250,6 +3255,44 @@ class RadioDaemon:
             self._light_audio.stop()
         self._lights.switch_off()
         system_actions.power_off()
+
+    def _hold_poweroff_for_sync(self, reason):
+        """A switch-off the radio decided alone waits for a sync under way, on standby."""
+        try:
+            wait = max(0, int(self.cfg.get("SYNC_SHUTDOWN_WAIT_MIN") or 0))
+        except (TypeError, ValueError):
+            wait = 0
+        if wait <= 0 or sync_scheduler.running(self.cfg.get("STATE_DIR") or "") is None:
+            return False
+        log.info("A sync is running: the switch-off waits up to %d min, on standby", wait)
+        self.stats.record("shutdown_held", label="sync", detail={"wait_min": wait, "reason": reason})
+        self._cutoff_standby()
+        self._sync_poweroff = (time.monotonic() + wait * 60, reason)
+        return True
+
+    def _check_sync_poweroff(self):
+        """Switches off once the sync is over, or at the deadline as SYNC_SHUTDOWN_FALLBACK says."""
+        if self._sync_poweroff is None:
+            return
+        deadline, reason = self._sync_poweroff
+        if self.mode not in ("idle", "stopped"):
+            # Someone started the music again: the evening's switch-off is theirs to ask for.
+            log.info("The switch-off held for a sync is dropped: the radio is playing again")
+            self._sync_poweroff = None
+            return
+        state_dir = self.cfg.get("STATE_DIR") or ""
+        if sync_scheduler.running(state_dir) is not None and time.monotonic() < deadline:
+            return
+        self._sync_poweroff = None
+        if sync_scheduler.running(state_dir) is not None:
+            if str(self.cfg.get("SYNC_SHUTDOWN_FALLBACK") or "standby") != "poweroff":
+                log.info("The sync is still running: the radio stays on standby")
+                self.stats.record("shutdown_held", label="standby", detail={"reason": reason})
+                return
+            log.info("The sync is still running: it is stopped and the radio switches off")
+            sync_scheduler.stop_running(state_dir)
+        self.mode = "shutting_down"
+        self._do_shutdown_sequence(force=True, reason=reason + "_after_sync")
 
     def _cutoff_standby(self):
         """The cutoff with SHUTDOWN_AFTER_CUTOFF off: the Pi stays on and waits
@@ -4664,6 +4707,7 @@ class RadioDaemon:
             time.sleep(15)
 
     def _scheduler_tick(self):
+        self._check_sync_poweroff()
         self._apply_volume_shape()
         self._announcements()
         self._check_usb_music()

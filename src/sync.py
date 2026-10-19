@@ -221,8 +221,29 @@ class Run:
                 "new_files": [name for name in self.added[:200]]}
 
 
+def test(conn, password=None, key_file=None, workdir=None, timeout=45):
+    """(True, "") when the connection lists its folder, else (False, rclone's last word on it)."""
+    probe = Run({"id": "test", "target": workdir or tempfile.gettempdir()}, conn, password, key_file,
+                workdir=workdir)
+    config_path, env = probe._prepare()
+    try:
+        done = subprocess.run(
+            ["rclone", "lsf", "--max-depth", "1", remote_path(conn, {}), "--config", config_path,
+             "--contimeout", "%ds" % CONNECT_TIMEOUT_SEC, "--timeout", "%ds" % CONNECT_TIMEOUT_SEC,
+             "--retries", "1", "--low-level-retries", "1"],
+            capture_output=True, timeout=timeout, env=env, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return False, "timeout"
+    finally:
+        shutil.rmtree(probe._folder, ignore_errors=True)
+    if done.returncode == 0:
+        return True, ""
+    lines = [line for line in done.stderr.decode("utf-8", "replace").splitlines() if line.strip()]
+    return False, (lines[-1] if lines else "failed")[-300:]
+
+
 def _private(path, text):
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0), 0o600)
     try:
         os.write(fd, text.encode("utf-8"))
     finally:
