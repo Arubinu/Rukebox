@@ -618,6 +618,11 @@ if [ -d "$SOURCE_DIR/systemd" ]; then
         apt-get install -y libchromaprint-tools >/dev/null 2>&1 \
             || echo "WARNING: fpcalc could not be installed (libchromaprint-tools): songs are not recognised by their sound."
     fi
+    # The folders filled from another machine (the Sync page).
+    if ! command -v rclone >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+        apt-get install -y rclone openssh-client >/dev/null 2>&1 \
+            || echo "WARNING: rclone could not be installed: syncing from another device is not offered."
+    fi
     # The multiroom output; the radio runs its own snapserver, the packaged service stays off.
     if ! command -v snapserver >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
         apt-get install -y snapserver >/dev/null 2>&1 \

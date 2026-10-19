@@ -210,6 +210,9 @@ apt-get install -y mpv python3 python3-pip python3-yaml bluez ffmpeg rtkit util-
 # dropped pico2wave: its absence is not a failure, speech.py falls back.
 apt-get install -y libttspico-utils \
     || echo ">> pico2wave (libttspico-utils) is not in this release: announcements will use espeak-ng."
+# The folders filled from another machine; ssh-keygen and ssh-keyscan for SFTP servers.
+apt-get install -y rclone openssh-client \
+    || echo ">> rclone is not in this release: syncing from another device will not be offered."
 # The multiroom output: the radio runs its own snapserver, so the packaged service stays off.
 apt-get install -y snapserver \
     || echo ">> snapserver is not in this release: the multiroom output will not be offered."
