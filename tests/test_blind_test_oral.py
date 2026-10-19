@@ -190,6 +190,94 @@ class WarmedSpeechTest(unittest.TestCase):
             ws._warm_texts(["One."], "fr", "")
         self.assertEqual(ws._speech_warming, set(), "a failure never blocks that sentence for good")
 
+    def inline(self):
+        """A thread that runs its work at once, so the test sees what was made."""
+
+        class Inline:
+            def __init__(self, target=None, args=(), daemon=None):
+                self.target, self.args = target, args
+
+            def start(self):
+                self.target(*self.args)
+
+        return mock.Mock(Thread=Inline)
+
+    def made_ahead(self, parts, names_known=False, **settings):
+        """What speech.warm is asked for, with a thread that runs now."""
+        collected = []
+        with mock.patch.object(ws, "cfg", return_value=self.values(**settings)), \
+                mock.patch.object(ws, "threading", self.inline()), \
+                mock.patch.object(ws.speech, "warm",
+                                  side_effect=lambda text, lang, voice: collected.append(text)):
+            ws._warm_speech(parts, names_known=names_known)
+        return collected
+
+    def test_a_known_name_is_made_ahead_only_when_it_is_asked_for(self):
+        parts = [{"text": "Right answer from"}, {"name": "Ana", "person": None}, {"text": "."}]
+        self.assertEqual(self.made_ahead(parts), [], "a name is not guessed")
+        self.assertEqual(self.made_ahead(parts, names_known=True), ["Right answer from Ana."])
+
+    def test_the_glue_and_each_player_are_made_before_the_first_round(self):
+        values = dict(GAME_VOICE_WINNERS=True, SPEECH_LANGUAGE="fr")
+        game = blind_test.Game(tracks(), rounds=3, mode="phones")
+        game.join("p1", "Ana", True)
+        game.join("p2", "Bo", True)
+        collected = []
+        with mock.patch.object(ws, "cfg", return_value=self.values(**values)), \
+                mock.patch.object(ws, "threading", self.inline()), \
+                mock.patch.object(ws.speech, "warm",
+                                  side_effect=lambda text, lang, voice: collected.append(text)):
+            ws._warm_game_speech(game)
+        self.assertIn(speech.game_fixed_sentences("fr")[0], collected, "the question before the clip")
+        self.assertIn(speech.GAME_WORDS["nobody"]["fr"], collected)
+        self.assertEqual(sorted(text for text in collected if text.endswith(("Ana.", "Bo."))),
+                         ["Bonne réponse de Ana.", "Bonne réponse de Bo."])
+
+    def test_the_whole_game_is_made_by_one_voice_at_a_time(self):
+        game = blind_test.Game(tracks(), rounds=3, mode="phones")
+        game.join("p1", "Ana", True)
+        started = []
+
+        class Inline:
+            def __init__(self, target=None, args=(), daemon=None):
+                started.append(target)
+                self.target, self.args = target, args
+
+            def start(self):
+                self.target(*self.args)
+
+        with mock.patch.object(ws, "cfg", return_value=self.values(GAME_VOICE_WINNERS=True,
+                                                                  SPEECH_LANGUAGE="fr")), \
+                mock.patch.object(ws, "threading", mock.Mock(Thread=Inline)), \
+                mock.patch.object(ws.speech, "warm", return_value=True):
+            ws._warm_game_speech(game)
+        self.assertEqual(len(started), 1, "one thread, so one model loaded at a time")
+
+    def test_a_silent_game_is_not_made_ahead_at_all(self):
+        game = blind_test.Game(tracks(), rounds=3, mode="phones")
+        game.join("p1", "Ana", True)
+        made = []
+        with mock.patch.object(ws, "cfg", return_value=self.values(GAME_VOICE_ANSWER=False,
+                                                                  GAME_VOICE_WINNERS=False,
+                                                                  SPEECH_LANGUAGE="fr")), \
+                mock.patch.object(ws, "_start_warming", side_effect=lambda texts, c=None: made.append(texts)):
+            ws._warm_game_speech(game)
+        self.assertEqual(made, [], "a game that says nothing costs nothing")
+
+    def test_without_who_found_it_no_player_is_made_ahead(self):
+        game = blind_test.Game(tracks(), rounds=3, mode="phones")
+        game.join("p1", "Ana", True)
+        collected = []
+        with mock.patch.object(ws, "cfg", return_value=self.values(GAME_VOICE_WINNERS=False,
+                                                                  GAME_VOICE_ANSWER=True,
+                                                                  SPEECH_LANGUAGE="fr")), \
+                mock.patch.object(ws, "threading", self.inline()), \
+                mock.patch.object(ws.speech, "warm",
+                                  side_effect=lambda text, lang, voice: collected.append(text)):
+            ws._warm_game_speech(game)
+        self.assertIn(speech.GAME_WORDS["nobody"]["fr"], collected)
+        self.assertEqual([text for text in collected if text.endswith("Ana.")], [])
+
 
 class HostTapsTest(unittest.TestCase):
     def test_a_click_or_the_page_moves_the_game_on(self):

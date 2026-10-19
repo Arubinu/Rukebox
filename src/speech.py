@@ -435,6 +435,15 @@ def game_parts(kind, people, lang):
     return []
 
 
+def game_fixed_sentences(lang):
+    """The blind test's words that name nobody and never change: the questions, and the glue
+    around a player's name, most useful first."""
+    words = {key: value[language(lang)] for key, value in GAME_WORDS.items()}
+    return [words[key] for key in ("ask_song", "ask_artist", "ask_year", "ask_genre", "ask_album",
+                                   "right", "nobody", "end", "place1", "place2", "place3",
+                                   "winner", "and")]
+
+
 def engines():
     """The speech programs installed here, best first - what the radio says with."""
     found = ["piper"] if _any_piper_model() else []

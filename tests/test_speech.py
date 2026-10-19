@@ -169,6 +169,14 @@ class RenderTest(unittest.TestCase):
         self.assertEqual([name for name in os.listdir(os.path.dirname(target)) if name.endswith(".tmp")],
                          [], "nothing half written is left behind")
 
+    def test_the_blind_test_words_that_never_change(self):
+        words = speech.game_fixed_sentences("fr")
+        self.assertIn("Quelle est cette chanson ?", words, "the question that holds the clip up")
+        self.assertIn("Personne n'a trouvé.", words)
+        self.assertTrue(all("%s" not in word for word in words), "nothing left to fill in")
+        self.assertTrue(all(word.strip() for word in words))
+        self.assertEqual(speech.game_fixed_sentences("en")[0], "Which song is it?")
+
     def test_every_spoken_language_has_a_natural_voice(self):
         for lang in speech.LANGUAGES:
             voice = speech.default_voice(lang)

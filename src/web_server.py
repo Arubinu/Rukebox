@@ -4089,18 +4089,48 @@ def _warm_texts(texts, lang, voice):
         _speech_warming.difference_update(texts)
 
 
-def _warm_speech(parts):
-    """Makes the sentences that carry no name ahead of time: what they say is known before the
-    round ends, and piper takes seconds on a small board."""
-    c = cfg()
-    todo = [value for kind, value, named in _speech_groups(parts, c)
-            if kind == "text" and not named and value not in _speech_warming]
+def _speech_to_make(parts, c, names_known=False):
+    """The sentences of those parts that can be made ahead: the ones with no name, or all of
+    them when the names are already known."""
+    return [value for kind, value, named in _speech_groups(parts, c)
+            if kind == "text" and (names_known or not named)]
+
+
+def _start_warming(texts, c=None):
+    """Renders those sentences in the background, one after the other: one voice at a time, as
+    a small board cannot hold two models at once."""
+    c = c or cfg()
+    todo = [text for text in dict.fromkeys(texts) if text and text not in _speech_warming]
     if not todo:
         return
     _speech_warming.update(todo)
     threading.Thread(target=_warm_texts,
                      args=(todo, c.get("SPEECH_LANGUAGE"), c.get("PIPER_VOICE")),
                      daemon=True).start()
+
+
+def _warm_speech(parts, names_known=False):
+    """Makes the sentences of those parts ahead of time."""
+    _start_warming(_speech_to_make(parts, cfg(), names_known))
+
+
+def _warm_game_speech(game):
+    """Makes what the game will say: each player's own sentence first, then the fixed words.
+    Who wins is unknown, who plays is not, and nothing is playing yet."""
+    c = cfg()
+    lang = c.get("SPEECH_LANGUAGE")
+    # A game played on the phones keeps quiet unless one of its two voices is asked for.
+    if game.mode != "oral" and not (c.get("GAME_VOICE_ANSWER") or c.get("GAME_VOICE_WINNERS")):
+        return
+    texts = []
+    if game.mode == "phones" and c.get("GAME_VOICE_WINNERS"):
+        for person, name in list(game.names.items()):
+            if person in game.players:
+                texts += _speech_to_make(
+                    speech.game_parts("round", [{"person": person, "name": name}], lang), c,
+                    names_known=True)
+    texts += speech.game_fixed_sentences(lang)
+    _start_warming(texts, c)
 
 
 def _game_speech(parts):
@@ -4239,8 +4269,11 @@ def _game_run(game):
     """Plays the rounds one after the other, then gives the radio back."""
     try:
         oral = game.mode == "oral"
+        # Nothing plays yet: what the game will say can be made while it waits for its players.
+        _warm_game_speech(game)
         if not oral:
             while not game.stopped and not game.ready():
+                _warm_game_speech(game)
                 time.sleep(0.25)
             if not game.players and not game.stopped:
                 game.finish("game_no_players")
