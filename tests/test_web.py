@@ -35,6 +35,7 @@ if flask:
     # Read by web_server at import time; nothing of the real installation is opened for writing.
     os.environ["STATS_DB_FILE"] = os.path.join(TMP, "stats.db")
     import config_file
+    import config_schema
     import library
     import music_lists
     import track_media
@@ -2806,3 +2807,52 @@ class AppScriptRouteTest(unittest.TestCase):
         packed = client.get("/app.js", headers={"Accept-Encoding": "gzip"})
         self.assertEqual(packed.headers.get("Content-Encoding"), "gzip")
         self.assertEqual(gzip.decompress(packed.get_data()).decode("utf-8"), _path.app_script())
+
+
+@unittest.skipUnless(flask, "Flask is not installed")
+class OwnerSettingsTest(unittest.TestCase):
+    """The machine's own settings - its network, updates, paths, reset pin and USB
+    port - stay the owner's, by whichever door they are asked through."""
+
+    def test_the_machine_sections_and_the_door_are_the_owners(self):
+        covered = {setting.section for setting in config_schema.SETTINGS
+                   if setting.path in ws._OWNER_SETTINGS}
+        for section in ("network", "updates", "paths", "sync"):
+            self.assertIn(section, covered, section)
+        for path in ("security.gpio_reset_enabled", "security.gpio_reset_pin",
+                     "hardware.usb_port_mode"):
+            self.assertIn(path, ws._OWNER_SETTINGS)
+
+    def test_a_key_is_recognised_by_its_env_name_and_by_its_path(self):
+        setting = config_schema.BY_PATH[sorted(ws._OWNER_SETTINGS)[0]]
+        self.assertEqual(ws._owner_settings_in([setting.env, setting.path]),
+                         {setting.env, setting.path})
+        self.assertEqual(ws._owner_settings_in(["playback.base_volume"]), set(),
+                         "everything else is the operator's to change")
+        self.assertEqual(ws._owner_settings_in(["not.a.setting"]), set())
+
+    def test_an_operator_cannot_write_one_and_nothing_is_written(self):
+        setting = sorted(ws._OWNER_SETTINGS)[0]
+        with unittest.mock.patch.object(ws, "_role", return_value="operator"), \
+                unittest.mock.patch.object(ws, "update_config_file") as written:
+            answer = ws.app.test_client().post("/api/settings", json={setting: "x"})
+        self.assertEqual(answer.status_code, 401)
+        self.assertEqual(answer.get_json()["needs"], "owner")
+        self.assertEqual(written.call_count, 0, "the file is not touched")
+
+    def test_an_operator_import_leaves_them_as_they_are(self):
+        setting = sorted(ws._OWNER_SETTINGS)[0]
+        given = []
+        with unittest.mock.patch.object(ws, "_role", return_value="operator"), \
+                unittest.mock.patch.object(ws.config_bundle, "import_bundle",
+                                           side_effect=lambda body, c: given.append(body) or {"settings": 1}), \
+                unittest.mock.patch.object(ws, "_reload_after_import"), \
+                unittest.mock.patch.object(ws, "notify_daemon"), \
+                unittest.mock.patch.object(ws, "stats"), \
+                unittest.mock.patch.object(ws.threading, "Thread"):
+            answer = ws.app.test_client().post(
+                "/api/config/import",
+                json={"settings": {setting: "x", "playback.base_volume": 50}})
+        self.assertEqual(answer.status_code, 200, answer.get_json())
+        self.assertEqual(given[0]["settings"], {"playback.base_volume": 50},
+                         "the machine's own setting never reaches the import")

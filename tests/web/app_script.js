@@ -16,9 +16,15 @@ function parts() {
   return [path.join(WEB, "js", "boot.js")].concat(names.map((name) => path.join(inner, name)));
 }
 
+let assembled = null;
+
 function appScript() {
-  const texts = parts().map((file) => fs.readFileSync(file, "utf8"));
-  return texts[0] + OPEN + texts.slice(1).join("") + CLOSE;
+  // Every test loads the page: the parts are read and joined once per process, not once per test.
+  if (assembled === null) {
+    const texts = parts().map((file) => fs.readFileSync(file, "utf8"));
+    assembled = texts[0] + OPEN + texts.slice(1).join("") + CLOSE;
+  }
+  return assembled;
 }
 
 function check() {

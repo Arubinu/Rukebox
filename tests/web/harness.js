@@ -8,7 +8,30 @@ const { JSDOM, VirtualConsole } = require("jsdom");
 const { appScript } = require("./app_script");
 
 const WEB = path.join(__dirname, "..", "..", "web");
-const read = (name) => fs.readFileSync(path.join(WEB, name), "utf8");
+const FILES = new Map();
+const read = (name) => {
+  // The page's own files do not change during a run, and every test reads them again.
+  if (!FILES.has(name)) FILES.set(name, fs.readFileSync(path.join(WEB, name), "utf8"));
+  return FILES.get(name);
+};
+
+// The page keeps its own clock: a stream's "slight delay" is 2.5s, a refresh after a change is 3s.
+// A test cannot wait for that. One-shot timers from a second up to five are shortened; watchdogs
+// above that, the polling intervals and the short debounces keep their real time.
+const SHORT_TIMER_MS = 80;
+const TIMER_FLOOR_MS = 350;
+const TIMER_CEILING_MS = 5000;
+// Every page a test opens is closed at the end: the wait before that is paid once per page.
+const CLOSE_SETTLE_MS = 40;
+
+function shortenTimers(window) {
+  const real = window.setTimeout.bind(window);
+  window.setTimeout = (fn, delay, ...args) => {
+    const ms = Number(delay) || 0;
+    const shortened = ms >= TIMER_FLOOR_MS && ms < TIMER_CEILING_MS ? SHORT_TIMER_MS : ms;
+    return real(fn, shortened, ...args);
+  };
+}
 
 const STATUS = {
   mode: "music", volume: 70, paused: false, muted: false, position: 12, duration: 200,
@@ -70,6 +93,7 @@ function load(options = {}) {
     }),
   });
   const { window } = dom;
+  shortenTimers(window);
 
   // options.media(query) answers a media query; every query is false otherwise (a phone).
   window.matchMedia = (query) => ({ matches: !!(options.media && options.media(query)),
@@ -138,7 +162,7 @@ function load(options = {}) {
     // closing at once leaves the page's own code running against no document.
     close: async () => {
       closed = true;
-      await wait(120);
+      await wait(CLOSE_SETTLE_MS);
       window.close();
     },
   };

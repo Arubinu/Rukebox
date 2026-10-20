@@ -373,5 +373,12 @@ class GuestPathsTest(unittest.TestCase):
         self.assertEqual(server ^ fixture, set())
 
 
+class StylesheetTest(unittest.TestCase):
+    def test_a_hidden_element_is_never_drawn(self):
+        # CLAUDE.md: the rule that beats every class setting its own display.
+        css = _path.read("web", "style.css")
+        self.assertRegex(css, r"\[hidden\]\s*\{\s*display:\s*none\s*!important\s*;?\s*\}")
+
+
 if __name__ == "__main__":
     unittest.main()

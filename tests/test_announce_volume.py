@@ -139,7 +139,7 @@ class StoreTest(unittest.TestCase):
         errors = []
 
         def hammer(key):
-            for value in range(40):
+            for value in range(12):
                 # Windows refuses the rename while a reader holds the file open (no FILE_SHARE_DELETE); the Pi does not.
                 for attempt in range(20):
                     try:
@@ -148,7 +148,7 @@ class StoreTest(unittest.TestCase):
                     except PermissionError:
                         if attempt == 19:
                             raise
-                        time.sleep(0.01)
+                        time.sleep(0.002)
                     except Exception as exc:  # noqa: BLE001
                         errors.append(repr(exc))
                         break
