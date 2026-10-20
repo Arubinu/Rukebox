@@ -278,6 +278,63 @@ class WarmedSpeechTest(unittest.TestCase):
         self.assertIn(speech.GAME_WORDS["nobody"]["fr"], collected)
         self.assertEqual([text for text in collected if text.endswith("Ana.")], [])
 
+    def test_a_spectator_is_never_made_ahead(self):
+        game = blind_test.Game(tracks(), rounds=3, mode="phones")
+        game.join("p1", "Ana", True)
+        game.join("p2", "Bo", False)
+        collected = []
+        with mock.patch.object(ws, "cfg", return_value=self.values(GAME_VOICE_WINNERS=True,
+                                                                  SPEECH_LANGUAGE="fr")), \
+                mock.patch.object(ws, "threading", self.inline()), \
+                mock.patch.object(ws.speech, "warm",
+                                  side_effect=lambda text, lang, voice: collected.append(text)):
+            ws._warm_game_speech(game)
+        self.assertEqual([text for text in collected if text.endswith("Bo.")], [],
+                         "a spectator never wins a round")
+
+    def test_one_sentence_is_made_once_however_many_players_share_the_name(self):
+        game = blind_test.Game(tracks(), rounds=3, mode="phones")
+        game.join("p1", "Ana", True)
+        game.join("p2", "Ana", True)
+        collected = []
+        with mock.patch.object(ws, "cfg", return_value=self.values(GAME_VOICE_WINNERS=True,
+                                                                  SPEECH_LANGUAGE="fr")), \
+                mock.patch.object(ws, "threading", self.inline()), \
+                mock.patch.object(ws.speech, "warm",
+                                  side_effect=lambda text, lang, voice: collected.append(text)):
+            ws._warm_game_speech(game)
+        self.assertEqual(collected.count("Bonne réponse de Ana."), 1)
+
+    def test_a_sentence_already_on_its_way_is_not_asked_again(self):
+        started = []
+        thread = mock.Mock(return_value=mock.Mock(start=lambda: started.append(1)))
+        with mock.patch.object(ws, "cfg", return_value=self.values()), \
+                mock.patch.object(ws, "threading", mock.Mock(Thread=thread)), \
+                mock.patch.object(ws.speech, "warm", return_value=True):
+            self.addCleanup(ws._speech_warming.clear)
+            ws._warm_speech([{"text": "One."}])
+            ws._warm_speech([{"text": "One."}])
+            self.assertEqual(ws._speech_warming, {"One."})
+        self.assertEqual(started, [1], "one voice for one sentence")
+
+    def test_the_round_makes_the_answer_only_when_it_will_be_said(self):
+        question = {"title": "Song", "artist": "Artist", "kind": "song"}
+        phones = blind_test.Game(tracks(), rounds=3, mode="phones")
+        oral = blind_test.Game(tracks(), rounds=3, mode="oral", names=["Ana"])
+        self.assertEqual(self.made_for_the_round(phones, question, GAME_VOICE_ANSWER=False), [])
+        self.assertEqual(len(self.made_for_the_round(phones, question, GAME_VOICE_ANSWER=True)), 1)
+        self.assertEqual(len(self.made_for_the_round(oral, question, GAME_VOICE_ANSWER=False)), 1,
+                         "a game aloud always says the answer")
+
+    def made_for_the_round(self, game, question, **settings):
+        collected = []
+        with mock.patch.object(ws, "cfg", return_value=self.values(**settings)), \
+                mock.patch.object(ws, "threading", self.inline()), \
+                mock.patch.object(ws.speech, "warm",
+                                  side_effect=lambda text, lang, voice: collected.append(text)):
+            ws._warm_round_speech(game, question)
+        return collected
+
 
 class HostTapsTest(unittest.TestCase):
     def test_a_click_or_the_page_moves_the_game_on(self):

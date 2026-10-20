@@ -150,9 +150,15 @@ class RenderTest(unittest.TestCase):
         self.assertTrue(os.path.exists(speech._cache_path(sentence, "fr", None)))
         self.assertEqual([os.path.exists(path) for path in made], [False], "no scratch file is left")
 
+    def test_nothing_is_made_of_nothing(self):
+        self.assertFalse(speech.warm("", "fr"))
+        self.assertFalse(speech.warm("   ", "fr"))
+
     def test_a_copy_written_into_the_cache_never_lands_half_written(self):
         """Two copies of one sentence can be made at once: the cache keeps a whole one."""
-        target = speech._cache_path("Il est 7 heures.", "fr", None)
+        # The engine key is not what this test is about, and asking for it walks the whole PATH.
+        with mock.patch.object(speech.shutil, "which", return_value=None):
+            target = speech._cache_path("Il est 7 heures.", "fr", None)
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target, "wb") as handle:
             handle.write(b"whole")
@@ -162,7 +168,8 @@ class RenderTest(unittest.TestCase):
                 handle.write(b"hal")
             raise OSError("no room")
 
-        with mock.patch.object(speech.shutil, "copyfile", side_effect=broken_copy):
+        with mock.patch.object(speech.shutil, "which", return_value=None), \
+                mock.patch.object(speech.shutil, "copyfile", side_effect=broken_copy):
             speech._remember("Il est 7 heures.", "fr", None, os.path.join(self.dir, "said.wav"))
         with open(target, "rb") as handle:
             self.assertEqual(handle.read(), b"whole", "the copy said before is still whole")

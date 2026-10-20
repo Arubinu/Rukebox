@@ -4046,6 +4046,14 @@ _game_speech_seq = 0
 _speech_warming = set()
 
 
+def _warm_round_speech(game, question):
+    """Makes the answer's own words while the clip plays: piper's seconds are better spent there
+    than once the round is over."""
+    c = cfg()
+    if game.mode == "oral" or c.get("GAME_VOICE_ANSWER"):
+        _warm_speech(speech.game_parts("answer", [question], c.get("SPEECH_LANGUAGE")))
+
+
 def _game_speech_dir():
     return os.path.join(cfg()["STATE_DIR"], "game-speech")
 
@@ -4304,8 +4312,7 @@ def _game_run(game):
                 game.finish(result.get("error") or "daemon_unreachable")
                 return
             # The answer's own words are known now: piper's seconds are better spent while the clip plays.
-            if game.mode == "oral" or c.get("GAME_VOICE_ANSWER"):
-                _warm_speech(speech.game_parts("answer", [question], c.get("SPEECH_LANGUAGE")))
+            _warm_round_speech(game, question)
             question["started"] = time.monotonic()
             deadline = question["started"] + game.clip_sec
             while time.monotonic() < deadline and not game.stopped and not game.everyone_answered():
