@@ -38,7 +38,7 @@ src/acoustid.py             Recognising a song by its sound (AcoustID)
 src/covers_move.py          The old separate covers folder, moved into the music once
 src/usb_storage.py          Music on a USB key
 src/syncs.py                Folders filled from another machine: connections and syncs
-src/sync.py                 One sync run (rclone, copy only)
+src/sync.py                 One sync run (rclone copy, or mirror into a trash)
 src/sync_scheduler.py       When syncs run, and the switch-off that waits for one
 src/secret_box.py           Passwords sealed with a key of this machine
 
@@ -3739,8 +3739,9 @@ rsync -av --info=progress2 ~/Music/ pi@rukebox.local:/home/pi/audio/music/
 **Sync from another device** (Home, the owner only) fills the radio's folders
 from a computer, a NAS or a cloud folder by itself, with
 [rclone](https://rclone.org) (installed with the radio, and by an update when it
-is missing). Files are **added and updated, never deleted**: a song removed on
-the other side stays on the radio. A container does not offer the page: its
+is missing). By default files are **added and updated, never deleted**: a song
+removed on the other side stays on the radio (a *mirror*, below, removes it
+too). A container does not offer the page: its
 folders are the host's volumes, filled from the host.
 
 - **Connections** say where and how: a shared folder of a PC or a NAS (SMB),
@@ -3776,7 +3777,27 @@ folders are the host's volumes, filled from the host.
 - **After a run**: the library is scanned again, the songs a music sync brought
   go first in the **Recent additions** list (made the first time), the journal
   keeps a *Sync run* line, and whoever has the page sees a toast when a sync
-  starts and when it ends.
+  starts and when it ends. A run stopped mid-file removes that half-copied
+  file, so no broken song reaches the library.
+- **A mirror** (*Files gone from the other side: removed here too*, detailed
+  view, off by default) also removes from the radio's folder what the other
+  side no longer has - only files of its own types, so a file of another kind
+  put there by hand stays. Before removing anything it makes a dry run:
+  - nothing goes when the other side shows none of the folder's files (an
+    empty or unmounted share): the line says so, even after an OK;
+  - more than `mirror_max_files` files (50) or `mirror_max_percent` of the
+    folder (10 %) wait for the owner: the line says how many, and the warning
+    button lists them; once allowed, those files exactly go, once (a file not
+    shown is asked again);
+  - what is removed, and the old copy of what is replaced, goes to
+    `/var/lib/rukebox/sync-trash/<sync>/<date>` and is deleted after
+    `trash_days` (14). The library forgets removed songs at the scan that
+    follows, as for a file deleted by hand.
+  A mirror needs a folder of its own: no other sync may fill the same folder,
+  one inside it or one around it (`sync_mirror_shared`); a backup restored
+  with such a pair keeps both as plain copies.
+- **Home Assistant** shows whether a sync runs and how the last one ended, with
+  a button per sync and one to stop it (see *Home Assistant (MQTT)*).
 
 **Passwords** are never stored in clear: they are sealed in
 `/etc/rukebox/sync-secrets.json` (mode 600) with a key of the state folder

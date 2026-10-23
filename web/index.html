@@ -613,7 +613,7 @@
 
         <section class="card" id="syncCard" data-page="sync" data-tab="home" data-owner data-needs="self_update" aria-labelledby="syncTitle">
           <h2 data-icon="refresh" id="syncTitle"><span data-i18n="sync.title">Sync from another device</span></h2>
-          <p class="hint" data-i18n="sync.intro">Fills the radio's folders from a computer, a NAS or a cloud folder, on its own schedule. Files are added and updated, never deleted.</p>
+          <p class="hint" data-i18n="sync.intro">Fills the radio's folders from a computer, a NAS or a cloud folder, on its own schedule. Files are added and updated; only a mirror also removes them.</p>
           <p class="hint warning" id="syncNoRclone" data-i18n="sync.no_rclone" hidden>rclone is not installed on this radio: the next update installs it.</p>
 
           <div id="syncNow" hidden>
@@ -725,6 +725,16 @@
                 <select id="sjPlayback">
                   <option value="idle" data-i18n="sync.playback_idle">Wait for it to stop</option>
                   <option value="any" data-i18n="sync.playback_any">Sync anyway</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="sjMode" data-i18n="sync.f_mode">Files gone from the other side</label>
+                  <p class="field-desc" id="sjModeDesc" data-i18n="sync.f_mode_desc">A mirror removes them here too, into a trash kept a few days, and asks first when there are many.</p>
+                </div>
+                <select id="sjMode" aria-describedby="sjModeDesc">
+                  <option value="copy" data-i18n="sync.mode_copy">Kept here (copy)</option>
+                  <option value="mirror" data-i18n="sync.mode_mirror">Removed here too (mirror)</option>
                 </select>
               </div>
               <div class="field-row">
@@ -880,6 +890,26 @@
               <div class="field-row" id="syncLimitBtRow">
                 <label for="syncLimitBt" data-i18n="sync.o_limit_bt">Speed while it plays (KB/s)</label>
                 <input type="number" id="syncLimitBt" data-key="sync.limit_bt_kbps" class="num-input" min="10" max="100000" step="10" inputmode="numeric">
+              </div>
+              <div class="field-row" data-level="detail">
+                <div class="field-text">
+                  <label for="syncMirrorFiles" data-i18n="sync.o_mirror_files">Mirror: ask before removing more than (files)</label>
+                  <p class="field-desc" id="syncMirrorFilesDesc" data-i18n="sync.o_mirror_files_desc">Or more than the share below of the folder's files.</p>
+                </div>
+                <input type="number" id="syncMirrorFiles" data-key="sync.mirror_max_files" class="num-input" min="0" max="100000" step="1"
+                       inputmode="numeric" aria-describedby="syncMirrorFilesDesc">
+              </div>
+              <div class="field-row" data-level="detail">
+                <label for="syncMirrorPercent" data-i18n="sync.o_mirror_percent">Mirror: or more than (%)</label>
+                <input type="number" id="syncMirrorPercent" data-key="sync.mirror_max_percent" class="num-input" min="0" max="100" step="1" inputmode="numeric">
+              </div>
+              <div class="field-row" data-level="detail">
+                <div class="field-text">
+                  <label for="syncTrashDays" data-i18n="sync.o_trash_days">Keep removed files (days)</label>
+                  <p class="field-desc" id="syncTrashDaysDesc" data-i18n="sync.o_trash_days_desc">What a mirror removes or replaces waits this long before it is deleted.</p>
+                </div>
+                <input type="number" id="syncTrashDays" data-key="sync.trash_days" class="num-input" min="1" max="365" step="1"
+                       inputmode="numeric" aria-describedby="syncTrashDaysDesc">
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>

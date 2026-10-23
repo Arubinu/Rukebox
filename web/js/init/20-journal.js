@@ -62,7 +62,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "announcement_volume_set", "prepared_file_added", "usb_music_used", "usb_music_released",
   "tags_changed", "cover_changed", "cover_removed", "covers_moved", "cast_started",
   "party_started", "party_ended", "station_added", "station_removed", "sync_run", "sync_saved",
-  "sync_connection_saved", "sync_host_key_pinned", "shutdown_held"];
+  "sync_connection_saved", "sync_host_key_pinned", "sync_mirror_allowed", "shutdown_held"];
 function eventLabel(type) {
   return EVENT_TYPE_KEYS.includes(type) ? t("event." + type) : type;
 }

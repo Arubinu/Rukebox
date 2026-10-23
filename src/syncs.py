@@ -27,6 +27,8 @@ VENDORS = ("nextcloud", "owncloud", "other")
 INTERNET = ("any", "needed", "forbidden")
 WIFI = ("any", "home", "ssid")
 PLAYBACK = ("idle", "any")
+# copy adds and updates; mirror also removes what the other machine no longer has.
+MODES = ("copy", "mirror")
 DEFAULT_PORTS = {"sftp": 22, "smb": 445, "webdav": 443, "ftp": 21}
 
 AUDIO = ("mp3", "flac", "ogg", "oga", "opus", "m4a", "aac", "wav")
@@ -190,6 +192,7 @@ def validate_job(data, connections):
         raise ValueError("sync_bad_ssid")
     clean["ssid"] = ssid
     clean["playback"] = _choice(data.get("playback"), PLAYBACK, "idle")
+    clean["mode"] = _choice(data.get("mode"), MODES, "copy")
     for key, default in (("enabled", True), ("at_boot", True), ("recent_list", True)):
         value = data.get(key, default)
         clean[key] = value in (True, "true", "1", 1, "on")
@@ -297,6 +300,20 @@ def delete_connection(connection_id, path=None):
         _write(path, doc)
 
 
+def _overlaps(one, other):
+    one, other = os.path.normpath(one), os.path.normpath(other)
+    return one == other or one.startswith(other.rstrip(os.sep) + os.sep) \
+        or other.startswith(one.rstrip(os.sep) + os.sep)
+
+
+def _check_mirror(clean, others):
+    """A mirror removes files: never in a folder another sync fills, nor around one."""
+    for other in others:
+        if (clean["mode"] == "mirror" or other.get("mode") == "mirror") \
+                and _overlaps(clean["target"], other["target"]):
+            raise ValueError("sync_mirror_shared")
+
+
 def save_job(data, job_id=None, path=None):
     with config_document.lock(path):
         doc = _strict(path)
@@ -305,6 +322,7 @@ def save_job(data, job_id=None, path=None):
             if len(items) >= JOBS_MAX:
                 raise ValueError("sync_too_many")
             clean = validate_job(data, doc["connections"])
+            _check_mirror(clean, items)
             clean["id"] = _new_id(clean["name"], {item["id"] for item in items}, "sync")
             items.append(clean)
         else:
@@ -312,6 +330,7 @@ def save_job(data, job_id=None, path=None):
             if index is None:
                 raise KeyError(job_id)
             clean = validate_job(dict(items[index], **data), doc["connections"])
+            _check_mirror(clean, [item for item in items if item["id"] != job_id])
             clean["id"] = job_id
             items[index] = clean
         _write(path, doc)
@@ -363,6 +382,10 @@ def import_block(data, state_dir=None, target_ok=None):
             continue
         if target_ok is not None and not target_ok(clean["target"]):
             continue
+        try:
+            _check_mirror(clean, jobs)
+        except ValueError:
+            clean["mode"] = "copy"
         clean["id"] = _slugify(item.get("id"), "sync")
         if clean["id"] not in {j["id"] for j in jobs}:
             jobs.append(clean)

@@ -161,5 +161,133 @@ class RunTest(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(os.stat(config_path).st_mode), 0o600)
 
 
+class MirrorCommandTest(unittest.TestCase):
+    def test_a_mirror_syncs_into_its_trash_after_a_dry_run(self):
+        job = dict(JOB, mode="mirror")
+        with mock.patch.object(sync.shutil, "which", return_value=None):
+            dry = sync.build_command(job, CONN, "c", dry_run=True)
+            real = sync.build_command(job, CONN, "c", trash="/var/lib/rukebox/sync-trash/music/x")
+        self.assertEqual(dry[:2], ["rclone", "sync"])
+        self.assertIn("--dry-run", dry)
+        self.assertNotIn("--backup-dir", dry)
+        self.assertEqual(real[real.index("--backup-dir") + 1], "/var/lib/rukebox/sync-trash/music/x",
+                         "nothing is deleted outright")
+        self.assertNotIn("--dry-run", real)
+        with self.assertRaises(ValueError):
+            sync.build_command(job, CONN, "c")
+        self.assertNotIn("--backup-dir", sync.build_command(JOB, CONN, "c", trash="/t"), "a copy removes nothing")
+
+    def test_the_log_says_what_goes(self):
+        lines = [{"level": "warning", "msg": "Skipped delete as --dry-run is set (size 2)", "object": "a.mp3",
+                  "skipped": "delete"},
+                 {"level": "warning", "msg": "Skipped copy as --dry-run is set", "object": "b.mp3", "skipped": "copy"},
+                 {"level": "info", "msg": "Moved (server-side)", "object": "c.mp3"},
+                 {"level": "info", "msg": "Moved into backup dir", "object": "c.mp3"}]
+        self.assertEqual([(e or {}).get("kind") for e in map(sync.parse_line, map(json.dumps, lines))],
+                         ["would_remove", None, "moved", "removed"])
+
+
+class MirrorGuardTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        for i in range(20):
+            open(os.path.join(self.dir, "%d.mp3" % i), "w").close()
+        open(os.path.join(self.dir, "mine.exe"), "w").close()
+
+    def verdict(self, names, approved=(), max_files=50, max_percent=10):
+        run = sync.Run(dict(JOB, target=self.dir, mode="mirror"), CONN,
+                       mirror={"trash": "/t", "max_files": max_files, "max_percent": max_percent,
+                               "approved": list(approved)})
+        run.would_remove = list(names)
+        return run._guard()
+
+    def test_a_few_go_many_wait_and_all_never(self):
+        self.assertEqual(self.verdict([]), "running")
+        self.assertEqual(self.verdict(["0.mp3", "1.mp3"]), "running", "10 % of 20 files")
+        self.assertEqual(self.verdict(["0.mp3", "1.mp3", "2.mp3"]), "mirror_confirm", "more than 10 %")
+        self.assertEqual(self.verdict(["0.mp3", "1.mp3"], max_files=1), "mirror_confirm", "more than the count")
+        self.assertEqual(self.verdict(["%d.mp3" % i for i in range(20)], approved=["%d.mp3" % i for i in range(20)]),
+                         "mirror_source_empty", "an empty share never empties the radio, even once allowed")
+
+    def test_what_the_owner_allowed_goes_once_and_nothing_more(self):
+        three = ["0.mp3", "1.mp3", "2.mp3"]
+        self.assertEqual(self.verdict(three, approved=three), "running")
+        self.assertEqual(self.verdict(three + ["3.mp3"], approved=three), "mirror_confirm",
+                         "a file not shown to the owner is asked again")
+
+
+FAKE_MIRROR = textwrap.dedent("""\
+    #!/usr/bin/env python3
+    import json, os, shutil, sys
+    if sys.argv[1] == "obscure":
+        sys.exit(0)
+    target = sys.argv[3]
+    source = set(os.environ["FAKE_SOURCE"].split(","))
+    here = sorted(os.listdir(target))
+    def say(**line):
+        sys.stderr.write(json.dumps(line) + "\\n")
+    if "--dry-run" in sys.argv:
+        for name in here:
+            if name not in source:
+                say(level="warning", msg="Skipped delete as --dry-run is set", object=name, skipped="delete")
+        sys.exit(0)
+    trash = sys.argv[sys.argv.index("--backup-dir") + 1]
+    os.makedirs(trash)
+    for name in here:
+        if name not in source:
+            shutil.move(os.path.join(target, name), os.path.join(trash, name))
+            say(level="info", msg="Moved (server-side)", object=name)
+            say(level="info", msg="Moved into backup dir", object=name)
+    for name in sorted(source - set(here)):
+        open(os.path.join(target, name), "w").close()
+        say(level="info", msg="Copied (new)", object=name)
+    """)
+
+
+@unittest.skipUnless(os.name == "posix", "a fake rclone is a POSIX script")
+class MirrorRunTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        bin_dir = os.path.join(self.dir, "bin")
+        os.makedirs(bin_dir)
+        with open(os.path.join(bin_dir, "rclone"), "w") as f:
+            f.write(FAKE_MIRROR)
+        os.chmod(os.path.join(bin_dir, "rclone"), 0o755)
+        self.target = os.path.join(self.dir, "music")
+        os.makedirs(self.target)
+        for name in ("a.mp3", "b.mp3", "c.mp3"):
+            open(os.path.join(self.target, name), "w").close()
+        patcher = mock.patch.dict(os.environ, {"PATH": bin_dir + os.pathsep + os.environ["PATH"],
+                                               "FAKE_SOURCE": "a.mp3,b.mp3,d.mp3"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def run_mirror(self, **guard):
+        pids = []
+        mirror = dict({"trash": os.path.join(self.dir, "trash"), "max_files": 50, "max_percent": 50}, **guard)
+        run = sync.Run(dict(JOB, target=self.target, mode="mirror", extensions=["mp3"]), dict(CONN, auth="none"),
+                       workdir=self.dir, mirror=mirror, on_process=pids.append).start()
+        run.wait(20)
+        return run, pids
+
+    def test_a_mirror_moves_what_is_gone_into_its_trash(self):
+        run, pids = self.run_mirror()
+        self.assertEqual(run.status, "ok")
+        self.assertEqual(len(pids), 2, "the dry run, then the run: the daemon sees each")
+        self.assertEqual(sorted(os.listdir(self.target)), ["a.mp3", "b.mp3", "d.mp3"])
+        (folder,) = os.listdir(os.path.join(self.dir, "trash"))
+        self.assertEqual(os.listdir(os.path.join(self.dir, "trash", folder)), ["c.mp3"])
+        record = run.record()
+        self.assertEqual((record["added"], record["removed"], record["new_files"]), (1, 1, ["d.mp3"]))
+
+    def test_too_many_removals_wait_and_nothing_moves(self):
+        run, pids = self.run_mirror(max_percent=10)
+        self.assertEqual((run.status, run.would_remove, len(pids)), ("mirror_confirm", ["c.mp3"], 1))
+        self.assertEqual(sorted(os.listdir(self.target)), ["a.mp3", "b.mp3", "c.mp3"], "not even the new one")
+        self.assertEqual(run.record()["would_remove"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

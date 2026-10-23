@@ -139,6 +139,31 @@ class StoreTest(unittest.TestCase):
         syncs.delete_connection(made["id"], path=self.path)
         self.assertEqual(syncs.load(self.path), {"connections": [], "jobs": []})
 
+    def test_a_mirror_never_shares_its_folder(self):
+        made = syncs.save_connection({"name": "NAS", "host": "nas.local"}, path=self.path)
+        copy = syncs.save_job({"name": "Music", "connection": made["id"], "target": "/m"}, path=self.path)
+        self.assertEqual(copy["mode"], "copy", "a sync removes nothing unless asked")
+        for target in ("/m", "/m/Rock", "/"):
+            with self.assertRaises(ValueError) as caught:
+                syncs.save_job({"name": "Mirror", "connection": made["id"], "target": target, "mode": "mirror"},
+                               path=self.path)
+            self.assertEqual(str(caught.exception), "sync_mirror_shared", target)
+        alone = syncs.save_job({"name": "Mirror", "connection": made["id"], "target": "/memes", "mode": "mirror"},
+                               path=self.path)
+        self.assertEqual(alone["mode"], "mirror")
+        with self.assertRaises(ValueError):
+            syncs.save_job({"target": "/memes/x"}, copy["id"], path=self.path)
+        self.assertEqual(syncs.save_job({"name": "Music 2"}, copy["id"], path=self.path)["target"], "/m",
+                         "a sync beside a mirror is still edited")
+
+    def test_an_imported_mirror_on_a_shared_folder_only_copies(self):
+        conn = {"id": "nas", "name": "NAS", "type": "smb", "host": "nas.local"}
+        jobs = [{"id": "a", "name": "A", "connection": "nas", "target": "/m"},
+                {"id": "b", "name": "B", "connection": "nas", "target": "/m/x", "mode": "mirror"}]
+        with mock.patch.object(syncs, "save_all") as saved:
+            syncs.import_block({"connections": [conn], "jobs": jobs})
+        self.assertEqual([job["mode"] for job in saved.call_args[0][0]["jobs"]], ["copy", "copy"])
+
 
 if __name__ == "__main__":
     unittest.main()

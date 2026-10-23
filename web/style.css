@@ -3119,6 +3119,8 @@ select {
 .device-list .device-label { min-width: 0; flex: 1 1 12rem; overflow-wrap: anywhere; }
 .sync-fingerprints { margin: 8px 0 0; padding-left: 18px; font-family: ui-monospace, monospace; font-size: 12px;
   overflow-wrap: anywhere; }
+.sync-removals { margin: 8px 0 0; padding-left: 18px; font-size: 13px; max-height: 14rem; overflow-y: auto;
+  overflow-wrap: anywhere; }
 #remoteList .device-mac + .badge { margin-left: 7px; }
 .device-list .device-mac {
   font-family: ui-monospace, monospace;

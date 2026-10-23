@@ -1,6 +1,7 @@
 """One sync run: rclone fetching a folder of another machine into one of the radio.
 
-Copy only: files are added and updated, never deleted. The rclone configuration
+A copy adds and updates files, never deletes. A mirror also removes what the other
+machine no longer has, after a dry run says how much, and into a trash folder. The rclone configuration
 is written for the run alone (mode 600) and the password reaches rclone through
 its environment, obscured, never on a command line another account could read.
 """
@@ -78,11 +79,13 @@ def remote_path(conn, job):
     return "%s:%s" % (REMOTE, "/".join(parts))
 
 
-def build_command(job, conn, config_path, limit_kbps=0, room_mb=None):
-    """The argument list (never a shell string) for one run; `room_mb` caps what it brings."""
+def build_command(job, conn, config_path, limit_kbps=0, room_mb=None, trash=None, dry_run=False):
+    """The argument list (never a shell string) for one run; `room_mb` caps what it brings,
+    `trash` is where a mirror puts what it removes or replaces."""
     extensions = ",".join(job["extensions"])
+    mirror = job.get("mode") == "mirror"
     command = [
-        "rclone", "copy", remote_path(conn, job), job["target"],
+        "rclone", "sync" if mirror else "copy", remote_path(conn, job), job["target"],
         "--config", config_path,
         "--include", "*.{%s}" % extensions,
         "--ignore-case",
@@ -92,6 +95,12 @@ def build_command(job, conn, config_path, limit_kbps=0, room_mb=None):
         "--contimeout", "%ds" % CONNECT_TIMEOUT_SEC, "--timeout", "%ds" % IO_TIMEOUT_SEC,
         "--use-json-log", "--log-level", "INFO", "--stats", "2s", "--stats-log-level", "NOTICE",
     ]
+    if dry_run:
+        command.append("--dry-run")
+    elif mirror:
+        if not trash:
+            raise ValueError("a mirror needs its trash folder")
+        command += ["--backup-dir", trash]
     if limit_kbps and limit_kbps > 0:
         command += ["--bwlimit", "%dk" % int(limit_kbps)]
     if room_mb is not None:
@@ -125,6 +134,14 @@ def parse_line(line):
                 "transferring": [str(item.get("name") or "") for item in stats.get("transferring") or []
                                  if isinstance(item, dict) and item.get("name")]}
     message = str(data.get("msg") or "")
+    name = str(data.get("object") or "")
+    if data.get("skipped") == "delete":
+        return {"kind": "would_remove", "name": name}
+    if message.startswith("Moved into backup dir"):
+        return {"kind": "removed", "name": name}
+    if message.startswith("Moved ("):
+        # A mirror moves the old copy aside before an update: the copy after it is not new.
+        return {"kind": "moved", "name": name}
     if message.startswith("Copied (new)"):
         return {"kind": "copied", "new": True, "name": str(data.get("object") or "")}
     if message.startswith("Copied ("):
@@ -137,8 +154,16 @@ def parse_line(line):
 class Run:
     """One rclone process and what it reports; started by start(), ended by itself or stop()."""
 
-    def __init__(self, job, conn, password=None, key_file=None, limit_kbps=0, workdir=None, room_mb=None):
+    def __init__(self, job, conn, password=None, key_file=None, limit_kbps=0, workdir=None, room_mb=None,
+                 mirror=None, on_process=None):
+        """mirror: {"trash", "max_files", "max_percent", "approved"} for a mirror's guard;
+        on_process(pid): told of each rclone started (a mirror starts two)."""
         self.job = job
+        self.mirror = mirror if job.get("mode") == "mirror" else None
+        self.on_process = on_process
+        self.removed = []
+        self.would_remove = []
+        self._moved = set()
         self.room_mb = room_mb
         self.conn = conn
         self.password = password
@@ -173,41 +198,90 @@ class Run:
         return config_path, env
 
     def start(self):
-        config_path, env = self._prepare()
+        self._config = self._prepare()
         os.makedirs(self.job["target"], exist_ok=True)
-        command = build_command(self.job, self.conn, config_path, self.limit_kbps, self.room_mb)
         self.started = time.time()
         self.status = "running"
-        self.process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                                        stdin=subprocess.DEVNULL, env=env, start_new_session=True)
-        self.thread = threading.Thread(target=self._read, name="sync-run", daemon=True)
+        first = self._command(dry_run=self.mirror is not None)
+        self._launch(first)
+        self.thread = threading.Thread(target=self._work, name="sync-run", daemon=True)
         self.thread.start()
         return self
 
+    def _command(self, dry_run=False):
+        trash = None
+        if self.mirror is not None and not dry_run:
+            trash = os.path.join(self.mirror["trash"], time.strftime("%Y-%m-%d_%H%M%S"))
+        return build_command(self.job, self.conn, self._config[0], self.limit_kbps, self.room_mb,
+                             trash=trash, dry_run=dry_run)
+
+    def _launch(self, command):
+        self.process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                        stdin=subprocess.DEVNULL, env=self._config[1], start_new_session=True)
+        if self.on_process is not None:
+            self.on_process(self.process.pid)
+
+    def _work(self):
+        try:
+            code = self._read()
+            if self.mirror is not None and code == 0 and not self._stopping:
+                self.status = self._guard()
+                if self.status == "running" and not self._stopping:
+                    self._launch(self._command())
+                    code = self._read()
+        finally:
+            shutil.rmtree(self._folder, ignore_errors=True)
+        self.ended = time.time()
+        if self._stopping:
+            self.status = "stopped"
+        elif self.status == "running":
+            self.status = "ok" if code == 0 else "failed"
+        if self.status in ("stopped", "failed"):
+            self._clear_half_files()
+
+    def _guard(self):
+        """Whether the mirror may remove what its dry run listed: "running", or why not."""
+        names = self.would_remove
+        if not names:
+            return "running"
+        wanted = {"." + ext for ext in self.job["extensions"]}
+        here = 0
+        for _root, _dirs, files in os.walk(self.job["target"]):
+            here += sum(1 for name in files if os.path.splitext(name)[1].lower() in wanted)
+        if len(names) >= here:
+            # The other side shows none of these files: an empty or unmounted share, never "remove all".
+            return "mirror_source_empty"
+        many = len(names) > int(self.mirror.get("max_files") or 0) \
+            or len(names) * 100 > int(self.mirror.get("max_percent") or 0) * here
+        if many and not set(names) <= set(self.mirror.get("approved") or ()):
+            return "mirror_confirm"
+        return "running"
+
     def _read(self):
+        """Reads one rclone's log until it ends: its exit code."""
         try:
             for raw in self.process.stderr:
                 event = parse_line(raw.decode("utf-8", "replace"))
                 if event is None:
                     continue
-                if event["kind"] == "stats":
+                kind = event["kind"]
+                if kind == "stats":
                     self.progress = event
                     self._under_way.update(event["transferring"])
-                elif event["kind"] == "copied":
-                    (self.added if event["new"] else self.updated).append(event["name"])
-                elif event["kind"] == "error" and len(self.errors) < 20:
+                elif kind == "copied":
+                    fresh = event["new"] and event["name"] not in self._moved
+                    (self.added if fresh else self.updated).append(event["name"])
+                elif kind == "moved":
+                    self._moved.add(event["name"])
+                elif kind == "removed":
+                    self.removed.append(event["name"])
+                elif kind == "would_remove":
+                    self.would_remove.append(event["name"])
+                elif kind == "error" and len(self.errors) < 20:
                     self.errors.append(event["message"])
-            code = self.process.wait()
+            return self.process.wait()
         finally:
             self.process.stderr.close()
-            shutil.rmtree(self._folder, ignore_errors=True)
-        self.ended = time.time()
-        if self._stopping:
-            self.status = "stopped"
-        else:
-            self.status = "ok" if code == 0 else "failed"
-        if self.status != "ok":
-            self._clear_half_files()
 
     def _clear_half_files(self):
         """Removes what was cut off mid-copy: rclone before 1.63 writes under the final name,
@@ -227,6 +301,9 @@ class Run:
                 pass
 
     def running(self):
+        # A mirror weighs its dry run between its two rclones: the run is still on.
+        if self.thread is not None:
+            return self.thread.is_alive()
         return self.process is not None and self.process.poll() is None
 
     def stop(self):
@@ -248,7 +325,8 @@ class Run:
         return {"job": self.job["id"], "started": self.started, "ended": self.ended,
                 "status": self.status, "added": len(self.added), "updated": len(self.updated),
                 "errors": self.errors[:5], "bytes": int(self.progress.get("bytes") or 0),
-                "new_files": [name for name in self.added[:200]]}
+                "new_files": [name for name in self.added[:200]], "removed": len(self.removed),
+                "would_remove": len(self.would_remove) if self.status.startswith("mirror_") else 0}
 
 
 def test(conn, password=None, key_file=None, workdir=None, timeout=45):

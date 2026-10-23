@@ -5108,13 +5108,14 @@ def _sync_play():
 
 def _sync_after(job, record):
     """What follows a run: the library sees the new files, the journal says what came in."""
-    if record.get("added") or record.get("updated"):
+    # A file a mirror removed leaves the library as one deleted by hand would.
+    if record.get("added") or record.get("updated") or record.get("removed"):
         control("rescan_music")
         _library_wake.set()
         if job.get("kind") == "music" and job.get("recent_list") and record.get("new_files"):
             _refresh_recent_list(job, record["new_files"])
     stats.record("sync_run", label=job.get("name") or job.get("id"), detail={
-        key: record.get(key) for key in ("status", "added", "updated", "bytes")})
+        key: record.get(key) for key in ("status", "added", "updated", "removed", "bytes")})
 
 
 def _refresh_recent_list(job, names):
@@ -5191,7 +5192,8 @@ def _sync_view():
         public["secret_lost"] = item["id"] in lost
         connections.append(public)
     return {"connections": connections, "jobs": data["jobs"], "status": _sync().status(),
-            "rclone": sync_mod.rclone_available(), "places": _sync_places(), "lost": sorted(lost)}
+            "rclone": sync_mod.rclone_available(), "places": _sync_places(), "lost": sorted(lost),
+            "trash_days": int(cfg().get("SYNC_TRASH_DAYS") or 14)}
 
 
 def _sync_error(error):
@@ -5330,6 +5332,23 @@ def api_sync_run(job_id):
     error = _sync().start(job_id, manual=True)
     if error:
         return jsonify({"ok": False, "error": error}), 409
+    return jsonify({"ok": True, "data": _sync().status()})
+
+
+@app.route("/api/sync/jobs/<job_id>/mirror_confirm", methods=["POST"])
+def api_sync_mirror_confirm(job_id):
+    """The owner lets a mirror remove, once, the files its last dry run listed."""
+    try:
+        job = syncs.job(job_id)
+    except KeyError as e:
+        return _sync_error(e)
+    refused = _sync_target_refusal(job["target"])
+    if refused:
+        return jsonify({"ok": False, "error": refused}), 400
+    error = _sync().approve(job_id)
+    if error:
+        return jsonify({"ok": False, "error": error}), 404 if error == "not_found" else 409
+    stats.record("sync_mirror_allowed", label=job.get("name") or job_id)
     return jsonify({"ok": True, "data": _sync().status()})
 
 

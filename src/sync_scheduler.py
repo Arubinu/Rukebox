@@ -7,6 +7,7 @@ reads RUNNING_FILE to hold the nightly switch-off while one is under way.
 import json
 import logging
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -25,6 +26,10 @@ TICK_SEC = 60
 REQUEST_SEC = 3
 REQUEST_FILE = "sync-request.json"
 REQUEST_MAX_AGE_SEC = 120
+# A mirror's removals waiting for the owner, and the ones the owner let through.
+MIRROR_FILE = "sync-mirror.json"
+TRASH_DIR = "sync-trash"
+MIRROR_SHOWN = 200
 RECENT_LIST_ID = "recent-additions"
 RECENT_MAX = 200
 # Below this much room left on the target's disk, a sync waits.
@@ -173,6 +178,57 @@ def _take_request(state_dir):
     return data
 
 
+def load_mirror(state_dir):
+    try:
+        with open(os.path.join(state_dir, MIRROR_FILE), encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _save_mirror(state_dir, data):
+    path = os.path.join(state_dir, MIRROR_FILE)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp, path)
+
+
+def trash_folder(state_dir, job_id):
+    return os.path.join(state_dir, TRASH_DIR, job_id)
+
+
+def purge_trash(state_dir, days, now=None):
+    """Empties the trash of what a mirror removed more than `days` ago: how many runs went."""
+    now = now or time.time()
+    root = os.path.join(state_dir, TRASH_DIR)
+    gone = 0
+    try:
+        jobs = os.listdir(root)
+    except OSError:
+        return 0
+    for job_id in jobs:
+        folder = os.path.join(root, job_id)
+        try:
+            runs = os.listdir(folder)
+        except OSError:
+            continue
+        for name in runs:
+            path = os.path.join(folder, name)
+            try:
+                if now - os.path.getmtime(path) > max(1, days) * 86400:
+                    shutil.rmtree(path)
+                    gone += 1
+            except OSError:
+                pass
+        try:
+            os.rmdir(folder)
+        except OSError:
+            pass
+    return gone
+
+
 class Manager:
     """The web server's side: a thread that starts due syncs, and the run of the moment.
 
@@ -245,13 +301,19 @@ class Manager:
                 if free < FREE_FLOOR_BYTES:
                     return "no_space"
                 room_mb = (free - FREE_FLOOR_BYTES) // (1024 * 1024)
-                self.run = sync.Run(job, conn, password, key_file, rate or 0, self.state_dir, room_mb).start()
+                cfg = self.cfg()
+                mirror = {"trash": trash_folder(self.state_dir, job_id),
+                          "max_files": _number(cfg.get("SYNC_MIRROR_MAX_FILES"), 50),
+                          "max_percent": _number(cfg.get("SYNC_MIRROR_MAX_PERCENT"), 10),
+                          "approved": (load_mirror(self.state_dir).get(job_id) or {}).get("approved") or []}
+                self.run = sync.Run(job, conn, password, key_file, rate or 0, self.state_dir, room_mb,
+                                    mirror=mirror,
+                                    on_process=lambda pid: _write_running(self.state_dir, pid, job_id)).start()
             except (OSError, subprocess.SubprocessError, ValueError):
                 log.exception("The sync %s could not start", job_id)
                 return "sync_failed"
             self.run_rate = rate
             self.seq += 1
-            _write_running(self.state_dir, self.run.process.pid, job_id)
             threading.Thread(target=self._finish, args=(self.run,), name="sync-finish", daemon=True).start()
             return None
 
@@ -275,6 +337,7 @@ class Manager:
                 return
             run.added[:0], run.updated[:0] = self.carried
             self.carried = ([], [])
+            self._note_mirror(run)
         record = sync.add_run(self.state_dir, run.record())
         with self.lock:
             self.seq += 1
@@ -283,10 +346,46 @@ class Manager:
         except Exception:  # noqa: BLE001 - what follows a run never stops the next one
             log.exception("After the sync %s", run.job["id"])
 
+    def _note_mirror(self, run):
+        """Keeps what a mirror wants to remove for the owner to see; a run done clears it."""
+        if run.job.get("mode") != "mirror":
+            return
+        data = load_mirror(self.state_dir)
+        job_id = run.job["id"]
+        if run.status == "mirror_confirm":
+            data[job_id] = {"pending": sorted(run.would_remove), "at": time.time()}
+            self.held[job_id] = "mirror_confirm"
+        elif run.status == "mirror_source_empty":
+            data.pop(job_id, None)
+            self.held[job_id] = "mirror_source_empty"
+        elif run.status == "ok":
+            data.pop(job_id, None)
+        else:
+            return
+        try:
+            _save_mirror(self.state_dir, data)
+        except OSError:
+            log.warning("Could not keep the mirror's removals", exc_info=True)
+
+    def approve(self, job_id):
+        """The owner lets the removals listed run once: starts the sync with them allowed."""
+        with self.lock:
+            data = load_mirror(self.state_dir)
+            entry = data.get(job_id) or {}
+            if not entry.get("pending"):
+                return "not_found"
+            data[job_id] = {"approved": entry["pending"], "at": time.time()}
+            _save_mirror(self.state_dir, data)
+            error = self.start(job_id, manual=True)
+            if error is None:
+                self.held.pop(job_id, None)
+            return error
+
     def tick(self, now=None):
         """Starts the first due sync the moment allows; adjusts the one running to the music."""
         now = now or datetime.now()
         cfg = self.cfg()
+        purge_trash(self.state_dir, _number(cfg.get("SYNC_TRASH_DAYS"), 14))
         with self.lock:
             if self.busy():
                 play = self.play()
@@ -352,7 +451,9 @@ class Manager:
                 current = {"job": self.run.job["id"], "started": self.run.started,
                            "progress": self.run.progress, "rate": self.run_rate,
                            "added": len(self.run.added), "updated": len(self.run.updated)}
-            return {"running": current, "seq": self.seq, "held": dict(self.held),
+            mirror = {job_id: {"count": len(entry["pending"]), "names": entry["pending"][:MIRROR_SHOWN]}
+                      for job_id, entry in load_mirror(self.state_dir).items() if entry.get("pending")}
+            return {"running": current, "seq": self.seq, "held": dict(self.held), "mirror": mirror,
                     "runs": sync.load_runs(self.state_dir)[:20]}
 
     def answer_request(self):
@@ -387,6 +488,13 @@ class Manager:
         if self._thread is None:
             self._thread = threading.Thread(target=self.loop, name="sync-scheduler", daemon=True)
             self._thread.start()
+
+
+def _number(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _free_bytes(folder):

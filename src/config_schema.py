@@ -1241,6 +1241,18 @@ SETTINGS = [
             "Download speed of a sync while music plays over the built-in\n"
             "Bluetooth, in kilobytes per second.",
             "Speed while it plays (KB/s)"),
+    Setting("SYNC_MIRROR_MAX_FILES", "sync", "mirror_max_files", "int", "50",
+            "A mirror sync removes what the other machine no longer has. It asks\n"
+            "first when it would remove more files than this...",
+            "Ask before removing more than (files)"),
+    Setting("SYNC_MIRROR_MAX_PERCENT", "sync", "mirror_max_percent", "int", "10",
+            "...or more than this share of the folder's files, in percent. A\n"
+            "mirror whose other side shows none of its files removes nothing.",
+            "Or more than (%)"),
+    Setting("SYNC_TRASH_DAYS", "sync", "trash_days", "int", "14",
+            "Days the files a mirror removed or replaced are kept in the state\n"
+            "folder (sync-trash) before they are deleted for good.",
+            "Keep removed files (days)"),
     Setting("TRANSFER_LIMIT_KBPS", "hardware", "transfer_limit_kbps", "int", "200",
             "Upload speed while limited, in kilobytes per second.",
             "Limited speed (KB/s)"),

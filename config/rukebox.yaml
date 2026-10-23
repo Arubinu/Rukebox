@@ -1111,6 +1111,18 @@ sync:
   # Bluetooth, in kilobytes per second.
   limit_bt_kbps: 100
 
+  # A mirror sync removes what the other machine no longer has. It asks
+  # first when it would remove more files than this...
+  mirror_max_files: 50
+
+  # ...or more than this share of the folder's files, in percent. A
+  # mirror whose other side shows none of its files removes nothing.
+  mirror_max_percent: 10
+
+  # Days the files a mirror removed or replaced are kept in the state
+  # folder (sync-trash) before they are deleted for good.
+  trash_days: 14
+
 # ---------------------------------------------------------------
 # The Pi itself
 # ---------------------------------------------------------------

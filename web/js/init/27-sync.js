@@ -65,14 +65,21 @@ function syncEveryLabel(hours) {
   return known.includes(hours) ? t("sync.every_" + hours) : t("sync.every_n", { n: hours });
 }
 
+function syncRunLine(run) {
+  const vars = { when: syncWhen(run.ended || run.started), added: run.added || 0, updated: run.updated || 0,
+                 removed: run.removed || 0, n: run.would_remove || 0 };
+  if (run.status === "ok") return t(run.removed ? "sync.last_ok_removed" : "sync.last_ok", vars);
+  const key = { stopped: "sync.last_stopped", mirror_confirm: "sync.last_confirm",
+                mirror_source_empty: "sync.last_source_empty" }[run.status];
+  return t(key || "sync.last_failed", vars);
+}
+
 function syncLastLine(job) {
   const status = syncData.status || {};
   const held = (status.held || {})[job.id];
   if (held) return t("sync.held", { why: errorLabel(held) });
   const run = (status.runs || []).find((one) => one.job === job.id);
-  if (!run) return t("sync.last_never");
-  const vars = { when: syncWhen(run.ended || run.started), added: run.added || 0, updated: run.updated || 0 };
-  return t(run.status === "ok" ? "sync.last_ok" : run.status === "stopped" ? "sync.last_stopped" : "sync.last_failed", vars);
+  return run ? syncRunLine(run) : t("sync.last_never");
 }
 
 function renderSyncJobs() {
@@ -80,13 +87,18 @@ function renderSyncJobs() {
   const rows = syncData.jobs.map((job) => {
     const run = syncIconButton("play", "sync.run_now", { name: job.name }, () => runSync(job));
     run.disabled = !!running || !syncData.rclone;
+    const actions = [run];
+    const pending = ((syncData.status || {}).mirror || {})[job.id];
+    if (pending) {
+      actions.unshift(syncIconButton("alert", "sync.mirror_review", { name: job.name },
+        () => reviewMirror(job, pending)));
+    }
+    actions.push(syncIconButton("pencil", "sync.edit", { name: job.name }, () => openSyncJobForm(job)),
+      syncIconButton("trash", "sync.delete", { name: job.name }, () => deleteSyncJob(job)));
     return syncRow(job.name + (job.enabled ? "" : " · " + t("sync.off")),
-      syncPlaceLabel(syncPlaceOf(job.target)) + " · " + syncEveryLabel(job.every_hours),
-      syncLastLine(job), [
-        run,
-        syncIconButton("pencil", "sync.edit", { name: job.name }, () => openSyncJobForm(job)),
-        syncIconButton("trash", "sync.delete", { name: job.name }, () => deleteSyncJob(job)),
-      ]);
+      syncPlaceLabel(syncPlaceOf(job.target)) + " · " + syncEveryLabel(job.every_hours)
+        + (job.mode === "mirror" ? " · " + t("sync.mode_mirror_short") : ""),
+      syncLastLine(job), actions);
   });
   document.getElementById("syncJobList").replaceChildren(...rows);
   document.getElementById("syncEmpty").hidden = rows.length > 0;
@@ -125,9 +137,7 @@ function renderSyncRuns() {
   const runs = (syncData.status || {}).runs || [];
   const rows = runs.map((run) => {
     const job = syncJob(run.job);
-    const line = t(run.status === "ok" ? "sync.last_ok" : run.status === "stopped" ? "sync.last_stopped" : "sync.last_failed",
-      { when: syncWhen(run.ended || run.started), added: run.added || 0, updated: run.updated || 0 });
-    return syncRow(job ? job.name : run.job, line, (run.errors || [])[0] || "", []);
+    return syncRow(job ? job.name : run.job, syncRunLine(run), (run.errors || [])[0] || "", []);
   });
   document.getElementById("syncRunList").replaceChildren(...rows);
   document.getElementById("syncRunsEmpty").hidden = rows.length > 0;
@@ -182,6 +192,8 @@ function noteSyncStatus(status) {
     if (!run || run.status === "stopped") showToast(t("sync.stopped_toast", { name }));
     else if (run.status === "ok") {
       showToast(t("sync.done", { name, added: run.added || 0, updated: run.updated || 0 }));
+    } else if (run.status === "mirror_confirm") {
+      showToast(t("sync.mirror_waits", { name, n: run.would_remove || 0 }));
     } else showToast(t("sync.failed_toast", { name }), (run.errors || [])[0] || "", { error: true });
   }
 }
@@ -258,6 +270,7 @@ function openSyncJobForm(job, placeId) {
   value("sjWifi", job ? job.wifi : "any");
   value("sjSsid", job ? job.ssid : "");
   value("sjPlayback", job ? job.playback : "idle");
+  value("sjMode", job && job.mode ? job.mode : "copy");
   value("sjExtensions", job ? job.extensions.join(", ") : "");
   value("sjMaxSize", String(job ? job.max_size_mb : 500));
   document.getElementById("sjAtBoot").checked = job ? job.at_boot : true;
@@ -292,7 +305,7 @@ document.getElementById("syncJobForm").addEventListener("submit", async (e) => {
     kind: place ? place.kind : "music", target: get("sjTarget").trim(),
     every_hours: Number(get("sjEvery")), window_start: get("sjWindowStart"), window_end: get("sjWindowEnd"),
     at_boot: document.getElementById("sjAtBoot").checked, internet: get("sjInternet"), wifi: get("sjWifi"),
-    ssid: get("sjSsid").trim(), playback: get("sjPlayback"), extensions: get("sjExtensions"),
+    ssid: get("sjSsid").trim(), playback: get("sjPlayback"), mode: get("sjMode"), extensions: get("sjExtensions"),
     max_size_mb: Number(get("sjMaxSize") || 500), recent_list: document.getElementById("sjRecent").checked,
     enabled: document.getElementById("sjEnabled").checked,
   };
@@ -325,6 +338,38 @@ async function runSync(job) {
     return;
   }
   watchSync();
+}
+
+/* A mirror that would remove many files waits: the owner sees which, and lets it go once. */
+async function reviewMirror(job, pending) {
+  const body = document.createElement("div");
+  const intro = document.createElement("p");
+  intro.textContent = t("sync.mirror_body", { name: job.name, n: pending.count,
+                                              days: (syncData.trash_days || 14) });
+  const list = document.createElement("ul");
+  list.className = "sync-removals";
+  pending.names.forEach((name) => {
+    const li = document.createElement("li");
+    li.textContent = name;
+    list.append(li);
+  });
+  body.append(intro, list);
+  if (pending.count > pending.names.length) {
+    const more = document.createElement("p");
+    more.className = "hint";
+    more.textContent = t("sync.mirror_more", { n: pending.count - pending.names.length });
+    body.append(more);
+  }
+  const answer = await openModal({ title: t("sync.mirror_title"), bodyNode: body, confirm: true,
+                                   choices: [{ label: t("sync.mirror_accept", { n: pending.count }), value: true, danger: true }] });
+  if (answer !== true) return;
+  const r = await apiPost("/api/sync/jobs/" + encodeURIComponent(job.id) + "/mirror_confirm");
+  if (!r.ok) {
+    showError(r.error, job.name);
+    return;
+  }
+  syncData.status = r.data;
+  renderSync();
 }
 
 document.getElementById("syncStop").addEventListener("click", async () => {

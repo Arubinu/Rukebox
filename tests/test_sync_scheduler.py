@@ -90,8 +90,11 @@ class ConditionTest(unittest.TestCase):
 class FakeRun:
     made = []
 
-    def __init__(self, job, conn, password, key_file, rate, workdir, room_mb=None):
+    def __init__(self, job, conn, password, key_file, rate, workdir, room_mb=None, mirror=None,
+                 on_process=None):
         self.job, self.rate = job, rate
+        self.on_process = on_process
+        self.mirror = mirror
         self.started, self.ended, self.progress = 1.0, None, {}
         self.added, self.updated = [], []
         self.alive = True
@@ -100,6 +103,8 @@ class FakeRun:
         FakeRun.made.append(self)
 
     def start(self):
+        if self.on_process:
+            self.on_process(self.process.pid)
         return self
 
     def running(self):
@@ -203,6 +208,40 @@ class ManagerTest(unittest.TestCase):
         self.assertEqual(self.manager.tick(at(10)), None)
         self.assertEqual((FakeRun.made, self.manager.held["music"]), ([], "sync_target_usb"))
 
+    def mirror_ended(self, status, names=()):
+        run = mock.Mock(job=dict(JOB, mode="mirror"), status=status, would_remove=list(names))
+        with self.manager.lock:
+            self.manager._note_mirror(run)
+
+    def test_a_mirror_waiting_for_the_owner_is_shown_then_let_through_once(self):
+        self.mirror_ended("mirror_confirm", ["b.mp3", "a.mp3"])
+        status = self.manager.status()
+        self.assertEqual(status["mirror"], {"music": {"count": 2, "names": ["a.mp3", "b.mp3"]}})
+        self.assertEqual(status["held"]["music"], "mirror_confirm")
+        self.assertIsNone(self.manager.approve("music"))
+        self.assertEqual(FakeRun.made[0].mirror["approved"], ["a.mp3", "b.mp3"], "what was shown, nothing more")
+        self.assertNotIn("music", self.manager.status()["held"])
+        self.assertEqual(self.manager.approve("music"), "not_found", "nothing left to allow")
+        FakeRun.made[0].stop()
+        self.mirror_ended("ok")
+        self.assertEqual(sync_scheduler.load_mirror(self.dir), {}, "used once")
+
+    def test_an_empty_share_is_said_and_never_offered(self):
+        self.mirror_ended("mirror_source_empty", ["a.mp3"])
+        self.assertEqual((self.manager.status()["mirror"], self.manager.held["music"]),
+                         ({}, "mirror_source_empty"))
+        self.assertEqual(self.manager.approve("music"), "not_found")
+
+    def test_the_trash_keeps_its_days_then_empties(self):
+        old = os.path.join(sync_scheduler.trash_folder(self.dir, "music"), "2026-01-01_000000")
+        new = os.path.join(sync_scheduler.trash_folder(self.dir, "music"), "2026-10-20_000000")
+        for folder in (old, new):
+            os.makedirs(folder)
+            open(os.path.join(folder, "a.mp3"), "w").close()
+        os.utime(old, (time.time() - 20 * 86400,) * 2)
+        self.assertEqual(sync_scheduler.purge_trash(self.dir, 14), 1)
+        self.assertEqual((os.path.exists(old), os.path.exists(new)), (False, True))
+
 
 class ShutdownWaitTest(DaemonCase):
     def test_the_nightly_switch_off_waits_for_a_sync_then_goes(self):
@@ -291,7 +330,8 @@ class RouteTest(unittest.TestCase):
         self.assertEqual(self.client.get("/api/sync").status_code, 401)
         self.login("Marie", "marie-password")
         for method, url in (("get", "/api/sync"), ("post", "/api/sync/connections"),
-                            ("post", "/api/sync/jobs/x/run"), ("get", "/api/sync/ssh_key")):
+                            ("post", "/api/sync/jobs/x/run"), ("get", "/api/sync/ssh_key"),
+                            ("post", "/api/sync/jobs/x/mirror_confirm")):
             self.assertEqual(getattr(self.client, method)(url, json={}).status_code, 401, url)
 
     def test_a_password_goes_in_sealed_and_never_comes_back(self):
@@ -325,6 +365,24 @@ class RouteTest(unittest.TestCase):
         made = self.client.post("/api/sync/jobs", json={"name": "Rock", "connection": "nas",
                                                        "target": os.path.join(self.music, "Rock")})
         self.assertTrue(made.get_json()["ok"])
+
+    def test_a_mirror_is_let_through_only_once_it_asked(self):
+        self.login("Boss", "boss-password")
+        self.client.post("/api/sync/connections", json={"name": "NAS", "type": "smb", "host": "nas", "auth": "none"})
+        self.client.post("/api/sync/jobs", json={"name": "Rock", "connection": "nas", "mode": "mirror",
+                                                 "target": os.path.join(self.music, "Rock")})
+        # The manager keeps the state folder it was made with: this test's own.
+        mock.patch.object(ws, "_sync_manager", None).start()
+        url = "/api/sync/jobs/rock/mirror_confirm"
+        self.assertEqual(self.client.post(url).get_json()["error"], "not_found", "nothing asked yet")
+        sync_scheduler._save_mirror(self.dir, {"rock": {"pending": ["a.mp3"], "at": 1}})
+        with mock.patch.object(sync_scheduler.Manager, "start", return_value=None) as start:
+            answer = self.client.post(url)
+        self.assertTrue(answer.get_json()["ok"])
+        start.assert_called_once_with("rock", manual=True)
+        self.assertEqual(sync_scheduler.load_mirror(self.dir)["rock"]["approved"], ["a.mp3"])
+        clash = self.client.post("/api/sync/jobs", json={"name": "All", "connection": "nas", "target": self.music})
+        self.assertEqual(clash.get_json()["error"], "sync_mirror_shared", "a mirror's folder is its own")
 
     def test_a_backup_restored_elsewhere_asks_for_the_password_again(self):
         self.login("Boss", "boss-password")

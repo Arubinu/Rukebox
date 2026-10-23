@@ -88,3 +88,25 @@ test("a run that starts and ends is told in a toast", async (t) => {
   page.document.dispatchEvent(new page.window.CustomEvent("page-shown", { detail: { tab: "home", page: "sync" } }));
   await until(() => /Rock: 3 new, 1 updated/.test(toasts()));
 });
+
+test("a mirror that would remove many files shows them and goes only once allowed", async (t) => {
+  const status = { running: null, seq: 1, held: { rock: "mirror_confirm" }, runs: [],
+                   mirror: { rock: { count: 3, names: ["Rock/a.mp3", "Rock/b.mp3"] } } };
+  const page = open(t, { hash: "#home/sync", view: "detailed", routes: {
+    "GET /api/sync": () => Object.assign(view(status), { jobs: [Object.assign({}, view().jobs[0], { mode: "mirror" })],
+                                                         trash_days: 7 }),
+    "GET /api/sync/status": () => status,
+    "POST /api/sync/jobs/rock/mirror_confirm": () => ({ running: null, seq: 2, held: {}, runs: [] }),
+  } });
+  await until(() => page.$("syncJobList").querySelector('[data-icon="alert"]'));
+  assert.match(page.$("syncJobList").textContent, /mirror/);
+  assert.match(page.$("syncJobList").textContent, /waits for your OK to remove files/);
+  page.$("syncJobList").querySelector('[data-icon="alert"]').click();
+  await until(() => !page.$("modalOverlay").hidden);
+  assert.match(page.$("modalBody").textContent, /Rock\/a\.mp3/);
+  assert.match(page.$("modalBody").textContent, /7 days/);
+  assert.match(page.$("modalBody").textContent, /And 1 more/);
+  page.$("modalChoices").querySelector("button").click();
+  await until(() => page.sent("POST", "/api/sync/jobs/rock/mirror_confirm").length);
+  await until(() => !page.$("syncJobList").querySelector('[data-icon="alert"]'));
+});
