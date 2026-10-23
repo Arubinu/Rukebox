@@ -216,6 +216,30 @@ record_stat() {
         "$RUKEBOX_USER" > /dev/null 2>&1 || true
 }
 
+restore_version_file() {
+    local saved="${1%.tar.gz}.version.json"
+    if [ -f "$saved" ]; then
+        cp "$saved" "$VERSION_FILE"
+    elif [ -f "$VERSION_FILE" ]; then
+        # A backup made before the copy was kept: it holds the version installed before this one.
+        python3 - "$VERSION_FILE" <<'PYEOF' || say "   version file left as it was"
+import json, sys
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    info = json.load(f)
+before = info.get("previous_tree_hash")
+if not before:
+    sys.exit(1)
+info = {"tree_hash": before, "tree_hash_short": before[:12], "source": "rollback",
+        "installed_at": info.get("previous_installed_at")}
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(info, f, indent=2)
+PYEOF
+    fi
+    [ -f "$VERSION_FILE" ] && chown "$RUKEBOX_USER:$RUKEBOX_USER" "$VERSION_FILE"
+    return 0
+}
+
 if [ "$ACTION" = "rollback" ]; then
     latest="$(list_backups | head -n1)"
     [ -n "$latest" ] || fail "no backup to restore in $BACKUP_DIR"
@@ -231,6 +255,7 @@ if [ "$ACTION" = "rollback" ]; then
     mv "$INSTALL_DIR.rollback" "$INSTALL_DIR"
     rm -rf "$INSTALL_DIR.discard"
     chown -R "$RUKEBOX_USER:$RUKEBOX_USER" "$INSTALL_DIR"
+    restore_version_file "$latest"
     systemctl daemon-reload
     [ "$DO_RESTART" = "1" ] && start_services
     record_stat "update_rolled_back" "$(basename "$latest")"
@@ -385,6 +410,8 @@ if [ -d "$INSTALL_DIR" ]; then
     step "Backing up the current version"
     BACKUP="$BACKUP_DIR/opt-rukebox-$(date +%Y%m%d-%H%M%S).tar.gz"
     tar czf "$BACKUP" -C "$INSTALL_DIR" . || fail "backup failed, aborting."
+    # What this version is lives in the state folder: kept beside it for a rollback.
+    [ -f "$VERSION_FILE" ] && cp "$VERSION_FILE" "${BACKUP%.tar.gz}.version.json"
     say "   $BACKUP"
 fi
 
@@ -676,7 +703,7 @@ fi
 
 if [ "${BACKUP_KEEP:-3}" -gt 0 ] 2>/dev/null; then
     list_backups | tail -n +$((BACKUP_KEEP + 1)) | while read -r old; do
-        rm -f "$old"
+        rm -f "$old" "${old%.tar.gz}.version.json"
     done
 fi
 
