@@ -1308,6 +1308,11 @@ _ROUTE_CAPABILITIES = {
     # container that mounts it read-only may read them and not write them.
     "/api/prepared/<kind>/file": {"media_upload": ("POST", "DELETE")},
     "/api/prepared/<kind>/folder": {"media_upload": ("POST",)},
+    # A sync writes into those same folders: never set up or started where they are read-only.
+    "/api/sync/jobs": {"media_upload": ("POST",)},
+    "/api/sync/jobs/<job_id>": {"media_upload": ("POST",)},
+    "/api/sync/jobs/<job_id>/run": {"media_upload": ("POST",)},
+    "/api/sync/jobs/<job_id>/mirror_confirm": {"media_upload": ("POST",)},
     # A key is mounted from the machine's own USB bus.
     "/api/usb_music": {"usb_storage": ("POST",)},
     # The access point is the one feature whose routes ask nmcli with nothing
@@ -5158,7 +5163,11 @@ def _sync_target_refusal(target):
     for root in _allowed_roots():
         base = os.path.realpath(root)
         if real == base or real.startswith(base.rstrip(os.sep) + os.sep):
-            return None
+            # A folder mounted read-only (a container's `:ro` volume) would only collect failed runs.
+            probe = real
+            while not os.path.exists(probe) and os.path.dirname(probe) != probe:
+                probe = os.path.dirname(probe)
+            return None if os.access(probe, os.W_OK) else "read_only"
     return "sync_bad_target"
 
 

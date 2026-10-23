@@ -366,6 +366,24 @@ class RouteTest(unittest.TestCase):
                                                        "target": os.path.join(self.music, "Rock")})
         self.assertTrue(made.get_json()["ok"])
 
+    def test_a_read_only_folder_is_never_synced_into(self):
+        self.login("Boss", "boss-password")
+        self.client.post("/api/sync/connections", json={"name": "NAS", "type": "smb", "host": "nas"})
+        job = {"name": "Rock", "connection": "nas", "target": os.path.join(self.music, "Rock")}
+        machine = ws.platform_mod
+        machine.override(media_upload=False)
+        self.addCleanup(machine.override, media_upload=None)
+        answer = self.client.post("/api/sync/jobs", json=job)
+        self.assertEqual((answer.status_code, answer.get_json()["error"]), (501, "unsupported_here"),
+                         "a container whose music is mounted read-only")
+        self.assertEqual(self.client.get("/api/sync").status_code, 200, "the page still reads what is set up")
+        machine.override(media_upload=True)
+        if os.name == "posix" and os.geteuid() != 0:
+            os.chmod(self.music, 0o555)
+            self.addCleanup(os.chmod, self.music, 0o755)
+            self.assertEqual(self.client.post("/api/sync/jobs", json=job).get_json()["error"], "read_only",
+                             "one folder read-only among writable ones")
+
     def test_a_mirror_is_let_through_only_once_it_asked(self):
         self.login("Boss", "boss-password")
         self.client.post("/api/sync/connections", json={"name": "NAS", "type": "smb", "host": "nas", "auth": "none"})

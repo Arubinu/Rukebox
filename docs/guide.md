@@ -3741,8 +3741,11 @@ from a computer, a NAS or a cloud folder by itself, with
 [rclone](https://rclone.org) (installed with the radio, and by an update when it
 is missing). By default files are **added and updated, never deleted**: a song
 removed on the other side stays on the radio (a *mirror*, below, removes it
-too). A container does not offer the page: its
-folders are the host's volumes, filled from the host.
+too). The page needs a music folder the radio may write to, like *Add music*: a
+container whose volume is mounted read-only (`:ro`) does not offer it, and a
+folder found read-only is never synced into (`read_only`). The container image
+does not carry rclone: a container with a writable volume shows the page with
+that warning, and its folders are better filled from the host.
 
 - **Connections** say where and how: a shared folder of a PC or a NAS (SMB),
   SFTP, WebDAV (Nextcloud, ownCloud) or FTP, an address, a user, a password and
