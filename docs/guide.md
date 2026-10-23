@@ -2881,6 +2881,12 @@ sudo cp -a /etc/rukebox/backup-before-v2/. /etc/rukebox/
 sudo systemctl start rukebox-daemon rukebox-web
 ```
 
+In a container the folder is `/config` (`./config` on the host): stop it
+(`docker compose stop`), copy the files of `config/backup-before-v2/` into
+`config/` on the host, name the image of the older version in the compose file,
+and `docker compose up -d`. `WHAT-IS-THIS.txt` gives the steps that fit the
+machine it was written on, with the folder's real path.
+
 One list can be put back on its own instead, without touching the rest of the
 configuration: copy that one file (`cards.json`, `announcements.json`...) back
 into `/etc/rukebox`, and the older version reads it again. Once you are sure

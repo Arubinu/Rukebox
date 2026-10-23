@@ -179,7 +179,21 @@ class ImportTest(unittest.TestCase):
         with open(os.path.join(kept, config_document.README_NAME), encoding="utf-8") as f:
             text = f.read()
         self.assertIn("before the lists", text)
-        self.assertIn("cp -a", text)
+        self.assertIn("cp -a . %s/" % os.path.abspath(self.dir), text, "the folder it was taken from")
+
+    def test_a_container_is_told_how_to_put_it_back_without_systemd(self):
+        self.legacy("cards.json", {"cards": [{"id": "abcd1234", "name": "Bleue"}]})
+        # A README left by putting an earlier copy back is not configuration.
+        with open(os.path.join(self.dir, config_document.README_NAME), "w", encoding="utf-8") as f:
+            f.write("left over")
+        with mock.patch.dict(os.environ, {"RUKEBOX_PLATFORM": "docker"}):
+            config_document.import_legacy(self.path)
+        with open(os.path.join(self.dir, config_document.BACKUP_DIR, config_document.README_NAME),
+                  encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("docker compose stop", text)
+        self.assertNotIn("systemctl", text)
+        self.assertNotIn("left over", text)
 
     def test_the_copy_is_taken_once_and_never_overwritten(self):
         self.legacy("cards.json", {"cards": [{"id": "abcd1234", "name": "Bleue"}]})

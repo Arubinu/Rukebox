@@ -27,20 +27,29 @@ README_NAME = "WHAT-IS-THIS.txt"
 README = """\
 The configuration as it was before the lists (announcements, music lists,
 schedules, cards and the play order saved per announcement folder) moved into
-rukebox.yaml. Taken on %s, with every file of /etc/rukebox.
+rukebox.yaml. Taken on %(date)s, with every file of %(folder)s.
 
 Putting it back: stop the radio, then copy this folder over the configuration
 folder, which restores the settings and the five list files too:
 
-    sudo systemctl stop rukebox-daemon rukebox-web
-    sudo cp -a . /etc/rukebox/
-    sudo systemctl start rukebox-daemon rukebox-web
+%(steps)s
 
 A single list can also be put back on its own, without touching the rest: copy
-one file (announcements.json, cards.json...) into /etc/rukebox, and a version
+one file (announcements.json, cards.json...) into %(folder)s, and a version
 before this one reads it again. Once you are sure you will not go back, this
 folder can be deleted.
 """
+README_STEPS = """\
+    sudo systemctl stop rukebox-daemon rukebox-web
+    sudo cp -a . %(folder)s/
+    sudo systemctl start rukebox-daemon rukebox-web"""
+# A container has no systemd, and its folder is a volume the host reaches by its own path.
+README_STEPS_CONTAINER = """\
+    docker compose stop
+    on the host, copy the files of this folder into the folder mounted as
+    %(folder)s, leaving this folder out
+    name the image of the version to go back to in the compose file, then
+    docker compose up -d"""
 
 # Every block: the name it had as a setting, the key it had in `paths:`, and
 # the file it lived in before this version.
@@ -278,6 +287,12 @@ def write(name, doc, path=None):
     forget(document)
 
 
+def _readme(folder):
+    container = os.environ.get("RUKEBOX_PLATFORM") == "docker"
+    steps = (README_STEPS_CONTAINER if container else README_STEPS) % {"folder": folder}
+    return README % {"date": time.strftime("%Y-%m-%d"), "folder": folder, "steps": steps}
+
+
 def _keep_the_folder(document):
     """Copies every file of the configuration folder into BACKUP_DIR, once.
 
@@ -291,8 +306,9 @@ def _keep_the_folder(document):
     if os.path.isdir(target):
         return target
     # Listed before the folder is made: it must not be copied into itself.
+    # A README left behind by putting an earlier copy back is not part of the configuration.
     entries = [entry for entry in sorted(os.listdir(source))
-               if entry != BACKUP_DIR and not entry.endswith(".tmp")]
+               if entry not in (BACKUP_DIR, README_NAME) and not entry.endswith(".tmp")]
     os.makedirs(target, mode=0o700)
     for entry in entries:
         origin = os.path.join(source, entry)
@@ -302,7 +318,7 @@ def _keep_the_folder(document):
         shutil.copy2(origin, os.path.join(target, entry))
         config_file.secure_file(os.path.join(target, entry), source)
     with open(os.path.join(target, README_NAME), "w", encoding="utf-8", newline="\n") as f:
-        f.write(README % time.strftime("%Y-%m-%d"))
+        f.write(_readme(os.path.abspath(source)))
     config_file.secure_file(os.path.join(target, README_NAME), source)
     log.info("The configuration folder was copied to %s", target)
     return target
