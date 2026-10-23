@@ -1135,15 +1135,21 @@ the radio (`audio.upnp_name`), with
   card would offer from `updates.github_repo` when the radio can reach GitHub (looked at every six
   hours). It only tells; installing stays in the radio's own page;
 - buttons: play/pause, next, previous, start the music, skip the
-  announcement, standby. Switching the radio off is never offered.
+  announcement, standby. Switching the radio off is never offered;
+- once a folder sync is set up: a binary sensor "sync running", a timestamp
+  sensor "last sync" (its attributes say which sync, how it ended, what came
+  in), a button per sync to start it now, and one to stop the sync running.
+  A sync removed from the page loses its button. The web server owns the runs:
+  a press is left in the state folder (`sync-request.json`) and picked up
+  within a few seconds, with the same checks as the page's own button.
 
 The entities are named in the spoken language; their ids are English
 (`sensor.rukebox_<host>_title`...). Topics, under `home_assistant.topic`
 (`rukebox`) and this radio's host name: `rukebox/rukebox_<host>/state` (one
-retained JSON document), `/cover` (the JPEG), `/update`, `/availability`
+retained JSON document), `/cover` (the JPEG), `/update`, `/sync`, `/availability`
 (`online`, or `offline` as the broker's last will), and `/set/<command>` for
 what it is asked (`volume` takes 0-100, `mute` takes `ON`/`OFF`, `output` and
-`list` take one of their options, a button takes anything). The outputs and
+`list` take one of their options, `sync/<id>` and `sync_stop` the syncs, a button takes anything). The outputs and
 lists offered are looked at again at most once a minute.
 
 The bridge is its own small process (`src/mqtt_bridge.py`, the unit

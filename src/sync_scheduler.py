@@ -21,6 +21,10 @@ import syncs
 log = logging.getLogger("sync")
 
 TICK_SEC = 60
+# A press from Home Assistant is picked up this fast, and forgotten when the web server missed it.
+REQUEST_SEC = 3
+REQUEST_FILE = "sync-request.json"
+REQUEST_MAX_AGE_SEC = 120
 RECENT_LIST_ID = "recent-additions"
 RECENT_MAX = 200
 # Below this much room left on the target's disk, a sync waits.
@@ -144,20 +148,46 @@ def stop_running(state_dir):
     return True
 
 
+def ask(state_dir, job_id=None, stop=False):
+    """Asks the web server, from another process, to start one sync or stop the one running."""
+    path = os.path.join(state_dir, REQUEST_FILE)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"job": job_id, "stop": bool(stop), "at": time.time()}, f)
+    os.replace(tmp, path)
+
+
+def _take_request(state_dir):
+    path = os.path.join(state_dir, REQUEST_FILE)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    try:
+        os.remove(path)
+    except OSError:
+        return None
+    if not isinstance(data, dict) or abs(time.time() - float(data.get("at") or 0)) > REQUEST_MAX_AGE_SEC:
+        return None
+    return data
+
+
 class Manager:
     """The web server's side: a thread that starts due syncs, and the run of the moment.
 
     cfg: the settings; play: {"playing", "builtin_bt"} of the moment; after(job, record):
-    what follows a run (rescan, list, journal).
+    what follows a run (rescan, list, journal); refuse(target): why a sync may not write there.
     """
 
-    def __init__(self, cfg, play, after, state_dir, boot_at=None, store=None):
+    def __init__(self, cfg, play, after, state_dir, boot_at=None, store=None, refuse=None):
         self.cfg = cfg
         self.play = play
         self.after = after
         self.state_dir = state_dir
         self.boot_at = boot_at if boot_at is not None else time.time()
         self.store = store
+        self.refuse = refuse
         self.run = None
         self.run_rate = None
         # A run ended for a new speed: started again by the next tick, its files carried over.
@@ -191,6 +221,9 @@ class Manager:
                 conn = syncs.connection(job["connection"])
             except KeyError:
                 return "not_found"
+            refused = self.refuse(job["target"]) if self.refuse else None
+            if refused:
+                return refused
             store = self._secrets()
             try:
                 password = store.get(conn["id"]) if conn.get("auth") == "password" else None
@@ -322,10 +355,31 @@ class Manager:
             return {"running": current, "seq": self.seq, "held": dict(self.held),
                     "runs": sync.load_runs(self.state_dir)[:20]}
 
+    def answer_request(self):
+        """Runs what another process asked through ask(): an error code, or None."""
+        asked = _take_request(self.state_dir)
+        if asked is None:
+            return None
+        if asked.get("stop"):
+            self.stop()
+            return None
+        job_id = str(asked.get("job") or "")
+        error = self.start(job_id, manual=True)
+        if error:
+            log.info("The sync %s asked from outside did not start: %s", job_id, error)
+            with self.lock:
+                self.held[job_id] = error
+                self.seq += 1
+        return error
+
     def loop(self):
-        while not self._stop.wait(TICK_SEC):
+        last = time.monotonic()
+        while not self._stop.wait(REQUEST_SEC):
             try:
-                self.tick()
+                self.answer_request()
+                if time.monotonic() - last >= TICK_SEC:
+                    last = time.monotonic()
+                    self.tick()
             except Exception:  # noqa: BLE001 - the scheduler outlives a bad tick
                 log.exception("Sync scheduler")
 

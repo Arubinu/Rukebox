@@ -9,6 +9,7 @@ import socket
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -18,6 +19,9 @@ import json_file  # noqa: E402
 import mqtt_client  # noqa: E402
 import releases  # noqa: E402
 import music_lists  # noqa: E402
+import sync  # noqa: E402
+import sync_scheduler  # noqa: E402
+import syncs  # noqa: E402
 import machine as platform_mod  # noqa: E402
 import tag_editor  # noqa: E402
 import track_media  # noqa: E402
@@ -70,6 +74,15 @@ NAMES = {
                    "es": "Saltar el anuncio", "it": "Salta l'annuncio", "nl": "Aankondiging overslaan"},
     "standby": {"en": "Standby", "fr": "Veille", "de": "Standby", "es": "En espera", "it": "Standby",
                 "nl": "Stand-by"},
+    "sync": {"en": "Sync running", "fr": "Synchronisation en cours", "de": "Synchronisierung läuft",
+             "es": "Sincronización en curso", "it": "Sincronizzazione in corso", "nl": "Synchronisatie bezig"},
+    "sync_last": {"en": "Last sync", "fr": "Dernière synchronisation", "de": "Letzte Synchronisierung",
+                  "es": "Última sincronización", "it": "Ultima sincronizzazione", "nl": "Laatste synchronisatie"},
+    "sync_stop": {"en": "Stop the sync", "fr": "Arrêter la synchronisation", "de": "Synchronisierung stoppen",
+                  "es": "Detener la sincronización", "it": "Ferma la sincronizzazione",
+                  "nl": "Synchronisatie stoppen"},
+    "sync_now": {"en": "Sync now: %s", "fr": "Synchroniser : %s", "de": "Jetzt synchronisieren: %s",
+                 "es": "Sincronizar ahora: %s", "it": "Sincronizza ora: %s", "nl": "Nu synchroniseren: %s"},
 }
 # A select's options are words: what each one stands for, in each language.
 OUTPUT_LABELS = {
@@ -92,7 +105,8 @@ ICONS = {"title": "mdi:music", "artist": "mdi:account-music", "album": "mdi:albu
          "mode": "mdi:radio", "toggle_pause": "mdi:play-pause", "next_track": "mdi:skip-next",
          "previous_track": "mdi:skip-previous", "start_music": "mdi:play", "skip_sound": "mdi:bullhorn-outline",
          "standby": "mdi:power-sleep", "volume": "mdi:volume-high", "mute": "mdi:volume-off",
-         "output": "mdi:speaker", "list": "mdi:playlist-music"}
+         "output": "mdi:speaker", "list": "mdi:playlist-music", "sync": "mdi:folder-sync",
+         "sync_last": "mdi:history", "sync_stop": "mdi:stop", "sync_now": "mdi:folder-sync"}
 _BADGE_RE = re.compile(r"tree--hash-([0-9a-f]{7,64})-", re.IGNORECASE)
 
 
@@ -175,6 +189,59 @@ def state_of(status, tags=None, offered=None):
     return state
 
 
+def sync_jobs():
+    """[{"id", "name"}] of the syncs set up here, [] when there are none."""
+    try:
+        return [{"id": job["id"], "name": job.get("name") or job["id"]} for job in syncs.load()["jobs"]]
+    except (OSError, ValueError):
+        return []
+
+
+def _job_key(job_id):
+    return "sync_" + re.sub(r"[^a-z0-9_]+", "_", str(job_id).lower()).strip("_")
+
+
+def sync_state(state_dir, jobs):
+    """The syncs' state as one JSON document: the one running, and how the last one ended."""
+    names = {job["id"]: job["name"] for job in jobs}
+    running = sync_scheduler.running(state_dir)
+    last = next((run for run in sync.load_runs(state_dir) if run.get("ended")), None)
+    state = {"running": running is not None, "job": names.get((running or {}).get("job"), ""),
+             "last": None, "last_job": "", "status": "", "added": 0, "updated": 0}
+    if last:
+        state.update(last=datetime.fromtimestamp(float(last["ended"]), timezone.utc).isoformat(timespec="seconds"),
+                     last_job=names.get(last.get("job"), last.get("job") or ""), status=last.get("status") or "",
+                     added=int(last.get("added") or 0), updated=int(last.get("updated") or 0))
+    return state
+
+
+def sync_discovery(cfg, node, base, jobs):
+    """{config topic: config document} of the sync entities: none when no sync is set up."""
+    if not jobs:
+        return {}
+    lang = language(cfg)
+    prefix = (cfg.get("MQTT_DISCOVERY_PREFIX") or "homeassistant").strip("/")
+    common = {"availability_topic": base + "/availability", "device": {"identifiers": [node]}}
+
+    def entity(component, key, name, icon, **extra):
+        doc = dict(common, name=name, unique_id="%s_%s" % (node, key), object_id="%s_%s" % (node, key),
+                   icon=icon, **extra)
+        return "%s/%s/%s/%s/config" % (prefix, component, node, key), doc
+
+    state = {"state_topic": base + "/sync", "json_attributes_topic": base + "/sync"}
+    items = [
+        entity("binary_sensor", "sync", NAMES["sync"][lang], ICONS["sync"], device_class="running",
+               value_template="{{ 'ON' if value_json.running else 'OFF' }}", **state),
+        entity("sensor", "sync_last", NAMES["sync_last"][lang], ICONS["sync_last"], device_class="timestamp",
+               value_template="{{ value_json.last }}", **state),
+        entity("button", "sync_stop", NAMES["sync_stop"][lang], ICONS["sync_stop"],
+               command_topic=base + "/set/sync_stop", payload_press="PRESS"),
+    ]
+    items += [entity("button", _job_key(job["id"]), NAMES["sync_now"][lang] % job["name"], ICONS["sync_now"],
+                     command_topic=base + "/set/sync/" + job["id"], payload_press="PRESS") for job in jobs]
+    return dict(items)
+
+
 def discovery(cfg, node, base, offered=None):
     """{config topic: config document} for every entity of this radio."""
     lang = language(cfg)
@@ -239,6 +306,13 @@ def command(cfg, name, payload, offered=None):
         return send_control_command(sock, "set_active_list", id=options[payload], source="mqtt")
     if name in BUTTONS:
         return send_control_command(sock, name, source="mqtt")
+    if name == "sync_stop" or name.startswith("sync/"):
+        job_id = name[len("sync/"):] if name.startswith("sync/") else None
+        if job_id is not None and job_id not in {job["id"] for job in sync_jobs()}:
+            return {"ok": False, "error": "not_found"}
+        # The web server owns the runs: it picks the request up within a few seconds.
+        sync_scheduler.ask(cfg["STATE_DIR"], job_id, stop=job_id is None)
+        return {"ok": True}
     return None
 
 
@@ -312,6 +386,8 @@ class Bridge:
         self.offered_at = float("-inf")
         self.release = None
         self.release_at = float("-inf")
+        self.jobs = []
+        self.sync_published = None
         self.lock = threading.Lock()
 
     def refresh_choices(self, force=False):
@@ -322,6 +398,7 @@ class Bridge:
         self.offered_at = now
         kinds = [sink["kind"] for sink in audio_output.list_sinks(env=audio_env())]
         offered = choices(self.cfg, kinds, music_lists.load())
+        self.refresh_jobs(sync_jobs())
         if offered == self.offered and not force:
             return
         self.offered = offered
@@ -329,6 +406,29 @@ class Bridge:
         for topic, doc in discovery(self.cfg, self.node, self.base, offered).items():
             if topic.startswith(prefix + "/select/"):
                 self.client.publish(topic, json.dumps(doc), retain=True)
+
+    def refresh_jobs(self, jobs):
+        """The sync entities, republished when the syncs changed; a removed sync's button goes."""
+        if jobs == self.jobs:
+            return
+        old = sync_discovery(self.cfg, self.node, self.base, self.jobs)
+        new = sync_discovery(self.cfg, self.node, self.base, jobs)
+        for topic in old:
+            if topic not in new:
+                # An empty retained config is how Home Assistant is told an entity is gone.
+                self.client.publish(topic, "", retain=True)
+        for topic, doc in new.items():
+            self.client.publish(topic, json.dumps(doc), retain=True)
+        self.jobs = jobs
+        self.sync_published = None
+
+    def publish_sync(self):
+        if not self.jobs:
+            return
+        state = sync_state(self.cfg["STATE_DIR"], self.jobs)
+        if state != self.sync_published:
+            self.client.publish(self.base + "/sync", json.dumps(state), retain=True)
+            self.sync_published = state
 
     def refresh_release(self):
         now = time.monotonic()
@@ -358,6 +458,7 @@ class Bridge:
                 if picture:
                     self.client.publish(self.base + "/cover", picture, retain=True)
                 self.cover_of = path
+            self.publish_sync()
             self.refresh_release()
 
     def watch(self):
@@ -389,6 +490,7 @@ class Bridge:
                 self.offered = choices(self.cfg, kinds, music_lists.load())
                 for topic, doc in discovery(self.cfg, self.node, self.base, self.offered).items():
                     self.client.publish(topic, json.dumps(doc), retain=True)
+                self.refresh_jobs(sync_jobs())
             self.client.subscribe([self.base + "/set/#"])
             write_status(self.cfg, "connected")
             log.info("Connected to %s:%s as %s", self.cfg["MQTT_HOST"], self.cfg.get("MQTT_PORT"), self.node)

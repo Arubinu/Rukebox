@@ -5141,7 +5141,8 @@ def _refresh_recent_list(job, names):
 def _sync():
     global _sync_manager
     if _sync_manager is None:
-        _sync_manager = sync_scheduler.Manager(cfg, _sync_play, _sync_after, cfg()["STATE_DIR"])
+        _sync_manager = sync_scheduler.Manager(cfg, _sync_play, _sync_after, cfg()["STATE_DIR"],
+                                               refuse=_sync_target_refusal)
     return _sync_manager
 
 

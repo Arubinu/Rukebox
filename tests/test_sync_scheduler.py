@@ -178,6 +178,31 @@ class ManagerTest(unittest.TestCase):
         self.assertIsNone(self.manager.tick(at(10)))
         self.assertEqual(self.manager.held, {"music": "secret_lost"})
 
+    def test_a_press_from_another_process_starts_or_stops_a_sync(self):
+        sync_scheduler.ask(self.dir, "music")
+        self.assertIsNone(self.manager.answer_request())
+        self.assertEqual(len(FakeRun.made), 1, "started at once, whatever its hours")
+        self.assertFalse(os.path.exists(os.path.join(self.dir, sync_scheduler.REQUEST_FILE)), "taken once")
+        self.assertIsNone(self.manager.answer_request(), "nothing asked, nothing done")
+        self.assertEqual(len(FakeRun.made), 1)
+        sync_scheduler.ask(self.dir, stop=True)
+        self.manager.answer_request()
+        self.assertFalse(FakeRun.made[0].alive)
+
+    def test_an_old_press_is_forgotten(self):
+        sync_scheduler.ask(self.dir, "music")
+        with mock.patch.object(sync_scheduler.time, "time",
+                               return_value=time.time() + sync_scheduler.REQUEST_MAX_AGE_SEC + 5):
+            self.manager.answer_request()
+        self.assertEqual(FakeRun.made, [], "a press the web server missed is not run hours later")
+
+    def test_every_start_checks_where_it_writes(self):
+        self.manager.refuse = lambda target: "sync_target_usb"
+        sync_scheduler.ask(self.dir, "music")
+        self.assertEqual(self.manager.answer_request(), "sync_target_usb")
+        self.assertEqual(self.manager.tick(at(10)), None)
+        self.assertEqual((FakeRun.made, self.manager.held["music"]), ([], "sync_target_usb"))
+
 
 class ShutdownWaitTest(DaemonCase):
     def test_the_nightly_switch_off_waits_for_a_sync_then_goes(self):

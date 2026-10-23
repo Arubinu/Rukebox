@@ -226,6 +226,54 @@ class BridgeTest(unittest.TestCase):
             mqtt_bridge.write_status(cfg, "off")
             written.assert_called_once()
 
+    def test_the_syncs_appear_only_once_one_is_set_up(self):
+        self.assertEqual(mqtt_bridge.sync_discovery(self.CFG, "rukebox_pi", "rukebox/rukebox_pi", []), {})
+        docs = mqtt_bridge.sync_discovery(self.CFG, "rukebox_pi", "rukebox/rukebox_pi",
+                                          [{"id": "nas-music", "name": "Le NAS"}])
+        button = docs["homeassistant/button/rukebox_pi/sync_nas_music/config"]
+        self.assertEqual((button["name"], button["command_topic"]),
+                         ("Synchroniser : Le NAS", "rukebox/rukebox_pi/set/sync/nas-music"))
+        last = docs["homeassistant/sensor/rukebox_pi/sync_last/config"]
+        self.assertEqual((last["device_class"], last["state_topic"]), ("timestamp", "rukebox/rukebox_pi/sync"))
+        self.assertIn("homeassistant/binary_sensor/rukebox_pi/sync/config", docs)
+        self.assertIn("homeassistant/button/rukebox_pi/sync_stop/config", docs)
+        main = {doc["unique_id"] for doc in mqtt_bridge.discovery(self.CFG, "rukebox_pi", "x").values()}
+        self.assertFalse(main & {doc["unique_id"] for doc in docs.values()})
+
+    def test_the_sync_state_says_what_runs_and_how_the_last_one_ended(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        jobs = [{"id": "m", "name": "Music"}]
+        state = mqtt_bridge.sync_state(folder, jobs)
+        self.assertEqual((state["running"], state["last"]), (False, None), "never run: unknown in Home Assistant")
+        mqtt_bridge.sync.add_run(folder, {"job": "m", "started": 0, "ended": 86400, "status": "ok", "added": 3})
+        with mock.patch.object(mqtt_bridge.sync_scheduler, "running", return_value={"job": "m", "pid": 1}):
+            state = mqtt_bridge.sync_state(folder, jobs)
+        self.assertEqual(state, {"running": True, "job": "Music", "last": "1970-01-02T00:00:00+00:00",
+                                 "last_job": "Music", "status": "ok", "added": 3, "updated": 0})
+
+    def test_a_sync_button_leaves_a_request_for_the_web_server(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        cfg = dict(self.CFG, STATE_DIR=folder)
+        with mock.patch.object(mqtt_bridge, "sync_jobs", return_value=[{"id": "m", "name": "Music"}]), \
+                mock.patch.object(mqtt_bridge.sync_scheduler, "ask") as ask:
+            self.assertTrue(mqtt_bridge.command(cfg, "sync/m", "PRESS")["ok"])
+            self.assertEqual(mqtt_bridge.command(cfg, "sync/other", "PRESS")["error"], "not_found")
+            mqtt_bridge.command(cfg, "sync_stop", "PRESS")
+        self.assertEqual(ask.call_args_list, [mock.call(folder, "m", stop=False), mock.call(folder, None, stop=True)])
+
+    def test_a_removed_sync_loses_its_button(self):
+        bridge = mock.Mock(cfg=self.CFG, node="rukebox_pi", base="rukebox/rukebox_pi", jobs=[])
+        two = [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}]
+        mqtt_bridge.Bridge.refresh_jobs(bridge, two)
+        bridge.client.publish.reset_mock()
+        mqtt_bridge.Bridge.refresh_jobs(bridge, two)
+        bridge.client.publish.assert_not_called()
+        mqtt_bridge.Bridge.refresh_jobs(bridge, two[:1])
+        emptied = [c.args[0] for c in bridge.client.publish.call_args_list if c.args[1] == ""]
+        self.assertEqual(emptied, ["homeassistant/button/rukebox_pi/sync_b/config"])
+
     def test_it_only_runs_when_switched_on_with_a_broker(self):
         self.assertFalse(mqtt_bridge.wanted({"MQTT_ENABLED": True, "MQTT_HOST": " "}))
         self.assertFalse(mqtt_bridge.wanted({"MQTT_ENABLED": False, "MQTT_HOST": "ha.local"}))
