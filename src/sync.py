@@ -6,6 +6,7 @@ its environment, obscured, never on a command line another account could read.
 """
 
 import json
+import logging
 import os
 import shutil
 import signal
@@ -13,6 +14,8 @@ import subprocess
 import tempfile
 import threading
 import time
+
+log = logging.getLogger("sync")
 
 REMOTE = "source"
 RUNS_FILE = "sync-runs.json"
@@ -87,7 +90,7 @@ def build_command(job, conn, config_path, limit_kbps=0, room_mb=None):
         "--transfers", "1", "--checkers", "2",
         "--retries", "2", "--low-level-retries", "5",
         "--contimeout", "%ds" % CONNECT_TIMEOUT_SEC, "--timeout", "%ds" % IO_TIMEOUT_SEC,
-        "--use-json-log", "--log-level", "INFO", "--stats", "5s", "--stats-log-level", "NOTICE",
+        "--use-json-log", "--log-level", "INFO", "--stats", "2s", "--stats-log-level", "NOTICE",
     ]
     if limit_kbps and limit_kbps > 0:
         command += ["--bwlimit", "%dk" % int(limit_kbps)]
@@ -118,7 +121,9 @@ def parse_line(line):
         return {"kind": "stats", "bytes": int(stats.get("bytes") or 0),
                 "total_bytes": int(stats.get("totalBytes") or 0),
                 "done": int(stats.get("transfers") or 0), "total": int(stats.get("totalTransfers") or 0),
-                "errors": int(stats.get("errors") or 0), "eta": stats.get("eta")}
+                "errors": int(stats.get("errors") or 0), "eta": stats.get("eta"),
+                "transferring": [str(item.get("name") or "") for item in stats.get("transferring") or []
+                                 if isinstance(item, dict) and item.get("name")]}
     message = str(data.get("msg") or "")
     if message.startswith("Copied (new)"):
         return {"kind": "copied", "new": True, "name": str(data.get("object") or "")}
@@ -151,6 +156,7 @@ class Run:
         self.progress = {}
         self._folder = None
         self._stopping = False
+        self._under_way = set()
 
     def _prepare(self):
         self._folder = tempfile.mkdtemp(prefix="rukebox-sync-", dir=self.workdir)
@@ -186,6 +192,7 @@ class Run:
                     continue
                 if event["kind"] == "stats":
                     self.progress = event
+                    self._under_way.update(event["transferring"])
                 elif event["kind"] == "copied":
                     (self.added if event["new"] else self.updated).append(event["name"])
                 elif event["kind"] == "error" and len(self.errors) < 20:
@@ -199,12 +206,31 @@ class Run:
             self.status = "stopped"
         else:
             self.status = "ok" if code == 0 else "failed"
+        if self.status != "ok":
+            self._clear_half_files()
+
+    def _clear_half_files(self):
+        """Removes what was cut off mid-copy: rclone before 1.63 writes under the final name,
+        so a stopped run would leave a broken song in the library."""
+        done = set(self.added) | set(self.updated)
+        target = os.path.realpath(self.job["target"])
+        for name in self._under_way - done:
+            path = os.path.realpath(os.path.join(target, name))
+            if not path.startswith(target.rstrip(os.sep) + os.sep):
+                continue
+            try:
+                # Written during this run: a newer rclone leaves the old copy untouched, and it stays.
+                if os.path.getmtime(path) >= self.started - 1:
+                    os.remove(path)
+                    log.info("Removed the half-copied %s", name)
+            except OSError:
+                pass
 
     def running(self):
         return self.process is not None and self.process.poll() is None
 
     def stop(self):
-        """Ends the run; what was fully copied stays, a half file is rclone's to clear."""
+        """Ends the run; what was fully copied stays, a half file is removed."""
         self._stopping = True
         if self.running():
             try:

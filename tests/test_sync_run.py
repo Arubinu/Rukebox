@@ -5,6 +5,7 @@ import shutil
 import stat
 import tempfile
 import textwrap
+import time
 import unittest
 from unittest import mock
 
@@ -63,6 +64,31 @@ class CommandTest(unittest.TestCase):
         self.assertEqual([e and e["kind"] for e in events], ["copied", "copied", "error", "stats", None, None])
         self.assertEqual((events[0]["new"], events[1]["new"]), (True, False))
         self.assertEqual((events[3]["done"], events[3]["total"]), (1, 3))
+
+
+class HalfFileTest(unittest.TestCase):
+    def test_the_files_under_way_are_read_from_the_stats(self):
+        event = sync.parse_line(json.dumps({"stats": {"transferring": [{"name": "A/b.mp3", "bytes": 5}, {}]}}))
+        self.assertEqual(event["transferring"], ["A/b.mp3"])
+        self.assertEqual(sync.parse_line(json.dumps({"stats": {}}))["transferring"], [])
+
+    def test_a_stopped_run_leaves_no_broken_song(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        target = os.path.join(folder, "music")
+        os.makedirs(os.path.join(target, "A"))
+        for name in ("A/half.mp3", "A/done.mp3", "A/old.mp3", "outside.mp3"):
+            with open(os.path.join(target if name != "outside.mp3" else folder, name), "w") as f:
+                f.write("x")
+        os.utime(os.path.join(target, "A/old.mp3"), (1000, 1000))
+        run = sync.Run(dict(JOB, target=target), CONN, workdir=folder)
+        run.started = time.time() - 10
+        run.added = ["A/done.mp3"]
+        run._under_way = {"A/half.mp3", "A/done.mp3", "A/old.mp3", "../outside.mp3", "A/gone.mp3"}
+        run._clear_half_files()
+        self.assertEqual(sorted(os.listdir(os.path.join(target, "A"))), ["done.mp3", "old.mp3"],
+                         "the half copy goes; a finished one and one a newer rclone left untouched stay")
+        self.assertTrue(os.path.exists(os.path.join(folder, "outside.mp3")), "never outside the target")
 
 
 class RunsFileTest(unittest.TestCase):
