@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 
 import paths
 
@@ -514,6 +515,9 @@ def _from_cache(text, lang, choice, path):
     return os.path.getsize(path) > 44
 
 
+_render_lock = threading.Lock()
+
+
 def _remember(text, lang, choice, path):
     """Keeps a copy of what was just said, and drops the oldest when it grows."""
     target = _cache_path(text, lang, choice)
@@ -615,6 +619,15 @@ def render(text, lang, path, choice=None):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     if _from_cache(text, lang, choice, path):
         return True
+    # One voice model at a time in this process: a small board cannot hold two.
+    with _render_lock:
+        # The sentence may have been made while this one waited its turn.
+        if _from_cache(text, lang, choice, path):
+            return True
+        return _synthesise(text, lang, path, choice)
+
+
+def _synthesise(text, lang, path, choice):
     stdin = text.encode("utf-8")
     commands = []
     voice = (choice or "").strip() or default_voice(lang)

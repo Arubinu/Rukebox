@@ -150,6 +150,35 @@ class RenderTest(unittest.TestCase):
         self.assertTrue(os.path.exists(speech._cache_path(sentence, "fr", None)))
         self.assertEqual([os.path.exists(path) for path in made], [False], "no scratch file is left")
 
+    def test_two_asks_at_once_load_one_model_once(self):
+        """A sentence made ahead and the same one asked for meanwhile: one piper, never two."""
+        import threading
+        import time
+        self.install_piper()
+        calls, running, most = [], [0], [0]
+
+        def run(command, **kwargs):
+            calls.append(command[0])
+            running[0] += 1
+            most[0] = max(most[0], running[0])
+            time.sleep(0.05)
+            with open(command[command.index("--output_file") + 1], "wb") as handle:
+                handle.write(b"\0" * 100)
+            running[0] -= 1
+            return mock.Mock(returncode=0, stderr=b"")
+
+        with mock.patch.object(speech.shutil, "which", lambda name: name if name == "piper" else None), \
+                mock.patch.object(speech.subprocess, "run", run):
+            threads = [threading.Thread(target=speech.render,
+                                        args=("Fin du jeu.", "fr", os.path.join(self.dir, "o%d.wav" % i)))
+                       for i in range(2)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(5)
+        self.assertEqual((len(calls), most[0]), (1, 1), "the second one waits, then takes the copy")
+        self.assertTrue(all(os.path.getsize(os.path.join(self.dir, "o%d.wav" % i)) > 44 for i in range(2)))
+
     def test_nothing_is_made_of_nothing(self):
         self.assertFalse(speech.warm("", "fr"))
         self.assertFalse(speech.warm("   ", "fr"))

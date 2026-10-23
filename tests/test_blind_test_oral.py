@@ -317,6 +317,29 @@ class WarmedSpeechTest(unittest.TestCase):
             self.assertEqual(ws._speech_warming, {"One."})
         self.assertEqual(started, [1], "one voice for one sentence")
 
+    def test_waiting_for_players_makes_their_sentences_again_only_when_they_change(self):
+        game = blind_test.Game(tracks(), rounds=3, mode="phones")
+        game.join("p1", "Ana", True)
+        looks = []
+
+        def sleep(_seconds):
+            looks.append(1)
+            if len(looks) == 3:
+                game.join("p2", "Bo", True)
+            if len(looks) == 6:
+                game.stop()
+
+        with mock.patch.object(ws, "_warm_game_speech") as warm, \
+                mock.patch.object(ws.time, "sleep", sleep), \
+                mock.patch.object(game, "ready", return_value=False), \
+                mock.patch.object(ws, "cfg", return_value=self.values()), \
+                mock.patch.object(ws, "_game_sound", return_value=None), \
+                mock.patch.object(ws, "_game_say", return_value=0), \
+                mock.patch.object(ws.stats, "record"), \
+                mock.patch.object(ws, "control", return_value={"ok": True}):
+            ws._game_run(game)
+        self.assertEqual(warm.call_count, 2, "once at the start, once when Bo joined, not at each look")
+
     def test_the_round_makes_the_answer_only_when_it_will_be_said(self):
         question = {"title": "Song", "artist": "Artist", "kind": "song"}
         phones = blind_test.Game(tracks(), rounds=3, mode="phones")

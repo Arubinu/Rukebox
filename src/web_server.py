@@ -4088,6 +4088,11 @@ def _speech_groups(parts, c):
 def _warm_texts(texts, lang, voice):
     """Renders those sentences into the speech cache, one after the other."""
     try:
+        try:
+            # Below the music: the thread's own priority is what its piper inherits.
+            os.nice(10)
+        except (AttributeError, OSError):
+            pass
         for text in texts:
             try:
                 speech.warm(text, lang, voice)
@@ -4278,14 +4283,19 @@ def _game_run(game):
     try:
         oral = game.mode == "oral"
         # Nothing plays yet: what the game will say can be made while it waits for its players.
-        _warm_game_speech(game)
-        if not oral:
-            while not game.stopped and not game.ready():
+        seen = None
+        while True:
+            # Made again only when someone joins or is renamed, not at every look.
+            players = (frozenset(list(game.players)), frozenset(list(game.names.items())))
+            if players != seen:
+                seen = players
                 _warm_game_speech(game)
-                time.sleep(0.25)
-            if not game.players and not game.stopped:
-                game.finish("game_no_players")
-                return
+            if oral or game.stopped or game.ready():
+                break
+            time.sleep(0.25)
+        if not oral and not game.players and not game.stopped:
+            game.finish("game_no_players")
+            return
         c = cfg()
         think_sec = min(max(int(c.get("GAME_THINK_SEC") or 0), 0), 60) if oral else 0
         # Made before the first round: synthesising them on a small board takes a moment.

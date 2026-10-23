@@ -290,18 +290,19 @@ class Manager:
                     self.resume = None
                 return None
             lost = set(self._secrets().lost())
-            net = None
+            net = play = None
+            try:
+                boot_delay = int(cfg.get("SYNC_BOOT_DELAY_MIN") or 0)
+            except (TypeError, ValueError):
+                boot_delay = 0
             for job in syncs.load()["jobs"]:
-                try:
-                    boot_delay = int(cfg.get("SYNC_BOOT_DELAY_MIN") or 0)
-                except (TypeError, ValueError):
-                    boot_delay = 0
                 if not due(job, now, self.last_end(job["id"]), self.boot_at, boot_delay):
                     self.held.pop(job["id"], None)
                     continue
                 if net is None:
                     net = network_state(cfg.get("HOME_WIFI_CONN_NAME") or "")
-                why = hold_reason(job, net, self.play(), job["connection"] in lost)
+                    play = self.play()
+                why = hold_reason(job, net, play, job["connection"] in lost)
                 if why is None:
                     error = self.start(job["id"])
                     if error is None:
@@ -339,7 +340,8 @@ def _free_bytes(folder):
     while probe and not os.path.exists(probe):
         probe = os.path.dirname(probe)
     try:
-        return os.statvfs(probe or "/").f_bavail * os.statvfs(probe or "/").f_frsize
+        disk = os.statvfs(probe or "/")
+        return disk.f_bavail * disk.f_frsize
     except (AttributeError, OSError):
         return FREE_FLOOR_BYTES * 10
 

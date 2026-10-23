@@ -3281,10 +3281,11 @@ class RadioDaemon:
             self._sync_poweroff = None
             return
         state_dir = self.cfg.get("STATE_DIR") or ""
-        if sync_scheduler.running(state_dir) is not None and time.monotonic() < deadline:
+        busy = sync_scheduler.running(state_dir) is not None
+        if busy and time.monotonic() < deadline:
             return
         self._sync_poweroff = None
-        if sync_scheduler.running(state_dir) is not None:
+        if busy:
             if str(self.cfg.get("SYNC_SHUTDOWN_FALLBACK") or "standby") != "poweroff":
                 log.info("The sync is still running: the radio stays on standby")
                 self.stats.record("shutdown_held", label="standby", detail={"reason": reason})
