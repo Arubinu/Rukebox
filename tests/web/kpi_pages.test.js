@@ -37,6 +37,9 @@ function pointer(page, tile, type) {
                                                         clientX: 10, clientY: 10 }));
 }
 
+// The harness shortens the page's 700 ms hold to 80 ms: a brief press stays well below it.
+const BRIEF_MS = 5;
+
 async function press(page, tile, ms) {
   pointer(page, tile, "pointerdown");
   await wait(ms);
@@ -51,7 +54,7 @@ test("a brief press opens the page that details the counter", async (t) => {
   await until(() => tileOf(page, "Playback errors"));
   for (const [label, hash] of wanted) {
     const tile = await until(() => tileOf(page, label));
-    await press(page, tile, 60);
+    await press(page, tile, BRIEF_MS);
     assert.equal(page.window.location.hash, hash, label);
     t.diagnostic(label + " opens " + hash);
   }
@@ -64,7 +67,7 @@ test("a counter with no page of its own opens nothing", async () => {
   const page = withCounters();
   const tile = await until(() => tileOf(page, "Button presses"));
   assert.equal(tile.classList.contains("kpi-link"), false, "it does not claim a page");
-  await press(page, tile, 60);
+  await press(page, tile, BRIEF_MS);
   assert.equal(page.window.location.hash, "#stats/overview", "the page stays where it was");
   await page.close();
 });
