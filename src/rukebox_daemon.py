@@ -369,7 +369,8 @@ class RadioDaemon:
         self._resume_armed = False
         self._schedule_list_before = _NO_LIST
         self._list_library = None
-        self._genre_resolved = None
+        # {genres: (when, paths)}: several genre lists can be played or excluded at once.
+        self._genre_resolved = {}
 
         self._resume_mode = "music"
 
@@ -1009,16 +1010,27 @@ class RadioDaemon:
             self._lists_stamp = stamp
         return self._music_lists
 
+    def _selection_entries(self):
+        """(lists played, lists excluded) as they stand; a list deleted since is dropped."""
+        chosen = self.state.selection()
+        by_id = {item["id"]: item for item in self._lists()}
+        play = [by_id[i] for i in chosen["play"] if i in by_id]
+        exclude = [by_id[i] for i in chosen["exclude"] if i in by_id]
+        if len(play) != len(chosen["play"]) or len(exclude) != len(chosen["exclude"]):
+            log.warning("A selected music list is gone: it leaves the selection")
+            self.state.set_selection([e["id"] for e in play], [e["id"] for e in exclude])
+        return play, exclude
+
     def _active_list_entry(self):
-        """The list the radio plays, or None when it plays everything."""
-        list_id = self.state.active_list()
-        if not list_id:
-            return None
-        entry = next((item for item in self._lists() if item["id"] == list_id), None)
-        if entry is None:
-            log.warning("The active music list %s is gone, playing everything", list_id)
-            self.state.set_active_list(None)
-        return entry
+        """The one list the radio plays, or None (the whole library, or several lists)."""
+        play, _exclude = self._selection_entries()
+        return play[0] if len(play) == 1 else None
+
+    def _list_paths(self, entries, tracks):
+        found = []
+        for entry in entries:
+            found += music_lists.resolved(entry, tracks, self._genre_paths)
+        return list(dict.fromkeys(found))
 
     def _genre_paths(self, genres):
         """The library's tracks for these genres: the tags are read by the web
@@ -1027,11 +1039,13 @@ class RadioDaemon:
         count on every poll, and this is a scan of every tag."""
         key = tuple(sorted(str(genre) for genre in (genres or [])))
         now = time.monotonic()
-        cached = self._genre_resolved
-        if cached and cached[0] == key and now - cached[1] < self.GENRE_CACHE_SEC:
-            return cached[2]
+        cached = self._genre_resolved.get(key)
+        if cached and now - cached[0] < self.GENRE_CACHE_SEC:
+            return cached[1]
         paths = self._read_genre_paths(key)
-        self._genre_resolved = (key, now, paths)
+        if len(self._genre_resolved) > 32:
+            self._genre_resolved.clear()
+        self._genre_resolved[key] = (now, paths)
         return paths
 
     def _read_genre_paths(self, genres):
@@ -1045,18 +1059,22 @@ class RadioDaemon:
             return []
 
     def _playable_tracks(self):
-        """What the radio plays: the whole library minus the excluded tracks,
-        or the active list as it stands - a list is an explicit choice, so it
-        keeps the tracks excluded from the radio's own passes (the page marks
-        them). The files are still there either way."""
+        """What the radio plays by itself: the lists played, together (none: the
+        whole library minus the excluded tracks), then minus what every excluded
+        list holds. A list played is an explicit choice, so it keeps the tracks
+        excluded one by one (the page marks them); an excluded list is one too,
+        and wins. The files are still there either way."""
         tracks = self._get_music_list()
-        entry = self._active_list_entry()
-        if entry:
-            return music_lists.resolved(entry, tracks, self._genre_paths)
-        hidden = self._hidden_paths()
-        if not hidden:
-            return tracks
-        return [path for path in tracks if path not in hidden]
+        play, exclude = self._selection_entries()
+        if play:
+            chosen = self._list_paths(play, tracks)
+        else:
+            hidden = self._hidden_paths()
+            chosen = [path for path in tracks if path not in hidden] if hidden else tracks
+        if exclude:
+            gone = set(self._list_paths(exclude, tracks))
+            chosen = [path for path in chosen if path not in gone]
+        return chosen
 
     def _hidden_paths(self):
         """The paths the radio must not pick by itself, or nothing at all."""
@@ -1075,15 +1093,19 @@ class RadioDaemon:
         return {"ok": True, "hidden": len(hidden), "removed": removed}
 
     def _active_list_status(self):
-        entry = self._active_list_entry()
-        if not entry:
+        """The first list played, as the status has always said it (the selection says the rest)."""
+        play, _exclude = self._selection_entries()
+        if not play:
             return None
-        if entry.get("kind") == "genre":
-            count = len(self._genre_paths(entry.get("genres") or []))
-        else:
-            count = len(self._playable_tracks())
+        entry = play[0]
         return {"id": entry["id"], "name": entry["name"], "kind": entry["kind"],
-                "genres": entry.get("genres") or [], "tracks": count}
+                "genres": entry.get("genres") or [], "tracks": len(self._playable_tracks())}
+
+    def _selection_status(self):
+        play, exclude = self._selection_entries()
+        brief = lambda entry: {"id": entry["id"], "name": entry["name"], "kind": entry["kind"]}  # noqa: E731
+        return {"play": [brief(e) for e in play], "exclude": [brief(e) for e in exclude],
+                "tracks": len(self._playable_tracks()) if play or exclude else None}
 
     def _rebuild_queue(self, tracks=None):
         """Restarts the playing pass from whatever is active now."""
@@ -1099,21 +1121,44 @@ class RadioDaemon:
         return ("person", name) if name and self.cfg.get("STATS_BY_PERSON") else None
 
     def _set_active_list(self, list_id, source, start=False):
-        """Makes a list (None: everything) what the radio plays from the next
-        track on, or right now with `start`."""
+        """Makes one list (None: everything) what the radio plays; the exclusions stay."""
         list_id = str(list_id or "").strip() or None
-        entry = None
-        if list_id:
-            entry = next((item for item in self._lists() if item["id"] == list_id), None)
-            if entry is None:
-                return {"ok": False, "error": "list_not_found"}
-        self.state.set_active_list(entry["id"] if entry else None)
-        tracks = self._rebuild_queue()
-        if entry and not tracks:
-            log.warning("The list %s holds no playable track", entry["id"])
-        self.stats.record("list_selected", label=entry["name"] if entry else "all",
-                          detail={"source": source, "tracks": len(tracks)})
-        log.info("Playing %s (%d tracks)", entry["name"] if entry else "the whole library",
+        return self._set_selection([list_id] if list_id else [], None, source, start)
+
+    def _set_selection(self, play, exclude, source, start=False, strict=True):
+        """Changes the lists played and/or excluded (None leaves that side alone), from
+        the next track on, or right now with `start`. Not strict: an unknown list is left out
+        (a schedule or a card naming one deleted since)."""
+        known = {item["id"] for item in self._lists()}
+        play = None if play is None else [str(i).strip() for i in play if str(i).strip()]
+        exclude = None if exclude is None else [str(i).strip() for i in exclude if str(i).strip()]
+        unknown = [i for i in (play or []) + (exclude or []) if i not in known]
+        # Lists asked for and all gone never turn into the whole library.
+        if unknown and (strict or (play and not set(play) & known)):
+            return {"ok": False, "error": "list_not_found"}
+        play = None if play is None else [i for i in play if i in known]
+        exclude = None if exclude is None else [i for i in exclude if i in known]
+        before = self.state.selection()
+        now = self.state.set_selection(play, exclude)
+        if now["play"] != before["play"]:
+            tracks = self._rebuild_queue()
+        else:
+            # Only the exclusions moved: their songs leave the pass under way, which is
+            # not reshuffled; one excluded no longer comes back with the next pass.
+            tracks = self._playable_tracks()
+            if exclude is not None:
+                gone = set(self._list_paths(
+                    [item for item in self._lists() if item["id"] in now["exclude"]], self._get_music_list()))
+                self.state.take_from_queue_many(gone)
+        names = {item["id"]: item["name"] for item in self._lists()}
+        label = " + ".join(names[i] for i in now["play"]) or "all"
+        if now["play"] and not tracks:
+            log.warning("The lists %s hold no playable track", now["play"])
+        self.stats.record("list_selected", label=label,
+                          detail={"source": source, "tracks": len(tracks), "play": now["play"],
+                                  "exclude": now["exclude"]})
+        log.info("Playing %s%s (%d tracks)", label if now["play"] else "the whole library",
+                 " without " + ", ".join(names[i] for i in now["exclude"]) if now["exclude"] else "",
                  len(tracks))
         if start and tracks and self.mode != "shutting_down":
             # An explicit choice of what to hear now outranks a loop.
@@ -1126,7 +1171,8 @@ class RadioDaemon:
                 self._restore_base_volume()
                 self._play_next_track(user=True)
         self._bump_state()
-        return {"ok": True, "data": {"active": self.state.active_list(), "tracks": len(tracks)}}
+        return {"ok": True, "data": {"active": self.state.active_list(), "tracks": len(tracks),
+                                     "selection": self.state.selection()}}
 
     def _audio_chain(self):
         return audio_chain(self.cfg.get("AUDIO_EQUALIZER"), self.cfg["AUDIO_COMPRESSION"])
@@ -2993,7 +3039,7 @@ class RadioDaemon:
         """Applies the running schedule's settings, list and volume - or takes
         them back when no schedule runs any more."""
         signature = None if active is None else (
-            active["id"], tuple(sorted((active.get("settings") or {}).items())), active.get("list"))
+            active["id"], tuple(sorted((active.get("settings") or {}).items())), repr(schedules.selection(active)))
         if signature == self._schedule_signature:
             self._schedule_active = active
             return
@@ -3018,16 +3064,18 @@ class RadioDaemon:
                 # An announcement is playing at its own level: the music's is for after it.
                 self._user_volume = self._shown_volume = float(volume)
 
-        wanted = active.get("list") if active else None
-        if wanted is not None:
+        play, exclude = schedules.selection(active) if active else (None, None)
+        if play is not None or exclude is not None:
             if self._schedule_list_before is _NO_LIST:
-                self._schedule_list_before = self.state.active_list()
-            if (wanted or None) != self.state.active_list():
-                self._set_active_list(wanted or None, "schedule")
+                self._schedule_list_before = self.state.selection()
+            now = self.state.selection()
+            if (play if play is not None else now["play"], exclude if exclude is not None else now["exclude"]) \
+                    != (now["play"], now["exclude"]):
+                self._set_selection(play, exclude, "schedule", strict=False)
         elif self._schedule_list_before is not _NO_LIST:
             previous, self._schedule_list_before = self._schedule_list_before, _NO_LIST
-            if previous != self.state.active_list():
-                self._set_active_list(previous, "schedule")
+            if previous != self.state.selection():
+                self._set_selection(previous["play"], previous["exclude"], "schedule", strict=False)
 
         if active and (not before or before["id"] != active["id"]):
             log.info("Schedule '%s' is running until %s", active["name"], active["end"].strftime("%H:%M"))
@@ -3627,7 +3675,9 @@ class RadioDaemon:
         action, target = card["action"], card.get("target") or ""
         log.info("Card '%s': %s %s", card["name"], action, target)
         if action == "list":
-            result = self._set_active_list(target or None, source, start=True)
+            # Several lists, comma-separated; none: the whole library.
+            ids = [one.strip() for one in target.split(",") if one.strip()]
+            result = self._set_selection(ids, None, source, start=True, strict=False)
             return None if result.get("ok") else result.get("error")
         if action == "folder":
             return self._play_folder(target, source)
@@ -4874,6 +4924,7 @@ class RadioDaemon:
             "upcoming_track_path": self._upcoming_track(),
             "track_count": self._track_count,
             "active_list": self._active_list_status(),
+            "selection": self._selection_status(),
             "schedule": self._schedule_status(),
             "schedule_next": self._next_schedule_status(),
             "party_ready": schedules.party_item(self._schedule_items) is not None,
@@ -5180,6 +5231,12 @@ class RadioDaemon:
                 return self._reload_hidden()
             if cmd == "set_active_list":
                 return self._set_active_list(msg.get("id"), source, bool(msg.get("start")))
+            if cmd == "set_selection":
+                play, exclude = msg.get("play"), msg.get("exclude")
+                if (play is not None and not isinstance(play, list)) or \
+                        (exclude is not None and not isinstance(exclude, list)):
+                    return {"ok": False, "error": "invalid_value"}
+                return self._set_selection(play, exclude, source, bool(msg.get("start")))
             if cmd == "cast_play":
                 return self._cast_play(msg, source)
             if cmd == "play_station":

@@ -2879,16 +2879,22 @@ def _with_counts(entries):
             for entry in entries]
 
 
-def _active_list_id():
-    """The list the daemon is playing, or None - including when it cannot be
-    reached, in which case "everything" is what it will play."""
+def _selection():
+    """{"play": [ids], "exclude": [ids]} the daemon plays from, or nothing chosen
+    when it cannot be reached - "everything" is then what it will play."""
     try:
         status = control("get_status")
     except Exception:  # noqa: BLE001
-        log.exception("Could not read the active list from the daemon")
-        return None
-    return (((status.get("data") or {}).get("active_list") or {}).get("id")
-            if status.get("ok") else None)
+        log.exception("Could not read the selection from the daemon")
+        status = {}
+    found = ((status.get("data") or {}).get("selection") or {}) if status.get("ok") else {}
+    return {key: [one["id"] for one in found.get(key) or [] if one.get("id")] for key in ("play", "exclude")}
+
+
+def _active_list_id():
+    """The first list the daemon is playing, or None."""
+    play = _selection()["play"]
+    return play[0] if play else None
 
 
 @app.route("/api/schedules")
@@ -3100,10 +3106,16 @@ def api_lists():
     for entry in lists:
         entry["editable"] = _list_editable(entry, me)
         entry["owner_name"] = members.get(entry.get("owner"), "")
+    chosen = _selection()
+    shown_ids = {entry["id"] for entry in lists}
     return jsonify({"ok": True, "data": {
         "lists": lists,
-        "active": _active_list_id(),
+        "active": chosen["play"][0] if chosen["play"] else None,
+        # Lists this person may not see are left out, but still counted as chosen.
+        "selection": {key: [i for i in ids if i in shown_ids] for key, ids in chosen.items()},
+        "hidden_chosen": sum(1 for ids in chosen.values() for i in ids if i not in shown_ids),
         "may_play": _may_play_lists(),
+        "may_exclude": roles.allows(_role(), "operator"),
     }})
 
 
@@ -3150,8 +3162,10 @@ def api_delete_list(list_id):
     except KeyError:
         return jsonify({"ok": False, "error": "not_found"}), 404
     notify_daemon("reload_lists")
-    if _active_list_id() == list_id:
-        notify_daemon("set_active_list", id=None)
+    chosen = _selection()
+    if list_id in chosen["play"] or list_id in chosen["exclude"]:
+        notify_daemon("set_selection", play=[i for i in chosen["play"] if i != list_id],
+                      exclude=[i for i in chosen["exclude"] if i != list_id])
     stats.record("list_removed", label=entry["name"], detail={"id": list_id})
     return jsonify({"ok": True})
 
@@ -3280,20 +3294,39 @@ def api_list_import():
                                          "missing": missing[:50], "missing_count": len(missing)}})
 
 
+def _list_ids(raw):
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or len(raw) > 50:
+        raise ValueError("bad_request")
+    return [str(one).strip() for one in raw if str(one).strip()]
+
+
 @app.route("/api/lists/active", methods=["POST"])
 def api_active_list():
-    """{id: null | "list-id", start: true}: what the radio plays from the next
-    track on, or right now."""
+    """What the radio plays from the next track on, or right now with `start`:
+    {play: [ids]} the lists played together ([]: the whole library), {exclude: [ids]}
+    the lists whose songs it leaves out; {id} alone is one list, as before."""
     body = request.get_json(silent=True) or {}
-    if not _may_play_lists():
+    try:
+        play = _list_ids(body.get("play"))
+        exclude = _list_ids(body.get("exclude"))
+    except ValueError:
+        return jsonify({"ok": False, "error": "bad_request"}), 400
+    if play is None and exclude is None:
+        one = str(body.get("id") or "").strip()
+        play = [one] if one else []
+    if play is not None and not _may_play_lists():
         return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
-    list_id = str(body.get("id") or "").strip() or None
-    if list_id:
+    # Leaving songs out is for everyone listening: the radio's keepers decide it.
+    if exclude is not None and not roles.allows(_role(), "operator"):
+        return jsonify({"ok": False, "error": "lists_exclude_not_allowed"}), 403
+    for list_id in (play or []) + (exclude or []):
         _entry, refused = _list_for(list_id)
         if refused:
             return refused
     notify_daemon("reload_lists")
-    result = control("set_active_list", id=list_id, start=bool(body.get("start")))
+    result = control("set_selection", play=play, exclude=exclude, start=bool(body.get("start")))
     return jsonify(result), (200 if result.get("ok") else 400)
 
 

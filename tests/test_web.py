@@ -119,11 +119,16 @@ class WebTest(unittest.TestCase):
                 return {"ok": True, "data": dict(cls.status)}
             if cmd == "get_queue":
                 return {"ok": True, "data": {"paths": [], "requested": []}}
-            if cmd == "set_active_list":
-                cls.status["active_list"] = (
-                    {"id": kw.get("id"), "name": "Soir", "kind": "manual", "tracks": 1}
-                    if kw.get("id") else None)
-                return {"ok": True, "data": {"active": kw.get("id"), "tracks": 1}}
+            if cmd in ("set_active_list", "set_selection"):
+                chosen = cls.status.setdefault("selection", {"play": [], "exclude": []})
+                play = ([kw["id"]] if kw.get("id") else []) if cmd == "set_active_list" else kw.get("play")
+                for key, ids in (("play", play), ("exclude", kw.get("exclude"))):
+                    if ids is not None:
+                        chosen[key] = [{"id": i, "name": i, "kind": "manual"} for i in ids]
+                first = chosen["play"][0]["id"] if chosen["play"] else None
+                cls.status["active_list"] = {"id": first, "name": "Soir", "kind": "manual", "tracks": 1} \
+                    if first else None
+                return {"ok": True, "data": {"active": first, "tracks": 1}}
             return {"ok": True}
         ws.control = fake
 
@@ -1223,9 +1228,14 @@ class WebTest(unittest.TestCase):
         self.assertTrue(active["ok"], active)
         self.assertEqual(active["data"]["active"], list_id)
         self.assertEqual(owner.get("/api/lists").get_json()["data"]["active"], list_id)
-        self.assertIn(("set_active_list", list_id),
-                      [(cmd, kw.get("id")) for cmd, kw in self.calls])
+        self.assertIn(("set_selection", [list_id]),
+                      [(cmd, kw.get("play")) for cmd, kw in self.calls])
         self.assertEqual(owner.post("/api/lists/active", json={"id": "nope"}).status_code, 404)
+        both = owner.post("/api/lists/active", json={"play": [list_id], "exclude": []}).get_json()
+        self.assertTrue(both["ok"], both)
+        self.assertEqual(owner.get("/api/lists").get_json()["data"]["selection"],
+                         {"play": [list_id], "exclude": []})
+        self.assertEqual(owner.post("/api/lists/active", json={"play": "x"}).status_code, 400)
 
         made = owner.post("/api/lists/from_genres", json={"genres": ["Jazz"]}).get_json()
         self.assertTrue(made["ok"], made)

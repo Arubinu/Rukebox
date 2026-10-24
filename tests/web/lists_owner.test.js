@@ -19,7 +19,8 @@ function lists(mayPlay) {
 }
 
 function labels(page) {
-  return [...page.$("listsDetailActions").children].map((b) => b.dataset.icon);
+  return [...page.$("listsDetailActions").children, ...page.$("listsDetailManage").children]
+    .map((b) => b.dataset.icon);
 }
 
 test("a member changes only their lists, and plays one only when allowed", async (t) => {
@@ -48,8 +49,9 @@ test("a member changes only their lists, and plays one only when allowed", async
   state = lists(true);
   // Arriving on the page again refreshes it, as a tap on the menu would.
   page.document.dispatchEvent(new page.window.CustomEvent("page-shown", { detail: { tab: "home", page: "lists" } }));
-  await until(() => labels(page).length === 4);
-  assert.deepEqual(labels(page), ["play", "pencil", "download", "trash"], "allowed: it can be put on");
+  await until(() => labels(page).length === 5);
+  assert.deepEqual(labels(page), ["play", "plus", "pencil", "download", "trash"],
+                   "allowed: it can be put on, alone or with others, but not left out (the keepers' choice)");
   assert.equal(page.$("listsPlayAll").hidden, false);
 });
 

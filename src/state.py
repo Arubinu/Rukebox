@@ -38,7 +38,6 @@ class RadioState:
         self.data.setdefault("chance_bags", {})
         self.data.setdefault("recent", [])
         self.data.setdefault("requests", [])
-        self.data.setdefault("active_list", None)
 
     def _save(self):
         os.makedirs(os.path.dirname(self.state_path), exist_ok=True)
@@ -134,16 +133,38 @@ class RadioState:
     def has_queued_tracks(self):
         return bool(self.data["play_queue"])
 
+    def selection(self):
+        """{"play": [list ids], "exclude": [list ids]}: what the radio plays by
+        itself (no list: the whole library), minus what the excluded lists hold."""
+        found = self.data.get("selection")
+        if not isinstance(found, dict):
+            # Written by a version that played one list at most.
+            old = self.data.get("active_list")
+            found = {"play": [old] if old else [], "exclude": []}
+        return {key: [str(i) for i in found.get(key) or [] if i] for key in ("play", "exclude")}
+
+    def set_selection(self, play=None, exclude=None):
+        """Changes the lists played and/or excluded (None leaves that side alone)."""
+        with self._lock:
+            now = self.selection()
+            if play is not None:
+                now["play"] = list(dict.fromkeys(str(i) for i in play if i))
+            if exclude is not None:
+                now["exclude"] = list(dict.fromkeys(str(i) for i in exclude if i))
+            self.data["selection"] = now
+            self.data.pop("active_list", None)
+            self._save()
+        return self.selection()
+
     def active_list(self):
-        """The id of the music list being played, or None for the whole
-        library."""
-        return self.data.get("active_list") or None
+        """The first list being played, or None for the whole library."""
+        play = self.selection()["play"]
+        return play[0] if play else None
 
     def set_active_list(self, list_id):
-        with self._lock:
-            self.data["active_list"] = list_id or None
-            self._save()
-        return self.data["active_list"]
+        """Plays one list (None: the whole library); the exclusions stay."""
+        play = self.set_selection(play=[list_id] if list_id else [])["play"]
+        return play[0] if play else None
 
     def add_recent(self, path, limit):
         """The music track that just started, newest first, at most `limit`

@@ -19,8 +19,9 @@ document.getElementById("cardAction").addEventListener("change", paintCardAction
 
 function cardTargetLabel(card, lists, anns) {
   if (card.action === "list") {
-    const list = lists.find((l) => l.id === card.target);
-    return t("cards.action_list") + " : " + (card.target ? (list ? list.name : card.target) : t("cards.everything"));
+    const ids = (card.target || "").split(",").map((id) => id.trim()).filter(Boolean);
+    const names = ids.map((id) => (lists.find((l) => l.id === id) || { name: id }).name);
+    return t("cards.action_list") + " : " + (names.length ? names.join(" + ") : t("cards.everything"));
   }
   if (card.action === "folder") return t("cards.action_folder") + " : " + card.target.split("/").pop();
   if (card.action === "announcement") {
@@ -35,10 +36,7 @@ async function refreshCards() {
   if (!r.ok || !Array.isArray(r.data)) return;
   const lists = listsR.ok && listsR.data ? listsR.data.lists || [] : [];
   const anns = annsR.ok && Array.isArray(annsR.data) ? annsR.data : [];
-  const listSelect = document.getElementById("cardList");
-  const keepList = listSelect.value;
-  listSelect.replaceChildren(new Option(t("cards.everything"), ""), ...lists.map((l) => new Option(l.name, l.id)));
-  listSelect.value = keepList;
+  paintListChips(document.getElementById("cardList"));
   const annSelect = document.getElementById("cardAnn");
   const keepAnn = annSelect.value;
   annSelect.replaceChildren(...anns.map((a) => new Option(a.name, a.id)));
@@ -111,7 +109,8 @@ document.getElementById("cardForm").addEventListener("submit", async (e) => {
     id: document.getElementById("cardId").value.trim(),
     name: document.getElementById("cardName").value.trim(),
     action,
-    target: document.getElementById(target).value.trim(),
+    target: action === "list" ? pickedListChips(document.getElementById("cardList")).join(",")
+      : document.getElementById(target).value.trim(),
   });
   if (!r.ok) {
     showError(r.error, t("cards.title"));
@@ -119,6 +118,7 @@ document.getElementById("cardForm").addEventListener("submit", async (e) => {
   }
   showToast(t("cards.saved", { name: r.data.name }));
   document.getElementById("cardForm").reset();
+  paintListChips(document.getElementById("cardList"), []);
   paintCardAction();
   document.getElementById("cardFormSection").open = false;
   refreshCards();

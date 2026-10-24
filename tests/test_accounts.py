@@ -268,6 +268,12 @@ class GateTest(unittest.TestCase):
                         "granted, without logging in again")
         self.assertEqual(self.client.post("/api/lists/active", json={"id": listed["Luc"]["id"]}).status_code, 200)
         self.assertEqual(self.client.post("/api/lists/active", json={"id": mine["id"]}).status_code, 404)
+        self.assertEqual(self.client.post("/api/lists/active", json={
+            "play": [listed["Luc"]["id"], "de-la-radio"]}).status_code, 200, "several of the lists it sees")
+        refused = self.client.post("/api/lists/active", json={"exclude": ["de-la-radio"]})
+        self.assertEqual((refused.status_code, refused.get_json()["error"]), (403, "lists_exclude_not_allowed"),
+                         "leaving songs out is for everyone listening: the keepers decide it")
+        self.assertFalse(self.client.get("/api/lists").get_json()["data"]["may_exclude"])
 
         self.client.post("/api/auth/logout")
         self.assertEqual(self.login("Paul", "mot-de-passe-paul").status_code, 200)

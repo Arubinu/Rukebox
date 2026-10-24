@@ -527,26 +527,72 @@ document.getElementById("schedVoice").addEventListener("click", async () => {
   document.getElementById(id).addEventListener("change", updateScheduleForm);
 });
 
-function fillScheduleLists(value) {
-  const select = document.getElementById("schedList");
-  let lists = [];
+/* Music lists as chips to tick, several at once: what a schedule, a card or the page plays or leaves out. */
+function knownMusicLists() {
   try {
-    lists = (listsData && listsData.lists) || [];
+    return (listsData && listsData.lists) || [];
   } catch (e) {
     // Declared further down: at startup the music lists are not there yet.
+    return [];
   }
-  select.replaceChildren();
-  [["keep", t("schedules.list_keep")], ["all", t("schedules.list_all")]]
-    .concat(lists.map((one) => ["id:" + one.id, one.name]))
-    .forEach(([optionValue, label]) => {
-      const option = document.createElement("option");
-      option.value = optionValue;
-      option.textContent = label;
-      select.appendChild(option);
-    });
-  const wanted = value === null || value === undefined ? "keep" : value === "" ? "all" : "id:" + value;
-  setFieldValue(select, wanted);
 }
+
+function paintListChips(box, chosen) {
+  const picked = new Set(chosen || pickedListChips(box));
+  const lists = knownMusicLists();
+  // A list ticked but not loaded yet keeps its tick under its id.
+  const shown = lists.map((one) => [one.id, one.name])
+    .concat(Array.from(picked).filter((id) => !lists.some((one) => one.id === id)).map((id) => [id, id]));
+  box.replaceChildren(...shown.map(([id, name]) => {
+    const chip = document.createElement("label");
+    chip.className = "day-chip";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = id;
+    input.checked = picked.has(id);
+    const text = document.createElement("span");
+    text.textContent = name;
+    chip.append(input, text);
+    return chip;
+  }));
+}
+
+function pickedListChips(box) {
+  return Array.from(box.querySelectorAll("input:checked")).map((el) => el.value);
+}
+
+/* An entry written before several lists could be played holds one `list`. */
+function scheduleSelection(item) {
+  let play = item.lists;
+  if (play === undefined) play = item.list === null || item.list === undefined ? null : item.list ? [item.list] : [];
+  return { play: play === undefined ? null : play, exclude: item.exclude === undefined ? null : item.exclude };
+}
+
+function fillSelectOptions(select, options, value) {
+  select.replaceChildren(...options.map(([optionValue, label]) => new Option(label, optionValue)));
+  setFieldValue(select, value);
+}
+
+function paintSchedulePicks() {
+  document.getElementById("schedListPicks").hidden = document.getElementById("schedList").value !== "pick";
+  document.getElementById("schedExcludePicks").hidden = document.getElementById("schedExclude").value !== "pick";
+}
+
+function fillScheduleLists(play, exclude) {
+  fillSelectOptions(document.getElementById("schedList"),
+    [["keep", t("schedules.list_keep")], ["all", t("schedules.list_all")], ["pick", t("schedules.list_pick")]],
+    play === null || play === undefined ? "keep" : play.length ? "pick" : "all");
+  fillSelectOptions(document.getElementById("schedExclude"),
+    [["keep", t("schedules.exclude_keep")], ["none", t("schedules.exclude_none")], ["pick", t("schedules.list_pick")]],
+    exclude === null || exclude === undefined ? "keep" : exclude.length ? "pick" : "none");
+  paintListChips(document.getElementById("schedListPicks"), play || []);
+  paintListChips(document.getElementById("schedExcludePicks"), exclude || []);
+  paintSchedulePicks();
+}
+
+["schedList", "schedExclude"].forEach((id) => {
+  document.getElementById(id).addEventListener("change", paintSchedulePicks);
+});
 
 function fillScheduleAnnouncements(value) {
   const select = document.getElementById("schedAnnouncement");
@@ -666,7 +712,7 @@ function collectScheduleSettings() {
 
 function fillScheduleForm(item) {
   const data = item || { name: "", days: [], date: null, start: "07:00", stop: null,
-                         stop_action: "pause", list: null, settings: {} };
+                         stop_action: "pause", lists: null, exclude: null, settings: {} };
   document.getElementById("schedName").value = data.name;
   document.getElementById("schedWhen").value = data.party ? "party"
     : data.date ? (data.yearly ? "yearly" : "date") : (data.days || []).length ? "days" : "daily";
@@ -681,7 +727,8 @@ function fillScheduleForm(item) {
   const settings = data.settings || {};
   document.getElementById("schedVolume").value =
     "playback.base_volume" in settings ? settings["playback.base_volume"] : "";
-  fillScheduleLists(data.list);
+  const chosenLists = scheduleSelection(data);
+  fillScheduleLists(chosenLists.play, chosenLists.exclude);
   fillScheduleAnnouncements(data.announcement);
   document.getElementById("schedSay").value = data.say || "";
   fillScheduleStations(data.station);
@@ -725,7 +772,7 @@ document.getElementById("scheduleFormSection").addEventListener("toggle", (event
   if (!event.target.open || editingScheduleId) return;
   // Only an untouched form: a copy being prepared has its own choices.
   if (document.getElementById("schedName").value) return;
-  fillScheduleLists(null);
+  fillScheduleLists(null, null);
   fillScheduleAnnouncements(null);
 });
 document.getElementById("schedCancel").addEventListener("click", resetScheduleForm);
@@ -734,6 +781,12 @@ schedForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const when = document.getElementById("schedWhen").value;
   const list = document.getElementById("schedList").value;
+  const excluded = document.getElementById("schedExclude").value;
+  const playPicked = pickedListChips(document.getElementById("schedListPicks"));
+  if (list === "pick" && !playPicked.length) {
+    showError("schedule_lists_required");
+    return;
+  }
   const body = {
     name: document.getElementById("schedName").value,
     days: when === "days"
@@ -747,7 +800,9 @@ schedForm.addEventListener("submit", async (event) => {
     stop: when !== "party" && document.getElementById("schedStopOn").checked
       ? document.getElementById("schedStop").value : null,
     stop_action: document.getElementById("schedAction").value,
-    list: list === "keep" ? null : list === "all" ? "" : list.slice(3),
+    lists: list === "keep" ? null : list === "all" ? [] : playPicked,
+    exclude: excluded === "keep" ? null : excluded === "none" ? []
+      : pickedListChips(document.getElementById("schedExcludePicks")),
     announcement: document.getElementById("schedAnnouncement").value || null,
     say: document.getElementById("schedSay").value.trim() || null,
     station: document.getElementById("schedStation").value || null,

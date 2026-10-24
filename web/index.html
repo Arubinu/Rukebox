@@ -1087,6 +1087,7 @@
               </span>
             </div>
             <div class="ann-actions" id="listsDetailActions"></div>
+            <div class="ann-actions" id="listsDetailManage"></div>
             <div id="listsDetailBody"></div>
           </div>
         </section>
@@ -1247,6 +1248,17 @@
                 <label for="schedList" data-i18n="schedules.list">Music</label>
                 <select id="schedList"></select>
               </div>
+              <div class="day-chips" id="schedListPicks" role="group" data-i18n-aria-label="schedules.list_picks"
+                   aria-label="Lists played" hidden></div>
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="schedExclude" data-i18n="schedules.exclude">Left out</label>
+                  <p class="field-desc" id="schedExcludeDesc" data-i18n="schedules.exclude_desc">The songs of these lists never play by themselves while it runs.</p>
+                </div>
+                <select id="schedExclude" aria-describedby="schedExcludeDesc"></select>
+              </div>
+              <div class="day-chips" id="schedExcludePicks" role="group" data-i18n-aria-label="schedules.exclude_picks"
+                   aria-label="Lists left out" hidden></div>
               <div class="field-row" id="schedAnnouncementRow">
                 <div class="field-text">
                   <label for="schedAnnouncement" data-i18n="schedules.announcement">Opens with</label>
@@ -2321,9 +2333,14 @@
                   <option value="action" data-i18n="cards.action_click">Like a button</option>
                 </select>
               </div>
-              <div class="field-row" id="cardListRow">
-                <label for="cardList" data-i18n="cards.list">List</label>
-                <select id="cardList"></select>
+              <div id="cardListRow">
+                <div class="field-row">
+                  <div class="field-text">
+                    <span class="field-label" data-i18n="cards.list">List</span>
+                    <p class="field-desc" data-i18n="cards.list_desc">Several lists play together; none ticked: the whole library.</p>
+                  </div>
+                </div>
+                <div class="day-chips" id="cardList" role="group" data-i18n-aria-label="cards.list" aria-label="List"></div>
               </div>
               <div class="field-row" id="cardFolderRow" hidden>
                 <label for="cardFolder" data-i18n="common.folder">Folder</label>

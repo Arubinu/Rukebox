@@ -65,6 +65,21 @@ class RulesTest(unittest.TestCase):
                 schedules.validate(data)
             self.assertEqual(str(refused.exception), code)
 
+    def test_a_schedule_plays_several_lists_and_leaves_others_out(self):
+        clean = schedules.validate({"name": "Night", "start": "22:00", "lists": ["calm", "jazz", "calm"],
+                                    "exclude": ["metal"]})
+        self.assertEqual((clean["lists"], clean["exclude"]), (["calm", "jazz"], ["metal"]))
+        self.assertEqual(schedules.selection(clean), (["calm", "jazz"], ["metal"]))
+        self.assertEqual(schedules.selection(schedules.validate({"name": "N", "start": "22:00"})), (None, None),
+                         "nothing said: the selection is left as it is")
+        with self.assertRaises(ValueError):
+            schedules.validate({"name": "N", "start": "22:00", "exclude": "metal"})
+
+    def test_a_schedule_written_with_one_list_still_plays_it(self):
+        self.assertEqual(schedules.selection({"list": "calm"}), (["calm"], None))
+        self.assertEqual(schedules.selection({"list": ""}), ([], None), "the whole library")
+        self.assertEqual(schedules.validate({"name": "N", "start": "22:00", "list": "calm"})["lists"], ["calm"])
+
     def test_a_date_replaces_the_weekdays(self):
         clean = schedules.validate({"name": "Party", "start": "20:00", "days": [4, 5], "date": "2026-10-10"})
         self.assertEqual(clean["days"], [])

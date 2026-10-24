@@ -1,8 +1,9 @@
 """What the daemon plays (src/rukebox_daemon.py): the whole library minus the
-excluded tracks, or the active music list - a manual one in the order it was
+excluded tracks, or the lists played together, minus the lists left out - a manual one in the order it was
 built, a genre one from the library's tags, and the tracks excluded from the
 radio's own passes it keeps - and the loudness filter pushed to mpv. mpv
 itself is faked, so this runs off-hardware."""
+import datetime
 import os
 import shutil
 import tempfile
@@ -304,6 +305,62 @@ class DaemonListsTest(unittest.TestCase):
                          "the rest of the pass keeps its order")
         self.assertEqual(self.daemon.state.requested_paths(), [asked],
                          "the songs asked for are still waiting")
+
+    def manual(self, name, *keys):
+        entry = music_lists.add({"name": name, "kind": "manual"}, self.lists_file)
+        for key in keys:
+            music_lists.add_track(entry["id"], self.paths[key], self.lists_file)
+        return entry
+
+    def test_several_lists_play_together(self):
+        evening = self.manual("Soir", "rock1.mp3")
+        jazz = music_lists.add({"name": "Jazz", "kind": "genre", "genres": ["Jazz"]}, self.lists_file)
+        self.assertTrue(self.daemon._set_selection([evening["id"], jazz["id"]], None, "test")["ok"])
+        self.assertEqual(sorted(self.daemon._playable_tracks()), sorted([self.paths["rock1.mp3"]] + self.jazz()))
+        status = self.daemon._selection_status()
+        self.assertEqual([one["id"] for one in status["play"]], [evening["id"], jazz["id"]])
+        self.assertEqual(status["tracks"], 3)
+        self.assertIsNone(self.daemon._active_list_entry(), "no single list: no custom order")
+
+    def test_an_excluded_list_leaves_its_songs_out_of_everything(self):
+        jazz = music_lists.add({"name": "Jazz", "kind": "genre", "genres": ["Jazz"]}, self.lists_file)
+        mixed = self.manual("Mix", "jazz1.mp3", "rock1.mp3")
+        self.daemon._set_selection(None, [jazz["id"]], "test")
+        self.assertEqual(sorted(self.daemon._playable_tracks()),
+                         sorted([self.paths["rock1.mp3"], self.paths["metal.mp3"]]), "the library without the jazz")
+        self.daemon._set_active_list(mixed["id"], "test")
+        self.assertEqual(self.daemon._playable_tracks(), [self.paths["rock1.mp3"]],
+                         "a list played loses the songs an excluded list holds, and the exclusion stays")
+        self.assertEqual(self.daemon.state.selection(), {"play": [mixed["id"]], "exclude": [jazz["id"]]})
+
+    def test_excluding_a_list_leaves_the_pass_under_way_in_its_order(self):
+        jazz = music_lists.add({"name": "Jazz", "kind": "genre", "genres": ["Jazz"]}, self.lists_file)
+        self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
+        self.daemon._rebuild_queue()
+        queue = list(self.daemon.state.data["play_queue"])
+        self.daemon._set_selection(None, [jazz["id"]], "test")
+        self.assertEqual(self.daemon.state.data["play_queue"], [p for p in queue if p not in self.jazz()],
+                         "not reshuffled: the excluded songs just leave it")
+
+    def test_a_schedule_sets_its_lists_and_gives_the_old_ones_back(self):
+        evening = self.manual("Soir", "rock1.mp3")
+        jazz = music_lists.add({"name": "Jazz", "kind": "genre", "genres": ["Jazz"]}, self.lists_file)
+        self.daemon._set_selection([evening["id"]], [], "test")
+        running = {"id": "night", "name": "Night", "settings": {}, "lists": None, "exclude": [jazz["id"]],
+                   "end": datetime.datetime(2026, 1, 1, 23, 0)}
+        with mock.patch.object(rukebox_daemon, "load_config", return_value=dict(self.daemon.cfg)):
+            self.daemon._follow_schedule(running)
+            self.assertEqual(self.daemon.state.selection(), {"play": [evening["id"]], "exclude": [jazz["id"]]},
+                             "lists: None leaves what plays alone")
+            self.daemon._follow_schedule(None)
+        self.assertEqual(self.daemon.state.selection(), {"play": [evening["id"]], "exclude": []})
+
+    def test_a_radio_that_played_one_list_keeps_it(self):
+        entry = self.manual("Soir", "rock1.mp3")
+        self.daemon.state.data.pop("selection", None)
+        self.daemon.state.data["active_list"] = entry["id"]
+        self.assertEqual(self.daemon.state.selection(), {"play": [entry["id"]], "exclude": []})
+        self.assertEqual(self.daemon._playable_tracks(), [self.paths["rock1.mp3"]])
 
     def test_a_duration_list_is_cleaned_and_never_left_empty(self):
         self.assertEqual(self.daemon._pause_durations(), [5, 15, 30, 60])

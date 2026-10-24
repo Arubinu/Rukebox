@@ -90,10 +90,15 @@ class DaemonCardTest(DaemonCase):
                          {"id": "99998888", "name": None, "known": False, "error": "card_unknown"})
 
     def test_a_list_card_plays_its_list(self):
-        self.add(action="list", target="evening")
-        with mock.patch.object(self.daemon, "_set_active_list", return_value={"ok": True}) as chosen:
+        self.add(action="list", target="evening, party")
+        with mock.patch.object(self.daemon, "_set_selection", return_value={"ok": True}) as chosen:
             self.assertIsNone(self.daemon._card("00001111", "card"))
-        chosen.assert_called_once_with("evening", "card", start=True)
+        chosen.assert_called_once_with(["evening", "party"], None, "card", start=True, strict=False)
+
+    def test_a_card_whose_lists_are_all_gone_never_plays_everything(self):
+        self.add(action="list", target="gone-one,gone-two")
+        self.assertEqual(self.daemon._card("00001111", "card"), "list_not_found")
+        self.assertEqual(self.daemon.state.selection()["play"], [])
 
     def test_a_folder_card_plays_that_folder_in_order(self):
         album = os.path.join(self.music, "Album")

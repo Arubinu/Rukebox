@@ -25,6 +25,7 @@ END_KINDS = ("text", "voice", "announcement")
 VOICE_MAX_SEC = 30.0
 NAME_MAX = 40
 VALUE_MAX = 200
+LISTS_MAX = 50
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
 _SECTIONS = ("playback", "fades", "buttons", "schedule", "playback_errors", "audio")
@@ -169,8 +170,11 @@ def validate(data):
     if action not in STOP_ACTIONS:
         raise ValueError("schedule_bad_action")
 
-    music = data.get("list")
-    music = None if music is None else str(music).strip()
+    play = _list_ids(data.get("lists"))
+    if play is None and data.get("list") is not None:
+        # One list at most, as a version before several could be played wrote it.
+        play = [str(data["list"]).strip()] if str(data["list"]).strip() else []
+    exclude = _list_ids(data.get("exclude"))
 
     announcement = str(data.get("announcement") or "").strip() or None
     station = str(data.get("station") or "").strip() or None
@@ -192,7 +196,8 @@ def validate(data):
         "start": start,
         "stop": stop,
         "stop_action": action,
-        "list": music,
+        "lists": play,
+        "exclude": exclude,
         "announcement": announcement if start or party else None,
         "say": (say or None) if start or party else None,
         "station": station if start or party else None,
@@ -203,6 +208,29 @@ def validate(data):
     if party:
         clean.update(party=True, days=[], guests=bool(data.get("guests")))
     return clean
+
+
+def _list_ids(raw):
+    """None (leave the selection as it is), or the list ids given; [] means none."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or len(raw) > LISTS_MAX:
+        raise ValueError("schedule_bad_list")
+    ids = [str(item).strip() for item in raw if str(item).strip()]
+    if any(not re.match(r"^[a-z0-9-]{1,80}$", item) for item in ids):
+        raise ValueError("schedule_bad_list")
+    return list(dict.fromkeys(ids))
+
+
+def selection(item):
+    """(lists played, lists excluded) a schedule asks for; None leaves that side as it is.
+    An entry written before several lists could be played holds one `list`."""
+    play = item.get("lists")
+    if play is None and item.get("list") is not None:
+        play = [str(item["list"]).strip()] if str(item["list"]).strip() else []
+    exclude = item.get("exclude")
+    return ([str(i) for i in play if i] if play is not None else None,
+            [str(i) for i in exclude if i] if exclude is not None else None)
 
 
 def _one_party(items, clean, own_id=None):

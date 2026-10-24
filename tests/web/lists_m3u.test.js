@@ -15,7 +15,7 @@ test("a list is exported by its own route", async (t) => {
   } });
   await until(() => page.$("listsList").children.length === 1);
   page.$("listsList").querySelector(".ann-head").click();
-  const button = await until(() => [...page.$("listsDetailActions").querySelectorAll("button")]
+  const button = await until(() => [...page.$("listsDetailManage").querySelectorAll("button")]
     .find((b) => b.dataset.icon === "download"));
   const opened = [];
   page.window.HTMLAnchorElement.prototype.click = function () { opened.push(this.getAttribute("href")); };

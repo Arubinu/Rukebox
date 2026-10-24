@@ -22,6 +22,7 @@ const listsDetail = document.getElementById("listsDetail");
 const listsDetailName = document.getElementById("listsDetailName");
 const listsDetailMeta = document.getElementById("listsDetailMeta");
 const listsDetailActions = document.getElementById("listsDetailActions");
+const listsDetailManage = document.getElementById("listsDetailManage");
 const listsDetailBody = document.getElementById("listsDetailBody");
 const listsNameInput = document.getElementById("listName");
 const listsKindSelect = document.getElementById("listKind");
@@ -47,10 +48,23 @@ function listKindLabel(item) {
   return (item.genres || []).join(", ") || t("lists.kind_genre_short");
 }
 
+function listSelection() {
+  const found = (listsData && listsData.selection) || {};
+  return { play: found.play || [], exclude: found.exclude || [] };
+}
+
+function listPlayed(item) {
+  return listSelection().play.includes(item.id);
+}
+
+function listExcluded(item) {
+  return listSelection().exclude.includes(item.id);
+}
+
 function listMeta(item) {
   return [listKindLabel(item), tracksLabel(item.count),
           item.owner_name ? t("lists.of", { name: item.owner_name }) : "",
-          item.id === listsData.active ? t("lists.playing") : ""]
+          listPlayed(item) ? t("lists.playing") : "", listExcluded(item) ? t("lists.excluded") : ""]
     .filter(Boolean).join(" \u00b7 ");
 }
 
@@ -264,16 +278,46 @@ function libraryListButton(item) {
   return b;
 }
 
-async function playList(item) {
-  const r = await apiPost("/api/lists/active", { id: item.id, start: true });
+async function chooseLists(body, toast) {
+  const r = await apiPost("/api/lists/active", body);
   if (!r.ok) {
     showError(r.error);
     return;
   }
-  showToast(t("lists.now_playing", { name: item.name }), tracksLabel(r.data.tracks || 0));
+  showToast(toast, tracksLabel(r.data.tracks || 0));
   refreshStatus();
   refreshUpnext();
   refreshLists();
+}
+
+/* Played alone, right now: what "Play" has always done. */
+function playList(item) {
+  const exclude = listSelection().exclude.filter((id) => id !== item.id);
+  return chooseLists({ play: [item.id], exclude: listsData.may_exclude ? exclude : undefined, start: true },
+                     t("lists.now_playing", { name: item.name }));
+}
+
+/* Added to the lists played, or taken out of them, from the next song on. */
+function togglePlayed(item) {
+  const chosen = listSelection();
+  const play = listPlayed(item) ? chosen.play.filter((id) => id !== item.id) : chosen.play.concat([item.id]);
+  const body = { play: play };
+  // A list cannot be played and left out at once: playing it lifts its exclusion.
+  if (!listPlayed(item) && listExcluded(item) && listsData.may_exclude) {
+    body.exclude = chosen.exclude.filter((id) => id !== item.id);
+  }
+  return chooseLists(body, t(listPlayed(item) ? "lists.removed_play" : "lists.added_play", { name: item.name }));
+}
+
+function toggleExcluded(item) {
+  const chosen = listSelection();
+  const exclude = listExcluded(item) ? chosen.exclude.filter((id) => id !== item.id)
+    : chosen.exclude.concat([item.id]);
+  const body = { exclude: exclude };
+  if (!listExcluded(item) && listPlayed(item) && listsData.may_play) {
+    body.play = chosen.play.filter((id) => id !== item.id);
+  }
+  return chooseLists(body, t(listExcluded(item) ? "lists.unexcluded" : "lists.excluded_toast", { name: item.name }));
 }
 
 async function deleteList(item) {
@@ -375,7 +419,8 @@ function listRow(item) {
   const li = document.createElement("li");
   li.className = "ann-item";
   li.dataset.id = item.id;
-  if (item.id === listsData.active) li.classList.add("is-playing");
+  if (listPlayed(item)) li.classList.add("is-playing");
+  if (listExcluded(item)) li.classList.add("is-excluded");
 
   const head = document.createElement("button");
   head.type = "button";
@@ -414,12 +459,24 @@ function renderDetailHeader(item) {
 function renderDetail(item) {
   // Rebuilt only on a change: every rebuild refetches the tracks, and the 20s refresh must not.
   const signature = [item.id, item.name, item.count, item.kind,
-                     (item.genres || []).join(","), item.id === listsData.active,
-                     editingListId === item.id, item.editable, listsData.may_play].join("|");
+                     (item.genres || []).join(","), listPlayed(item), listExcluded(item),
+                     listSelection().play.length, editingListId === item.id, item.editable,
+                     listsData.may_play, listsData.may_exclude].join("|");
   if (signature === detailSignature) return;
   detailSignature = signature;
 
   const editing = editingListId === item.id && item.editable;
+  const listening = editing ? [] : [
+    // Alone: unless it already is the only one played.
+    listsData.may_play && !(listPlayed(item) && listSelection().play.length === 1)
+      ? listActionButton("play", "lists.play", () => playList(item)) : null,
+    listsData.may_play ? (listPlayed(item)
+      ? listActionButton("circle-minus", "lists.remove_play", () => togglePlayed(item))
+      : listActionButton("plus", "lists.add_play", () => togglePlayed(item))) : null,
+    listsData.may_exclude ? (listExcluded(item)
+      ? listActionButton("check", "lists.unexclude", () => toggleExcluded(item))
+      : listActionButton("ban", "lists.exclude", () => toggleExcluded(item))) : null,
+  ].filter(Boolean);
   const actions = editing ? [
     listActionButton("check", "common.save", () => saveList(item)),
     listActionButton("x", "common.cancel", () => {
@@ -427,7 +484,6 @@ function renderDetail(item) {
       renderDetail(item);
     }),
   ] : [
-    listsData.may_play ? listActionButton("play", "lists.play", () => playList(item)) : null,
     item.editable ? listActionButton("pencil", "common.edit", () => {
       editingListId = item.id;
       renderDetail(item);
@@ -436,10 +492,13 @@ function renderDetail(item) {
     item.editable ? listActionButton("trash", "common.delete", () => deleteList(item), "btn-danger-outline")
       : null,
   ].filter(Boolean);
-  ["is-one", "is-two", "is-three", "is-four"].forEach((name, index) => {
-    listsDetailActions.classList.toggle(name, actions.length === index + 1);
+  [[listsDetailActions, listening], [listsDetailManage, actions]].forEach(([box, buttons]) => {
+    ["is-one", "is-two", "is-three", "is-four"].forEach((name, index) => {
+      box.classList.toggle(name, buttons.length === index + 1);
+    });
+    box.hidden = !buttons.length;
+    box.replaceChildren(...buttons);
   });
-  listsDetailActions.replaceChildren(...actions);
 
   const parts = [];
   if (editing) {
@@ -559,12 +618,24 @@ async function refreshLists() {
   paintGenrePlay();
   if (facets.ok && facets.data) listsGenres = facets.data.genres || [];
 
-  const active = listById(listsData.active);
-  listsNowLine.textContent = active
-    ? t("lists.now_line", { name: active.name, tracks: tracksLabel(active.count) })
-    : t("lists.now_all");
+  listsNowLine.textContent = listsNowText();
   renderLists();
   if (!detailListId) paintCreateGenres();
+}
+
+function listsNowText() {
+  const chosen = listSelection();
+  const names = (ids) => ids.map((id) => (listById(id) || { name: id }).name);
+  let line = t("lists.now_all");
+  if (chosen.play.length === 1 && listById(chosen.play[0])) {
+    const one = listById(chosen.play[0]);
+    line = t("lists.now_line", { name: one.name, tracks: tracksLabel(one.count) });
+  } else if (chosen.play.length) {
+    line = t("lists.now_several", { names: names(chosen.play).join(" + ") });
+  }
+  if (listsData.hidden_chosen) line += " " + t("lists.hidden_chosen", { n: listsData.hidden_chosen });
+  if (chosen.exclude.length) line += " \u00b7 " + t("lists.without", { names: names(chosen.exclude).join(", ") });
+  return line;
 }
 
 function paintCreateGenres() {
@@ -572,7 +643,7 @@ function paintCreateGenres() {
 }
 
 async function playEverything() {
-  const r = await apiPost("/api/lists/active", { id: null, start: true });
+  const r = await apiPost("/api/lists/active", { play: [], start: true });
   if (!r.ok) {
     showError(r.error);
     return;

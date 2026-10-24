@@ -148,18 +148,22 @@ class BridgeTest(unittest.TestCase):
         offered = mqtt_bridge.choices(cfg, ["usb", "jack", "usb"], [{"id": "l1", "name": "Rock"}])
         self.assertEqual(offered["output"], {"Selon les réglages": None, "Bluetooth": "bluetooth",
                                              "Prise jack": "jack", "Carte son USB": "usb"})
-        self.assertEqual(offered["list"], {"Toute la bibliothèque": None, "Rock": "l1"})
+        self.assertEqual(offered["list"], {"Toute la bibliothèque": None, "Plusieurs listes": "*", "Rock": "l1"})
         state = mqtt_bridge.state_of({"output_override": "usb", "active_list": {"id": "l1"}}, offered=offered)
         self.assertEqual((state["output"], state["list"]), ("Carte son USB", "Rock"))
         state = mqtt_bridge.state_of({}, offered=offered)
         self.assertEqual((state["output"], state["list"]), ("Selon les réglages", "Toute la bibliothèque"))
         docs = mqtt_bridge.discovery(cfg, "rukebox_pi", "rukebox/rukebox_pi", offered)
         self.assertEqual(docs["homeassistant/select/rukebox_pi/list/config"]["options"],
-                         ["Toute la bibliothèque", "Rock"])
+                         ["Toute la bibliothèque", "Plusieurs listes", "Rock"])
+        several = {"active_list": {"id": "l1"}, "selection": {"play": [{"id": "l1"}, {"id": "l2"}]}}
+        self.assertEqual(mqtt_bridge.state_of(several, offered=offered)["list"], "Plusieurs listes")
         with mock.patch.object(mqtt_bridge, "send_control_command", return_value={"ok": True}) as send:
             mqtt_bridge.command(cfg, "output", "Carte son USB", offered)
             mqtt_bridge.command(cfg, "list", "Toute la bibliothèque", offered)
             self.assertEqual(mqtt_bridge.command(cfg, "list", "Jazz", offered)["error"], "invalid_value")
+            self.assertTrue(mqtt_bridge.command(cfg, "list", "Plusieurs listes", offered)["ok"],
+                            "several lists are chosen on the page: nothing to send")
         self.assertEqual(send.call_args_list, [
             mock.call("/tmp/s.sock", "set_output_override", output="usb", source="mqtt"),
             mock.call("/tmp/s.sock", "set_active_list", id=None, source="mqtt"),

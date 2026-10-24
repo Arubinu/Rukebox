@@ -1273,7 +1273,8 @@ any box then plays what you gave it - letters and digits, 4 to 32 of them.
 card on the reader and the page says "Unknown card read: 0012345678" with
 **Register it**; give it a name and what it does:
 
-- **Plays a list** (or the whole library) - like choosing it in Lists;
+- **Plays lists** - every list ticked, together, or the whole library when
+  none is - like choosing them in Lists; the lists left out stay left out;
 - **Plays a folder** of the music library, in order from its first song;
   the radio goes on with the rest afterwards - a card per album, the
   Toniebox way;
@@ -1649,9 +1650,11 @@ schedule has a name and:
 - **At the stop**: pause the music, standby, or switch the radio off.
 - **Opens with** (only with a start): one of your announcements, played
   before the first song - one file, like every other trigger.
-- **Volume** and **Music** (unchanged, the whole library, or one of your
-  lists): set when the schedule begins. When it ends, the usual volume and
-  the list that was playing before come back.
+- **Volume**, **Music** (unchanged, the whole library, or the lists ticked,
+  played together) and **Left out** (unchanged, nothing, or the lists ticked,
+  whose songs never play by themselves meanwhile): set when the schedule
+  begins. When it ends, the usual volume and the lists played and left out
+  before come back.
 - **Settings during this schedule** (detailed view): pick any playback,
   volume, fade, button, cutoff or light scene setting and give it another
   value. It replaces the usual one from the start to the stop and is taken back
@@ -3850,14 +3853,36 @@ list replaces that with a smaller set:
   since those songs are the library's - and a very long one stops at 200 rows
   and says how many are left out. Nothing has a scroll of its own: the page
   scrolls, so a finger never ends up moving the wrong thing.
-- **Play** on a list makes it the list being played and starts it at once
-  (the song playing fades out into it). **Play everything**, at the top of
-  the card, goes back to the whole library. The choice is kept in the
-  daemon's state, so a reboot comes back to the same list.
+- **Play** on a list plays it alone and starts it at once (the song playing
+  fades out into it). **Add to what plays** puts it beside the lists already
+  playing - their songs are shuffled together, from the next song on -, and
+  **Take out of what plays** removes it again. **Play everything**, at the top
+  of the card, goes back to the whole library. The line at the top of the card
+  says what plays (`Playing: Calm + Party`).
+- **Leave out** (the radio's keepers only: operators and the owner) takes the
+  songs of a list out of everything the radio picks by itself - the library
+  or the lists played. A genre list left out is the way to keep a genre off
+  the air (`Christmas` in July), a manual one to keep a handful of songs
+  aside. Leaving a list out that was playing takes it out of what plays, and
+  playing one that was left out lifts that. The songs left out leave the pass
+  under way at once, without reshuffling it; one no longer left out comes back
+  with the next pass. What is asked for by hand (Up next, a card's folder,
+  a proposal) still plays.
+- The choice - what plays and what is left out - is kept in the daemon's
+  state, so a reboot comes back to it. A list deleted leaves it.
 
-A list is an explicit choice, so it is **not** filtered by the *Excluded* page:
-a song you built the list with plays, and its row carries the *excluded* tag so
-you know. Taking it out of the list is one cross on that row.
+A list played is an explicit choice, so it is **not** filtered by the *Excluded*
+page: a song you built the list with plays, and its row carries the *excluded*
+tag so you know. Taking it out of the list is one cross on that row. A list
+left out is an explicit choice too, and wins over a list played.
+
+**Elsewhere.** A schedule's *Music* plays the lists ticked (or the whole
+library, or leaves what plays alone), and its *Left out* sets the lists left
+out while it runs; at its end, the choice from before it comes back. A card
+plays every list ticked on it together (none: the whole library). Home
+Assistant's list select plays one list; while several play it shows *Several
+lists*, which does nothing when chosen there. A schedule or a card written
+when a single list could be played (`list:` in `rukebox.yaml`) still plays it.
 
 The Library card's genre filter has one shortcut: with a genre chosen, **Play
 this genre** makes the list for it (or reuses the one that already matches)

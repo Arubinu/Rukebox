@@ -99,6 +99,10 @@ OUTPUT_LABELS = {
     "snapcast": {"en": "Multiroom", "fr": "Multiroom", "de": "Multiroom", "es": "Multisala", "it": "Multiroom",
                  "nl": "Multiroom"},
 }
+# Several lists played at once: a select shows one choice, so this one stands for them.
+SEVERAL_LABEL = {"en": "Several lists", "fr": "Plusieurs listes", "de": "Mehrere Listen",
+                 "es": "Varias listas", "it": "Più liste", "nl": "Meerdere lijsten"}
+SEVERAL = "*"
 LIBRARY_LABEL = {"en": "Whole library", "fr": "Toute la bibliothèque", "de": "Ganze Bibliothek",
                  "es": "Toda la biblioteca", "it": "Tutta la libreria", "nl": "Hele bibliotheek"}
 ICONS = {"title": "mdi:music", "artist": "mdi:account-music", "album": "mdi:album", "duration": "mdi:timer-outline",
@@ -150,7 +154,7 @@ def choices(cfg, kinds=None, lists=None):
     for kind in audio_output.KINDS:
         if kind in wanted:
             outputs[OUTPUT_LABELS[kind][lang]] = kind
-    music = {LIBRARY_LABEL[lang]: None}
+    music = {LIBRARY_LABEL[lang]: None, SEVERAL_LABEL[lang]: SEVERAL}
     for item in lists or []:
         name = str(item.get("name") or item.get("id") or "").strip()
         if name and name not in music:
@@ -184,6 +188,8 @@ def state_of(status, tags=None, offered=None):
     }
     if offered:
         active = status.get("active_list") or {}
+        if len((status.get("selection") or {}).get("play") or []) > 1:
+            active = {"id": SEVERAL}
         state["output"] = _label(offered["output"], status.get("output_override"))
         state["list"] = _label(offered["list"], active.get("id"))
     return state
@@ -303,6 +309,9 @@ def command(cfg, name, payload, offered=None):
             return {"ok": False, "error": "invalid_value"}
         if name == "output":
             return send_control_command(sock, "set_output_override", output=options[payload], source="mqtt")
+        if options[payload] == SEVERAL:
+            # Nothing to choose: several lists are picked on the radio's page.
+            return {"ok": True}
         return send_control_command(sock, "set_active_list", id=options[payload], source="mqtt")
     if name in BUTTONS:
         return send_control_command(sock, name, source="mqtt")
