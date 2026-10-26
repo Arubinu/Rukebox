@@ -1674,12 +1674,42 @@ def _transfer_limit():
     return rate
 
 
+FLIC_PAUSE_SEC = 45
+_flic_shared = {"at": float("-inf"), "shared": False}
+
+
+def _flic_on_shared_radio():
+    """Whether flicd runs on the built-in chip, whose radio the Wi-Fi shares; looked at once a minute."""
+    now = time.monotonic()
+    if now - _flic_shared["at"] > 60:
+        controllers = _bt_controllers()
+        flic = _flic_controller(cfg(), controllers)
+        _flic_shared.update(at=now, shared=bool(_flic_enabled() and flic and flic.get("bus") != "usb"))
+    return _flic_shared["shared"]
+
+
+def _pause_flic_for_transfer():
+    """Keeps flicd resting while a transfer runs, renewed by each part of it; the daemon is told
+    at once when one starts, and starts flicd again on its own once the pause runs out."""
+    try:
+        if not _flic_on_shared_radio():
+            return
+        state_dir = cfg().get("STATE_DIR") or ""
+        fresh = not audio_diag.flic_paused(state_dir)
+        audio_diag.pause_flic(state_dir, FLIC_PAUSE_SEC)
+        if fresh:
+            notify_daemon("speaker_check")
+    except Exception:  # noqa: BLE001 - a transfer never fails for the Flic button
+        log.debug("Could not pause the Flic button", exc_info=True)
+
+
 @app.before_request
 def _limit_uploads():
     if request.method != "POST" or (request.content_length or 0) < 256 * 1024:
         return None
     if not request.mimetype.startswith("multipart/"):
         return None
+    _pause_flic_for_transfer()
     rate = _transfer_limit()
     if rate:
         request.environ["wsgi.input"] = _ThrottledInput(request.environ["wsgi.input"], rate)
@@ -5199,7 +5229,7 @@ def _sync():
     global _sync_manager
     if _sync_manager is None:
         _sync_manager = sync_scheduler.Manager(cfg, _sync_play, _sync_after, cfg()["STATE_DIR"],
-                                               refuse=_sync_target_refusal)
+                                               refuse=_sync_target_refusal, while_busy=_pause_flic_for_transfer)
     return _sync_manager
 
 
@@ -6201,6 +6231,8 @@ def api_flic_status():
         "buttons": buttons,
         # On, but no button to wait for: flicd sleeps until a pairing wakes it.
         "idle": bool(enabled and usable and not active and buttons == []),
+        # Resting while a transfer runs: it comes back on its own once the transfer is over.
+        "paused": bool(enabled and not active and audio_diag.flic_paused(cfg().get("STATE_DIR") or "")),
         "pairing": _flic_pair["state"],
     }})
 

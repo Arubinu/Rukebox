@@ -245,6 +245,7 @@ async function refreshFlic() {
   else if (!d.sdk) text = t("btctl.flic_no_sdk");
   else if (!d.enabled) text = t("btctl.flic_off");
   else if (d.idle) text = t("btctl.flic_idle");
+  else if (d.paused) text = t("btctl.flic_paused");
   else if (!d.active) text = t("btctl.flic_not_running");
   else text = t("btctl.flic_running", { n: (d.buttons || []).length });
   line.textContent = text;

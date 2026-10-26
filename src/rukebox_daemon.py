@@ -4264,15 +4264,20 @@ class RadioDaemon:
         buttons = audio_diag.flic_buttons(state_dir, self.cfg.get("FLIC_HCI_DEVICE"))
         # No button to wait for: flicd's endless scan only costs the Wi-Fi sharing its radio.
         # An unreadable list is never taken for an empty one; the page's pairing starts it itself.
-        idle = buttons == [] and not audio_diag.flic_pairing(state_dir)
-        if usable and not idle:
+        pairing = audio_diag.flic_pairing(state_dir)
+        idle = buttons == [] and not pairing
+        # A transfer under way (a song sent, a sync): the button waits, the Wi-Fi gets its air.
+        paused = audio_diag.flic_paused(state_dir) and not pairing
+        if usable and not idle and not paused:
             if self.state.flag(self.FLIC_FLAG) and self._flic_flag("is-active") != "active":
                 self._set_flic_services("start")
             return
         if self._flic_flag("is-active") != "active":
             return
         if self._set_flic_services("stop"):
-            if usable:
+            if usable and paused and not idle:
+                log.info("Flic button paused while a transfer runs")
+            elif usable:
                 log.info("Flic button asleep: no button is paired, nothing to wait for")
             else:
                 log.info("Flic button on hold (%s): the speaker needs the only "

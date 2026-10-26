@@ -902,6 +902,13 @@ another controller (a board replaced) counts as none. With a button paired,
 `flicd` runs and keeps scanning: on the built-in radio, a USB dongle for the
 Flic button gives the Wi-Fi its air back.
 
+**During a transfer, it pauses.** While songs are sent from a computer (Add
+music, an announcement's files) or a folder sync runs, a Flic button on the
+built-in chip is paused: the daemon stops `flicd` at once (`Flic button paused
+while a transfer runs`), and starts it again on its own within a minute of the
+last file - the page says so meanwhile. A press during that time is lost. A
+Flic button on a USB dongle shares nothing with the Wi-Fi and is left alone.
+
 ### Working without a Flic button
 
 The Flic button is entirely optional. If you don't have a second

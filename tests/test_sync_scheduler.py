@@ -208,6 +208,15 @@ class ManagerTest(unittest.TestCase):
         self.assertEqual(self.manager.tick(at(10)), None)
         self.assertEqual((FakeRun.made, self.manager.held["music"]), ([], "sync_target_usb"))
 
+    def test_a_run_under_way_is_said_every_few_seconds(self):
+        busy = []
+        self.manager.while_busy = lambda: busy.append(1)
+        self.manager.tick(at(10))
+        with mock.patch.object(sync_scheduler, "REQUEST_SEC", 0.01):
+            self.manager.start_thread()
+            self.until(lambda: len(busy) >= 2)
+            self.manager._stop.set()
+
     def mirror_ended(self, status, names=()):
         run = mock.Mock(job=dict(JOB, mode="mirror"), status=status, would_remove=list(names))
         with self.manager.lock:

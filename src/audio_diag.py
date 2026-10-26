@@ -125,27 +125,50 @@ def flic_buttons(state_dir, controller=None):
     return [str(button).upper() for owner, button in rows if not known or str(owner).lower() == mine]
 
 
-def flic_pairing(state_dir, now=None):
-    """Whether the page is pairing a Flic button: flicd must run meanwhile."""
+FLIC_PAUSE_FILE = "flic-pause.json"
+
+
+def _marked(state_dir, name, now=None):
     try:
-        with open(os.path.join(state_dir or "", FLIC_PAIRING_FILE), encoding="utf-8") as f:
+        with open(os.path.join(state_dir or "", name), encoding="utf-8") as f:
             until = float(json.load(f).get("until") or 0)
     except (OSError, ValueError, AttributeError):
         return False
     return (now or time.time()) < until
 
 
-def set_flic_pairing(state_dir, seconds):
-    """Says a pairing runs for at most `seconds`; 0 says it is over."""
-    path = os.path.join(state_dir or "", FLIC_PAIRING_FILE)
+def _mark(state_dir, name, seconds):
+    path = os.path.join(state_dir or "", name)
     if seconds <= 0:
         try:
             os.remove(path)
         except OSError:
             pass
         return
-    with open(path, "w", encoding="utf-8") as f:
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump({"until": time.time() + seconds}, f)
+    os.replace(tmp, path)
+
+
+def flic_pairing(state_dir, now=None):
+    """Whether the page is pairing a Flic button: flicd must run meanwhile."""
+    return _marked(state_dir, FLIC_PAIRING_FILE, now)
+
+
+def set_flic_pairing(state_dir, seconds):
+    """Says a pairing runs for at most `seconds`; 0 says it is over."""
+    _mark(state_dir, FLIC_PAIRING_FILE, seconds)
+
+
+def flic_paused(state_dir, now=None):
+    """Whether a transfer asks flicd to rest: its scan crowds the Wi-Fi of the radio it shares."""
+    return _marked(state_dir, FLIC_PAUSE_FILE, now)
+
+
+def pause_flic(state_dir, seconds):
+    """Asks flicd to rest for `seconds` more (renewed while a transfer runs); 0 lets it go."""
+    _mark(state_dir, FLIC_PAUSE_FILE, seconds)
 
 
 def flic_availability(bluetooth_output, found=None):

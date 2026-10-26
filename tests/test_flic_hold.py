@@ -198,6 +198,25 @@ class FlicHoldTest(unittest.TestCase):
         daemon._watch_flic()
         self.assertEqual(self.systemctl.actions(), [])
 
+    def test_a_transfer_pauses_the_button_and_it_comes_back_after(self):
+        daemon = self.build()
+        self.held(None)
+        audio_diag.pause_flic(self.dir, 45)
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), ["stop"], "the Wi-Fi gets its air for the transfer")
+        audio_diag.pause_flic(self.dir, 0)
+        self.systemctl.active = False
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), ["stop", "start"], "the transfer over, the button is back")
+
+    def test_a_pairing_wins_over_a_transfer(self):
+        daemon = self.build()
+        self.held(None)
+        audio_diag.pause_flic(self.dir, 45)
+        audio_diag.set_flic_pairing(self.dir, 120)
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), [])
+
     def test_a_wired_output_leaves_the_button_alone(self):
         self.cfg["AUDIO_OUTPUT"] = "jack"
         daemon = self.build()

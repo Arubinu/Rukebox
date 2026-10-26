@@ -233,10 +233,11 @@ class Manager:
     """The web server's side: a thread that starts due syncs, and the run of the moment.
 
     cfg: the settings; play: {"playing", "builtin_bt"} of the moment; after(job, record):
-    what follows a run (rescan, list, journal); refuse(target): why a sync may not write there.
+    what follows a run (rescan, list, journal); refuse(target): why a sync may not write there;
+    while_busy(): called every few seconds while a run is under way.
     """
 
-    def __init__(self, cfg, play, after, state_dir, boot_at=None, store=None, refuse=None):
+    def __init__(self, cfg, play, after, state_dir, boot_at=None, store=None, refuse=None, while_busy=None):
         self.cfg = cfg
         self.play = play
         self.after = after
@@ -244,6 +245,7 @@ class Manager:
         self.boot_at = boot_at if boot_at is not None else time.time()
         self.store = store
         self.refuse = refuse
+        self.while_busy = while_busy
         self.run = None
         self.run_rate = None
         # A run ended for a new speed: started again by the next tick, its files carried over.
@@ -478,6 +480,8 @@ class Manager:
         while not self._stop.wait(REQUEST_SEC):
             try:
                 self.answer_request()
+                if self.while_busy is not None and self.busy():
+                    self.while_busy()
                 if time.monotonic() - last >= TICK_SEC:
                     last = time.monotonic()
                     self.tick()

@@ -1,5 +1,6 @@
 """The Flic pairing state: a scan has to end, even when the wizard thread dies
 with its connection to flicd. No hardware, no SDK: the state machine only."""
+import io
 import shutil
 import tempfile
 import time
@@ -108,6 +109,45 @@ class FlicWakeTest(unittest.TestCase):
         mock.patch.object(ws, "_bt_controllers", return_value=[{"address": "B8:27:EB:D7:FC:3A", "name": "hci0", "bus": "uart"}]).start()
         data = self.client.get("/api/flic/status").get_json()["data"]
         self.assertEqual((data["buttons"], data["idle"]), ([], True))
+
+
+class FlicTransferPauseTest(unittest.TestCase):
+    """A transfer asks flicd to rest, only where it shares its radio with the Wi-Fi."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.addCleanup(mock.patch.stopall)
+        values = dict(ws.cfg(), STATE_DIR=self.dir)
+        mock.patch.object(ws, "cfg", return_value=values).start()
+        mock.patch.object(ws, "_flic_enabled", return_value=True).start()
+        self.told = []
+        mock.patch.object(ws, "notify_daemon", side_effect=lambda cmd, **kw: self.told.append(cmd)).start()
+        ws._flic_shared.update(at=float("-inf"), shared=False)
+
+    def controller(self, bus):
+        mock.patch.object(ws, "_bt_controllers",
+                          return_value=[{"address": "B8:27:EB:D7:FC:3A", "name": "hci0", "bus": bus}]).start()
+
+    def test_a_flic_on_the_built_in_chip_rests_during_a_transfer(self):
+        self.controller("uart")
+        ws._pause_flic_for_transfer()
+        ws._pause_flic_for_transfer()
+        self.assertTrue(audio_diag.flic_paused(self.dir))
+        self.assertEqual(self.told, ["speaker_check"], "the daemon is told once, when it starts")
+
+    def test_a_flic_on_a_dongle_is_left_alone(self):
+        self.controller("usb")
+        ws._pause_flic_for_transfer()
+        self.assertFalse(audio_diag.flic_paused(self.dir))
+        self.assertEqual(self.told, [])
+
+    def test_a_big_upload_pauses_it(self):
+        self.controller("uart")
+        client = ws.app.test_client()
+        client.post("/api/music/upload", data={"path": "a.mp3", "file": (io.BytesIO(b"x" * 300000), "a.mp3")},
+                    content_type="multipart/form-data")
+        self.assertTrue(audio_diag.flic_paused(self.dir))
 
 
 if __name__ == "__main__":
