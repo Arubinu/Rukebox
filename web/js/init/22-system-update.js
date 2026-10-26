@@ -646,7 +646,7 @@ function refreshMusicLibrary() {
   return apiGet("/api/music/manifest").then((result) => {
     if (!result.ok || !result.data) {
       line.textContent = errorLabel(result.error || "unreachable");
-      return;
+      return false;
     }
     const data = result.data;
     musicManifest = {};
@@ -654,7 +654,7 @@ function refreshMusicLibrary() {
     musicManifestFree = Number(data.free_bytes) || 0;
     if (!data.exists) {
       line.textContent = t("music.folder_missing", { dir: data.dir || "?" });
-      return;
+      return true;
     }
     const count = (data.files || []).length;
     // The songs, as the radio counts them (src/config_and_scan.py): lyrics and covers are files too.
@@ -665,6 +665,7 @@ function refreshMusicLibrary() {
     });
 
     if (pendingMusicFiles.length) buildMusicPlan(pendingMusicFiles, true);
+    return true;
   });
 }
 

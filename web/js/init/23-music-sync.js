@@ -247,10 +247,21 @@ function onMusicSelection(event) {
 
   event.target.value = "";
   if (files.length === 0) return;
-  pendingMusicFiles = files;
   musicSelectedFiles = files;
-  if (musicManifest === null) refreshMusicLibrary();
-  else buildMusicPlan(files);
+  if (musicManifest !== null) {
+    pendingMusicFiles = files;
+    buildMusicPlan(files);
+    return;
+  }
+  // What the radio holds is not known yet: the answer to this choice comes once it is,
+  // never quiet - "already there" or an unreachable radio must be said too.
+  pendingMusicFiles = [];
+  showToast(t("music.reading_radio"));
+  refreshMusicLibrary().then((ok) => {
+    pendingMusicFiles = files;
+    if (ok) buildMusicPlan(files);
+    else showError("unreachable", t("music.manifest_failed"));
+  });
 }
 
 document.getElementById("musicFolderInput").addEventListener("change", onMusicSelection);
