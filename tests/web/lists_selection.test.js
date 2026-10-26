@@ -37,8 +37,8 @@ test("lists are added to what plays, taken out, and left out", async (t) => {
   assert.match(page.$("listsNow").textContent, /Calm/);
 
   page.$("listsList").children[1].querySelector(".ann-head").click();
-  await until(() => buttons(page).length === 3);
-  assert.deepEqual(buttons(page), ["play", "plus", "ban"], "alone, with the others, or left out");
+  await until(() => buttons(page).length === 4);
+  assert.deepEqual(buttons(page), ["play", "list", "plus", "ban"], "alone, next, with the others, or left out");
   page.$("listsDetailActions").querySelector('[data-icon="plus"]').click();
   await until(() => page.sent("POST", "/api/lists/active").length === 1);
   assert.deepEqual(page.sent("POST", "/api/lists/active")[0].body, { play: ["calm", "party"] });
@@ -123,4 +123,20 @@ test("a card plays every list ticked on it", async (t) => {
   page.$("cardForm").dispatchEvent(new page.window.Event("submit", { bubbles: true, cancelable: true }));
   const sent = (await until(() => page.sent("POST", "/api/cards").length && page.sent("POST", "/api/cards")))[0].body;
   assert.equal(sent.target, "calm,party");
+});
+
+test("a list played next goes into Up next and says how much of it", async (t) => {
+  const page = open(t, { hash: "#home/lists", routes: {
+    "GET /api/lists": listsWith({ play: [], exclude: [] }),
+    "GET /api/library/facets": { genres: [] },
+    "GET /api/lists/party/tracks": TRACKS,
+    "POST /api/lists/party/queue": { added: 100, of: 140, started: false },
+  } });
+  await until(() => page.$("listsList").children.length === 3);
+  page.$("listsList").children[1].querySelector(".ann-head").click();
+  await until(() => buttons(page).includes("list"));
+  page.$("listsDetailActions").querySelector('[data-icon="list"]').click();
+  await until(() => page.sent("POST", "/api/lists/party/queue").length);
+  await until(() => page.document.body.textContent.includes("The first 100 of 140."));
+  assert.ok(page.document.body.textContent.includes("play next, then the music goes on"));
 });

@@ -58,7 +58,7 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
-  "list_selected", "list_added", "list_changed", "list_removed",
+  "list_selected", "list_added", "list_changed", "list_removed", "list_queued",
   "announcement_volume_set", "prepared_file_added", "usb_music_used", "usb_music_released",
   "tags_changed", "cover_changed", "cover_removed", "covers_moved", "cast_started",
   "party_started", "party_ended", "station_added", "station_removed", "sync_run", "sync_saved",

@@ -3330,6 +3330,24 @@ def api_active_list():
     return jsonify(result), (200 if result.get("ok") else 400)
 
 
+@app.route("/api/lists/<list_id>/queue", methods=["POST"])
+def api_queue_list(list_id):
+    """A list's songs next, then back to what played: for whoever may put a list on."""
+    if not _may_play_lists():
+        return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
+    _entry, refused = _list_for(list_id)
+    if refused:
+        return refused
+    person = None
+    try:
+        person = _this_device(_suggestion_box()).get("person")
+    except Exception:  # noqa: BLE001 - no device base: the songs are nobody's
+        pass
+    notify_daemon("reload_lists")
+    result = control("queue_list", id=list_id, person=person)
+    return jsonify(result), (200 if result.get("ok") else 400)
+
+
 @app.route("/api/lists/from_genres", methods=["POST"])
 def api_list_from_genres():
     """{genres: [...], start}: the list for these genres, the one that already

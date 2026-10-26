@@ -3859,6 +3859,13 @@ list replaces that with a smaller set:
   **Take out of what plays** removes it again. **Play everything**, at the top
   of the card, goes back to the whole library. The line at the top of the card
   says what plays (`Playing: Calm + Party`).
+- **Play next** puts the list's songs in *Up next*, after the songs already asked
+  for - in the list's order with `music_order_mode: ordered`, shuffled
+  otherwise, the first 100 at most (the toast says how many of how many).
+  They are songs asked for: once they have played, the radio goes back to what
+  it played, where it was in its pass. A song of an excluded list plays too,
+  as any song asked for; one already waiting is not added twice. On a silent
+  radio, the first one starts at once. Whoever may put a list on may do it.
 - **Leave out** (the radio's keepers only: operators and the owner) takes the
   songs of a list out of everything the radio picks by itself - the library
   or the lists played. A genre list left out is the way to keep a genre off

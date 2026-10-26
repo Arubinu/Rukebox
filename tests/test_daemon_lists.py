@@ -355,6 +355,38 @@ class DaemonListsTest(unittest.TestCase):
             self.daemon._follow_schedule(None)
         self.assertEqual(self.daemon.state.selection(), {"play": [evening["id"]], "exclude": []})
 
+    def test_a_list_played_next_then_the_pass_goes_on_where_it_was(self):
+        self.daemon.cfg["MUSIC_ORDER_MODE"] = "ordered"
+        self.daemon._rebuild_queue()
+        asked = self.paths["metal.mp3"]
+        self.daemon.state.enqueue_request(asked)
+        evening = self.manual("Soir", "rock1.mp3", "jazz1.mp3")
+        out = self.manual("Out", "jazz1.mp3")
+        self.daemon._set_selection(None, [out["id"]], "test")
+        pass_before = [p for p in self.daemon.state.data["play_queue"] if p != asked]
+        self.assertTrue(pass_before)
+        self.daemon.mode = "music"
+        answer = self.daemon._queue_list(evening["id"], None, "test")
+        self.assertEqual(answer["data"], {"added": 2, "of": 2, "started": False})
+        queue = self.daemon.state.data["play_queue"]
+        self.assertEqual(queue[:3], [asked, self.paths["rock1.mp3"], self.paths["jazz1.mp3"]],
+                         "after what was asked before, in the list's order, the excluded song too: asked for")
+        self.assertEqual(self.daemon.state.requested_paths(), queue[:3])
+        self.assertEqual(queue[3:], [p for p in pass_before if p not in queue[:3]],
+                         "then the pass, in the order it had")
+        again = self.daemon._queue_list(evening["id"], None, "test")
+        self.assertEqual(again["data"]["added"], 0, "a song already waiting is not asked twice")
+
+    def test_a_list_played_next_is_capped_and_starts_a_silent_radio(self):
+        entry = self.manual("Soir", "rock1.mp3", "jazz1.mp3", "metal.mp3")
+        self.daemon.LIST_QUEUE_MAX = 2
+        self.daemon.mode = "idle"
+        with mock.patch.object(self.daemon, "_start_or_restart_playback") as start:
+            answer = self.daemon._queue_list(entry["id"], "p1", "test")
+        self.assertEqual((answer["data"]["added"], answer["data"]["of"], answer["data"]["started"]), (2, 3, True))
+        start.assert_called_once()
+        self.assertEqual(self.daemon._queue_list("nope", None, "test")["error"], "list_not_found")
+
     def test_a_radio_that_played_one_list_keeps_it(self):
         entry = self.manual("Soir", "rock1.mp3")
         self.daemon.state.data.pop("selection", None)

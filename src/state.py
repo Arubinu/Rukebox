@@ -211,6 +211,29 @@ class RadioState:
             self._save()
             return len(queue) - len(kept)
 
+    def enqueue_requests(self, paths, person=None):
+        """Several songs asked for at once, in this order, after the ones already asked
+        for; the pass goes on where it was once they have played. How many were added."""
+        with self._lock:
+            asked = set(self.data["requests"])
+            wanted = [p for p in dict.fromkeys(paths) if p not in asked]
+            if not wanted:
+                return 0
+            taken = set(wanted)
+            queue = [p for p in self.data["play_queue"] if p not in taken]
+            count = 0
+            while count < len(queue) and queue[count] in asked:
+                count += 1
+            queue[count:count] = wanted
+            self.data["play_queue"] = queue
+            self.data["requests"] = queue[:count + len(wanted)]
+            by = {p: who for p, who in (self.data.get("request_by") or {}).items() if p in asked}
+            if person:
+                by.update((p, person) for p in wanted)
+            self.data["request_by"] = by
+            self._save()
+            return len(wanted)
+
     def enqueue_request(self, path, person=None, fair=False):
         """A song asked for ("Next"). `fair`: the asked-for songs take turns
         between people - one each, then the next round - rather than first

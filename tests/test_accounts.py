@@ -260,6 +260,8 @@ class GateTest(unittest.TestCase):
         self.assertFalse(self.client.get("/api/lists").get_json()["data"]["may_play"])
         refused = self.client.post("/api/lists/active", json={"id": listed["Luc"]["id"], "start": True})
         self.assertEqual((refused.status_code, refused.get_json()["error"]), (403, "lists_play_not_allowed"))
+        self.assertEqual(self.client.post("/api/lists/de-la-radio/queue").get_json()["error"],
+                         "lists_play_not_allowed", "a list played next is a list put on too")
         self.assertEqual(self.client.post("/api/lists/from_genres", json={"genres": ["Rock"]}).status_code, 403)
 
         luc = accounts.by_name("Luc", self.path)
@@ -268,6 +270,9 @@ class GateTest(unittest.TestCase):
                         "granted, without logging in again")
         self.assertEqual(self.client.post("/api/lists/active", json={"id": listed["Luc"]["id"]}).status_code, 200)
         self.assertEqual(self.client.post("/api/lists/active", json={"id": mine["id"]}).status_code, 404)
+        self.assertEqual(self.client.post("/api/lists/de-la-radio/queue").status_code, 200, "granted: played next")
+        self.assertEqual(self.client.post("/api/lists/%s/queue" % mine["id"]).status_code, 404,
+                         "another member's list stays theirs")
         self.assertEqual(self.client.post("/api/lists/active", json={
             "play": [listed["Luc"]["id"], "de-la-radio"]}).status_code, 200, "several of the lists it sees")
         refused = self.client.post("/api/lists/active", json={"exclude": ["de-la-radio"]})

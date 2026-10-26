@@ -297,6 +297,20 @@ function playList(item) {
                      t("lists.now_playing", { name: item.name }));
 }
 
+/* Its songs next, as songs asked for: then the radio goes back to what it played, where it was. */
+async function queueList(item) {
+  const r = await apiPost("/api/lists/" + encodeURIComponent(item.id) + "/queue");
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  const d = r.data || {};
+  showToast(t("lists.queued", { name: item.name, n: d.added || 0 }),
+            d.of > d.added ? t("lists.queued_part", { n: d.added || 0, of: d.of }) : "");
+  refreshStatus();
+  refreshUpnext();
+}
+
 /* Added to the lists played, or taken out of them, from the next song on. */
 function togglePlayed(item) {
   const chosen = listSelection();
@@ -470,6 +484,7 @@ function renderDetail(item) {
     // Alone: unless it already is the only one played.
     listsData.may_play && !(listPlayed(item) && listSelection().play.length === 1)
       ? listActionButton("play", "lists.play", () => playList(item)) : null,
+    listsData.may_play && item.count ? listActionButton("list", "lists.queue", () => queueList(item)) : null,
     listsData.may_play ? (listPlayed(item)
       ? listActionButton("circle-minus", "lists.remove_play", () => togglePlayed(item))
       : listActionButton("plus", "lists.add_play", () => togglePlayed(item))) : null,

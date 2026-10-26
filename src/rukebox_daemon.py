@@ -1120,6 +1120,31 @@ class RadioDaemon:
         name = speech.clean_text(msg.get("person_name"), 40)
         return ("person", name) if name and self.cfg.get("STATS_BY_PERSON") else None
 
+    LIST_QUEUE_MAX = 100
+
+    def _queue_list(self, list_id, person, source):
+        """Puts a list's songs next, as songs asked for: once they have played, the radio
+        goes back to what it played, where it was. Asked for, so an excluded list does not
+        hold them back."""
+        entry = next((item for item in self._lists() if item["id"] == list_id), None)
+        if entry is None:
+            return {"ok": False, "error": "list_not_found"}
+        tracks = music_lists.resolved(entry, self._get_music_list(), self._genre_paths)
+        if self.cfg.get("MUSIC_ORDER_MODE") != "ordered":
+            tracks = random.sample(tracks, len(tracks))
+        chosen = tracks[:self.LIST_QUEUE_MAX]
+        if not chosen:
+            return {"ok": False, "error": "list_empty"}
+        added = self.state.enqueue_requests(chosen, person)
+        self.stats.record("list_queued", label=entry["name"],
+                          detail={"source": source, "tracks": added, "of": len(tracks)})
+        started = False
+        if added and self.mode in ("idle", "stopped"):
+            self._start_or_restart_playback(log_label="request")
+            started = True
+        self._bump_state()
+        return {"ok": True, "data": {"added": added, "of": len(tracks), "started": started}}
+
     def _set_active_list(self, list_id, source, start=False):
         """Makes one list (None: everything) what the radio plays; the exclusions stay."""
         list_id = str(list_id or "").strip() or None
@@ -5157,6 +5182,8 @@ class RadioDaemon:
                                   item=self._asker(msg))
                 self._bump_state()
                 return {"ok": True, "data": {"started": False, "position": position + 1}}
+            if cmd == "queue_list":
+                return self._queue_list(str(msg.get("id") or ""), msg.get("person") or None, source)
             if cmd == "get_queue":
                 try:
                     count = max(0, min(50, int(msg.get("n", 10))))
