@@ -4558,6 +4558,7 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
     cursor: pointer;
   }
   .nav-transfer:hover { border-color: var(--accent); }
+  .nav-transfer:not([hidden]) + .nav-transfer:not([hidden]) { margin-top: 10px; }
 
   .nt-title { display: flex; align-items: center; gap: 8px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .nt-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }

@@ -542,3 +542,23 @@ async function showInLibrary(filter) {
   refreshLibrary(false);
 }
 
+/* What the catalogue does in the background - finding new files, reading their tags, their
+   endings, their loudness - shown in the side menu while it lasts: songs just sent can take a
+   while, and nothing else would say so. */
+async function refreshLibraryWork() {
+  if (!mayCall("/api/library/work")) return;
+  const r = await apiGet("/api/library/work");
+  const box = document.getElementById("navLibrary");
+  const d = r.ok && r.data ? r.data : {};
+  box.hidden = !d.stage || (d.left === 0);
+  if (box.hidden) return;
+  const left = d.left === null || d.left === undefined ? null : d.left;
+  document.getElementById("navLibraryBar").style.width =
+    left === null || !d.total ? "0%" : Math.round(100 * (d.total - left) / d.total) + "%";
+  document.getElementById("navLibraryLine").textContent = left === null
+    ? t("libwork.scan") : t("libwork." + d.stage, { n: left });
+}
+
+document.getElementById("navLibrary").addEventListener("click", () => setActiveView("home", "library"));
+refreshLibraryWork();
+refreshEvery(refreshLibraryWork, 15000);

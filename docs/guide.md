@@ -2539,7 +2539,10 @@ itself and keeps them in `game-sounds/` in the state folder.
   answers, one symbol, and nothing to open first.
   The Pi reads each file's tags once, in the background (about one file a
   second on a Pi Zero), so a first catalogue takes a few minutes; until
-  then songs are named after their folders. A music suggestion that is
+  then songs are named after their folders. On a computer, the foot of the
+  sidebar says what the catalogue is doing meanwhile (looking for new files,
+  then the tags, the endings and the loudness, with the songs each step has
+  left), beside a sync under way, whoever started it. A music suggestion that is
   already in the library says so - before it is sent, and on its row,
   with a button to play it.
 - **Lists** (Home): what the radio plays - everything, or one list at a

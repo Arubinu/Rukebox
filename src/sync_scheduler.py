@@ -450,7 +450,8 @@ class Manager:
         with self.lock:
             current = None
             if self.run is not None and (self.busy() or self.run.ended is None):
-                current = {"job": self.run.job["id"], "started": self.run.started,
+                current = {"job": self.run.job["id"], "name": self.run.job.get("name") or "",
+                           "started": self.run.started,
                            "progress": self.run.progress, "rate": self.run_rate,
                            "added": len(self.run.added), "updated": len(self.run.updated)}
             mirror = {job_id: {"count": len(entry["pending"]), "names": entry["pending"][:MIRROR_SHOWN]}

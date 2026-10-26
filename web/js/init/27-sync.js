@@ -211,10 +211,28 @@ async function refreshSync() {
   renderSync();
 }
 
+/* A sync runs on the radio, whoever started it and from wherever: the side menu shows it on every
+   page, as it shows this page's own uploads. */
+function paintNavSync(status) {
+  const running = status.running;
+  const box = document.getElementById("navSync");
+  box.hidden = !running;
+  if (!running) return;
+  const job = syncJob(running.job);
+  const progress = running.progress || {};
+  const pct = progress.total_bytes ? Math.round(100 * progress.bytes / progress.total_bytes) : 0;
+  document.getElementById("navSyncBar").style.width = pct + "%";
+  document.getElementById("navSyncLine").textContent = t("sync.running", {
+    name: running.name || (job ? job.name : running.job), done: progress.done || 0, total: progress.total || 0, pct });
+}
+
+document.getElementById("navSync").addEventListener("click", () => setActiveView("home", "sync"));
+
 async function watchSync() {
   if (!mayCall("/api/sync/status")) return;
   const r = await apiGet("/api/sync/status");
   if (!r.ok || !r.data) return;
+  paintNavSync(r.data);
   const changed = !syncLastStatus || r.data.seq !== syncLastStatus.seq
     || JSON.stringify(r.data.running) !== JSON.stringify(syncLastStatus.running);
   noteSyncStatus(r.data);
@@ -509,5 +527,6 @@ async function checkSyncHost(conn) {
 }
 
 refreshSync();
+watchSync();
 refreshEvery(refreshSync, 30000, ["home/sync", "home/music"]);
 refreshEvery(watchSync, 15000);

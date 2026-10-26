@@ -310,6 +310,14 @@ class Library:
                 "SELECT COUNT(*), COALESCE(SUM(probed), 0) FROM tracks").fetchone()
         return {"total": total, "read": read}
 
+    def work_left(self):
+        """{"total", "tags", "endings", "loudness"}: the songs each step still has to look at."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT COUNT(*), COALESCE(SUM(probed = 0), 0), COALESCE(SUM(probed = 1 AND tail_read = 0), 0),"
+                " COALESCE(SUM(measured = 0), 0) FROM tracks").fetchone()
+        return {"total": row[0], "tags": row[1], "endings": row[2], "loudness": row[3]}
+
     @staticmethod
     def _item(row):
         return {"key": row["key"], "title": row["title"], "artist": row["artist"], "album": row["album"],

@@ -54,7 +54,7 @@ const GUEST_PATHS = [
   "/api/action/next_track", "/api/action/previous_track", "/api/action/toggle_pause",
   "/api/action/skip_sound", "/api/action/announce", "/api/announcements",
   "/api/portal/status", "/api/portal/release", "/api/now/cover", "/api/now/lyrics",
-  "/api/recent", "/api/queue", "/api/today", "/api/library", "/api/library/facets",
+  "/api/recent", "/api/queue", "/api/today", "/api/library", "/api/library/facets", "/api/library/work",
   "/api/library/queue", "/api/library/play", "/api/audio/fallback", "/api/device",
   "/api/suggestions", "/api/suggestions/vote", "/api/suggestions/delete",
   "/api/suggestions/name", "/api/devices/link_code", "/api/devices/link_join",

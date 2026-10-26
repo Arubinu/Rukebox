@@ -2279,6 +2279,8 @@ _library = None
 _library_lock = threading.Lock()
 _library_wake = threading.Event()
 LIBRARY_RESYNC_SEC = 300
+# What the catalogue is doing now: "scan", "tags", "endings", "loudness", or None when it rests.
+_library_stage = {"stage": None}
 
 
 def _get_library():
@@ -2328,8 +2330,10 @@ def _library_loop():
             else:
                 tracks = get_music_list(planned, c["MUSIC_CACHE_FILE"])
             folders = [r for r in roots if r]
+            _library_stage["stage"] = "scan"
             _library.sync(tracks, folders)
             same = lambda: not _library_wake.is_set() and _library_roots() == roots
+            _library_stage["stage"] = "tags"
             while same():
                 batch = _library.unread(20)
                 if not batch:
@@ -2337,6 +2341,7 @@ def _library_loop():
                 for path in batch:
                     _library.store(path, library.read_tags(path), folders)
             # The endings are quick (30 seconds of each file), so before the loudness.
+            _library_stage["stage"] = "endings"
             while same():
                 batch = _library.untailed(10)
                 if not batch:
@@ -2345,6 +2350,7 @@ def _library_loop():
                     _library.store_tail(path, library.read_tail(path, duration))
             _announce_levels().warm(_announce_folders(c), same)
             # After the tags, which the page needs first: one ffmpeg pass per file, once.
+            _library_stage["stage"] = "loudness"
             while same():
                 batch = _library.unmeasured(5)
                 if not batch:
@@ -2353,6 +2359,7 @@ def _library_loop():
                     _library.store_loudness(path, library.read_loudness(path))
         except Exception:  # noqa: BLE001
             log.exception("Library catalogue: update failed")
+        _library_stage["stage"] = None
         # A storage device that comes or goes is picked up within seconds, not minutes.
         deadline = time.monotonic() + LIBRARY_RESYNC_SEC
         while time.monotonic() < deadline and not _library_wake.is_set():
@@ -2360,6 +2367,18 @@ def _library_loop():
                 break
             _library_wake.wait(5)
         _library_wake.clear()
+
+
+@app.route("/api/library/work")
+def api_library_work():
+    """What the catalogue is doing in the background, and how many songs that step has left."""
+    stage = _library_stage["stage"]
+    left = _get_library().work_left()
+    return jsonify({"ok": True, "data": {
+        "stage": stage, "total": left["total"],
+        # Scanning finds the files: it has no count of its own.
+        "left": left.get(stage) if stage in ("tags", "endings", "loudness") else None,
+    }})
 
 
 @app.route("/api/library")

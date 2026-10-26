@@ -91,6 +91,14 @@ class LibraryTest(unittest.TestCase):
         self.assertEqual(self.lib.status()["read"], 1)
         self.assertEqual(self.lib.search("", genre="Pop")["total"], 1)
 
+    def test_work_left_counts_each_step(self):
+        self.assertEqual(self.lib.work_left(), {"total": 4, "tags": 4, "endings": 0, "loudness": 4})
+        self.lib.store(self.files[2], {"title": "Halo", "duration": 261.0}, self.music)
+        self.lib.store_loudness(self.files[2], -14.0)
+        self.assertEqual(self.lib.work_left(), {"total": 4, "tags": 3, "endings": 1, "loudness": 3})
+        self.lib.store_tail(self.files[2], 0.0)
+        self.assertEqual(self.lib.work_left()["endings"], 0)
+
     def test_search_and_facets(self):
         self.assertEqual(self.lib.search("discovery")["total"], 2)
         self.assertEqual(self.lib.search("", artist="Daft Punk")["total"], 2)
