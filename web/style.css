@@ -3130,6 +3130,7 @@ select {
 .device-list.library-list li > .recent-main,
 .device-list.upnext-list li > .recent-main { flex: 1 1 auto; }
 .device-list.upnext-list li > .upnext-rank { flex: none; font-weight: 700; }
+.device-list.upnext-list li > .btn { flex: none; }
 @container card (max-width: 520px) {
   .library-next { padding-inline: 0; width: var(--tap); }
   .library-next > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -4613,6 +4614,19 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   .nav-transfer.done .nt-bar > span { background: var(--success, #16a34a); }
   .nav-transfer.failed .nt-bar > span { background: var(--danger); }
   .nt-line { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nt-line.is-scrolling { text-overflow: clip; }
+  .nt-line.is-scrolling > .scroll-text {
+    display: inline-block;
+    animation: scroll-text var(--scroll-sec, 6s) ease-in-out infinite alternate;
+  }
+  @keyframes scroll-text {
+    0%, 20% { transform: translateX(0); }
+    80%, 100% { transform: translateX(var(--scroll-shift, 0)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nt-line.is-scrolling { text-overflow: ellipsis; }
+    .nt-line.is-scrolling > .scroll-text { display: inline; animation: none; }
+  }
 
   .grid { gap: 20px; }
   #main { --main-gap: 8px; }

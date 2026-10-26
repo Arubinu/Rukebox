@@ -100,8 +100,8 @@ const navTransfer = {
     document.getElementById("navTransferTitle").textContent = t(NAV_TRANSFER_TARGETS[kind].title);
     document.getElementById("navTransferBar").style.width =
       Math.round((done / Math.max(total, 1)) * 100) + "%";
-    document.getElementById("navTransferLine").textContent =
-      t("transfer.progress", { done, total }) + (name ? " · " + name : "");
+    setScrollingText(document.getElementById("navTransferLine"),
+      t("transfer.progress", { done, total }) + (name ? " · " + name : ""));
     box.hidden = false;
   },
   finish(kind, ok, text) {
@@ -109,7 +109,7 @@ const navTransfer = {
     if (this.kind !== kind) return;
     box.classList.add(ok ? "done" : "failed");
     document.getElementById("navTransferBar").style.width = "100%";
-    document.getElementById("navTransferLine").textContent = text;
+    setScrollingText(document.getElementById("navTransferLine"), text);
     this.hideTimer = setTimeout(() => { box.hidden = true; this.kind = null; }, 8000);
   },
 };

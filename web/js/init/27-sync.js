@@ -222,8 +222,8 @@ function paintNavSync(status) {
   const progress = running.progress || {};
   const pct = progress.total_bytes ? Math.round(100 * progress.bytes / progress.total_bytes) : 0;
   document.getElementById("navSyncBar").style.width = pct + "%";
-  document.getElementById("navSyncLine").textContent = t("sync.running", {
-    name: running.name || (job ? job.name : running.job), done: progress.done || 0, total: progress.total || 0, pct });
+  setScrollingText(document.getElementById("navSyncLine"), t("sync.running", {
+    name: running.name || (job ? job.name : running.job), done: progress.done || 0, total: progress.total || 0, pct }));
 }
 
 document.getElementById("navSync").addEventListener("click", () => setActiveView("home", "sync"));

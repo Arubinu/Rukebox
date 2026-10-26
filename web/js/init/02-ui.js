@@ -60,6 +60,32 @@ function openModal({ title, body, bodyNode, legend, confirm, choices, actions, m
 
 const TOAST_SECONDS = 5;
 
+/* A line too long for its box slides to its end and back, rather than losing its end to an
+   ellipsis. A new text in the same box keeps the slide going: a counter that ticks does not restart it. */
+function setScrollingText(el, text) {
+  text = String(text == null ? "" : text);
+  let inner = el.firstElementChild;
+  if (inner && el.dataset.text === text) return;
+  el.dataset.text = text;
+  if (!inner || !inner.classList.contains("scroll-text")) {
+    inner = document.createElement("span");
+    inner.className = "scroll-text";
+    el.replaceChildren(inner);
+  }
+  inner.textContent = text;
+  requestAnimationFrame(() => {
+    const shift = el.scrollWidth - el.clientWidth;
+    if (shift <= 2) {
+      el.classList.remove("is-scrolling");
+      return;
+    }
+    el.style.setProperty("--scroll-shift", -shift + "px");
+    // About 30 px a second, with a rest at each end (the keyframes hold 20 % of the time).
+    el.style.setProperty("--scroll-sec", Math.max(4, shift / 30 / 0.6).toFixed(1) + "s");
+    el.classList.add("is-scrolling");
+  });
+}
+
 function errorLabel(code) {
   if (!code) return t("common.unknown_error");
   const key = "err." + code;
