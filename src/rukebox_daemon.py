@@ -2164,6 +2164,20 @@ class RadioDaemon:
         if changed:
             self._bump_state()
 
+    def _move_queue(self, path, after):
+        """Up next reordered by hand. Checked against the queue as it is NOW: a song change
+        may have started the song moved, or the one it was dropped after, meanwhile."""
+        if self._loop_mode in ("track", "album"):
+            return {"ok": False, "error": "queue_not_movable"}
+        queue = self.state.data.get("play_queue") or []
+        if after and after not in queue and after == self._forced_next:
+            after = ""
+        at = self.state.move_in_queue(path, after)
+        if at is None:
+            return {"ok": False, "error": "queue_changed"}
+        self._bump_state()
+        return {"ok": True, "data": {"position": at}}
+
     def _bump_state(self):
         with self._state_cond:
             self._state_version += 1
@@ -5204,9 +5218,16 @@ class RadioDaemon:
                     count = max(0, min(50, int(msg.get("n", 10))))
                 except (TypeError, ValueError):
                     count = 10
-                return {"ok": True, "data": {"paths": self._next_tracks(count),
+                paths = self._next_tracks(count)
+                queue = self.state.data.get("play_queue") or []
+                return {"ok": True, "data": {"paths": paths,
                                              "requested": self.state.requested_paths(),
-                                             "dedications": self.state.dedications()}}
+                                             "dedications": self.state.dedications(),
+                                             "movable": self._loop_mode not in ("track", "album"),
+                                             # A song forced next is not in the queue: it cannot move.
+                                             "fixed": 1 if paths and (not queue or paths[0] != queue[0]) else 0}}
+            if cmd == "move_queue":
+                return self._move_queue(str(msg.get("path") or ""), str(msg.get("after") or ""))
             if cmd == "drop_dedication":
                 dropped = self.state.pop_dedication(str(msg.get("path") or ""))
                 if dropped is None:

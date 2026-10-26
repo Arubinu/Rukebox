@@ -6,6 +6,7 @@ itself is faked, so this runs off-hardware."""
 import datetime
 import os
 import shutil
+import socket
 import tempfile
 import threading
 import unittest
@@ -14,6 +15,7 @@ from unittest import mock
 import _path  # noqa: F401
 import bt_link
 from config_and_scan import load_config
+import control_client
 import hidden_tracks
 import library
 import music_lists
@@ -386,6 +388,34 @@ class DaemonListsTest(unittest.TestCase):
         self.assertEqual((answer["data"]["added"], answer["data"]["of"], answer["data"]["started"]), (2, 3, True))
         start.assert_called_once()
         self.assertEqual(self.daemon._queue_list("nope", None, "test")["error"], "list_not_found")
+
+    @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "the control socket is a Unix socket")
+    def test_up_next_moved_by_hand_through_the_socket(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        path = os.path.join(folder, "control.sock")
+        self.daemon.cfg["CONTROL_SOCKET"] = path
+        self.daemon._start_control_socket()
+        self.addCleanup(self.daemon._stop_event.set)
+        a, b, c = self.paths["rock1.mp3"], self.paths["jazz1.mp3"], self.paths["metal.mp3"]
+        self.daemon.state.data["play_queue"] = [a, b, c]
+        answer = control_client.send_control_command(path, "get_queue", n=5)["data"]
+        self.assertEqual((answer["paths"], answer["movable"], answer["fixed"]), ([a, b, c], True, 0))
+        moved = control_client.send_control_command(path, "move_queue", path=c, after="")
+        self.assertEqual(moved, {"ok": True, "data": {"position": 0}})
+        self.assertEqual(self.daemon.state.data["play_queue"], [c, a, b])
+        self.daemon.state.pop_next_track_or_none()
+        late = control_client.send_control_command(path, "move_queue", path=c, after=b)
+        self.assertEqual(late.get("error"), "queue_changed", "the song started in between")
+        self.daemon._forced_next = c
+        answer = control_client.send_control_command(path, "get_queue", n=5)["data"]
+        self.assertEqual((answer["paths"][0], answer["fixed"]), (c, 1), "a song forced next stays first")
+        self.assertTrue(control_client.send_control_command(path, "move_queue", path=b, after=c)["ok"],
+                        "dropped after it: first of the queue")
+        self.assertEqual(self.daemon.state.data["play_queue"], [b, a])
+        self.daemon._loop_mode = "album"
+        self.assertEqual(control_client.send_control_command(path, "move_queue", path=a, after="").get("error"),
+                         "queue_not_movable")
 
     def test_a_radio_that_played_one_list_keeps_it(self):
         entry = self.manual("Soir", "rock1.mp3")

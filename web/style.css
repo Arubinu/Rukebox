@@ -1937,6 +1937,17 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
   font-weight: 600;
 }
 .upnext-list li.is-requested { border-color: var(--accent); }
+/* A long press picks the song up: no callout, no text selection in its way. */
+.upnext-list li.is-movable { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.upnext-list li.is-dragging {
+  position: relative;
+  z-index: 1;
+  border-color: var(--accent);
+  background: var(--surface-2);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  cursor: grabbing;
+}
+.upnext-list.is-sorting li:not(.is-dragging) { opacity: 0.75; }
 
 .setup-card > .hint { text-align: center; }
 

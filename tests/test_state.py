@@ -124,6 +124,30 @@ class StateTest(unittest.TestCase):
         self.assertFalse(self.s.restore_run(None))
         self.assertFalse(self.s.restore_run({}))
 
+    def test_a_song_moved_by_hand_joins_or_leaves_the_songs_asked_for(self):
+        self.s.data["play_queue"] = ["a", "b", "c", "d", "e"]
+        self.s.enqueue_request("c", person="p1")
+        self.s.enqueue_request("d", person="p2")
+        self.assertEqual(self.s.data["play_queue"], ["c", "d", "a", "b", "e"])
+        self.assertEqual(self.s.move_in_queue("e", ""), 0)
+        self.assertEqual(self.s.data["play_queue"], ["e", "c", "d", "a", "b"])
+        self.assertEqual(self.s.requested_paths(), ["e", "c", "d"], "dropped among them: asked for")
+        self.assertEqual(self.s.move_in_queue("c", "a"), 3)
+        self.assertEqual(self.s.data["play_queue"], ["e", "d", "a", "c", "b"])
+        self.assertEqual(self.s.requested_paths(), ["e", "d"], "dropped in the pass: no longer asked for")
+        self.assertNotIn("c", self.s.data["request_by"])
+        self.assertEqual(self.s.move_in_queue("d", "e"), 1, "at their edge it stays what it was")
+        self.assertEqual(self.s.requested_paths(), ["e", "d"])
+        self.assertEqual(self.s.move_in_queue("a", "d"), 2)
+        self.assertEqual(self.s.requested_paths(), ["e", "d"], "a pass song at the edge stays one")
+
+    def test_a_move_against_a_queue_that_changed_meanwhile_is_refused(self):
+        self.s.data["play_queue"] = ["a", "b", "c"]
+        self.assertIsNone(self.s.move_in_queue("z", ""), "the song moved has started meanwhile")
+        self.assertIsNone(self.s.move_in_queue("b", "z"), "the song it was dropped after has")
+        self.assertIsNone(self.s.move_in_queue("b", "b"))
+        self.assertEqual(self.s.data["play_queue"], ["a", "b", "c"])
+
     def test_take_from_queue(self):
         self.s.data["play_queue"] = ["a", "b"]
         self.s.enqueue_request("b")

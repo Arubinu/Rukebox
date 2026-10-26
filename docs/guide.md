@@ -2501,7 +2501,14 @@ itself and keeps them in `game-sounds/` in the state folder.
 - **Up next** (Home): the next songs, in the order they will come
   (songs asked for first, in the order they were asked, marked "Asked
   for"; then the queue or the loop), each playable at once. How many:
-  `upcoming_tracks` (10 by default, 0 hides it).
+  `upcoming_tracks` (10 by default, 0 hides it). Whoever may put a list on
+  (operators, the owner, members allowed to play lists) can **hold a song to
+  move it**: a finger that moves at once still scrolls. Dropped among the
+  songs asked for, it becomes one; dropped in the pass, it stops being one. A
+  song forced next stays first, and nothing moves while a song or an album
+  repeats. The move is checked against the queue as it is when the song is
+  dropped: if a song change got there first, the page says so
+  (`queue_changed`) and shows the list again.
 - **Recently played** (Home): the last tracks played, newest first, with
   their title and artist (guests see it too). How many: `recent_tracks`
   (20 by default, 0 hides it), in the Playback card's detailed view.

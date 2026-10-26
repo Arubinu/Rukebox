@@ -263,6 +263,8 @@ class GateTest(unittest.TestCase):
         self.assertEqual(self.client.post("/api/lists/de-la-radio/queue").get_json()["error"],
                          "lists_play_not_allowed", "a list played next is a list put on too")
         self.assertEqual(self.client.post("/api/lists/from_genres", json={"genres": ["Rock"]}).status_code, 403)
+        self.assertEqual(self.client.post("/api/queue/move", json={"key": "k", "after": ""}).get_json()["error"],
+                         "lists_play_not_allowed", "moving Up next is putting songs on too")
 
         luc = accounts.by_name("Luc", self.path)
         accounts.update(luc["id"], {"play_lists": True}, self.path)

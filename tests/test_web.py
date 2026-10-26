@@ -2531,6 +2531,27 @@ class ExcludedTracksTest(unittest.TestCase):
         recent = owner.get("/api/recent").get_json()["data"]["items"]
         self.assertEqual([item["excluded"] for item in recent], [True])
 
+    def test_up_next_moves_by_key_and_says_when_it_changed(self):
+        owner = self.owner()
+        one, two = self.tracks["Alpha/one.mp3"], self.tracks["Alpha/two.mp3"]
+        sent = []
+
+        def fake(cmd, **kw):
+            sent.append((cmd, kw))
+            if cmd == "get_queue":
+                return {"ok": True, "data": {"paths": [one, two], "requested": [], "movable": True, "fixed": 0}}
+            return {"ok": True, "data": {"position": 0}}
+        with unittest.mock.patch.object(ws, "control", side_effect=fake):
+            listed = owner.get("/api/queue").get_json()["data"]
+            self.assertEqual((listed["may_move"], listed["fixed"]), (True, 0))
+            moved = owner.post("/api/queue/move", json={"key": self.keys["Alpha/two.mp3"], "after": ""})
+            self.assertEqual(moved.status_code, 200)
+            self.assertEqual(sent[-1], ("move_queue", {"path": two, "after": ""}))
+            gone = owner.post("/api/queue/move", json={"key": self.keys["Beta/three.mp3"],
+                                                       "after": self.keys["Alpha/one.mp3"]})
+            self.assertEqual((gone.status_code, gone.get_json()["error"]), (409, "queue_changed"),
+                             "a song no longer up next: the page reads the list again")
+
     def test_a_list_keeps_its_track_and_says_it_is_excluded(self):
         owner = self.owner()
         list_id = owner.post("/api/lists", json={"name": "Soir", "kind": "manual"}).get_json()["data"]["id"]

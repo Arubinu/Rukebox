@@ -2897,6 +2897,7 @@ def api_queue():
     if not result.get("ok"):
         return jsonify({"ok": False, "error": result.get("error", "daemon_unreachable")}), 503
     lib = _get_library()
+    data = result.get("data") or {}
     items = []
     requested = set((result.get("data") or {}).get("requested") or [])
     dedications = (result.get("data") or {}).get("dedications") or {}
@@ -2916,7 +2917,34 @@ def api_queue():
                                   "text": dedications[path].get("text"),
                                   "voice": bool(dedications[path].get("voice"))}
         items.append(item)
-    return jsonify({"ok": True, "data": {"enabled": True, "items": items}})
+    return jsonify({"ok": True, "data": {
+        "enabled": True, "items": items,
+        "may_move": bool(data.get("movable")) and _may_play_lists(), "fixed": int(data.get("fixed") or 0)}})
+
+
+@app.route("/api/queue/move", methods=["POST"])
+def api_queue_move():
+    """{key, after}: a song of Up next moved just after another ("": first), for whoever may put a list on."""
+    if not _may_play_lists():
+        return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
+    body = request.get_json(silent=True) or {}
+    upcoming = control("get_queue", n=50)
+    if not upcoming.get("ok"):
+        return jsonify({"ok": False, "error": upcoming.get("error", "daemon_unreachable")}), 503
+    lib = _get_library()
+    by_key = {}
+    for path in (upcoming.get("data") or {}).get("paths") or []:
+        item = lib.item_for_path(path)
+        by_key.setdefault((item or {}).get("key") or track_media.track_key(path), path)
+    path = by_key.get(str(body.get("key") or ""))
+    after_key = str(body.get("after") or "")
+    after = by_key.get(after_key) if after_key else ""
+    if not path or after is None:
+        return jsonify({"ok": False, "error": "queue_changed"}), 409
+    result = control("move_queue", path=path, after=after)
+    if not result.get("ok"):
+        return jsonify(result), (409 if result.get("error") == "queue_changed" else 400)
+    return jsonify(result)
 
 
 def _with_counts(entries):

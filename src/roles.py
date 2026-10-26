@@ -84,6 +84,7 @@ MEMBER_PATHS = frozenset({
     "/api/lists/<list_id>/m3u",
     "/api/lists/<list_id>/tracks",
     "/api/lists/<list_id>/queue",
+    "/api/queue/move",
     "/api/lists/active",
     "/api/lists/from_genres",
     "/api/lists/import",

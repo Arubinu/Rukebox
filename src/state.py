@@ -211,6 +211,32 @@ class RadioState:
             self._save()
             return len(queue) - len(kept)
 
+    def move_in_queue(self, path, after):
+        """Puts `path` just after `after` ("": first). Dropped among the songs asked for it
+        becomes one, after them it stops being one, and at their edge it keeps what it was.
+        Its new place, or None when either song has left the queue meanwhile."""
+        with self._lock:
+            queue = list(self.data["play_queue"])
+            if path not in queue or (after and (after == path or after not in queue)):
+                return None
+            asked = set(self.data["requests"])
+            was_asked = path in asked
+            asked.discard(path)
+            queue.remove(path)
+            at = queue.index(after) + 1 if after else 0
+            count = 0
+            while count < len(queue) and queue[count] in asked:
+                count += 1
+            if at < count or (at == count and was_asked):
+                asked.add(path)
+            queue.insert(at, path)
+            self.data["play_queue"] = queue
+            self.data["requests"] = [p for p in queue if p in asked]
+            if path not in asked:
+                (self.data.get("request_by") or {}).pop(path, None)
+            self._save()
+            return at
+
     def enqueue_requests(self, paths, person=None):
         """Several songs asked for at once, in this order, after the ones already asked
         for; the pass goes on where it was once they have played. How many were added."""
