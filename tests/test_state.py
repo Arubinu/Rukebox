@@ -1,5 +1,6 @@
 """The persisted state (src/state.py): songs asked for, first come first
 served; exact "k out of n" chances; click sound bags."""
+import json
 import os
 import shutil
 import tempfile
@@ -147,6 +148,14 @@ class StateTest(unittest.TestCase):
         self.assertIsNone(self.s.move_in_queue("b", "z"), "the song it was dropped after has")
         self.assertIsNone(self.s.move_in_queue("b", "b"))
         self.assertEqual(self.s.data["play_queue"], ["a", "b", "c"])
+
+    def test_a_song_is_in_the_queue_once(self):
+        self.s.data["play_queue"] = ["a", "b", "c"]
+        self.s.push_front("c")
+        self.assertEqual(self.s.data["play_queue"], ["c", "a", "b"], "a song cut short leaves its later copy")
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump({"play_queue": ["a", "b", "a", "c", "b"]}, f)
+        self.assertEqual(state.RadioState(self.path).data["play_queue"], ["a", "b", "c"])
 
     def test_take_from_queue(self):
         self.s.data["play_queue"] = ["a", "b"]

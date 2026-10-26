@@ -32,6 +32,8 @@ class RadioState:
                 "requests": [],
             }
         self.data.setdefault("play_queue", [])
+        # A song is in the queue once: a copy further on would play it twice in the pass.
+        self.data["play_queue"] = list(dict.fromkeys(self.data["play_queue"] or []))
         self.data.setdefault("last_track", None)
         self.data.setdefault("pending_cutoff", False)
         self.data.setdefault("click_bags", {})
@@ -183,11 +185,10 @@ class RadioState:
                 if isinstance(r, dict) and r.get("path")]
 
     def push_front(self, path):
-        """Puts `path` back at the head of the play queue."""
+        """Puts `path` back at the head of the play queue, and out of the rest of it:
+        a pass drawn while it played holds it too."""
         with self._lock:
-            queue = self.data["play_queue"]
-            if not queue or queue[0] != path:
-                queue.insert(0, path)
+            self.data["play_queue"] = [path] + [p for p in self.data["play_queue"] if p != path]
             self._save()
 
     def take_from_queue(self, path):
@@ -441,6 +442,7 @@ class RadioState:
                 if value is None and empty is not None:
                     value = empty()
                 self.data[key] = value
+            self.data["play_queue"] = list(dict.fromkeys(self.data["play_queue"]))
             for key in self._day_markers():
                 self.data.pop(key, None)
             self.data.update(doc.get("days") or {})
