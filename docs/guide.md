@@ -898,16 +898,24 @@ button is paired with this controller - read from flicd's own database,
 services (`Flic button asleep: no button is paired, nothing to wait for`) and
 the page says the button is resting. **Pair a button** wakes them for the
 pairing; if no button comes of it, they rest again. A button paired with
-another controller (a board replaced) counts as none. With a button paired,
-`flicd` runs and keeps scanning: on the built-in radio, a USB dongle for the
-Flic button gives the Wi-Fi its air back.
+another controller (a board replaced) counts as none.
+
+**Connected or waiting.** A connected button barely uses the air (measured: the
+Wi-Fi keeps its full speed). A button that is not connected only speaks when
+pressed, so `flicd` listens for it without a pause, and on the built-in chip
+that listening takes most of the Wi-Fi. Every restart of `flicd` or the bridge
+(an update, a reboot) drops the link, and the button stays unconnected until
+it is pressed once: the page then says `Flic button waiting`. A USB dongle for
+the Flic button gives the Wi-Fi its air back in every case.
 
 **During a transfer, it pauses.** While songs are sent from a computer (Add
 music, an announcement's files) or a folder sync runs, a Flic button on the
-built-in chip is paused: the daemon stops `flicd` at once (`Flic button paused
+built-in chip that is not connected is paused: the daemon stops `flicd` at once (`Flic button paused
 while a transfer runs`), and starts it again on its own within a minute of the
 last file - the page says so meanwhile. A press during that time is lost. A
-Flic button on a USB dongle shares nothing with the Wi-Fi and is left alone.
+connected button is left alone (stopping it would leave it waiting for a press
+afterwards), and so is a Flic button on a USB dongle, which shares nothing with
+the Wi-Fi.
 
 ### Working without a Flic button
 

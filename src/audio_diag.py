@@ -171,6 +171,22 @@ def pause_flic(state_dir, seconds):
     _mark(state_dir, FLIC_PAUSE_FILE, seconds)
 
 
+FLIC_LINK_FILE = "flic-link.json"
+# Kept until the bridge says otherwise: a link can last for months.
+FLIC_LINK_SEC = 10 * 365 * 86400
+
+
+def flic_linked(state_dir, now=None):
+    """Whether a Flic button is connected: flicd then barely uses the air. A button that is
+    not only speaks when pressed, so flicd listens for it without a pause."""
+    return _marked(state_dir, FLIC_LINK_FILE, now)
+
+
+def set_flic_linked(state_dir, linked):
+    """Said by the bridge on every change of the link, and cleared whenever flicd stops."""
+    _mark(state_dir, FLIC_LINK_FILE, FLIC_LINK_SEC if linked else 0)
+
+
 def flic_availability(bluetooth_output, found=None):
     """(usable, reason) for the Flic button: flicd takes a controller for
     itself (HCI user channel), so with a single one - and the sound on

@@ -6305,6 +6305,8 @@ def api_flic_status():
         "idle": bool(enabled and usable and not active and buttons == []),
         # Resting while a transfer runs: it comes back on its own once the transfer is over.
         "paused": bool(enabled and not active and audio_diag.flic_paused(cfg().get("STATE_DIR") or "")),
+        # Running, with a button that is not connected: flicd listens for it without a pause.
+        "waiting": bool(enabled and active and buttons and not audio_diag.flic_linked(cfg().get("STATE_DIR") or "")),
         "pairing": _flic_pair["state"],
     }})
 

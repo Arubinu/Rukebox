@@ -209,6 +209,26 @@ class FlicHoldTest(unittest.TestCase):
         daemon._watch_flic()
         self.assertEqual(self.systemctl.actions(), ["stop", "start"], "the transfer over, the button is back")
 
+    def test_a_connected_button_is_left_alone_during_a_transfer(self):
+        daemon = self.build()
+        self.held(None)
+        audio_diag.set_flic_linked(self.dir, True)
+        audio_diag.pause_flic(self.dir, 45)
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), [],
+                         "connected, it barely uses the air; stopped, it would wait for a press to come back")
+        audio_diag.set_flic_linked(self.dir, False)
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), ["stop"], "waiting for a press, its listening is what crowds the Wi-Fi")
+        self.assertFalse(audio_diag.flic_linked(self.dir))
+
+    def test_stopping_flicd_forgets_the_link(self):
+        daemon = self.build()
+        self.held(None)
+        audio_diag.set_flic_linked(self.dir, True)
+        daemon._set_flic_services("stop")
+        self.assertFalse(audio_diag.flic_linked(self.dir), "flicd gone, no button is connected")
+
     def test_a_pairing_wins_over_a_transfer(self):
         daemon = self.build()
         self.held(None)

@@ -4295,8 +4295,9 @@ class RadioDaemon:
         # An unreadable list is never taken for an empty one; the page's pairing starts it itself.
         pairing = audio_diag.flic_pairing(state_dir)
         idle = buttons == [] and not pairing
-        # A transfer under way (a song sent, a sync): the button waits, the Wi-Fi gets its air.
-        paused = audio_diag.flic_paused(state_dir) and not pairing
+        # A transfer under way (a song sent, a sync): the button waits, the Wi-Fi gets its air. A connected
+        # button is left alone: it barely uses the air, and once stopped it waits for a press to come back.
+        paused = audio_diag.flic_paused(state_dir) and not pairing and not audio_diag.flic_linked(state_dir)
         if usable and not idle and not paused:
             if self.state.flag(self.FLIC_FLAG) and self._flic_flag("is-active") != "active":
                 self._set_flic_services("start")
@@ -4325,6 +4326,8 @@ class RadioDaemon:
                 log.warning("Could not %s the Flic services: %s", action, "; ".join(failures))
             return False
         self.state.set_flag(self.FLIC_FLAG, action == "stop")
+        if action == "stop":
+            audio_diag.set_flic_linked(self.cfg.get("STATE_DIR") or "", False)
         if action == "start":
             log.info("Flic button back on: a controller is free again")
         return True

@@ -7,6 +7,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from control_client import send_control_command  # noqa: E402
+import audio_diag  # noqa: E402
 
 FLICLIB_PATH = "/opt/fliclib-linux-hci/clientlib/python"
 if os.path.isdir(FLICLIB_PATH):
@@ -21,6 +22,7 @@ log = logging.getLogger("flic")
 CONTROL_SOCKET = (os.environ.get("PATHS_CONTROL_SOCKET") or os.environ.get("CONTROL_SOCKET")
                   or "/tmp/rukebox_control.sock")
 FLICD_HOST = os.environ.get("FLICD_HOST", "localhost")
+STATE_DIR = os.environ.get("PATHS_STATE_DIR") or os.environ.get("STATE_DIR") or "/var/lib/rukebox"
 
 
 def send_command(cmd: str):
@@ -43,11 +45,29 @@ def on_button_event(channel, click_type, was_queued, time_diff):
         send_command("long_press")
 
 
+def note_link(status):
+    linked = status in (fliclib.ConnectionStatus.Connected, fliclib.ConnectionStatus.Ready)
+    try:
+        audio_diag.set_flic_linked(STATE_DIR, linked)
+    except OSError:
+        log.warning("Could not note the button's link", exc_info=True)
+    log.info("Flic button %s", "connected" if linked else "waiting for a press to connect")
+
+
 def got_button(bd_addr):
     log.info("Flic button detected: %s", bd_addr)
     cc = fliclib.ButtonConnectionChannel(bd_addr)
     cc.on_button_single_or_double_click_or_hold = on_button_event
+    cc.on_create_connection_channel_response = lambda channel, error, status: note_link(status)
+    cc.on_connection_status_changed = lambda channel, status, reason: note_link(status)
     client.add_connection_channel(cc)
+
+
+# A link noted by an earlier bridge says nothing of this one's.
+try:
+    audio_diag.set_flic_linked(STATE_DIR, False)
+except OSError:
+    log.warning("Could not clear the button's link", exc_info=True)
 
 
 client = fliclib.FlicClient(FLICD_HOST)
