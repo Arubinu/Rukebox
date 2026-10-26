@@ -413,6 +413,15 @@ class DaemonListsTest(unittest.TestCase):
         self.assertTrue(control_client.send_control_command(path, "move_queue", path=b, after=c)["ok"],
                         "dropped after it: first of the queue")
         self.assertEqual(self.daemon.state.data["play_queue"], [b, a])
+        self.assertTrue(control_client.send_control_command(path, "drop_from_queue", path=c)["ok"],
+                        "a song forced next can be taken out too")
+        self.assertIsNone(self.daemon._forced_next)
+        self.daemon.state.data["dedications"] = {b: {"from": "Luc", "text": "Pour toi"}}
+        self.assertTrue(control_client.send_control_command(path, "drop_from_queue", path=b)["ok"])
+        self.assertEqual((self.daemon.state.data["play_queue"], self.daemon.state.dedications()), ([a], {}),
+                         "out of the queue, its dedication with it")
+        self.assertEqual(control_client.send_control_command(path, "drop_from_queue", path=b).get("error"),
+                         "queue_changed", "already gone: it started, or someone else took it out")
         self.daemon._loop_mode = "album"
         self.assertEqual(control_client.send_control_command(path, "move_queue", path=a, after="").get("error"),
                          "queue_not_movable")

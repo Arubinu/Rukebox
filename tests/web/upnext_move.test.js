@@ -15,6 +15,7 @@ function page(moveAnswer) {
   return load({ hash: "#home/upnext", routes: {
     "GET /api/queue": QUEUE,
     "POST /api/queue/move": moveAnswer || { position: 0 },
+    "POST /api/queue/remove": {},
   } });
 }
 
@@ -80,5 +81,19 @@ test("without the right to put lists on, nothing can be picked up", async () => 
   await until(() => p.$("upnextList").children.length === 3, 8000);
   assert.equal(p.$("upnextMoveHint").hidden, true);
   assert.equal(p.$("upnextList").querySelectorAll(".is-movable").length, 0);
+  assert.equal(p.$("upnextList").querySelectorAll('[data-icon="circle-minus"]').length, 0);
+  await p.close();
+});
+
+test("a song taken out of Up next is sent by key, and the list read again", async () => {
+  const p = page();
+  await until(() => p.$("upnextList").children.length === 3, 8000);
+  const before = p.sent("GET", "/api/queue").length;
+  p.$("upnextList").children[1].querySelector('[data-icon="circle-minus"]').click();
+  await until(() => p.sent("POST", "/api/queue/remove").length === 1, 8000);
+  assert.deepEqual(p.sent("POST", "/api/queue/remove")[0].body, { key: "k2" });
+  await until(() => p.document.querySelector(".toast"), 8000);
+  assert.match(p.document.querySelector(".toast").textContent, /Two taken out/);
+  await until(() => p.sent("GET", "/api/queue").length > before, 8000);
   await p.close();
 });

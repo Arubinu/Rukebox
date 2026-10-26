@@ -2508,7 +2508,9 @@ itself and keeps them in `game-sounds/` in the state folder.
   song forced next stays first, and nothing moves while a song or an album
   repeats. The move is checked against the queue as it is when the song is
   dropped: if a song change got there first, the page says so
-  (`queue_changed`) and shows the list again.
+  (`queue_changed`) and shows the list again. The same people can **take a
+  song out** (the minus button): it is gone for this pass only, and comes back
+  with the next one like every other song.
 - **Recently played** (Home): the last tracks played, newest first, with
   their title and artist (guests see it too). How many: `recent_tracks`
   (20 by default, 0 hides it), in the Playback card's detailed view.

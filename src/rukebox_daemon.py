@@ -2164,6 +2164,21 @@ class RadioDaemon:
         if changed:
             self._bump_state()
 
+    def _drop_from_queue(self, path):
+        """A song taken out of Up next: it comes back with the next pass, like any other."""
+        if not path:
+            return {"ok": False, "error": "queue_changed"}
+        forced = path == self._forced_next
+        if forced:
+            self._forced_next = None
+        if not self.state.take_from_queue_many([path]) and not forced:
+            return {"ok": False, "error": "queue_changed"}
+        dropped = self.state.pop_dedication(path)
+        if dropped is not None:
+            self._forget_voice(dropped)
+        self._bump_state()
+        return {"ok": True}
+
     def _move_queue(self, path, after):
         """Up next reordered by hand. Checked against the queue as it is NOW: a song change
         may have started the song moved, or the one it was dropped after, meanwhile."""
@@ -5226,6 +5241,8 @@ class RadioDaemon:
                                              "movable": self._loop_mode not in ("track", "album"),
                                              # A song forced next is not in the queue: it cannot move.
                                              "fixed": 1 if paths and (not queue or paths[0] != queue[0]) else 0}}
+            if cmd == "drop_from_queue":
+                return self._drop_from_queue(str(msg.get("path") or ""))
             if cmd == "move_queue":
                 return self._move_queue(str(msg.get("path") or ""), str(msg.get("after") or ""))
             if cmd == "drop_dedication":

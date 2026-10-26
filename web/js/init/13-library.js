@@ -423,6 +423,24 @@ function upnextMakeMovable(li) {
   });
 }
 
+function upnextRemoveButton(item) {
+  const name = item.title || item.name || "";
+  const drop = document.createElement("button");
+  drop.type = "button";
+  drop.className = "btn btn-icon btn-small";
+  drop.dataset.icon = "circle-minus";
+  drop.setAttribute("aria-label", t("upnext.remove", { name }));
+  drop.title = t("upnext.remove", { name });
+  drop.addEventListener("click", async () => {
+    const r = await apiPost("/api/queue/remove", { key: item.key });
+    if (r.ok) showToast(t("upnext.removed", { name }));
+    else if (r.error === "queue_changed") showToast(t("upnext.queue_changed"));
+    else showToolError(t("common.failed"), r);
+    refreshUpnext();
+  });
+  return drop;
+}
+
 async function refreshUpnext() {
   // A song being carried is not swept away by a refresh: the list is read again once it is dropped.
   if (upnextDrag) {
@@ -465,6 +483,7 @@ async function refreshUpnext() {
       li.append(tag);
     }
     if (item.key) li.append(libraryButton(item, false));
+    if (mayMove && item.key) li.append(upnextRemoveButton(item));
     if (mayMove && i >= fixed && item.key) {
       li.dataset.key = item.key;
       upnextMakeMovable(li);
@@ -715,8 +734,8 @@ async function refreshLibraryWork() {
   const left = d.left === null || d.left === undefined ? null : d.left;
   document.getElementById("navLibraryBar").style.width =
     left === null || !d.total ? "0%" : Math.round(100 * (d.total - left) / d.total) + "%";
-  document.getElementById("navLibraryLine").textContent = left === null
-    ? t("libwork.scan") : t("libwork." + d.stage, { n: left });
+  setScrollingText(document.getElementById("navLibraryLine"), left === null
+    ? t("libwork.scan") : t("libwork." + d.stage, { n: left }));
 }
 
 document.getElementById("navLibrary").addEventListener("click", () => setActiveView("home", "library"));

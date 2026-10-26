@@ -2922,20 +2922,45 @@ def api_queue():
         "may_move": bool(data.get("movable")) and _may_play_lists(), "fixed": int(data.get("fixed") or 0)}})
 
 
+def _up_next_by_key():
+    """{key: path} for the songs of Up next as the radio has them now, or None when it does not answer."""
+    upcoming = control("get_queue", n=50)
+    if not upcoming.get("ok"):
+        return None
+    lib = _get_library()
+    by_key = {}
+    for path in (upcoming.get("data") or {}).get("paths") or []:
+        item = lib.item_for_path(path)
+        by_key.setdefault((item or {}).get("key") or track_media.track_key(path), path)
+    return by_key
+
+
+@app.route("/api/queue/remove", methods=["POST"])
+def api_queue_remove():
+    """{key}: a song taken out of Up next until the next pass, for whoever may put a list on."""
+    if not _may_play_lists():
+        return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
+    by_key = _up_next_by_key()
+    if by_key is None:
+        return jsonify({"ok": False, "error": "daemon_unreachable"}), 503
+    path = by_key.get(str((request.get_json(silent=True) or {}).get("key") or ""))
+    if not path:
+        return jsonify({"ok": False, "error": "queue_changed"}), 409
+    result = control("drop_from_queue", path=path)
+    if not result.get("ok"):
+        return jsonify(result), (409 if result.get("error") == "queue_changed" else 400)
+    return jsonify(result)
+
+
 @app.route("/api/queue/move", methods=["POST"])
 def api_queue_move():
     """{key, after}: a song of Up next moved just after another ("": first), for whoever may put a list on."""
     if not _may_play_lists():
         return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
     body = request.get_json(silent=True) or {}
-    upcoming = control("get_queue", n=50)
-    if not upcoming.get("ok"):
-        return jsonify({"ok": False, "error": upcoming.get("error", "daemon_unreachable")}), 503
-    lib = _get_library()
-    by_key = {}
-    for path in (upcoming.get("data") or {}).get("paths") or []:
-        item = lib.item_for_path(path)
-        by_key.setdefault((item or {}).get("key") or track_media.track_key(path), path)
+    by_key = _up_next_by_key()
+    if by_key is None:
+        return jsonify({"ok": False, "error": "daemon_unreachable"}), 503
     path = by_key.get(str(body.get("key") or ""))
     after_key = str(body.get("after") or "")
     after = by_key.get(after_key) if after_key else ""

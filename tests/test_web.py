@@ -2551,6 +2551,10 @@ class ExcludedTracksTest(unittest.TestCase):
                                                        "after": self.keys["Alpha/one.mp3"]})
             self.assertEqual((gone.status_code, gone.get_json()["error"]), (409, "queue_changed"),
                              "a song no longer up next: the page reads the list again")
+            dropped = owner.post("/api/queue/remove", json={"key": self.keys["Alpha/one.mp3"]})
+            self.assertEqual(dropped.status_code, 200)
+            self.assertEqual(sent[-1], ("drop_from_queue", {"path": one}))
+            self.assertEqual(owner.post("/api/queue/remove", json={"key": "nope"}).status_code, 409)
 
     def test_a_list_keeps_its_track_and_says_it_is_excluded(self):
         owner = self.owner()
