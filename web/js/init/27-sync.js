@@ -161,7 +161,11 @@ function renderSyncHere() {
       goToCard("home", "syncTitle");
       openSyncJobForm(null, place.id);
     });
-    box.replaceChildren(line, add);
+    // In a row like every other button of the page: it spans the card, never sits on one side.
+    const row = document.createElement("div");
+    row.className = "actions-row";
+    row.append(add);
+    box.replaceChildren(line, row);
   });
 }
 
