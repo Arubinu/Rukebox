@@ -2786,6 +2786,18 @@ class EraseRunRouteTest(unittest.TestCase):
         self.assertIn("run_erased", [e["type"] for e in self.recorder.events(limit=5)],
                       "and the erase itself is on the record")
 
+    def test_standby_stops_the_song_before_the_run_goes(self):
+        session = self.recorder.run_to_erase()["session"]
+        self.assertTrue(self.client.post("/api/journal/erase_run", json={"session": session, "then": "standby"})
+                        .get_json()["ok"])
+        self.assertEqual([cmd for cmd, _kw in self.calls], ["standby", "erase_run"],
+                         "the song playing is counted as it stops, so it goes with the run")
+        self.calls.clear()
+        self.recorder.record("track_played", label="b.mp3", detail={"seconds": 30},
+                             item=("music", "b.mp3"), seconds=30)
+        self.client.post("/api/journal/erase_run", json={"then": "music"})
+        self.assertEqual([cmd for cmd, _kw in self.calls], ["erase_run"], "music: what plays keeps playing")
+
     def test_a_second_erase_says_there_is_nothing(self):
         self.client.post("/api/journal/erase_run", json={})
         second = self.client.post("/api/journal/erase_run", json={})

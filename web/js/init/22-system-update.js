@@ -185,7 +185,7 @@ btnEraseRun.addEventListener("click", async () => {
   });
   if (!choice) return;
 
-  const result = await apiPost("/api/journal/erase_run", { session: lastRun.session });
+  const result = await apiPost("/api/journal/erase_run", { session: lastRun.session, then: choice });
   if (!result.ok) {
     showError(result.error);
     return;

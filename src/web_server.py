@@ -8819,6 +8819,9 @@ def api_journal_erase_run():
         return jsonify({"ok": False, "error": "nothing_to_erase"}), 400
     wins = _run_wins(run)
     try:
+        if body.get("then") in ("standby", "poweroff"):
+            # The song playing is counted as it stops: stopped first, it goes with the rest.
+            control("standby")
         result = control("erase_run", session=run["session"])
     except Exception:  # noqa: BLE001
         log.exception("Could not reach the daemon to erase the run")

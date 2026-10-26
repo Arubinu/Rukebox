@@ -158,7 +158,7 @@ test("the last run is described, and erasing it asks what the radio does next", 
     const calls = page.sent("POST", "/api/journal/erase_run");
     return calls.length ? calls[0] : null;
   });
-  assert.deepEqual(sent.body, { session: 4 }, "the run the page read is the one erased");
+  assert.deepEqual(sent.body, { session: 4, then: "music" }, "the run the page read is the one erased");
   await until(() => page.sent("POST", "/api/action/start_music").length);
   t.diagnostic("and the radio was asked to play what the run had played");
 
