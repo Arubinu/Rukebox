@@ -37,12 +37,13 @@ function pointer(page, tile, type) {
                                                         clientX: 10, clientY: 10 }));
 }
 
-// The harness shortens the page's 700 ms hold to 80 ms: a brief press stays well below it.
-const BRIEF_MS = 5;
+// The harness shortens the page's 700 ms hold to 80 ms, and a busy machine can stall longer than
+// that between two turns: a brief press lets go in the same turn, so no timer can fire between.
+const BRIEF_MS = 0;
 
 async function press(page, tile, ms) {
   pointer(page, tile, "pointerdown");
-  await wait(ms);
+  if (ms) await wait(ms);
   pointer(page, tile, "pointerup");
 }
 
