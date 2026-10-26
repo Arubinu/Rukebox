@@ -1937,15 +1937,50 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
   font-weight: 600;
 }
 .upnext-list li.is-requested { border-color: var(--accent); }
-/* A long press picks the song up: no callout, no text selection in its way. */
-.upnext-list li.is-movable { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
-.upnext-list li.is-dragging {
+/* A long press picks the song up: no callout, no text selection in its way. Past a click's
+   length the row sinks a little and fills up, then lifts once it is picked up. */
+.upnext-list li.is-movable {
   position: relative;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+.upnext-list li.is-movable > * { position: relative; }
+.upnext-list li.is-movable::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  opacity: 0.14;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.15s ease-out;
+  pointer-events: none;
+}
+.upnext-list li.is-pressing {
+  transform: scale(0.985);
+  transition: transform 0.15s ease-out var(--press-delay, 150ms);
+}
+.upnext-list li.is-pressing::after {
+  transform: scaleX(1);
+  transition: transform calc(var(--hold-ms, 450ms) - var(--press-delay, 150ms)) linear var(--press-delay, 150ms);
+}
+.upnext-list li.is-dragging {
   z-index: 1;
   border-color: var(--accent);
   background: var(--surface-2);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  transform: scale(1.02);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
   cursor: grabbing;
+}
+.upnext-list li.is-dragging::after { transform: scaleX(1); opacity: 0.1; }
+@media (prefers-reduced-motion: reduce) {
+  .upnext-list li.is-movable, .upnext-list li.is-pressing, .upnext-list li.is-movable::after,
+  .upnext-list li.is-pressing::after { transition: none; }
+  .upnext-list li.is-pressing { transform: none; }
+  .upnext-list li.is-pressing::after { transform: scaleX(0); }
 }
 .upnext-list.is-sorting li:not(.is-dragging) { opacity: 0.75; }
 
@@ -3467,9 +3502,10 @@ select {
   transform-origin: left;
   pointer-events: none;
 }
+/* Nothing shows for a plain click: the fill starts once the press lasts longer than one. */
 .kpi-resettable.kpi-holding::after {
   transform: scaleX(1);
-  transition: transform var(--hold-ms, 700ms) linear;
+  transition: transform calc(var(--hold-ms, 700ms) - 150ms) linear 150ms;
 }
 .kpi-resettable:focus-visible {
   outline: 2px solid var(--accent);

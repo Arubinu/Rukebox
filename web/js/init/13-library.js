@@ -292,22 +292,29 @@ function upnextMovable(list) {
   return [...list.children].filter((li) => li.classList.contains("is-movable"));
 }
 
+function upnextKeyBefore(li) {
+  const previous = li.previousElementSibling;
+  return previous && previous.classList.contains("is-movable") ? previous.dataset.key : "";
+}
+
 function upnextDragTo(y) {
-  const drag = upnextDrag;
-  const list = drag.li.parentNode;
-  for (const li of upnextMovable(list)) {
-    if (li === drag.li) continue;
-    const box = li.getBoundingClientRect();
+  const li = upnextDrag.li;
+  const list = li.parentNode;
+  for (const other of upnextMovable(list)) {
+    if (other === li) continue;
+    const box = other.getBoundingClientRect();
     if (y < box.top || y > box.bottom) continue;
-    if (y < box.top + box.height / 2) list.insertBefore(drag.li, li);
-    else list.insertBefore(drag.li, li.nextSibling);
+    // Past the middle of the song it crosses, never at its edge: rows of unequal height do not swap back and forth.
+    const below = !!(li.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
+    if (below && y > box.top + box.height / 2) list.insertBefore(li, other.nextSibling);
+    else if (!below && y < box.top + box.height / 2) list.insertBefore(li, other);
     break;
   }
 }
 
 function upnextAutoScroll() {
   const drag = upnextDrag;
-  if (!drag) return;
+  if (!drag || !drag.carrying) return;
   const main = document.getElementById("main");
   const box = main.getBoundingClientRect();
   const edge = 48;
@@ -319,30 +326,81 @@ function upnextAutoScroll() {
   drag.frame = requestAnimationFrame(upnextAutoScroll);
 }
 
-function upnextPickUp(li, pointerId) {
-  upnextDrag = { li, pointerId, y: upnextDrag.y, before: upnextDrag.before, frame: 0 };
-  li.classList.add("is-dragging");
-  li.parentNode.classList.add("is-sorting");
-  try { li.setPointerCapture(pointerId); } catch (_) { /* the pointer already left */ }
+// The gesture is followed on the whole document: the song moves under the pointer, and
+// a pointer capture is not kept by every browser once the element moves.
+function upnextOnMove(e) {
+  const drag = upnextDrag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  if (!drag.carrying) {
+    // Moving before the hold is over is a scroll: the song stays where it is.
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.startY) > UPNEXT_SLOP_PX) upnextLetGo();
+    return;
+  }
+  e.preventDefault();
+  drag.y = e.clientY;
+  upnextDragTo(e.clientY);
+}
+
+function upnextOnUp(e) {
+  if (upnextDrag && e.pointerId === upnextDrag.pointerId) upnextDrop(e.type === "pointercancel");
+}
+
+function upnextOnTouchMove(e) {
+  // Once picked up, the finger moves the song, not the page.
+  if (upnextDrag && upnextDrag.carrying) e.preventDefault();
+}
+
+function upnextOnMenu(e) {
+  if (upnextDrag) e.preventDefault();
+}
+
+function upnextListen(on) {
+  const method = on ? "addEventListener" : "removeEventListener";
+  document[method]("pointermove", upnextOnMove, { passive: false });
+  document[method]("pointerup", upnextOnUp);
+  document[method]("pointercancel", upnextOnUp);
+  document[method]("touchmove", upnextOnTouchMove, { passive: false });
+  document[method]("contextmenu", upnextOnMenu);
+}
+
+function upnextLetGo() {
+  const drag = upnextDrag;
+  upnextDrag = null;
+  if (!drag) return;
+  clearTimeout(drag.hold);
+  cancelAnimationFrame(drag.frame);
+  upnextListen(false);
+  drag.li.classList.remove("is-pressing", "is-dragging");
+  if (drag.li.parentNode) drag.li.parentNode.classList.remove("is-sorting");
+  if (upnextStale) refreshUpnext();
+  return drag;
+}
+
+function upnextPickUp() {
+  const drag = upnextDrag;
+  drag.carrying = true;
+  drag.li.classList.remove("is-pressing");
+  drag.li.classList.add("is-dragging");
+  drag.li.parentNode.classList.add("is-sorting");
   if (navigator.vibrate) navigator.vibrate(15);
-  upnextDrag.frame = requestAnimationFrame(upnextAutoScroll);
+  drag.frame = requestAnimationFrame(upnextAutoScroll);
 }
 
 async function upnextDrop(cancelled) {
-  const drag = upnextDrag;
-  upnextDrag = null;
-  if (!drag || !drag.li.classList.contains("is-dragging")) return;
-  cancelAnimationFrame(drag.frame);
-  const li = drag.li;
-  li.classList.remove("is-dragging");
-  li.parentNode.classList.remove("is-sorting");
-  const previous = li.previousElementSibling;
-  const after = previous && previous.classList.contains("is-movable") ? previous.dataset.key : "";
-  if (cancelled || after === drag.before) {
-    if (upnextStale) refreshUpnext();
+  const carrying = upnextDrag && upnextDrag.carrying;
+  const stale = upnextStale;
+  upnextStale = false;
+  const drag = upnextLetGo();
+  if (!drag || !carrying) {
+    if (stale) refreshUpnext();
     return;
   }
-  const r = await apiPost("/api/queue/move", { key: li.dataset.key, after });
+  const after = upnextKeyBefore(drag.li);
+  if (cancelled || after === drag.before) {
+    refreshUpnext();
+    return;
+  }
+  const r = await apiPost("/api/queue/move", { key: drag.li.dataset.key, after });
   if (!r.ok) {
     if (r.error === "queue_changed") showToast(t("upnext.queue_changed"));
     else showToolError(t("common.failed"), r);
@@ -352,58 +410,16 @@ async function upnextDrop(cancelled) {
 
 function upnextMakeMovable(li) {
   li.classList.add("is-movable");
-  let hold = 0;
-  let start = null;
-  const release = () => {
-    clearTimeout(hold);
-    hold = 0;
-    start = null;
-  };
-  const letGo = () => {
-    release();
-    upnextDrag = null;
-    if (upnextStale) refreshUpnext();
-  };
   li.addEventListener("pointerdown", (e) => {
     if (upnextDrag || (e.pointerType === "mouse" && e.button !== 0) || e.target.closest("button, a")) return;
-    start = { x: e.clientX, y: e.clientY };
-    const previous = li.previousElementSibling;
-    upnextDrag = { li, y: e.clientY, before: previous && previous.classList.contains("is-movable") ? previous.dataset.key : "" };
-    hold = setTimeout(() => {
-      hold = 0;
-      if (upnextDrag && upnextDrag.li === li) upnextPickUp(li, e.pointerId);
+    upnextDrag = { li, pointerId: e.pointerId, x: e.clientX, startY: e.clientY, y: e.clientY,
+                   before: upnextKeyBefore(li), carrying: false, frame: 0, hold: 0 };
+    upnextListen(true);
+    li.style.setProperty("--hold-ms", UPNEXT_HOLD_MS + "ms");
+    li.classList.add("is-pressing");
+    upnextDrag.hold = setTimeout(() => {
+      if (upnextDrag && upnextDrag.li === li) upnextPickUp();
     }, UPNEXT_HOLD_MS);
-  });
-  li.addEventListener("pointermove", (e) => {
-    if (hold && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > UPNEXT_SLOP_PX) {
-      // Moving before the hold is over is a scroll: the song stays where it is.
-      letGo();
-      return;
-    }
-    if (upnextDrag && upnextDrag.li === li && li.classList.contains("is-dragging")) {
-      upnextDrag.y = e.clientY;
-      upnextDragTo(e.clientY);
-    }
-  });
-  const end = (cancelled) => () => {
-    if (hold) {
-      letGo();
-      return;
-    }
-    release();
-    if (upnextDrag && upnextDrag.li === li) upnextDrop(cancelled);
-  };
-  li.addEventListener("pointerup", end(false));
-  li.addEventListener("pointercancel", end(true));
-  li.addEventListener("pointerleave", () => {
-    if (hold) letGo();
-  });
-  // Once picked up, the finger moves the song, not the page.
-  li.addEventListener("touchmove", (e) => {
-    if (upnextDrag && upnextDrag.li === li && li.classList.contains("is-dragging")) e.preventDefault();
-  }, { passive: false });
-  li.addEventListener("contextmenu", (e) => {
-    if (upnextDrag && upnextDrag.li === li) e.preventDefault();
   });
 }
 
