@@ -244,6 +244,7 @@ async function refreshFlic() {
   else if (blocked) text = t("btctl.flic_" + (d.unusable_reason || "single_controller"));
   else if (!d.sdk) text = t("btctl.flic_no_sdk");
   else if (!d.enabled) text = t("btctl.flic_off");
+  else if (d.idle) text = t("btctl.flic_idle");
   else if (!d.active) text = t("btctl.flic_not_running");
   else text = t("btctl.flic_running", { n: (d.buttons || []).length });
   line.textContent = text;
@@ -252,7 +253,7 @@ async function refreshFlic() {
   document.getElementById("flicEnabledRow").hidden = !d.sdk || (blocked && !d.enabled);
   document.getElementById("flicEnabledRow").classList.toggle("is-held", held);
   document.getElementById("flicEnabled").checked = !!d.enabled;
-  document.getElementById("btnFlicPair").hidden = !(d.sdk && d.active) || blocked;
+  document.getElementById("btnFlicPair").hidden = !(d.sdk && (d.active || d.idle)) || blocked;
   document.getElementById("btFlicController").disabled = blocked;
   document.getElementById("flicTitle").hidden = !(d.buttons || []).length;
   document.getElementById("flicButtonList").replaceChildren(...(d.buttons || []).map((address) => {

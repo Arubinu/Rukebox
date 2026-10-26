@@ -889,6 +889,19 @@ This is a hold, not a decision:
 `Flic button on hold (single_controller): the speaker needs the only Bluetooth
 controller there is`, then `Flic button back on: a controller is free again`.
 
+**With no button paired, `flicd` rests.** It scans without end for its
+buttons, and on a controller that shares its radio with the Wi-Fi that scan
+alone can bring what the radio receives (a song sent from a computer, an
+update) down to a few kilobytes a second. So while the switch is on but no
+button is paired with this controller - read from flicd's own database,
+`/var/lib/rukebox/flic.sqlite3`, without asking it - the daemon stops the two
+services (`Flic button asleep: no button is paired, nothing to wait for`) and
+the page says the button is resting. **Pair a button** wakes them for the
+pairing; if no button comes of it, they rest again. A button paired with
+another controller (a board replaced) counts as none. With a button paired,
+`flicd` runs and keeps scanning: on the built-in radio, a USB dongle for the
+Flic button gives the Wi-Fi its air back.
+
 ### Working without a Flic button
 
 The Flic button is entirely optional. If you don't have a second

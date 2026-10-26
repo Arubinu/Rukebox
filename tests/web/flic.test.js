@@ -46,3 +46,19 @@ test("with another controller free, it switches on without asking", async () => 
   assert.equal(p.$("modalOverlay").hidden, true);
   await p.close();
 });
+
+test("a Flic with no button paired rests, and still offers to pair one", async () => {
+  const p = load({ hash: "#audio/bluetooth", view: "detailed", routes: {
+    "GET /api/flic/status": { sdk: true, usable: true, enabled: true, held: false, active: false, idle: true,
+                              bridge: false, buttons: [], pairing: { state: "idle" }, takes_only_controller: false },
+    "GET /api/bluetooth/controllers": { controllers: [{ name: "hci0", bus: "uart", address: "B8:27:EB:D7:FC:3A" }],
+                                        speaker: null, speaker_setting: "", flic: "B8:27:EB:D7:FC:3A" },
+  } });
+  await until(() => p.$("bootOverlay").hidden, 8000);
+  p.$("btControllersSection").open = true;
+  p.$("btControllersSection").dispatchEvent(new p.window.Event("toggle"));
+  await until(() => /resting/.test(p.$("flicStatusLine").textContent), 8000);
+  assert.equal(p.$("btnFlicPair").hidden, false, "pairing wakes it");
+  assert.equal(p.$("flicEnabled").checked, true, "still on: only asleep");
+  await p.close();
+});

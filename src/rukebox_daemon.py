@@ -4258,15 +4258,25 @@ class RadioDaemon:
         undoes."""
         usable, reason = audio_diag.flic_availability(not self._wired_output())
         enabled = self._flic_flag("is-enabled") == "enabled"
-        if usable:
-            if enabled and self.state.flag(self.FLIC_FLAG) and self._flic_flag("is-active") != "active":
+        if not enabled:
+            return
+        state_dir = self.cfg.get("STATE_DIR") or ""
+        buttons = audio_diag.flic_buttons(state_dir, self.cfg.get("FLIC_HCI_DEVICE"))
+        # No button to wait for: flicd's endless scan only costs the Wi-Fi sharing its radio.
+        # An unreadable list is never taken for an empty one; the page's pairing starts it itself.
+        idle = buttons == [] and not audio_diag.flic_pairing(state_dir)
+        if usable and not idle:
+            if self.state.flag(self.FLIC_FLAG) and self._flic_flag("is-active") != "active":
                 self._set_flic_services("start")
             return
-        if not enabled or self._flic_flag("is-active") != "active":
+        if self._flic_flag("is-active") != "active":
             return
         if self._set_flic_services("stop"):
-            log.info("Flic button on hold (%s): the speaker needs the only "
-                     "Bluetooth controller there is", reason)
+            if usable:
+                log.info("Flic button asleep: no button is paired, nothing to wait for")
+            else:
+                log.info("Flic button on hold (%s): the speaker needs the only "
+                         "Bluetooth controller there is", reason)
 
     def _set_flic_services(self, action):
         """Starts or stops both Flic units, through the narrow sudoers grant."""

@@ -1,10 +1,13 @@
 """The Flic pairing state: a scan has to end, even when the wizard thread dies
 with its connection to flicd. No hardware, no SDK: the state machine only."""
+import shutil
+import tempfile
 import time
 import unittest
 from unittest import mock
 
 import _path  # noqa: F401
+import audio_diag
 import web_server as ws
 
 
@@ -66,6 +69,45 @@ class FlicPairTest(unittest.TestCase):
                     break
                 time.sleep(0.02)
         self.assertEqual(self.status()["state"], "done")
+
+
+class FlicWakeTest(unittest.TestCase):
+    """flicd sleeps while no button is paired: asking to pair one wakes it, the pairing over lets it sleep."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.addCleanup(mock.patch.stopall)
+        values = dict(ws.cfg(), STATE_DIR=self.dir)
+        mock.patch.object(ws, "cfg", return_value=values).start()
+        mock.patch.object(ws, "_service_is_active", return_value=False).start()
+        mock.patch.object(ws, "_flic_availability", return_value=(True, None)).start()
+        mock.patch.object(ws, "_flic_pair_run").start()
+        self.started = []
+        mock.patch.object(ws.system_actions, "service_action",
+                          side_effect=lambda verb, unit: self.started.append((verb, unit)) or True).start()
+        with ws._flic_pair_lock:
+            ws._flic_pair.update(state="idle", result=None, until=0.0)
+        self.client = ws.app.test_client()
+
+    def test_pairing_wakes_a_sleeping_flicd(self):
+        mock.patch.object(ws, "_flic_enabled", return_value=True).start()
+        mock.patch.object(ws, "_flic_buttons", return_value=[]).start()
+        self.assertEqual(self.client.post("/api/flic/pair/start").status_code, 200)
+        self.assertEqual(self.started, [("start", "flicd"), ("start", "flic-bridge")])
+        self.assertTrue(audio_diag.flic_pairing(self.dir), "the daemon leaves it awake meanwhile")
+
+    def test_a_flic_turned_off_is_not_woken(self):
+        mock.patch.object(ws, "_flic_enabled", return_value=False).start()
+        answer = self.client.post("/api/flic/pair/start")
+        self.assertEqual((answer.status_code, answer.get_json()["error"]), (400, "flicd_not_running"))
+        self.assertEqual(self.started, [])
+
+    def test_the_status_lists_the_buttons_of_a_sleeping_flicd(self):
+        mock.patch.object(ws, "_flic_enabled", return_value=True).start()
+        mock.patch.object(ws, "_bt_controllers", return_value=[{"address": "B8:27:EB:D7:FC:3A", "name": "hci0", "bus": "uart"}]).start()
+        data = self.client.get("/api/flic/status").get_json()["data"]
+        self.assertEqual((data["buttons"], data["idle"]), ([], True))
 
 
 if __name__ == "__main__":

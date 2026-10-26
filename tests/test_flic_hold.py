@@ -4,6 +4,7 @@ and starts them again once a controller is free - and never undoes a real
 "off". systemctl is faked, so this runs off-hardware."""
 import os
 import shutil
+import sqlite3
 import tempfile
 import threading
 import unittest
@@ -89,6 +90,17 @@ class FlicHoldTest(unittest.TestCase):
             "LIBRARY_DB_FILE": os.path.join(self.dir, "library.db"),
             "AUDIO_OUTPUT": "bluetooth",
         })
+        # A button paired, as on a radio whose Flic is in use: the tests below about the
+        # controller need something to wait for.
+        self.pair("90:88:a9:51:cd:2f")
+
+    def pair(self, *buttons, controller="b8:27:eb:d7:fc:3a"):
+        db = sqlite3.connect(os.path.join(self.dir, audio_diag.FLIC_DB))
+        db.execute("CREATE TABLE IF NOT EXISTS buttons(my_bdaddr TEXT, my_bdaddr_type INTEGER, bdaddr TEXT)")
+        db.execute("DELETE FROM buttons")
+        db.executemany("INSERT INTO buttons VALUES (?, 0, ?)", [(controller, b) for b in buttons])
+        db.commit()
+        db.close()
 
     def build(self, hciconfig=None, **systemd):
         daemon = rukebox_daemon.RadioDaemon(self.cfg)
@@ -153,6 +165,38 @@ class FlicHoldTest(unittest.TestCase):
                          "both units, on both watch turns")
         self.assertFalse(daemon.state.flag("flic_held"), "nothing was held")
         self.assertTrue(daemon._flic_warned)
+
+    def test_with_no_button_paired_flicd_sleeps_and_wakes_for_a_pairing(self):
+        self.pair()
+        daemon = self.build()
+        self.held(None)
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), ["stop"], "nothing to wait for")
+        self.assertTrue(daemon.state.flag("flic_held"), "ours to start again")
+        audio_diag.set_flic_pairing(self.dir, 120)
+        self.systemctl.active = False
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), ["stop", "start"], "a pairing needs it")
+
+    def test_a_button_of_another_controller_is_nothing_to_wait_for(self):
+        self.pair("90:88:a9:51:cd:2f", controller="b8:27:eb:62:82:cb")
+        self.cfg["FLIC_HCI_DEVICE"] = "B8:27:EB:D7:FC:3A"
+        self.assertEqual(audio_diag.flic_buttons(self.dir, "B8:27:EB:D7:FC:3A"), [])
+        self.assertEqual(audio_diag.flic_buttons(self.dir, "hci0"), ["90:88:A9:51:CD:2F"],
+                         "a controller named, not addressed: every button counts")
+        daemon = self.build()
+        self.held(None)
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), ["stop"])
+
+    def test_an_unreadable_list_never_puts_it_to_sleep(self):
+        with open(os.path.join(self.dir, audio_diag.FLIC_DB), "w") as f:
+            f.write("not a database")
+        self.assertIsNone(audio_diag.flic_buttons(self.dir))
+        daemon = self.build()
+        self.held(None)
+        daemon._watch_flic()
+        self.assertEqual(self.systemctl.actions(), [])
 
     def test_a_wired_output_leaves_the_button_alone(self):
         self.cfg["AUDIO_OUTPUT"] = "jack"

@@ -6183,6 +6183,10 @@ def api_flic_status():
     usable, reason = _flic_availability(controllers)
     enabled = _flic_enabled()
     flic = _flic_controller(cfg(), controllers)
+    buttons = _flic_buttons() if sdk and active else None
+    if buttons is None and not active:
+        # flicd asleep: its own database still says which buttons it keeps.
+        buttons = audio_diag.flic_buttons(cfg().get("STATE_DIR") or "", (flic or {}).get("address"))
     return jsonify({"ok": True, "data": {
         "sdk": sdk,
         # The Flic button would take the only controller: Bluetooth is then its alone.
@@ -6194,7 +6198,9 @@ def api_flic_status():
         "held": bool(enabled and not usable),
         "active": active,
         "bridge": _service_is_active("flic-bridge"),
-        "buttons": _flic_buttons() if sdk and active else None,
+        "buttons": buttons,
+        # On, but no button to wait for: flicd sleeps until a pairing wakes it.
+        "idle": bool(enabled and usable and not active and buttons == []),
         "pairing": _flic_pair["state"],
     }})
 
@@ -6275,6 +6281,25 @@ def _flic_pair_run():
         with _flic_pair_lock:
             if _flic_pair["state"] != "done":
                 _flic_pair.update(state="done", result="flicd_not_running", client=None, wizard=None)
+        # No button came of it: the daemon puts flicd back to sleep on its next look.
+        audio_diag.set_flic_pairing(cfg().get("STATE_DIR") or "", 0)
+
+
+def _wake_flicd():
+    """Starts flicd asleep for want of a button, and waits for it to answer; False if it does not."""
+    usable, _reason = _flic_availability()
+    if not (_flic_enabled() and usable):
+        return False
+    audio_diag.set_flic_pairing(cfg().get("STATE_DIR") or "", PAIR_SCAN_SEC + 30)
+    system_actions.service_action("start", "flicd")
+    system_actions.service_action("start", "flic-bridge")
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if _flic_buttons() is not None:
+            return True
+        time.sleep(0.5)
+    audio_diag.set_flic_pairing(cfg().get("STATE_DIR") or "", 0)
+    return False
 
 
 def _flic_pair_scan():
@@ -6316,7 +6341,7 @@ def _flic_pair_scan():
 
 @app.route("/api/flic/pair/start", methods=["POST"])
 def api_flic_pair_start():
-    if not _service_is_active("flicd"):
+    if not _service_is_active("flicd") and not _wake_flicd():
         return jsonify({"ok": False, "error": "flicd_not_running"}), 400
     if _pair_state()["state"] in _PAIR_RUNNING:
         return jsonify({"ok": False, "error": "flic_pairing_running"}), 409

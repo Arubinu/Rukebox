@@ -99,6 +99,55 @@ def controller_list(env=None):
     return parse_hciconfig(result.stdout)
 
 
+FLIC_DB = "flic.sqlite3"
+FLIC_PAIRING_FILE = "flic-pairing.json"
+
+
+def flic_buttons(state_dir, controller=None):
+    """The Flic buttons flicd keeps for that controller (all of them when its address is not
+    known), read from flicd's own database so that flicd need not run; None when unreadable."""
+    path = os.path.join(state_dir or "", FLIC_DB)
+    if not os.path.exists(path):
+        return []
+    try:
+        import sqlite3
+        db = sqlite3.connect("file:%s?mode=ro" % path, uri=True, timeout=2)
+        try:
+            rows = db.execute("SELECT my_bdaddr, bdaddr FROM buttons").fetchall()
+        finally:
+            db.close()
+    except Exception:  # noqa: BLE001 - an unreadable database never stops the Flic button
+        log.debug("Could not read the Flic buttons", exc_info=True)
+        return None
+    mine = str(controller or "").lower()
+    # A button paired with another controller can never connect to this one.
+    known = re.match(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$", mine)
+    return [str(button).upper() for owner, button in rows if not known or str(owner).lower() == mine]
+
+
+def flic_pairing(state_dir, now=None):
+    """Whether the page is pairing a Flic button: flicd must run meanwhile."""
+    try:
+        with open(os.path.join(state_dir or "", FLIC_PAIRING_FILE), encoding="utf-8") as f:
+            until = float(json.load(f).get("until") or 0)
+    except (OSError, ValueError, AttributeError):
+        return False
+    return (now or time.time()) < until
+
+
+def set_flic_pairing(state_dir, seconds):
+    """Says a pairing runs for at most `seconds`; 0 says it is over."""
+    path = os.path.join(state_dir or "", FLIC_PAIRING_FILE)
+    if seconds <= 0:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        return
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"until": time.time() + seconds}, f)
+
+
 def flic_availability(bluetooth_output, found=None):
     """(usable, reason) for the Flic button: flicd takes a controller for
     itself (HCI user channel), so with a single one - and the sound on
