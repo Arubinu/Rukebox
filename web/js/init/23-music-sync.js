@@ -161,7 +161,9 @@ async function runMusicSync() {
     body.append("mtime", String(Math.round(item.file.lastModified / 1000)));
     body.append("file", content, item.file.name);
 
-    const result = await apiFetch("/api/music/upload", { method: "POST", body });
+    musicUploadAbort = new AbortController();
+    const result = await apiFetch("/api/music/upload", { method: "POST", body, signal: musicUploadAbort.signal });
+    musicUploadAbort = null;
 
     const wrongSize = result.ok && result.data &&
       Number(result.data.size) !== item.file.size;
@@ -273,6 +275,7 @@ document.getElementById("btnMusicCancel").addEventListener("click", () => {
   if (musicBusy) {
     musicStopRequested = true;
     document.getElementById("btnMusicCancel").disabled = true;
+    if (musicUploadAbort) musicUploadAbort.abort();
     return;
   }
   musicQueue = [];

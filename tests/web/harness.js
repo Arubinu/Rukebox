@@ -127,7 +127,13 @@ function load(options = {}) {
     }
     requests.push(request);
     if (typeof answer === "function") answer = answer(request);
-    return Promise.resolve(answer).then((data) => {
+    // A request cut short rejects at once, as the browser's own fetch does.
+    const signal = init.signal;
+    const waited = signal ? Promise.race([answer, new Promise((resolve, reject) => {
+      if (signal.aborted) reject(new window.DOMException("aborted", "AbortError"));
+      signal.addEventListener("abort", () => reject(new window.DOMException("aborted", "AbortError")));
+    })]) : answer;
+    return Promise.resolve(waited).then((data) => {
       const payload = data === undefined
         ? { ok: false, error: "not_found" }
         : (data && data.__raw) ? data.__raw : { ok: true, data };

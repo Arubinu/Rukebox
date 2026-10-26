@@ -637,6 +637,8 @@ let musicManifest = null;
 let musicQueue = [];
 let musicBusy = false;
 let musicStopRequested = false;
+// The upload in flight, so Stop can cut it short instead of waiting for the file to end.
+let musicUploadAbort = null;
 
 const MUSIC_FAILURE_STREAK = 3;
 

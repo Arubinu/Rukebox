@@ -548,6 +548,8 @@ async function apiFetch(path, options) {
   try {
     res = await fetch(path, withDeviceHeader(options));
   } catch (e) {
+    // Stopped on purpose (an upload cut short): the radio is no less there.
+    if (options && options.signal && options.signal.aborted) return { ok: false, error: "aborted" };
     setConnectionState(false);
     return { ok: false, error: "unreachable" };
   } finally {

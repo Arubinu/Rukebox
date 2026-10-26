@@ -4,7 +4,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { load, until } = require("./harness");
+const { load, until, deferred } = require("./harness");
 
 const STAMP = Date.UTC(2026, 0, 1);
 const HELD = { exists: true, dir: "/music", files: [{ path: "song.mp3", size: 5, mtime: STAMP / 1000 }],
@@ -12,6 +12,10 @@ const HELD = { exists: true, dir: "/music", files: [{ path: "song.mp3", size: 5,
 
 function choose(page, names) {
   const input = page.$("musicFolderInput");
+  // jsdom's files cannot be read: the page only needs some bytes to send.
+  if (!page.window.Blob.prototype.arrayBuffer) {
+    page.window.Blob.prototype.arrayBuffer = async function () { return new ArrayBuffer(this.size); };
+  }
   const files = names.map((name) => new page.window.File(["12345"], name, { lastModified: STAMP }));
   Object.defineProperty(input, "files", { value: files, configurable: true });
   input.dispatchEvent(new page.window.Event("change", { bubbles: true }));
@@ -44,5 +48,23 @@ test("a new song is planned at once when the radio is known", async () => {
   choose(page, ["new.mp3"]);
   await until(() => !page.$("musicPlanBox").hidden);
   assert.match(page.$("musicPlanLine").textContent, /^1 files to send/);
+  await page.close();
+});
+
+test("stop cuts the file in flight short, without waiting for it to end", async () => {
+  const never = deferred();
+  const page = load({ hash: "#home/music", routes: {
+    "GET /api/music/manifest": HELD,
+    "POST /api/music/upload": () => never.promise,
+  } });
+  await until(() => /songs/.test(page.$("musicLibraryLine").textContent));
+  choose(page, ["new.mp3"]);
+  await until(() => !page.$("musicPlanBox").hidden);
+  page.$("btnMusicSync").click();
+  await until(() => page.sent("POST", "/api/music/upload").length === 1);
+  page.$("btnMusicCancel").click();
+  await until(() => page.document.body.textContent.includes("Sync stopped"));
+  assert.equal(page.document.body.dataset.connection === "lost", false, "a stop is not a lost radio");
+  assert.equal(page.$("btnMusicSync").disabled, false, "the file is still there to send");
   await page.close();
 });
