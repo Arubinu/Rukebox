@@ -537,7 +537,10 @@ class RadioDaemon:
                         "sound goes out of the first one", state["controller"], expected)
 
     def _play_cue_sound(self, path, key=None):
-        if not path or not os.path.exists(path):
+        # No file set is "no sound", a choice: only a file set and missing is worth a warning.
+        if not path:
+            return
+        if not os.path.exists(path):
             log.warning("Confirmation sound not found: %s", path)
             return
         volume = self._capped(self._source_volume(key) if key else None)

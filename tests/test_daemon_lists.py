@@ -426,6 +426,13 @@ class DaemonListsTest(unittest.TestCase):
         self.assertEqual(control_client.send_control_command(path, "move_queue", path=a, after="").get("error"),
                          "queue_not_movable")
 
+    def test_a_sound_left_empty_is_silent_and_says_nothing(self):
+        with mock.patch.object(rukebox_daemon.log, "warning") as warning:
+            self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")
+            warning.assert_not_called()
+            self.daemon._play_cue_sound(os.path.join(self.dir, "gone.mp3"), "AP_CONNECT_SOUND")
+            warning.assert_called_once()
+
     def test_a_radio_that_played_one_list_keeps_it(self):
         entry = self.manual("Soir", "rock1.mp3")
         self.daemon.state.data.pop("selection", None)
