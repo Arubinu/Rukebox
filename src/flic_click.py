@@ -4,6 +4,7 @@
 import logging
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from control_client import send_control_command  # noqa: E402
@@ -25,40 +26,57 @@ FLICD_HOST = os.environ.get("FLICD_HOST", "localhost")
 STATE_DIR = os.environ.get("PATHS_STATE_DIR") or os.environ.get("STATE_DIR") or "/var/lib/rukebox"
 
 
-def send_command(cmd: str):
-    response = send_control_command(CONTROL_SOCKET, cmd, source="flic")
+# The press that connects a button arrives within these seconds of the connection.
+WAKING_PRESS_SEC = 3.0
+_link = {"connected": None, "waking_until": 0.0}
+
+
+def send_command(cmd: str, **extra):
+    response = send_control_command(CONTROL_SOCKET, cmd, source="flic", **extra)
     if not response.get("ok"):
         log.warning("Command '%s' rejected or failed: %s", cmd, response.get("error"))
 
 
 def on_button_event(channel, click_type, was_queued, time_diff):
+    waking = time.monotonic() < _link["waking_until"]
+    # The first gesture after a connection is the waking one, even a queued one dropped below.
+    _link["waking_until"] = 0.0
     if was_queued:
         return
+    extra = {"waking": True} if waking else {}
     if click_type == fliclib.ClickType.ButtonSingleClick:
         log.info("Single click detected -> single_click")
-        send_command("single_click")
+        send_command("single_click", **extra)
     elif click_type == fliclib.ClickType.ButtonDoubleClick:
         log.info("Double click detected -> double_click")
-        send_command("double_click")
+        send_command("double_click", **extra)
     elif click_type == fliclib.ClickType.ButtonHold:
         log.info("Long press detected -> long_press")
-        send_command("long_press")
+        send_command("long_press", **extra)
 
 
-def note_link(status):
+def note_link(status, first=False):
     linked = status in (fliclib.ConnectionStatus.Connected, fliclib.ConnectionStatus.Ready)
+    if linked == _link["connected"]:
+        return
+    was = _link["connected"]
+    _link["connected"] = linked
     try:
         audio_diag.set_flic_linked(STATE_DIR, linked)
     except OSError:
         log.warning("Could not note the button's link", exc_info=True)
     log.info("Flic button %s", "connected" if linked else "waiting for a press to connect")
+    # A button found connected as the bridge starts was not woken by a press.
+    if linked and not first and was is False:
+        _link["waking_until"] = time.monotonic() + WAKING_PRESS_SEC
+        send_control_command(CONTROL_SOCKET, "flic_connected", source="flic")
 
 
 def got_button(bd_addr):
     log.info("Flic button detected: %s", bd_addr)
     cc = fliclib.ButtonConnectionChannel(bd_addr)
     cc.on_button_single_or_double_click_or_hold = on_button_event
-    cc.on_create_connection_channel_response = lambda channel, error, status: note_link(status)
+    cc.on_create_connection_channel_response = lambda channel, error, status: note_link(status, first=True)
     cc.on_connection_status_changed = lambda channel, status, reason: note_link(status)
     client.add_connection_channel(cc)
 

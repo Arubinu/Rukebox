@@ -2015,6 +2015,14 @@
                 <option value="cutoff" data-i18n="source.cutoff">Cutoff announcement</option>
               </select>
             </div>
+            <div class="field-row" data-level="detail">
+              <div class="field-text">
+                <label for="flicIgnoreWaking" data-i18n="settings.flic_ignore_waking">Ignore the press that connects the Flic button</label>
+                <p class="field-desc" id="flicIgnoreWakingDesc" data-i18n="settings.flic_ignore_waking_desc">After a restart the button waits for a press to connect: that press only wakes it, and its sound says so.</p>
+              </div>
+              <input type="checkbox" id="flicIgnoreWaking" data-key="buttons.flic_ignore_waking_press" class="switch-input"
+                     role="switch" aria-describedby="flicIgnoreWakingDesc">
+            </div>
             <div class="field-row">
               <label for="longPressAction" data-i18n="settings.long_press">Long press</label>
               <select id="longPressAction" data-key="buttons.long_press_action">

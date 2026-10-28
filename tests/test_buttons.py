@@ -391,6 +391,8 @@ def load_flic_bridge():
     fake = types.ModuleType("fliclib")
     fake.ClickType = types.SimpleNamespace(ButtonSingleClick="single", ButtonDoubleClick="double",
                                            ButtonHold="hold", ButtonClick="click")
+    fake.ConnectionStatus = types.SimpleNamespace(Disconnected="disconnected", Connected="connected",
+                                                  Ready="ready")
     fake.ButtonConnectionChannel = lambda address: types.SimpleNamespace(bd_addr=address)
     fake.FlicClient = FakeFlicClient
     with mock.patch.dict(sys.modules, {"fliclib": fake}):
@@ -421,6 +423,27 @@ class FlicBridgeTest(unittest.TestCase):
         self.assertEqual([call.args[1] for call in sent.call_args_list],
                          ["single_click", "double_click", "long_press"])
         self.assertTrue(all(call.kwargs == {"source": "flic"} for call in sent.call_args_list))
+
+    def test_the_press_that_connects_the_button_is_marked_waking(self):
+        bridge = self.bridge
+        with mock.patch.object(bridge, "send_control_command", return_value={"ok": True}) as sent,                 mock.patch.object(bridge.audio_diag, "set_flic_linked"):
+            bridge.note_link("ready", first=True)
+            bridge.on_button_event(None, "single", False, 0)
+            self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"},
+                             "found connected as the bridge starts: no press woke it")
+            bridge.note_link("disconnected")
+            bridge.note_link("ready")
+            self.assertEqual(sent.call_args_list[-1].args[1], "flic_connected", "its sound")
+            bridge.on_button_event(None, "single", False, 0)
+            self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic", "waking": True})
+            bridge.on_button_event(None, "double", False, 0)
+            self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"}, "only the first one")
+            bridge.note_link("disconnected")
+            bridge.note_link("ready")
+            bridge.on_button_event(None, "single", True, 2)
+            bridge.on_button_event(None, "single", False, 0)
+            self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"},
+                             "a waking press that came queued was that first gesture")
 
     def test_a_press_kept_while_the_button_was_away_is_dropped(self):
         with mock.patch.object(self.bridge, "send_control_command", return_value={"ok": True}) as sent:

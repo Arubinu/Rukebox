@@ -303,6 +303,7 @@ if [ "$PROFILE" = "lxc" ]; then
         "folders.clock_fallback_sound=$AUDIO_ROOT/system/clock_fallback.wav" \
         "folders.restart_sound=$AUDIO_ROOT/system/restart.wav" \
         "folders.ap_connect_sound=" \
+        "folders.flic_connect_sound=" \
         "folders.battery_low_sound=" > /dev/null
     echo ">> Audio folders moved to $AUDIO_ROOT (the template documents the Pi's)."
     # A first start only, like the Docker image: an existing file keeps its choice.

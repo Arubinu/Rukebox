@@ -5088,6 +5088,13 @@ class RadioDaemon:
                               "unknown"):
                 source = "unknown"
             self._announcements()
+            if msg.get("waking") and cmd in ("single_click", "double_click", "long_press") \
+                    and self.cfg.get("FLIC_IGNORE_WAKING_PRESS"):
+                log.info("Flic button: the press that connected it does nothing (%s)", cmd)
+                return {"ok": True, "data": {"ignored": "waking"}}
+            if cmd == "flic_connected":
+                self._play_cue_sound(self.cfg.get("FLIC_CONNECT_SOUND"), "FLIC_CONNECT_SOUND")
+                return {"ok": True}
             if self.mode == "game" and cmd == "single_click":
                 self._game_taps += 1
                 self._bump_state()

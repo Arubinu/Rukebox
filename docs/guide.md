@@ -908,6 +908,14 @@ that listening takes most of the Wi-Fi. Every restart of `flicd` or the bridge
 it is pressed once: the page then says `Flic button waiting`. A USB dongle for
 the Flic button gives the Wi-Fi its air back in every case.
 
+**The press that connects it.** When the button connects again, the radio plays
+the *Flic button connected* system sound (`folders.flic_connect_sound`, empty
+for none). By default that press also does its action; with **Ignore the press
+that connects the Flic button** (Settings > Button actions, detailed view,
+`buttons.flic_ignore_waking_press`) it only wakes the button. Only the first
+gesture within 3 seconds of the connection counts as that press, and one the
+button delivers late, from its own memory, counts too.
+
 **During a transfer, it pauses.** While songs are sent from a computer (Add
 music, an announcement's files), a folder sync runs or an update is downloaded or pushed, a Flic button on the
 built-in chip that is not connected is paused: the daemon stops `flicd` at once (`Flic button paused

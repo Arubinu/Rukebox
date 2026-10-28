@@ -453,6 +453,29 @@ class DaemonListsTest(unittest.TestCase):
             self.assertEqual(control_client.send_control_command(path, "speak", kind="time").get("error"),
                              "speech_unavailable", "no voice at all: said at once, as before")
 
+    @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "the control socket is a Unix socket")
+    def test_the_press_that_wakes_the_flic_button_is_ignored_when_asked(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        path = os.path.join(folder, "control.sock")
+        self.daemon.cfg["CONTROL_SOCKET"] = path
+        self.daemon._start_control_socket()
+        self.addCleanup(self.daemon._stop_event.set)
+        sound = os.path.join(folder, "flic.wav")
+        open(sound, "wb").close()
+        self.daemon.cfg["FLIC_CONNECT_SOUND"] = sound
+        with mock.patch.object(self.daemon, "_play_cue_sound") as cue:
+            self.assertTrue(control_client.send_control_command(path, "flic_connected", source="flic")["ok"])
+        self.assertEqual(cue.call_args[0], (sound, "FLIC_CONNECT_SOUND"))
+        with mock.patch.object(self.daemon, "_handle_single_click") as click:
+            self.daemon.cfg["FLIC_IGNORE_WAKING_PRESS"] = True
+            answer = control_client.send_control_command(path, "single_click", source="flic", waking=True)
+            self.assertEqual(answer["data"], {"ignored": "waking"})
+            click.assert_not_called()
+            self.daemon.cfg["FLIC_IGNORE_WAKING_PRESS"] = False
+            control_client.send_control_command(path, "single_click", source="flic", waking=True)
+            click.assert_called_once()
+
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:
             self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")
