@@ -6283,6 +6283,7 @@ def api_flic_status():
         # Running, with a button that is not connected: flicd listens for it without a pause.
         "waiting": bool(enabled and active and buttons and not audio_diag.flic_linked(cfg().get("STATE_DIR") or "")),
         "pairing": _flic_pair["state"],
+        "battery": audio_diag.flic_battery(cfg().get("STATE_DIR") or ""),
     }})
 
 

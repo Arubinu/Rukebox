@@ -77,3 +77,20 @@ test("a button that is not connected says a press brings it back", async () => {
   assert.match(p.$("flicStatusLine").textContent, /press it once to connect it/);
   await p.close();
 });
+
+test("a Flic button's battery going flat is a warning", async () => {
+  const p = load({ hash: "#audio/bluetooth", view: "detailed", routes: {
+    "GET /api/flic/status": { sdk: true, usable: true, enabled: true, held: false, active: true, bridge: true,
+                              buttons: ["90:88:A9:51:CD:2F"], battery: { "90:88:A9:51:CD:2F": 12 },
+                              pairing: { state: "idle" } },
+    "GET /api/bluetooth/controllers": { controllers: [{ name: "hci0", bus: "uart", address: "B8:27:EB:D7:FC:3A" }],
+                                        speaker: null, speaker_setting: "", flic: "B8:27:EB:D7:FC:3A" },
+  } });
+  await until(() => p.$("bootOverlay").hidden, 8000);
+  p.$("btControllersSection").open = true;
+  p.$("btControllersSection").dispatchEvent(new p.window.Event("toggle"));
+  await until(() => /battery/.test(p.$("flicStatusLine").textContent), 8000);
+  assert.match(p.$("flicStatusLine").textContent, /battery low \(12 %\)/);
+  assert.equal(p.$("flicStatusLine").dataset.state, "warn");
+  await p.close();
+});

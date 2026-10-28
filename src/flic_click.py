@@ -72,8 +72,20 @@ def note_link(status, first=False):
         send_control_command(CONTROL_SOCKET, "flic_connected", source="flic")
 
 
+def note_battery(bd_addr, percent):
+    try:
+        audio_diag.set_flic_battery(STATE_DIR, bd_addr, percent)
+    except OSError:
+        log.warning("Could not note the button's battery", exc_info=True)
+
+
 def got_button(bd_addr):
     log.info("Flic button detected: %s", bd_addr)
+    # flicd sends the level at once, then every few hours while the button connects.
+    if hasattr(fliclib, "BatteryStatusListener"):
+        listener = fliclib.BatteryStatusListener(bd_addr)
+        listener.on_battery_status = lambda _listener, percent, _at: note_battery(bd_addr, percent)
+        client.add_battery_status_listener(listener)
     cc = fliclib.ButtonConnectionChannel(bd_addr)
     cc.on_button_single_or_double_click_or_hold = on_button_event
     cc.on_create_connection_channel_response = lambda channel, error, status: note_link(status, first=True)

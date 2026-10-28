@@ -230,6 +230,8 @@ document.getElementById("btControllersForm").addEventListener("submit", async (e
 
 let flicState = null;
 
+const FLIC_BATTERY_LOW = 15;
+
 async function refreshFlic() {
   const r = await apiGet("/api/flic/status");
   if (!r.ok || !r.data) return;
@@ -249,8 +251,14 @@ async function refreshFlic() {
   else if (!d.active) text = t("btctl.flic_not_running");
   else if (d.waiting) text = t("btctl.flic_waiting");
   else text = t("btctl.flic_running", { n: (d.buttons || []).length });
+  // The weakest battery of the buttons kept: one going flat is worth a warning.
+  const levels = (d.buttons || []).map((address) => (d.battery || {})[String(address).toUpperCase()])
+    .filter((level) => typeof level === "number");
+  const weakest = levels.length ? Math.min(...levels) : null;
+  const low = weakest !== null && weakest <= FLIC_BATTERY_LOW;
+  if (weakest !== null) text += " \u00b7 " + t(low ? "btctl.flic_battery_low" : "btctl.flic_battery", { n: weakest });
   line.textContent = text;
-  line.dataset.state = blocked ? "warn" : "";
+  line.dataset.state = blocked || low ? "warn" : "";
   document.getElementById("btnFlicInstall").hidden = d.sdk || blocked;
   document.getElementById("flicEnabledRow").hidden = !d.sdk || (blocked && !d.enabled);
   document.getElementById("flicEnabledRow").classList.toggle("is-held", held);

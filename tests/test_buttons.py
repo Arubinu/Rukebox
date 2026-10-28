@@ -374,7 +374,11 @@ class FakeFlicClient:
     def __init__(self, host):
         self.host = host
         self.channels = []
+        self.listeners = []
         self.handled = False
+
+    def add_battery_status_listener(self, listener):
+        self.listeners.append(listener)
 
     def get_info(self, callback):
         callback({"bd_addr_of_verified_buttons": ["80:e4:da:00:00:01", "80:e4:da:00:00:02"]})
@@ -394,6 +398,7 @@ def load_flic_bridge():
     fake.ConnectionStatus = types.SimpleNamespace(Disconnected="disconnected", Connected="connected",
                                                   Ready="ready")
     fake.ButtonConnectionChannel = lambda address: types.SimpleNamespace(bd_addr=address)
+    fake.BatteryStatusListener = lambda address: types.SimpleNamespace(bd_addr=address)
     fake.FlicClient = FakeFlicClient
     with mock.patch.dict(sys.modules, {"fliclib": fake}):
         sys.modules.pop("flic_click", None)
@@ -444,6 +449,13 @@ class FlicBridgeTest(unittest.TestCase):
             bridge.on_button_event(None, "single", False, 0)
             self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"},
                              "a waking press that came queued was that first gesture")
+
+    def test_each_button_battery_is_noted(self):
+        listeners = self.bridge.client.listeners
+        self.assertEqual([listener.bd_addr for listener in listeners], ["80:e4:da:00:00:01", "80:e4:da:00:00:02"])
+        with mock.patch.object(self.bridge.audio_diag, "set_flic_battery") as noted:
+            listeners[0].on_battery_status(listeners[0], 42, 0)
+        noted.assert_called_once_with(self.bridge.STATE_DIR, "80:e4:da:00:00:01", 42)
 
     def test_a_press_kept_while_the_button_was_away_is_dropped(self):
         with mock.patch.object(self.bridge, "send_control_command", return_value={"ok": True}) as sent:

@@ -193,3 +193,13 @@ class FlicUpdatePauseTest(unittest.TestCase):
         clear = next(line for line in script.splitlines() if line.startswith("clear_updating()"))
         self.assertIn("flic-pause.json", clear, "the updater ends the pause whatever the outcome")
         self.assertIn("trap 'rm -f \"$0\"; clear_updating' EXIT", script)
+
+
+class FlicBatteryTest(unittest.TestCase):
+    def test_the_battery_heard_is_kept_and_an_unknown_level_changes_nothing(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        self.assertEqual(audio_diag.flic_battery(folder), {})
+        audio_diag.set_flic_battery(folder, "80:e4:da:00:00:01", 64)
+        audio_diag.set_flic_battery(folder, "80:e4:da:00:00:01", -1)
+        self.assertEqual(audio_diag.flic_battery(folder), {"80:E4:DA:00:00:01": 64})

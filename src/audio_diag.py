@@ -186,6 +186,35 @@ def set_flic_linked(state_dir, linked):
     _mark(state_dir, FLIC_LINK_FILE, FLIC_LINK_SEC if linked else 0)
 
 
+FLIC_BATTERY_FILE = "flic-battery.json"
+
+
+def flic_battery(state_dir):
+    """{button address: battery percentage} as the bridge last heard them; {} when unknown."""
+    try:
+        with open(os.path.join(state_dir or "", FLIC_BATTERY_FILE), encoding="utf-8") as f:
+            found = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(found, dict):
+        return {}
+    return {str(k).upper(): int(v) for k, v in found.items()
+            if isinstance(v, (int, float)) and 0 <= v <= 100}
+
+
+def set_flic_battery(state_dir, address, percent):
+    """Notes one button's battery; -1 (flicd does not know) leaves the last known value."""
+    if not isinstance(percent, (int, float)) or not 0 <= percent <= 100:
+        return
+    found = flic_battery(state_dir)
+    found[str(address).upper()] = int(percent)
+    path = os.path.join(state_dir or "", FLIC_BATTERY_FILE)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(found, f)
+    os.replace(tmp, path)
+
+
 def pause_flic_for_update(seconds, state_dir=None, sock="/tmp/rukebox_control.sock"):
     """Rests flicd for an update sent over SSH unless its button is connected (0 lets it go); what it did."""
     if state_dir is None:
