@@ -170,6 +170,31 @@ test("the last run is described, and erasing it asks what the radio does next", 
   await page.close();
 });
 
+test("erasing then standing by asks nothing more, and music already playing is no error", async (t) => {
+  for (const [way, started] of [[0, null], [1, { __raw: { ok: false, error: "already_playing" } }]]) {
+    const page = load({
+      routes: {
+        "GET /api/status": STATUS,
+        "GET /api/journal/summary": { enabled: true, days: 14, totals: {}, chart: [] },
+        "GET /api/journal/run": RUN,
+        "POST /api/journal/erase_run": { session: 4, tracks: 12, events: 40, wins: 0 },
+        "POST /api/action/start_music": started,
+        "POST /api/action/standby": { __raw: { ok: false, error: "not_playing" } },
+      },
+    });
+    await until(() => !page.$("btnEraseRun").hidden);
+    page.$("btnEraseRun").click();
+    await until(() => !page.$("modalOverlay").hidden);
+    page.document.querySelectorAll(".choice-btn")[way].click();
+    await until(() => page.document.querySelector(".toast"));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(page.sent("POST", "/api/action/standby").length, 0, "the server stood it by already");
+    const toasts = [...page.document.querySelectorAll(".toast")].map((toast) => toast.textContent).join(" | ");
+    assert.doesNotMatch(toasts, /did not answer|failed/i, toasts);
+    await page.close();
+  }
+});
+
 test("a start that did nothing yet offers nothing", async (t) => {
   const page = load({
     routes: {

@@ -200,9 +200,11 @@ btnEraseRun.addEventListener("click", async () => {
     apiPost("/api/action/poweroff");
     return;
   }
-  const answer = await apiPost(choice === "standby" ? "/api/action/standby"
-                                                   : "/api/action/start_music");
-  if (!answer.ok) showToolError(t("home.transport_failed"), answer);
+  // Standby: the server stood the radio by before erasing, so the song playing went with the run.
+  if (choice === "music") {
+    const answer = await apiPost("/api/action/start_music");
+    if (!answer.ok && answer.error !== "already_playing") showToolError(t("home.transport_failed"), answer);
+  }
   refreshStatus();
 });
 
