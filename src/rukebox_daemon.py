@@ -2756,7 +2756,8 @@ class RadioDaemon:
 
     def _speaker_volume_linked(self):
         """Whether the speaker's own volume IS the radio's volume."""
-        return bool(self.cfg.get("SPEAKER_VOLUME_LINK"))
+        # Only a Bluetooth speaker has a volume of its own: a wired output stays at 0 dB.
+        return bool(self.cfg.get("SPEAKER_VOLUME_LINK")) and self._output_kind() == "bluetooth"
 
     def _apply_volume_link(self):
         """The link just turned on or off: one volume must stay in charge."""

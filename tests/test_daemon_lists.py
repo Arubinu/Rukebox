@@ -602,6 +602,12 @@ class DaemonListsTest(unittest.TestCase):
         with mock.patch.object(rukebox_daemon.time, "time", return_value=946684800.0):
             self.assertFalse(self.daemon._rtc_plausible(), "the year 2000: a module reset")
 
+    def test_only_a_bluetooth_speaker_links_its_volume(self):
+        self.daemon.cfg.update({"SPEAKER_VOLUME_LINK": True, "AUDIO_OUTPUT": "bluetooth"})
+        self.assertTrue(self.daemon._speaker_volume_linked())
+        self.daemon.cfg["AUDIO_OUTPUT"] = "usb"
+        self.assertFalse(self.daemon._speaker_volume_linked(), "a wired output stays at 0 dB")
+
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:
             self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")
