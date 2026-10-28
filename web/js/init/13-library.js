@@ -432,7 +432,13 @@ function upnextRemoveButton(item) {
   drop.title = t("upnext.remove", { name });
   drop.addEventListener("click", async () => {
     const r = await apiPost("/api/queue/remove", { key: item.key });
-    if (r.ok) showToast(t("upnext.removed", { name }));
+    if (r.ok) {
+      showToast(t("upnext.removed", { name }), "", { action: { label: t("upnext.undo"), icon: "restart", run: async () => {
+        const back = await apiPost("/api/queue/undo", { key: item.key });
+        if (!back.ok) showError(back.error);
+        refreshUpnext();
+      } } });
+    }
     else if (r.error === "queue_changed") showToast(t("upnext.queue_changed"));
     else showToolError(t("common.failed"), r);
     refreshUpnext();

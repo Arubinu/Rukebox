@@ -2935,6 +2935,18 @@ def api_queue_remove():
     return jsonify(result)
 
 
+@app.route("/api/queue/undo", methods=["POST"])
+def api_queue_undo():
+    """{key}: the song just taken out of Up next goes back where it was."""
+    if not _may_play_lists():
+        return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
+    path = _path_for_key((request.get_json(silent=True) or {}).get("key"))
+    if not path:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    result = control("undo_drop", path=path)
+    return jsonify(result), (200 if result.get("ok") else 409)
+
+
 @app.route("/api/queue/move", methods=["POST"])
 def api_queue_move():
     """{key, after}: a song of Up next moved just after another ("": first), for whoever may put a list on."""

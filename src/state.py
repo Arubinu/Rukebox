@@ -270,6 +270,28 @@ class RadioState:
             self._save()
             return at
 
+    def put_back(self, path, after, asked, by=None):
+        """A song taken out of the queue put back just after `after` ("" or gone: first), asked
+        for again if it was and its place allows it. Its new place."""
+        with self._lock:
+            waiting = set(self.requested_paths())
+            waiting.discard(path)
+            queue = [p for p in self.data["play_queue"] if p != path]
+            at = queue.index(after) + 1 if after and after in queue else 0
+            count = 0
+            while count < len(queue) and queue[count] in waiting:
+                count += 1
+            queue.insert(at, path)
+            if at < count or (asked and at <= count):
+                waiting.add(path)
+            self.data["play_queue"] = queue
+            self.data["requests"] = [p for p in queue if p in waiting]
+            if path in waiting and by:
+                self.data.setdefault("request_by", {})[path] = by
+            self._drop_stale_requests()
+            self._save()
+            return at
+
     def enqueue_requests(self, paths, person=None):
         """Several requests at once, after the ones waiting; how many were added."""
         with self._lock:

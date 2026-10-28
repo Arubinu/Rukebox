@@ -16,6 +16,7 @@ function page(moveAnswer) {
     "GET /api/queue": QUEUE,
     "POST /api/queue/move": moveAnswer || { position: 0 },
     "POST /api/queue/remove": {},
+    "POST /api/queue/undo": {},
   } });
 }
 
@@ -94,6 +95,9 @@ test("a song taken out of Up next is sent by key, and the list read again", asyn
   assert.deepEqual(p.sent("POST", "/api/queue/remove")[0].body, { key: "k2" });
   await until(() => p.document.querySelector(".toast"), 8000);
   assert.match(p.document.querySelector(".toast").textContent, /Two taken out/);
+  p.document.querySelector(".toast .toast-action").click();
+  await until(() => p.sent("POST", "/api/queue/undo").length, 8000);
+  assert.deepEqual(p.sent("POST", "/api/queue/undo")[0].body, { key: "k2" }, "undone from the toast");
   await until(() => p.sent("GET", "/api/queue").length > before, 8000);
   await p.close();
 });

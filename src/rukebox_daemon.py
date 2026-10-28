@@ -337,6 +337,7 @@ class RadioDaemon:
         self._bt_start_done = False
         # Restarted while asleep (an update): no start of its own until someone starts the music.
         self._asleep_since_restart = False
+        self._last_dropped = None
         # flicd runs for a paired button: whether it waits for a press is the bridge's marker.
         self._flic_listening = False
         self._started_monotonic = time.monotonic()
@@ -2234,18 +2235,47 @@ class RadioDaemon:
         if changed:
             self._bump_state()
 
+    # How long a song taken out of Up next can be put back where it was.
+    UNDO_DROP_SEC = 120
+
     def _drop_from_queue(self, path):
         """A song taken out of Up next: it comes back with the next pass, like any other."""
         if not path:
             return {"ok": False, "error": "queue_changed"}
         forced = path == self._forced_next
+        queue = list(self.state.data.get("play_queue") or [])
+        place = queue.index(path) if path in queue else -1
+        memory = {"path": path, "forced": forced, "after": queue[place - 1] if place > 0 else "",
+                  "asked": path in self.state.requested_paths(),
+                  "by": (self.state.data.get("request_by") or {}).get(path), "at": time.monotonic()}
         if forced:
             self._forced_next = None
         if not self.state.take_from_queue_many([path]) and not forced:
             return {"ok": False, "error": "queue_changed"}
-        dropped = self.state.pop_dedication(path)
-        if dropped is not None:
-            self._forget_voice(dropped)
+        self._forget_dropped()
+        memory["dedication"] = self.state.pop_dedication(path)
+        self._last_dropped = memory
+        self._bump_state()
+        return {"ok": True}
+
+    def _forget_dropped(self):
+        """The song taken out before can no longer come back: its recorded dedication goes."""
+        last, self._last_dropped = self._last_dropped, None
+        if last and last.get("dedication") is not None:
+            self._forget_voice(last["dedication"])
+
+    def _undo_drop(self, path):
+        """Puts back, where it was, the song just taken out of Up next."""
+        last = self._last_dropped
+        if not last or last["path"] != path or time.monotonic() - last["at"] > self.UNDO_DROP_SEC:
+            return {"ok": False, "error": "undo_too_late"}
+        self._last_dropped = None
+        if last["forced"] and not self._forced_next:
+            self._forced_next = path
+        else:
+            self.state.put_back(path, last["after"], last["asked"], last["by"])
+        if last.get("dedication") is not None:
+            self.state.set_dedication(path, last["dedication"])
         self._bump_state()
         return {"ok": True}
 
@@ -5362,6 +5392,8 @@ class RadioDaemon:
                                              "fixed": 1 if paths and (not queue or paths[0] != queue[0]) else 0}}
             if cmd == "drop_from_queue":
                 return self._drop_from_queue(str(msg.get("path") or ""))
+            if cmd == "undo_drop":
+                return self._undo_drop(str(msg.get("path") or ""))
             if cmd == "move_queue":
                 return self._move_queue(str(msg.get("path") or ""), str(msg.get("after") or ""))
             if cmd == "drop_dedication":

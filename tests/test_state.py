@@ -213,6 +213,19 @@ class StateTest(unittest.TestCase):
         self.s.data[self.s.ASLEEP_KEY]["at"] -= 3600
         self.assertFalse(self.s.take_asleep("boot-a", 1800), "too long ago")
 
+    def test_a_song_put_back_takes_its_place_again(self):
+        self.s.data["play_queue"] = ["a", "b", "c", "d"]
+        self.s.enqueue_requests(["c"], person="p1")
+        self.s.take_from_queue("c")
+        self.assertEqual(self.s.put_back("c", "", True, "p1"), 0)
+        self.assertEqual((self.s.requested_paths(), self.s.data["request_by"]), (["c"], {"c": "p1"}))
+        self.s.take_from_queue("b")
+        self.s.put_back("b", "a", False)
+        self.assertEqual(self.s.data["play_queue"], ["c", "a", "b", "d"], "after the song it followed")
+        self.s.take_from_queue("d")
+        self.s.put_back("d", "gone", False)
+        self.assertEqual(self.s.data["play_queue"][0], "d", "the one it followed left: first")
+
     def test_take_from_queue(self):
         self.s.data["play_queue"] = ["a", "b"]
         self.s.enqueue_request("b")
