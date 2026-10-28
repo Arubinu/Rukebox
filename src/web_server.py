@@ -2886,6 +2886,17 @@ def api_queue():
     dedications = (result.get("data") or {}).get("dedications") or {}
     show_dedications = bool(cfg().get("DEDICATIONS_ENABLED"))
     excluded = _excluded_keys()
+    # Who asked is the house's to know, not a guest's.
+    names = {}
+    if _role() != "guest":
+        try:
+            box = _suggestion_box()
+            for path, person in (data.get("request_by") or {}).items():
+                found = box.device_by_id(person)
+                if found and found.get("name"):
+                    names[path] = found["name"]
+        except Exception:  # noqa: BLE001 - without the device base, the songs are only "asked for"
+            log.debug("Could not name who asked", exc_info=True)
     for path in (result.get("data") or {}).get("paths") or []:
         item = lib.item_for_path(path)
         if item is None:
@@ -2894,6 +2905,8 @@ def api_queue():
                     "artist": tags.get("artist"), "album": tags.get("album")}
         item["name"] = os.path.splitext(os.path.basename(path))[0]
         item["requested"] = path in requested
+        if path in requested and path in names:
+            item["asked_by"] = names[path]
         item["excluded"] = item.get("key") in excluded
         if show_dedications and isinstance(dedications.get(path), dict):
             item["dedication"] = {"from": dedications[path].get("from"),

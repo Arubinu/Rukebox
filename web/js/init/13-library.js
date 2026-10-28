@@ -484,8 +484,10 @@ async function refreshUpnext() {
       li.classList.add("is-requested");
       const tag = document.createElement("span");
       tag.className = "upnext-tag";
-      tag.textContent = t("upnext.requested");
-      li.append(tag);
+      tag.textContent = item.asked_by ? t("upnext.requested_by", { name: item.asked_by }) : t("upnext.requested");
+      if (item.asked_by) tag.title = tag.textContent;
+      // Under the title and artist, on a line of its own: a long name never squeezes the title.
+      main.append(tag);
     }
     if (item.key) li.append(libraryButton(item, false));
     if (mayMove && item.key) li.append(upnextRemoveButton(item));

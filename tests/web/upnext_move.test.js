@@ -101,3 +101,17 @@ test("a song taken out of Up next is sent by key, and the list read again", asyn
   await until(() => p.sent("GET", "/api/queue").length > before, 8000);
   await p.close();
 });
+
+test("a song asked for says by whom, under its title", async () => {
+  const p = load({ hash: "#home/upnext", routes: {
+    "GET /api/queue": { enabled: true, may_move: false, fixed: 0, items: [
+      { key: "k1", title: "One", name: "one", requested: true, asked_by: "Marie-Charlotte de la Montagne" },
+      { key: "k2", title: "Two", name: "two", requested: true }] },
+  } });
+  await until(() => p.$("upnextList").children.length === 2, 8000);
+  const [first, second] = [...p.$("upnextList").children].map((li) => li.querySelector(".recent-main .upnext-tag"));
+  assert.equal(first.textContent, "Asked for by Marie-Charlotte de la Montagne");
+  assert.equal(first.title, first.textContent, "the whole name when it is cut");
+  assert.equal(second.textContent, "Asked for");
+  await p.close();
+});

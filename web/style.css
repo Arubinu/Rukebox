@@ -1952,7 +1952,12 @@ body:not([data-access="guest"]) .guest-credits { display: none !important; }
 
 .library-next { padding-inline: 10px; min-height: var(--tap); }
 .upnext-tag {
-  flex: none;
+  display: inline-block;
+  margin-top: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 1px 8px;
   border-radius: 999px;
   background: var(--accent-soft);

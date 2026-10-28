@@ -2558,6 +2558,18 @@ class ExcludedTracksTest(unittest.TestCase):
             self.assertEqual(owner.post("/api/queue/undo", json={"key": self.keys["Alpha/one.mp3"]}).status_code, 200)
             self.assertEqual(sent[-1], ("undo_drop", {"path": one}))
 
+    def test_up_next_names_who_asked_to_the_house_only(self):
+        path = self.tracks["Alpha/one.mp3"]
+        box = unittest.mock.Mock()
+        box.device_by_id.side_effect = lambda person: {"name": "Marie"} if person == "p1" else None
+        answer = {"ok": True, "data": {"paths": [path], "requested": [path], "request_by": {path: "p1"}}}
+        with unittest.mock.patch.object(ws, "control", return_value=answer),                 unittest.mock.patch.object(ws, "_suggestion_box", return_value=box):
+            items = self.owner().get("/api/queue").get_json()["data"]["items"]
+            self.assertEqual(items[0]["asked_by"], "Marie")
+            with unittest.mock.patch.object(ws, "_role", return_value="guest"):
+                items = self.owner().get("/api/queue").get_json()["data"]["items"]
+        self.assertNotIn("asked_by", items[0], "a guest is not told who asked")
+
     def test_a_list_keeps_its_track_and_says_it_is_excluded(self):
         owner = self.owner()
         list_id = owner.post("/api/lists", json={"name": "Soir", "kind": "manual"}).get_json()["data"]["id"]

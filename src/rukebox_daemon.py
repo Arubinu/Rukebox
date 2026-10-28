@@ -5384,8 +5384,11 @@ class RadioDaemon:
                     count = 10
                 paths = self._next_tracks(count)
                 queue = self.state.data.get("play_queue") or []
+                asked = self.state.requested_paths()
+                by = self.state.data.get("request_by") or {}
                 return {"ok": True, "data": {"paths": paths,
-                                             "requested": self.state.requested_paths(),
+                                             "requested": asked,
+                                             "request_by": {p: by[p] for p in asked if by.get(p)},
                                              "dedications": self.state.dedications(),
                                              "movable": self._loop_mode not in ("track", "album"),
                                              # A song forced next is not in the queue: it cannot move.
