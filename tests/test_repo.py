@@ -346,6 +346,9 @@ class SystemSoundsTest(unittest.TestCase):
             if name == "keepalive.wav":
                 self.assertLess(rms, -40, "it only keeps the speaker awake")
                 continue
+            if name == "signature.wav":
+                self.assertTrue(-6 <= peak <= -1, "a short ting, heard but not startling")
+                continue
             self.assertTrue(-14 <= rms <= -9, "%s: %.1f dBFS on average" % (name, rms))
             self.assertLess(peak, -0.5, "%s clips" % name)
 

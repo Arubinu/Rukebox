@@ -202,6 +202,10 @@ folders:
   # clock sounds above, so it never interrupts music (see _play_cue_sound()).
   ap_connect_sound: "/home/pi/audio/system/ap_connect.wav"
 
+  # A short sound played just before every other system sound, so that
+  # one is recognised as the radio's at once. Leave empty for none.
+  signature_sound: "/home/pi/audio/system/signature.wav"
+
   # Played when the Flic button connects again after waiting for a press
   # (after a restart, or out of range). Leave empty to disable.
   flic_connect_sound: "/home/pi/audio/system/flic_connect.wav"

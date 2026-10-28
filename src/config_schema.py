@@ -282,6 +282,13 @@ SETTINGS = [
         "Wi-Fi connection sound",
     ),
     Setting(
+        "SIGNATURE_SOUND", "folders", "signature_sound", "str",
+        "/home/pi/audio/system/signature.wav",
+        "A short sound played just before every other system sound, so that\n"
+        "one is recognised as the radio's at once. Leave empty for none.",
+        "Signature before each sound",
+    ),
+    Setting(
         "FLIC_CONNECT_SOUND", "folders", "flic_connect_sound", "str",
         "/home/pi/audio/system/flic_connect.wav",
         "Played when the Flic button connects again after waiting for a press\n"
@@ -1555,6 +1562,7 @@ SHELL_SETTINGS = (
     "clock.bluetooth_fallback",
     "clock.bluetooth_mac",
     "clock.sync_grace_sec",
+    "folders.signature_sound",
     "folders.ap_connect_sound",
     "folders.flic_connect_sound",
     "folders.battery_low_sound",
@@ -1596,6 +1604,7 @@ def _environment_paths():
     return {
         "AP_CONNECT_SOUND": paths.resolve("AP_CONNECT_SOUND", paths.music("system", "ap_connect.wav")),
         "FLIC_CONNECT_SOUND": paths.resolve("FLIC_CONNECT_SOUND", paths.music("system", "flic_connect.wav")),
+        "SIGNATURE_SOUND": paths.resolve("SIGNATURE_SOUND", paths.music("system", "signature.wav")),
         "BATTERY_LOW_SOUND": paths.resolve("BATTERY_LOW_SOUND", paths.music("system", "battery_low.wav")),
         "CLOCK_FALLBACK_SOUND": paths.resolve(
             "CLOCK_FALLBACK_SOUND", paths.music("system", "clock_fallback.wav")),
@@ -1693,5 +1702,5 @@ GPIO_BUTTON_SETTINGS = frozenset({
 # Written into config.txt by scripts/rotary.sh: a change takes a restart of the machine.
 ROTARY_SETTINGS = frozenset({"ROTARY_ENABLED", "ROTARY_PIN_A", "ROTARY_PIN_B", "ROTARY_PIN_PUSH"})
 
-SYSTEM_SOUNDS = ("CLOCK_OK_SOUND", "CLOCK_FALLBACK_SOUND", "AP_CONNECT_SOUND", "FLIC_CONNECT_SOUND",
+SYSTEM_SOUNDS = ("SIGNATURE_SOUND", "CLOCK_OK_SOUND", "CLOCK_FALLBACK_SOUND", "AP_CONNECT_SOUND", "FLIC_CONNECT_SOUND",
                  "BATTERY_LOW_SOUND", "RESTART_SOUND", "KEEPALIVE_SOUND")

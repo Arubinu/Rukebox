@@ -476,6 +476,43 @@ class DaemonListsTest(unittest.TestCase):
             control_client.send_control_command(path, "single_click", source="flic", waking=True)
             click.assert_called_once()
 
+    def test_the_signature_opens_every_system_sound_but_the_keep_alive(self):
+        signature = os.path.join(self.dir, "signature.wav")
+        sound = os.path.join(self.dir, "wifi.wav")
+        for path in (signature, sound):
+            open(path, "wb").close()
+        self.daemon.cfg["SIGNATURE_SOUND"] = signature
+        with mock.patch.object(rukebox_daemon.subprocess, "Popen") as popen,                 mock.patch.object(self.daemon, "_capped", return_value=None):
+            self.daemon._play_cue_sound(sound, "AP_CONNECT_SOUND")
+            self.assertEqual(popen.call_args[0][0][-2:], [signature, sound])
+            self.daemon._play_cue_sound(sound, "KEEPALIVE_SOUND")
+            self.assertEqual(popen.call_args[0][0][-2:][-1], sound)
+            self.assertNotIn(signature, popen.call_args[0][0], "the keep-alive stays discreet")
+            self.daemon._play_cue_sound(sound)
+            self.assertNotIn(signature, popen.call_args[0][0], "a sound that is not a system sound")
+            self.daemon.cfg["SIGNATURE_SOUND"] = ""
+            self.daemon._play_cue_sound(sound, "AP_CONNECT_SOUND")
+            self.assertNotIn(signature, popen.call_args[0][0], "turned off")
+
+    def test_a_restart_waits_for_the_signature_before_its_sound(self):
+        signature = os.path.join(self.dir, "signature.wav")
+        sound = os.path.join(self.dir, "restart.wav")
+        open(sound, "wb").close()
+        import wave
+        with wave.open(signature, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(1000)
+            w.writeframes(bytes(500))
+        self.daemon.cfg.update({"SIGNATURE_SOUND": signature, "RESTART_SOUND": sound})
+        with mock.patch.object(self.daemon, "_play_cue_sound") as cue,                 mock.patch.object(self.daemon, "_set_timer") as timer,                 mock.patch.object(self.daemon, "_begin_play") as begin:
+            self.daemon._do_planned_restart()
+            cue.assert_called_once_with(signature, "SIGNATURE_SOUND")
+            self.assertEqual(timer.call_args[0][:2], ("restart_cue", 0.25))
+            begin.assert_not_called()
+            timer.call_args[0][2]()
+            begin.assert_called_once_with("restart_cue", sound)
+
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:
             self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")

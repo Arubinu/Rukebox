@@ -13,6 +13,7 @@ import sys
 import tempfile
 import threading
 import time
+import wave
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -538,6 +539,21 @@ class RadioDaemon:
                         "it, and it cannot be moved (it has to be paired there once): the "
                         "sound goes out of the first one", state["controller"], expected)
 
+    def _signature_for(self, key):
+        """The signature to play before the system sound `key`, or None."""
+        if key not in SYSTEM_SOUNDS or key in ("SIGNATURE_SOUND", "KEEPALIVE_SOUND"):
+            return None
+        path = self.cfg.get("SIGNATURE_SOUND") or ""
+        return path if path and os.path.exists(path) else None
+
+    @staticmethod
+    def _sound_seconds(path, fallback=0.4):
+        try:
+            with wave.open(path) as sound:
+                return sound.getnframes() / float(sound.getframerate())
+        except (OSError, EOFError, wave.Error):
+            return fallback
+
     def _play_cue_sound(self, path, key=None):
         # No file set is "no sound", a choice: only a file set and missing is worth a warning.
         if not path:
@@ -545,6 +561,7 @@ class RadioDaemon:
         if not os.path.exists(path):
             log.warning("Confirmation sound not found: %s", path)
             return
+        signature = self._signature_for(key)
         volume = self._capped(self._source_volume(key) if key else None)
         command = [
             "mpv", "--no-terminal", "--really-quiet",
@@ -552,7 +569,7 @@ class RadioDaemon:
         ] + MPV_LEAN
         if volume is not None:
             command.append("--volume=%.1f" % volume)
-        command.append(path)
+        command += [signature, path] if signature else [path]
         try:
             subprocess.Popen(
                 command,
@@ -2440,6 +2457,13 @@ class RadioDaemon:
         if sound and os.path.exists(sound):
             self._restore_base_volume()
             self._sound_volume = self._source_volume("RESTART_SOUND")
+            signature = self._signature_for("RESTART_SOUND")
+            if signature:
+                # Played aside: the restart follows the end of the cue the main player plays.
+                self._play_cue_sound(signature, "SIGNATURE_SOUND")
+                self._set_timer("restart_cue", self._sound_seconds(signature),
+                                lambda: self._begin_play("restart_cue", sound))
+                return
             self._begin_play("restart_cue", sound)
             return
         self._restart_now()
