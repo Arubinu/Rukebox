@@ -93,7 +93,14 @@ def recognised(releases, installed, tree_hash):
 
 def _here(installed):
     # A tree that was never given a release name is taken as the start of its own major.
-    return version.tag_parts(installed) or (version.MAJOR, 0, 0, 0)
+    parts = version.tag_parts(installed)
+    if parts is None:
+        return (version.MAJOR, 0, 0, 0)
+    # A development build (commits past its tag) whose code is a newer major than the tag is
+    # ahead of that major's first release: never sent back to the major before.
+    if parts[0] < version.MAJOR and parts[3] > 0:
+        return (version.MAJOR, 0, 0, -1)
+    return parts
 
 
 def target(releases, installed):

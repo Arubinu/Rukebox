@@ -53,7 +53,9 @@ class TargetTest(unittest.TestCase):
             self.assertEqual(tag(releases.target(LISTED, "abc123")[0]), "v2.1.0")
 
     def test_commits_past_the_newest_tag_count_as_being_on_it(self):
-        self.assertEqual(releases.target(LISTED, "v1.19.2-3-gabcdef")[1], True)
+        # A 1.x radio: its own code says major 1, and that code decides.
+        with mock.patch.object(releases.version, "MAJOR", 1):
+            self.assertEqual(releases.target(LISTED, "v1.19.2-3-gabcdef")[1], True)
 
 
 class PreReleaseTest(unittest.TestCase):
@@ -65,6 +67,16 @@ class PreReleaseTest(unittest.TestCase):
         listed.insert(0, release("v2.0.0"))
         found, crosses = releases.target(listed, "v2.0.0-rc.1")
         self.assertEqual((found["tag_name"], crosses), ("v2.0.0", False), "the release follows its test")
+
+
+class AheadOfItsStampTest(unittest.TestCase):
+    def test_code_of_a_newer_major_than_its_stamp_is_never_sent_back(self):
+        listed = [release("v1.19.3"), release("v1.19.0")]
+        with mock.patch.object(releases.version, "MAJOR", 2):
+            self.assertEqual(releases.target(listed, "v1.19.0-145-gf033c91"), (None, False),
+                             "a 2.x build stamped from an old tag is not offered 1.19.3")
+            listed.insert(0, release("v2.0.0"))
+            self.assertEqual(releases.target(listed, "v1.19.0-145-gf033c91")[0]["tag_name"], "v2.0.0")
 
 
 class RefusalTest(unittest.TestCase):
