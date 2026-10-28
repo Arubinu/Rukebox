@@ -582,6 +582,16 @@ class DaemonListsTest(unittest.TestCase):
             self.daemon._restart_if_nothing_plays()
             restart.assert_called_once()
 
+    def test_after_a_standby_the_next_song_is_not_the_one_shown(self):
+        a, b = self.paths["rock1.mp3"], self.paths["jazz1.mp3"]
+        self.daemon._last_music_track = a
+        self.daemon.state.data["play_queue"] = [a, b]
+        self.daemon._play_kind = None
+        self.assertEqual(self.daemon._build_status()["upcoming_track_path"], b,
+                         "the song cut short heads the queue to be taken up again: next is the one after")
+        self.daemon._loop_mode = "track"
+        self.assertEqual(self.daemon._upcoming_after(a), a, "a song on repeat is its own next")
+
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:
             self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")

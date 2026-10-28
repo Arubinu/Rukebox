@@ -5120,6 +5120,15 @@ class RadioDaemon:
             "age": round(time.monotonic() - self._last_sound["at"], 2),
         }
 
+    def _upcoming_after(self, shown):
+        """What comes after the song shown: a song cut short by a standby heads the queue to be
+        taken up again, and is the one shown, not the one after it."""
+        upcoming = self._upcoming_track()
+        if not upcoming or upcoming != shown or self._loop_mode == "track" or self._play_kind == "music":
+            return upcoming
+        queue = self.state.data.get("play_queue") or []
+        return queue[1] if len(queue) > 1 and queue[0] == shown else None
+
     def _build_status(self):
         music_track = self._last_music_track
         sound, sound_label = self._interrupting_sound()
@@ -5138,7 +5147,7 @@ class RadioDaemon:
             "sound_announcement": sound_label,
             "last_sound": self._last_sound_status(),
             "last_card": self._last_card_status(),
-            "upcoming_track_path": self._upcoming_track(),
+            "upcoming_track_path": self._upcoming_after(music_track),
             "track_count": self._track_count,
             "active_list": self._active_list_status(),
             "selection": self._selection_status(),
