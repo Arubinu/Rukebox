@@ -2710,7 +2710,9 @@ album's front from the Cover Art Archive as the album's `cover.jpg`.
 blue *Refreshing…* when the page comes back on screen (a phone unlocked, a tab
 shown again) until the radio answers, or when a read lingers; orange with the
 age of what is shown (`2 min ago`) when no answer came for 15 seconds; red
-*Disconnected* when the radio no longer answers. A tap on it reads the page
+*Disconnected* when the radio no longer answers; *New version* after an update,
+which never reloads the page by itself: the page goes on working, and a tap on
+the badge reloads it when you choose. Otherwise a tap on it reads the page
 again. On a narrow phone a long badge hides the title, never the logo.
 
 Light theme, dark theme, or automatically following system preferences

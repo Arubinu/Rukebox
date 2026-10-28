@@ -32,7 +32,7 @@ test("a page the radio tells it is switching off says so, without having asked",
   assert.equal(page.$("bootOverlay").hidden, false);
 });
 
-test("back from an update, the page reloads under the overlay without showing in between", async (t) => {
+test("back from an update, the page is never reloaded behind the reader's back", async (t) => {
   let calls = 0;
   let updated = false;
   let release;
@@ -47,12 +47,13 @@ test("back from an update, the page reloads under the overlay without showing in
   await until(() => page.$("bootOverlay").hidden);
   release();
   await until(() => !page.$("bootOverlay").hidden);
-  let shown = false;
-  new page.window.MutationObserver(() => { if (page.$("bootOverlay").hidden) shown = true; })
-    .observe(page.$("bootOverlay"), { attributes: true });
   updated = true;
-  await until(() => page.navigations.length, 15000);
-  assert.equal(shown, false, "the old page never shows between the update and the reload");
+  await until(() => page.$("bootOverlay").hidden, 15000);
+  await until(() => page.$("connLabel").textContent === "New version");
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.equal(page.navigations.length, 0, "no reload on its own");
+  page.$("connPill").click();
+  await until(() => page.navigations.length, 8000);
 });
 
 test("an address with a page opens that page", async (t) => {

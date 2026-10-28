@@ -606,6 +606,8 @@ code {
   to { transform: rotate(360deg); }
 }
 .dot.stale { background: var(--warning); }
+.dot.update { background: var(--accent); }
+.status-pill:has(.dot.update) { color: var(--accent); border-color: var(--accent); }
 .status-pill:has(.dot.busy) { color: var(--accent); border-color: var(--accent-soft); }
 .status-pill:has(.dot.stale) { color: var(--warning-text); border-color: var(--warning-soft); }
 @media (prefers-reduced-motion: reduce) {

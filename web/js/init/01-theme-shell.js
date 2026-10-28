@@ -623,7 +623,8 @@ function apiDelete(path, body) {
    phone it shows "Refreshing" before the first answer, and an old answer turns it orange. */
 const CONN_SLOW_MS = 500;
 const CONN_STALE_MS = 15000;
-const conn = { ok: null, freshAt: 0, resumeAt: 0, slow: 0 };
+// newVersion: the radio was updated under this page, which only a reload brings up to it.
+const conn = { ok: null, freshAt: 0, resumeAt: 0, slow: 0, newVersion: false };
 
 function connSlowWatch() {
   let counted = false;
@@ -654,6 +655,9 @@ function paintConnPill() {
   if (conn.ok === false) {
     state = "error";
     key = piGoingDown === "poweroff" ? "conn.powered_off" : "conn.offline";
+  } else if (conn.newVersion) {
+    state = "update";
+    key = "conn.new_version";
   } else if (resuming || (conn.slow > 0 && age <= CONN_STALE_MS)) {
     state = "busy";
     key = "conn.refreshing";
@@ -665,7 +669,7 @@ function paintConnPill() {
     state = "ok";
     key = "conn.fresh";
   }
-  ["ok", "error", "busy", "stale"].forEach((name) => dot.classList.toggle(name, name === state));
+  ["ok", "error", "busy", "stale", "update"].forEach((name) => dot.classList.toggle(name, name === state));
   const text = t(key, vars);
   label.dataset.i18n = key;
   if (label.textContent !== text) label.textContent = text;
@@ -677,6 +681,10 @@ function setConnDot(ok) {
 }
 
 function connRefreshNow() {
+  if (conn.newVersion) {
+    window.location.reload();
+    return;
+  }
   conn.resumeAt = Date.now();
   paintConnPill();
   ON_SHOW_REFRESHES.forEach(({ callback, pages }) => { if (pageOnScreen(pages)) callback(); });
@@ -727,14 +735,15 @@ function setGoingDown(kind, askedAt) {
     kind === "update" ? "boot.updating_note" : undefined);
   } else if (overlayForConnection) {
     connectionFailures = 0;
-    if (wasUpdating && !updateSeenDone) {
-      // The new version needs a fresh page: reloaded under the overlay, never shown in between.
-      updateSeenDone = true;
-      window.location.reload();
-      return;
-    }
     overlayForConnection = false;
     hideBootOverlay();
+    // Never reloaded behind the reader's back: the badge offers the new version's page.
+    if (wasUpdating && !updateSeenDone) {
+      updateSeenDone = true;
+      conn.newVersion = true;
+      paintConnPill();
+      showToast(t("conn.new_version_toast"));
+    }
   }
 }
 
