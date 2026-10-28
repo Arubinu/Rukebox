@@ -4148,8 +4148,8 @@ button in its own row is a test and always plays.
   put back to the original, or **turned off** - the keep-alive sound
   included, for a speaker that stays awake by itself (no energy spent
   looping a near-silence). Each original says what it means by its shape:
-  a rising major chime when the clock is set, a questioning minor third when
-  it is uncertain, a doorbell when a device joins the Wi-Fi, a quick rising
+  the clock's three bells, rising to a resolved chord when it is set and
+  wavering unresolved when it is uncertain, a doorbell when a device joins the Wi-Fi, a quick rising
   glide and click when the Flic button connects, three falling notes for a
   low battery, a rising whoosh before a restart. They stand a little above
   the music at the same volume, and an update brings a new original in;
