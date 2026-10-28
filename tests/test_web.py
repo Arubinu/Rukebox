@@ -1570,6 +1570,18 @@ class StreamRouteTest(unittest.TestCase):
         self.assertIn("stream", data)
         self.assertFalse(data["stream"]["available"])
 
+    def test_the_player_hears_of_a_weak_power_supply_and_a_storage_in_trouble(self):
+        ws._slow_probes.pop("player_health", None)
+        storages = [{"role": "system", "status": "warn", "io_errors": 0, "free": 10},
+                    {"role": "music", "status": "warn", "io_errors": 3, "free": 99}]
+        power = {"undervoltage_now": False, "undervoltage_since_boot": True}
+        with unittest.mock.patch.object(ws, "_storages", return_value=storages),                 unittest.mock.patch.object(ws, "_throttled", return_value=power):
+            health = ws._player_health()
+        ws._slow_probes.pop("player_health", None)
+        self.assertEqual(health["power"], "boot")
+        self.assertEqual(health["storage"], {"problem": "failing", "music": True, "free": 99},
+                         "a storage with errors outweighs one only full")
+
     def virtual_sink(self):
         return {"name": "rukebox_output", "description": "Rukebox output",
                 "kind": "docker", "codec": None, "address": None}

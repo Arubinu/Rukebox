@@ -625,6 +625,7 @@ class RadioDaemon:
         """Determines clock reliability WITHOUT blocking startup."""
         self._clock_ready = threading.Event()
         self._cue_played = threading.Event()
+        self._rtc_lost = False
 
         if not system_actions.can_set_clock():
             # A container's clock is its host's, kept by the host and not ours
@@ -640,6 +641,7 @@ class RadioDaemon:
                 self._declare_clock("rtc", offset_sec=0.0)
                 self._clock_ready.set()
                 return
+            self._rtc_lost = True
             log.warning("Hardware RTC module detected, but its time %s is before the last one this "
                         "radio saw (%s): its battery or the module failed, so it is not trusted",
                         datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -672,6 +674,7 @@ class RadioDaemon:
     # Time never goes back: a clock behind the last time written down lost it, give or take this.
     RTC_BACKWARDS_SEC = 60
     RTC_FIRST_YEAR = 2024
+    _rtc_lost = False
 
     def _rtc_plausible(self):
         """Whether the hardware clock's time can be believed: not before the last time this radio
@@ -5229,6 +5232,7 @@ class RadioDaemon:
             "music_start_time": "%02d:%02d" % (
                 self.cfg["MUSIC_START_HOUR"], self.cfg["MUSIC_START_MINUTE"]),
             "clock_ready": self._clock_ready.is_set(),
+            "rtc_lost": self._rtc_lost,
             "system_time": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z"),
             "has_rtc": os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc"),
             "speaker_mac": self.cfg["SPEAKER_MAC"],

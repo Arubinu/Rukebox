@@ -4141,7 +4141,28 @@ def api_status():
     # The network output, when there is one: the player's "Listen here" button
     # is the reason it is here rather than only on /api/stream.
     data["stream"] = _stream_status()
+    data["health"] = _player_health() if _role() != "guest" else None
     return jsonify({"ok": True, "data": data})
+
+
+PLAYER_HEALTH_TTL = 60
+
+
+def _player_health():
+    """What the player warns about from the health card: a weak power supply, a storage full or failing."""
+    def compute():
+        power = _throttled() or {}
+        storage = None
+        for item in _storages():
+            failing = item["status"] == "error" or bool(item.get("io_errors"))
+            if item["status"] == "ok" or (storage and storage["problem"] == "failing" and not failing):
+                continue
+            storage = {"problem": "failing" if failing else "full",
+                       "music": item["role"] == "music", "free": item["free"]}
+        return {"power": "now" if power.get("undervoltage_now")
+                else "boot" if power.get("undervoltage_since_boot") else None,
+                "storage": storage}
+    return _cached_probe("player_health", PLAYER_HEALTH_TTL, compute)
 
 
 STATUS_PROBE_TTL = 5

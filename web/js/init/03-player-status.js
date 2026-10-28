@@ -695,7 +695,15 @@ function applyNotices(d) {
   else if (typeof d.volume_curve === "number") {
     add("info", "volume-low", "notice.volume_curve", { n: Math.round(d.volume_curve) });
   }
-  if (d.clock_ready === false) add("warn", "clock", "notice.clock");
+  if (d.rtc_lost) add("warn", "clock", "notice.rtc_lost");
+  else if (d.clock_ready === false) add("warn", "clock", "notice.clock");
+  const health = d.health || {};
+  if (health.power === "now") add("warn", "power", "notice.power_low");
+  else if (health.power === "boot") add("info", "power", "notice.power_low_past");
+  if (health.storage) {
+    const s = health.storage;
+    add("warn", "server", "notice.storage_" + s.problem + (s.music ? "_music" : ""), { free: formatBytes(s.free) });
+  }
   if (d.track_count === 0) add("warn", "music", "notice.no_tracks");
   if ((d.consecutive_play_errors || 0) >= 3) add("warn", "alert", "notice.errors", { n: d.consecutive_play_errors });
 
