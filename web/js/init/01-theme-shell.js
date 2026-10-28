@@ -726,13 +726,15 @@ function setGoingDown(kind, askedAt) {
       : kind === "update" ? "boot.updating" : "boot.powered_off",
     kind === "update" ? "boot.updating_note" : undefined);
   } else if (overlayForConnection) {
-    overlayForConnection = false;
     connectionFailures = 0;
-    hideBootOverlay();
     if (wasUpdating && !updateSeenDone) {
+      // The new version needs a fresh page: reloaded under the overlay, never shown in between.
       updateSeenDone = true;
-      setTimeout(() => window.location.reload(), BOOT_FADE_MS + 100);
+      window.location.reload();
+      return;
     }
+    overlayForConnection = false;
+    hideBootOverlay();
   }
 }
 

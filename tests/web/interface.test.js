@@ -32,6 +32,29 @@ test("a page the radio tells it is switching off says so, without having asked",
   assert.equal(page.$("bootOverlay").hidden, false);
 });
 
+test("back from an update, the page reloads under the overlay without showing in between", async (t) => {
+  let calls = 0;
+  let updated = false;
+  let release;
+  const booted = new Promise((resolve) => { release = resolve; });
+  const page = open(t, { routes: {
+    "GET /api/status/wait": () => {
+      calls += 1;
+      if (calls === 1) return booted.then(() => ({ version: 1 }));
+      return updated ? { version: 2 } : { version: 1, going_down: "update" };
+    },
+  } });
+  await until(() => page.$("bootOverlay").hidden);
+  release();
+  await until(() => !page.$("bootOverlay").hidden);
+  let shown = false;
+  new page.window.MutationObserver(() => { if (page.$("bootOverlay").hidden) shown = true; })
+    .observe(page.$("bootOverlay"), { attributes: true });
+  updated = true;
+  await until(() => page.navigations.length, 15000);
+  assert.equal(shown, false, "the old page never shows between the update and the reload");
+});
+
 test("an address with a page opens that page", async (t) => {
   const page = open(t, { hash: "#settings/announcements" });
   await until(() => page.document.body.dataset.page === "announcements");
