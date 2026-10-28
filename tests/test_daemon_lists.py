@@ -544,7 +544,7 @@ class DaemonListsTest(unittest.TestCase):
 
     def test_the_boot_start_waits_for_a_wired_output_still_coming(self):
         self.daemon.cfg.update({"MUSIC_START_MODE": "boot", "AUDIO_OUTPUT": "usb"})
-        self.daemon.mode = "idle"
+        self.assertEqual(self.daemon.mode, "music", "a run starts in music before anything plays")
         self.daemon.OUTPUT_WAIT_SEC = 5
         self.daemon._audio_output_missing = "usb"
         found = threading.Event()
@@ -566,6 +566,10 @@ class DaemonListsTest(unittest.TestCase):
         with mock.patch.object(self.daemon, "_start_music_faded") as start:
             self.daemon._start_when_output_ready()
         start.assert_called_once()
+        self.daemon._play_kind = "music"
+        with mock.patch.object(self.daemon, "_start_music_faded") as start:
+            self.daemon._start_when_output_ready()
+        start.assert_not_called()  # someone started the music meanwhile
 
     def test_a_restart_planned_for_a_song_goes_at_once_on_standby(self):
         self.daemon.mode = "music"

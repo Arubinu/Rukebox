@@ -925,9 +925,11 @@ class RadioDaemon:
     def _start_when_output_ready(self, poll=2.0):
         """The boot start, once the wired output chosen is there (or given up waiting)."""
         def start():
-            if self.mode in ("idle", "stopped") and not self._asleep_since_restart:
-                self._music_started_mono = time.monotonic()
-                self._start_music_faded(self._play_next_track)
+            # A run starts in "music" before anything plays: what counts is that nothing plays yet.
+            if self._play_kind or self._asleep_since_restart or self.mode in ("shutting_down", "restarting"):
+                return
+            self._music_started_mono = time.monotonic()
+            self._start_music_faded(self._play_next_track)
 
         kind = self._output_kind()
         if kind not in ("usb", "jack", "hdmi") or self._audio_output_missing != kind:
