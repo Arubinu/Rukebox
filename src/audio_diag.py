@@ -187,6 +187,24 @@ def set_flic_linked(state_dir, linked):
     _mark(state_dir, FLIC_LINK_FILE, FLIC_LINK_SEC if linked else 0)
 
 
+def pause_flic_for_update(seconds, state_dir=None, sock="/tmp/rukebox_control.sock"):
+    """An update sent over SSH is a transfer the page never sees: flicd rests for it, unless
+    its button is connected (it then costs nothing, and once stopped would wait for a press).
+    0 lets it go. Called by the push scripts; what it did, as a word."""
+    if state_dir is None:
+        import paths
+
+        state_dir = paths.state_dir()
+    if seconds > 0 and flic_linked(state_dir):
+        return "connected"
+    pause_flic(state_dir, seconds)
+    try:
+        control_client.send_control_command(sock, "speaker_check", timeout=5)
+    except Exception:  # noqa: BLE001 - the daemon picks the marker up on its next turn anyway
+        log.debug("Could not nudge the daemon", exc_info=True)
+    return "paused" if seconds > 0 else "released"
+
+
 def flic_availability(bluetooth_output, found=None):
     """(usable, reason) for the Flic button: flicd takes a controller for
     itself (HCI user channel), so with a single one - and the sound on

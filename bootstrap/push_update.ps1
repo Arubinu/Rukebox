@@ -247,6 +247,14 @@ if (-not $KeepPlaying) {
 }
 if ($Quieted) { Write-Host "Music paused for the transfer; the daemon brings it back." }
 
+# A Flic button waiting for a press makes flicd listen non-stop, which starves the Wi-Fi it
+# shares. An older radio without this call answers an error, which changes nothing.
+function Invoke-FlicRest([string]$Seconds) {
+    $call = "PYTHONPATH=/opt/rukebox/src python3 -c 'import audio_diag; print(audio_diag.pause_flic_for_update(${Seconds}))'"
+    try { return @(& ssh.exe @SshOpts $Target $call 2>$null) } catch { return @() }
+}
+if ((Invoke-FlicRest "900") -contains "paused") { Write-Host "Flic button paused for the transfer." }
+
 $RemoteArchive = "/tmp/rukebox-update-${Stamp}.tar.gz"
 $RemoteApply = "/tmp/rukebox-apply-${Stamp}.sh"
 
@@ -278,6 +286,7 @@ if ($scpExit -ne 0) {
 if ($scpExit -ne 0) {
     # The update will not run, so nothing else will resume the music.
     if ($Quieted) { Invoke-RadioQuiet "resume" | Out-Null }
+    Invoke-FlicRest "0" | Out-Null
     Write-Host "Transfer failed. The music has been resumed; run this again when the link is back." -ForegroundColor Red
     Remove-Item $Archive -Force -ErrorAction SilentlyContinue
     exit 1
@@ -344,6 +353,7 @@ $updateExit = $LASTEXITCODE
 
 # Only when the update did not run: it restarts the daemon, which comes back playing on its own.
 if ($Quieted) { Invoke-RadioQuiet "resume" | Out-Null }
+Invoke-FlicRest "0" | Out-Null
 
 Remove-Item $Archive, $ApplyLocal -Force -ErrorAction SilentlyContinue
 

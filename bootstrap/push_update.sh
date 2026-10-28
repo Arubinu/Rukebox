@@ -223,6 +223,15 @@ if [ "$KEEP_PLAYING" != "1" ]; then
     fi
 fi
 
+# A Flic button waiting for a press makes flicd listen non-stop, which starves the Wi-Fi it
+# shares. An older radio without this call answers an error, which changes nothing.
+flic_rest() {
+    ssh "${SSH_OPTS[@]}" "$TARGET" "PYTHONPATH=/opt/rukebox/src python3 -c 'import audio_diag; print(audio_diag.pause_flic_for_update($1))'" 2>/dev/null || true
+}
+if [ "$(flic_rest 900)" = "paused" ]; then
+    echo "Flic button paused for the transfer."
+fi
+
 REMOTE_ARCHIVE="$REMOTE_TMP/rukebox-update-$STAMP.tar.gz"
 REMOTE_APPLY="$REMOTE_TMP/rukebox-apply-$STAMP.sh"
 
@@ -255,6 +264,7 @@ if ! scp "${SCP_OPTS[@]}" "$ARCHIVE" "$TARGET:$REMOTE_ARCHIVE"; then
         if [ "$PAUSED_BY_US" = "1" ]; then
             radio_quiet resume >/dev/null 2>&1 || true
         fi
+        flic_rest 0 >/dev/null
         echo "Transfer failed. The music has been resumed; run this again when the link is back." >&2
         exit 1
     fi
@@ -306,6 +316,7 @@ scp "${SCP_OPTS[@]}" "$APPLY_LOCAL" "$TARGET:$REMOTE_APPLY"
 # -t: the updater runs under sudo and may need to ask for a password.
 if ! ssh -t "${SSH_OPTS[@]}" "$TARGET" "sh $REMOTE_APPLY"; then
     [ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
+    flic_rest 0 >/dev/null
     echo "" >&2
     echo "The update failed. The Pi restored its previous version by itself." >&2
     echo "Details:  ssh $TARGET 'journalctl -u rukebox-daemon.service -n 50'" >&2
@@ -314,6 +325,7 @@ fi
 
 # Only when the update did not run: it restarts the daemon, which comes back playing on its own.
 [ "$PAUSED_BY_US" = "1" ] && radio_quiet resume >/dev/null 2>&1 || true
+flic_rest 0 >/dev/null
 
 echo ""
 echo "== Done =="

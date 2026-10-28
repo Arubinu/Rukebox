@@ -152,3 +152,30 @@ class FlicTransferPauseTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FlicUpdatePauseTest(unittest.TestCase):
+    """An update sent over SSH: the push scripts call pause_flic_for_update() on the radio."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def test_a_waiting_button_rests_for_the_update_and_comes_back_after(self):
+        with mock.patch.object(audio_diag.control_client, "send_control_command") as nudge:
+            self.assertEqual(audio_diag.pause_flic_for_update(900, self.dir, "sock"), "paused")
+            self.assertTrue(audio_diag.flic_paused(self.dir))
+            self.assertEqual(nudge.call_args[0][1], "speaker_check", "the daemon stops flicd at once")
+            self.assertEqual(audio_diag.pause_flic_for_update(0, self.dir, "sock"), "released")
+        self.assertFalse(audio_diag.flic_paused(self.dir))
+
+    def test_a_connected_button_is_left_alone(self):
+        audio_diag.set_flic_linked(self.dir, True)
+        with mock.patch.object(audio_diag.control_client, "send_control_command") as nudge:
+            self.assertEqual(audio_diag.pause_flic_for_update(900, self.dir, "sock"), "connected")
+        self.assertFalse(audio_diag.flic_paused(self.dir))
+        nudge.assert_not_called()
+
+    def test_a_daemon_that_does_not_answer_changes_nothing(self):
+        with mock.patch.object(audio_diag.control_client, "send_control_command", side_effect=OSError):
+            self.assertEqual(audio_diag.pause_flic_for_update(900, self.dir, "sock"), "paused")
