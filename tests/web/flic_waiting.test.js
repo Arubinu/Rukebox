@@ -1,5 +1,5 @@
 "use strict";
-// A Flic button waiting for a press is said on the player, to the house only.
+// A Flic button waiting for a press is said among the player's notices, to the house only.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -10,9 +10,8 @@ test("the player says the Flic button waits for a press, and stops saying it onc
   const p = load({ hash: "#home/player", routes: {
     "GET /api/status": () => Object.assign({}, STATUS, { flic_waiting: waiting }),
   } });
-  await until(() => !p.$("npFlicWaiting").hidden, 8000);
-  assert.match(p.$("npFlicWaiting").textContent, /press it once/);
+  await until(() => /press it once/.test(p.$("npNotices").textContent), 8000);
   waiting = false;
-  await until(() => p.$("npFlicWaiting").hidden, 12000);
+  await until(() => !/press it once/.test(p.$("npNotices").textContent), 12000);
   await p.close();
 });

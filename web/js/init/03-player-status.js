@@ -48,12 +48,6 @@ function soundText(file, announcement, meme) {
   if (announcement) return t("now.sound_announcement", { name: announcement, file });
   return t(meme ? "now.sound_meme" : "now.sound_other", { file });
 }
-function applyFlicWaiting(d) {
-  // Only someone of the house can go and press it: a guest is told nothing.
-  document.getElementById("npFlicWaiting").hidden =
-    !d.flic_waiting || document.body.dataset.access === "guest";
-}
-
 function applySoundLine(d) {
   const line = document.getElementById("npSound");
   const last = d.last_sound;
@@ -118,7 +112,6 @@ async function refreshStatus() {
   const fileTitle = (d.current_track || "").replace(/\.[a-z0-9]{2,5}$/i, "");
   setNowPlayingText(d.track_title || fileTitle || "\u2014", d.track_artist || "");
   applySoundLine(d);
-  applyFlicWaiting(d);
   applyTrackProgress(d);
   applyTrackMedia(d);
   paintNavNow(d, d.track_title || fileTitle);
@@ -678,6 +671,8 @@ function applyNotices(d) {
     else if (d.speaker_paired === false) add("warn", "bluetooth", "notice.speaker_unpaired");
     else if (d.speaker_connected === false) add("warn", "bluetooth", "notice.speaker_off");
   }
+  // Only someone of the house can go and press it: a guest is told nothing.
+  if (d.flic_waiting && document.body.dataset.access !== "guest") add("warn", "bluetooth", "now.flic_waiting");
   if (d.speaker_connected && typeof d.speaker_battery === "number" && d.speaker_battery_low > 0
       && d.speaker_battery <= d.speaker_battery_low) {
     add("warn", "battery", "notice.speaker_battery_low", { n: d.speaker_battery });
