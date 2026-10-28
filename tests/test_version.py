@@ -21,6 +21,10 @@ class TagPartsTest(unittest.TestCase):
     def test_a_describe_says_how_far_past_the_tag(self):
         self.assertEqual(tag_parts("v1.2.0-5-g5622dcf"), (1, 2, 0, 5))
         self.assertEqual(tag_parts("v1.2.0-5-g5622dcf-dirty"), (1, 2, 0, 5))
+        self.assertEqual(tag_parts("v2.0.0-rc.1"), (2, 0, 0, -1))
+        self.assertEqual(tag_parts("v2.0.0-beta2"), (2, 0, 0, -1))
+        self.assertLess(tag_parts("v2.0.0-rc.1"), tag_parts("v2.0.0"), "a pre-release comes before its release")
+        self.assertGreater(tag_parts("v2.0.0-rc.1"), tag_parts("v1.19.3"))
         self.assertEqual(tag_parts("v1.0.0-1-gabcdef0"), (1, 0, 0, 1))
 
     def test_what_is_not_a_version(self):

@@ -3480,7 +3480,12 @@ language (missing languages fall back to English, then to the description):
 ```
 
 The first release of a new major version raises `MAJOR` in `src/version.py`. A tag is a release only as
-`vX.Y.Z`: `v3.0.0-rc1`, a draft and a pre-release are never offered.
+`vX.Y.Z`: `v3.0.0-rc1`, a draft and a pre-release are never offered. A
+pre-release is for the radios you choose: published as a GitHub *pre-release*
+(`vX.Y.Z-rc.N`, `-beta`, `-alpha`), it is installed on purpose
+(`sudo rukebox-update --from-release vX.Y.Z-rc.N --major`, or its own setup
+page), and a radio on it counts as before `vX.Y.Z`: the release, once out, is
+offered to it like to any other.
 
 Built away from a tag, the page still works but stamps the commit
 (`fdeb1a1-dirty`), and the Pi will report that a newer release exists even

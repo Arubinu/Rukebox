@@ -56,6 +56,17 @@ class TargetTest(unittest.TestCase):
         self.assertEqual(releases.target(LISTED, "v1.19.2-3-gabcdef")[1], True)
 
 
+class PreReleaseTest(unittest.TestCase):
+    def test_a_pre_release_is_offered_to_no_one_and_its_radios_move_to_the_release(self):
+        listed = [release("v2.0.0-rc.1", prerelease=True), release("v1.19.3")]
+        self.assertEqual(releases.target(listed, "v1.19.3"), (None, False), "a test is never offered")
+        self.assertIsNone(releases.refusal(listed, "v1.19.3", "v2.0.0-rc.1", major=True),
+                          "but it may be installed on purpose")
+        listed.insert(0, release("v2.0.0"))
+        found, crosses = releases.target(listed, "v2.0.0-rc.1")
+        self.assertEqual((found["tag_name"], crosses), ("v2.0.0", False), "the release follows its test")
+
+
 class RefusalTest(unittest.TestCase):
     def test_a_step_is_refused_with_its_reason(self):
         listed = LISTED + [release("v3.0.0")]

@@ -99,6 +99,8 @@ def describe(root):
 
 _TAG = re.compile(r"^[vV]?(\d+)\.(\d+)(?:\.(\d+))?(.*)$")
 _TAG_COMMITS = re.compile(r"^-(\d+)-g[0-9a-f]+", re.IGNORECASE)
+# A pre-release comes before the release of the same number, or a radio on it never moves on.
+_TAG_PRE = re.compile(r"^-(rc|beta|alpha|pre)", re.IGNORECASE)
 
 
 def tag_parts(text):
@@ -109,6 +111,8 @@ def tag_parts(text):
     if not match:
         return None
     major, minor, patch, rest = match.groups()
+    if _TAG_PRE.match(rest or ""):
+        return (int(major), int(minor), int(patch or 0), -1)
     commits = _TAG_COMMITS.match(rest or "")
     return (int(major), int(minor), int(patch or 0),
             int(commits.group(1)) if commits else 0)
