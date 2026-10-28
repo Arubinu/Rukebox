@@ -277,6 +277,8 @@ class RadioDaemon:
         self._speech_warm = None
         self._speech_warming = None
         self._speech_busy = 0
+        # Each render empties the speech folder first: two at once would delete each other's file.
+        self._speech_render_lock = threading.Lock()
         self._audio_device = None
         self._audio_output_checked = NEVER
         self._snapcast = snapcast.Server()
@@ -3523,6 +3525,10 @@ class RadioDaemon:
         words; None when it cannot be said."""
         if not text:
             return None
+        with self._speech_render_lock:
+            return self._render_speech(text, parts)
+
+    def _render_speech(self, text, parts):
         folder = self._speech_dir()
         try:
             os.makedirs(folder, exist_ok=True)
@@ -3592,6 +3598,25 @@ class RadioDaemon:
             return "speech_unavailable"
         self.stats.record("speech_played", label=kind, detail={"source": source})
         return self._say_path(path)
+
+    def _speak_soon(self, kind, source):
+        """The page's voice test: answered at once, said once rendered (piper outlasts the socket)."""
+        if self.mode not in ("music", "idle", "stopped"):
+            return "busy"
+        if not speech.engine(self.cfg.get("SPEECH_LANGUAGE"), self.cfg.get("PIPER_VOICE")):
+            return "speech_unavailable"
+
+        def say():
+            path = self._speech_file(kind)
+            with self._command_lock:
+                if not path or self.mode not in ("music", "idle", "stopped"):
+                    log.info("Voice test not said: %s", "nothing rendered" if not path else self.mode)
+                    return
+                self.stats.record("speech_played", label=kind, detail={"source": source})
+                self._say_path(path)
+
+        threading.Thread(target=lambda: self._guarded("Voice test", say), daemon=True).start()
+        return None
 
     REMINDER_UNDER = 25
 
@@ -5409,7 +5434,7 @@ class RadioDaemon:
                 kind = msg.get("kind")
                 if kind not in ("time", "time_date"):
                     return {"ok": False, "error": "unknown_speech"}
-                error = self._speak(kind, msg.get("source") or "web")
+                error = self._speak_soon(kind, msg.get("source") or "web")
                 return {"ok": False, "error": error} if error else {"ok": True}
             if cmd == "test_system_sound":
                 key = msg.get("key")

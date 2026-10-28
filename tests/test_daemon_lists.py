@@ -432,6 +432,27 @@ class DaemonListsTest(unittest.TestCase):
         self.assertEqual(control_client.send_control_command(path, "move_queue", path=a, after="").get("error"),
                          "queue_not_movable")
 
+    @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "the control socket is a Unix socket")
+    def test_the_voice_test_answers_before_the_sentence_is_made(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        path = os.path.join(folder, "control.sock")
+        self.daemon.cfg["CONTROL_SOCKET"] = path
+        self.daemon._start_control_socket()
+        self.addCleanup(self.daemon._stop_event.set)
+        self.daemon.mode = "idle"
+        rendering = threading.Event()
+        said = threading.Event()
+        with mock.patch.object(rukebox_daemon.speech, "engine", return_value="piper:test"),                 mock.patch.object(self.daemon, "_speech_file", side_effect=lambda kind: rendering.wait(5) and "/x.wav"),                 mock.patch.object(self.daemon, "_say_path", side_effect=lambda p: said.set()):
+            answer = control_client.send_control_command(path, "speak", kind="time_date", timeout=2)
+            self.assertEqual(answer, {"ok": True}, "piper may take longer than the page waits")
+            self.assertFalse(said.is_set())
+            rendering.set()
+            self.assertTrue(said.wait(5), "said once made")
+        with mock.patch.object(rukebox_daemon.speech, "engine", return_value=""):
+            self.assertEqual(control_client.send_control_command(path, "speak", kind="time").get("error"),
+                             "speech_unavailable", "no voice at all: said at once, as before")
+
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:
             self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")
