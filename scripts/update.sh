@@ -679,9 +679,13 @@ if [ -d "$SOURCE_DIR/assets/sounds" ]; then
     for sound in "$SOURCE_DIR"/assets/sounds/*; do
         [ -f "$sound" ] || continue
         target="$AUDIO_SYSTEM_DIR/$(basename "$sound")"
+        # The originals are the project's own: a replaced one is in custom/, never here.
         if [ ! -f "$target" ]; then
             cp "$sound" "$target"
             say "   added sound $(basename "$sound")"
+        elif ! cmp -s "$sound" "$target"; then
+            cp "$sound" "$target"
+            say "   updated sound $(basename "$sound")"
         fi
     done
     chown -R "$RUKEBOX_USER:$RUKEBOX_USER" "$AUDIO_SYSTEM_DIR"

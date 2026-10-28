@@ -3,9 +3,12 @@ translations complete in the six languages, every recorded event has a
 label, API errors are codes and not sentences, every icon asked for has a
 drawing, the sudoers file is LF, the two push scripts exclude the same
 things, and no endpoint is named like analytics (ad blockers drop those)."""
+import math
 import os
 import re
+import struct
 import unittest
+import wave
 from urllib.parse import unquote
 from xml.etree import ElementTree
 
@@ -323,6 +326,28 @@ class FilesTest(unittest.TestCase):
         for name in ("push_update.ps1", "push_install.sh", "push_install.ps1"):
             pattern = r'"--exclude=([^"]+)"' if name.endswith(".ps1") else r"--exclude='([^']+)'"
             self.assertEqual(re.findall(pattern, _path.read("bootstrap", name)), wanted, name)
+
+
+class SystemSoundsTest(unittest.TestCase):
+    """The shipped sounds stand a little above the music; the keep-alive stays near silent."""
+
+    def levels(self, name):
+        with wave.open(os.path.join(_path.ROOT, "assets", "sounds", name)) as w:
+            count = w.getnframes()
+            data = struct.unpack("<%dh" % count, w.readframes(count))
+        rms = math.sqrt(sum(x * x for x in data) / count) / 32768
+        return 20 * math.log10(rms), 20 * math.log10(max(abs(x) for x in data) / 32768)
+
+    def test_each_sound_is_heard_over_the_music_without_clipping(self):
+        names = sorted(n for n in os.listdir(os.path.join(_path.ROOT, "assets", "sounds")) if n.endswith(".wav"))
+        self.assertIn("flic_connect.wav", names)
+        for name in names:
+            rms, peak = self.levels(name)
+            if name == "keepalive.wav":
+                self.assertLess(rms, -40, "it only keeps the speaker awake")
+                continue
+            self.assertTrue(-14 <= rms <= -9, "%s: %.1f dBFS on average" % (name, rms))
+            self.assertLess(peak, -0.5, "%s clips" % name)
 
 
 class PlatformCardsTest(unittest.TestCase):
