@@ -9278,6 +9278,12 @@ def _start_update(argument):
         "echo __RUKEBOX_UPDATE_DONE__ >> %s"
         % (UPDATE_WRAPPER, argument, UPDATE_LOG, UPDATE_LOG)
     )
+    # The download shares the Wi-Fi a Flic button waiting for a press starves; update.sh lets it go.
+    try:
+        if _flic_on_shared_radio():
+            audio_diag.pause_flic_for_update(900, cfg().get("STATE_DIR") or "", cfg()["CONTROL_SOCKET"])
+    except Exception:  # noqa: BLE001 - an update never fails for the Flic button
+        log.debug("Could not pause the Flic button", exc_info=True)
     try:
         subprocess.Popen(["/bin/sh", "-c", command], stdout=log_file,
                          stderr=subprocess.STDOUT, start_new_session=True)

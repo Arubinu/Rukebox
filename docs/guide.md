@@ -909,7 +909,7 @@ it is pressed once: the page then says `Flic button waiting`. A USB dongle for
 the Flic button gives the Wi-Fi its air back in every case.
 
 **During a transfer, it pauses.** While songs are sent from a computer (Add
-music, an announcement's files) or a folder sync runs, a Flic button on the
+music, an announcement's files), a folder sync runs or an update is downloaded or pushed, a Flic button on the
 built-in chip that is not connected is paused: the daemon stops `flicd` at once (`Flic button paused
 while a transfer runs`), and starts it again on its own within a minute of the
 last file - the page says so meanwhile. A press during that time is lost. A

@@ -179,3 +179,17 @@ class FlicUpdatePauseTest(unittest.TestCase):
     def test_a_daemon_that_does_not_answer_changes_nothing(self):
         with mock.patch.object(audio_diag.control_client, "send_control_command", side_effect=OSError):
             self.assertEqual(audio_diag.pause_flic_for_update(900, self.dir, "sock"), "paused")
+
+    def test_an_update_from_the_page_rests_the_button_and_the_updater_lets_it_go(self):
+        log_path = tempfile.mktemp(dir=self.dir)
+        with mock.patch.object(ws, "UPDATE_LOG", log_path), \
+                mock.patch.object(ws, "_flic_on_shared_radio", return_value=True), \
+                mock.patch.object(ws.audio_diag, "pause_flic_for_update") as pause, \
+                mock.patch.object(ws.subprocess, "Popen") as popen, ws.app.app_context():
+            ws._start_update("--from-release")
+        self.assertEqual(pause.call_args[0][0], 900, "rested for the download")
+        popen.assert_called_once()
+        script = _path.read("scripts", "update.sh")
+        clear = next(line for line in script.splitlines() if line.startswith("clear_updating()"))
+        self.assertIn("flic-pause.json", clear, "the updater ends the pause whatever the outcome")
+        self.assertIn("trap 'rm -f \"$0\"; clear_updating' EXIT", script)

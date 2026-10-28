@@ -69,7 +69,8 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 # It carries a timestamp: the web server ignores one older than fifteen minutes.
 UPDATING_FLAG="$STATE_DIR/updating"
 mark_updating() { mkdir -p "$STATE_DIR"; date +%s > "$UPDATING_FLAG" 2>/dev/null || true; }
-clear_updating() { rm -f "$UPDATING_FLAG" 2>/dev/null || true; }
+# The Flic pause a pushed or downloaded update asked for ends with it, whatever the outcome.
+clear_updating() { rm -f "$UPDATING_FLAG" "$STATE_DIR/flic-pause.json" 2>/dev/null || true; }
 trap 'rm -f "$0"; clear_updating' EXIT
 
 usage() {
