@@ -2604,13 +2604,21 @@ select {
 
 .title-voice-list { list-style: none; margin: 4px 0 8px; padding: 0; }
 .title-voice-list li {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 44px;
+}
+/* The line stops before the button, which is as tall as the row. */
+.title-voice-list li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: calc(var(--tap) + 10px);
+  bottom: 0;
   border-bottom: 1px solid var(--border);
 }
-.title-voice-list li:last-child { border-bottom: 0; }
 .title-voice-name { font-weight: 600; min-width: 0; }
 .title-voice-state { margin-left: auto; color: var(--text-muted); font-size: 13px; }
 
