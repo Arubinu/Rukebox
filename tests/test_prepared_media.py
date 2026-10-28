@@ -1,6 +1,4 @@
-"""The prepared folder (src/prepared_media.py): what the interface may browse
-and write in the introductions folder, and - the point of the module - what it
-may NOT touch."""
+"""The prepared folder: what the interface may browse and write, and what it may NOT touch."""
 import os
 import shutil
 import tempfile

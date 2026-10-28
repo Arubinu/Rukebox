@@ -1,11 +1,5 @@
-"""Secrets the radio must read back by itself, sealed so that a copy of the file is useless elsewhere.
-
-The key is a random file of the state folder mixed with this machine's id: a
-backup, an export or the card read on another computer cannot open what is
-sealed. Root on the running radio can, which no key kept on it could prevent.
-HMAC-SHA256 is the only primitive (the standard library has no cipher): a
-counter-mode stream for the text, then a tag over everything (encrypt-then-MAC).
-"""
+"""Secrets sealed with a state-folder key mixed with the machine id: useless on another machine."""
+# HMAC-SHA256 only (the stdlib has no cipher): a counter-mode stream, then a tag (encrypt-then-MAC).
 
 import base64
 import hashlib

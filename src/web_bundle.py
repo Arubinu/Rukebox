@@ -1,11 +1,4 @@
-"""The page's script, put together from web/js.
-
-The interface is written as several files and served as the one script it
-always was: web/js/boot.js, then every web/js/init/*.js in name order as the
-body of initApp(). One script keeps a function declared in any part callable
-from every other part from the first line on, and nothing runs while half the
-parts are loaded. tests/web/app_script.js assembles it the same way.
-"""
+"""The page's script served as one: web/js/boot.js, then web/js/init/*.js in name order inside initApp()."""
 
 import os
 

@@ -1,10 +1,4 @@
-"""Recognising a song by its sound: Chromaprint's fingerprint, AcoustID's lookup.
-
-`fpcalc` (apt: libchromaprint-tools) reads the fingerprint on the radio
-itself; AcoustID matches it to MusicBrainz recordings over the internet, with
-the application key the owner registered (acoustid.org/new-application). The
-Cover Art Archive gives the album's front picture by its release group.
-"""
+"""Recognising a song by its sound: fpcalc's fingerprint, AcoustID's lookup, the Cover Art Archive's picture."""
 
 import json
 import logging

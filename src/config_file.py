@@ -411,10 +411,7 @@ def _shell_quote(value):
 
 
 def write_env_file(yaml_path=None, env_path=None, values=None):
-    """Regenerates the flat file systemd and the shell scripts read: the settings
-    they name, and the ones that are not this machine's own default. A setting is
-    named as it is (folders.music -> FOLDERS_MUSIC); everything else is read from
-    the YAML alone."""
+    """Regenerates the flat file systemd and the shell read: the settings they name, and non-defaults."""
     env_path = env_path or ENV_FILE
     merged = dict(DEFAULTS)
     merged.update(values if values is not None else read_values(yaml_path, env_path))
@@ -522,10 +519,8 @@ def ensure_file(yaml_path=None, env_path=None):
         write_env_file(yaml_path, env_path, values=dict(DEFAULTS))
         seed_announcements(yaml_path, env_path)
         return "created", 0
-    # The lists an older version kept in their own files are taken in first, so
-    # that the copy of the folder made on the way is the configuration as it
-    # was; before the seeding below too, or the types a brand new radio is
-    # offered would bury a list waiting in a file.
+    # Older list files are taken in first: the folder copy made on the way is then the configuration
+    # as it was, and the seeding below cannot bury a list waiting in a file.
     for name in config_document.import_legacy(yaml_path):
         log.info("The %s list moved into %s", name, yaml_path)
     # The password this radio already had becomes its first owner account, so

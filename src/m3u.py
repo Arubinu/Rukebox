@@ -1,10 +1,5 @@
-"""M3U playlists: a list written out for another player, and one read back in.
-
-An exported list names each song by its path inside the music folder, with the
-#EXTINF line other players show. An imported one is matched against the
-library line by line: the path as written, then the path inside the music
-folder, then the file's name alone, then the "Artist - Title" of its #EXTINF.
-"""
+"""M3U playlists: a list written out for another player, and one read back in."""
+# An imported line is matched by path, path inside the music folder, file name, then "Artist - Title".
 
 import os
 import re

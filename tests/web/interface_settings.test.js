@@ -1,7 +1,5 @@
 "use strict";
-// The interface's own rules, on the real page: the settings cards,
-// announcements, the language and linked devices.
-// (Four files rather than one: node runs files side by side, and the tests of a file in turn.)
+// The interface's own rules on the real page: settings cards, announcements, language, linked devices.
 
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
@@ -147,7 +145,7 @@ test("the settings that belong together are folded together", async (t) => {
   assert.ok(page.$("guestCreditsSection").contains(page.$("guestCostsSection")),
             "the prices fold is inside the credits group");
 
-  // The visible rows of the volume card, in the order the owner asked for.
+  // The visible rows of the volume card, in their order.
   const rows = Array.from(page.$("volumeForm").querySelectorAll(":scope > .field-row"));
   assert.deepEqual(rows.map((row) => row.querySelector("[data-key]").dataset.key),
                    ["playback.base_volume", "playback.audio_equalizer", "playback.audio_compression"]);

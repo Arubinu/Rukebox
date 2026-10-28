@@ -1,6 +1,4 @@
-"""The rotary encoder (src/rotary.py, scripts/rotary.sh): the kernel's devices found by name,
-turns batched and sent as steps, the push read as a button, what a turn does in the daemon,
-and the overlay lines written into config.txt only while it is on."""
+"""The rotary encoder: its devices, its turns and push, and the overlay lines in config.txt."""
 import os
 import shutil
 import struct

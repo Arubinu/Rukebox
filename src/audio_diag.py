@@ -177,8 +177,7 @@ FLIC_LINK_SEC = 10 * 365 * 86400
 
 
 def flic_linked(state_dir, now=None):
-    """Whether a Flic button is connected: flicd then barely uses the air. A button that is
-    not only speaks when pressed, so flicd listens for it without a pause."""
+    """Whether a Flic button is connected; one that is not makes flicd listen without a pause."""
     return _marked(state_dir, FLIC_LINK_FILE, now)
 
 
@@ -188,9 +187,7 @@ def set_flic_linked(state_dir, linked):
 
 
 def pause_flic_for_update(seconds, state_dir=None, sock="/tmp/rukebox_control.sock"):
-    """An update sent over SSH is a transfer the page never sees: flicd rests for it, unless
-    its button is connected (it then costs nothing, and once stopped would wait for a press).
-    0 lets it go. Called by the push scripts; what it did, as a word."""
+    """Rests flicd for an update sent over SSH unless its button is connected (0 lets it go); what it did."""
     if state_dir is None:
         import paths
 

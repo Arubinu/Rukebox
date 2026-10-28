@@ -1,7 +1,4 @@
-"""Erasing the last run (src/stats.py, src/state.py, src/rukebox_daemon.py):
-what the radio did by itself since it started - the rotation, the day's
-markers, the journal with its totals, and the blind test's points - can be
-taken back, and the run before it is left alone."""
+"""Erasing the last run: what the radio did by itself goes back, and the run before stays."""
 import os
 import shutil
 import sqlite3

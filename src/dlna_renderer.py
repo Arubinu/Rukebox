@@ -1,13 +1,5 @@
-"""UPnP MediaRenderer: what makes Home Assistant (and any DLNA controller) see
-the radio as a media player - play, pause, next, previous, volume, mute, and
-what is playing with its cover.
-
-What a controller sends is played only while `receiving` is on: then
-SetAVTransportURI exists, and the next Play hands the daemon that address (a
-web address only) as a cast. Off, the action does not exist and no controller
-offers "play this". Changes reach a controller as GENA events (LastChange), so
-it does not have to poll.
-"""
+"""UPnP MediaRenderer: Home Assistant and any DLNA controller see the radio as a media player."""
+# SetAVTransportURI exists only while `receiving` is on; changes reach controllers as GENA events.
 
 import http.client
 import logging

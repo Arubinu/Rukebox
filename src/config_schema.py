@@ -1521,9 +1521,7 @@ BY_VARIABLE = {s.variable: s for s in SETTINGS}
 
 
 def find_setting(name):
-    """The setting a name designates: its own name, the one the environment
-    calls it, or the one it had before (a hand-written override, an older
-    bundle, a script of one's own)."""
+    """The setting a name designates: its own name, its environment name, or an older one."""
     text = str(name or "").strip()
     return BY_PATH.get(text) or BY_VARIABLE.get(text) or BY_ENV.get(text)
 

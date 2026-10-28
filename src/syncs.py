@@ -1,9 +1,4 @@
-"""Folders filled from another machine: the connections and the syncs that use them.
-
-A connection says where and how to reach a machine; a sync says which of its
-folders fills which folder of the radio, when, and on what conditions. Secrets
-are never here: they are sealed apart (secret_box), by connection id.
-"""
+"""Folders filled from another machine: the connections and the syncs (secrets sealed apart)."""
 
 import ipaddress
 import os
@@ -362,8 +357,8 @@ def export_block(state_dir=None):
 
 
 def import_block(data, state_dir=None, target_ok=None):
-    """Takes a backup's syncs back, each entry checked again; sealed passwords are kept as they
-    are and show up as lost when this machine did not seal them. The count taken."""
+    """Takes a backup's syncs back, each checked again; how many were taken."""
+    # A sealed password is kept as it is: sealed on another machine, it shows up as lost.
     if not isinstance(data, dict):
         return 0
     connections, jobs = [], []

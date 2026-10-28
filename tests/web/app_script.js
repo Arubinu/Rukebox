@@ -1,7 +1,5 @@
 "use strict";
-// The page's script as the web server serves it (src/web_bundle.py): web/js/boot.js, then
-// every web/js/init/*.js in name order as the body of initApp(). Run on its own, it checks
-// that each part reads as code where it lands, and that the whole does.
+// The page's script assembled as src/web_bundle.py serves it; run alone, it checks every part parses.
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");

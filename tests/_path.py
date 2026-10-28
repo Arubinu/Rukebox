@@ -45,12 +45,7 @@ config_file._refresh_paths(force=True)
 
 
 def document(directory=None):
-    """Points the configuration document - the settings and the lists the
-    interface writes - at a test's own directory, and answers its path.
-
-    A store handed no path reads the document this names, so a test and the
-    daemon it starts agree on the same file.
-    """
+    """Points the configuration document at a test's own directory, where the daemon reads it too."""
     if directory is None:
         os.environ.pop("RUKEBOX_YAML_FILE", None)
     else:

@@ -1,13 +1,5 @@
-"""The separate covers folder, emptied into the music folder once.
-
-Covers used to be prepared in a folder mirroring the music one (`folders.covers`).
-They now live beside the music, where every other player looks for them too.
-Each picture is copied to the same place in the music folder: a picture named
-after a song lands beside the song, and `_any` - which covered an album, an
-artist or everything - becomes that folder's `cover`. A name the music folder
-already holds is left alone. The old folder is then renamed, which keeps it
-whole as the way back and stops it being read.
-"""
+"""Empties the old separate covers folder into the music folder, once, then renames it."""
+# `_any` (an album's, an artist's or everyone's) becomes that folder's `cover`; a name there is kept.
 
 import logging
 import os
@@ -50,8 +42,7 @@ def waiting(cover_dir):
 
 
 def move(cover_dir, music_dir):
-    """Copies every picture of `cover_dir` into `music_dir`, then renames the
-    old folder. None when there is nothing to do, else a summary."""
+    """Copies every picture of `cover_dir` into `music_dir` and renames the old folder; a summary, or None."""
     source = os.path.abspath(str(cover_dir or "").strip()) if cover_dir else ""
     target = os.path.abspath(str(music_dir or "").strip()) if music_dir else ""
     if not source or not os.path.isdir(source) or not target or source == target:

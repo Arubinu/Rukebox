@@ -15,9 +15,8 @@ const read = (name) => {
   return FILES.get(name);
 };
 
-// The page keeps its own clock: a stream's "slight delay" is 2.5s, a refresh after a change is 3s.
-// A test cannot wait for that. One-shot timers from a second up to five are shortened; watchdogs
-// above that, the polling intervals and the short debounces keep their real time.
+// One-shot timers from one to five seconds are shortened (TIMER_FLOOR_MS); watchdogs,
+// polling intervals and short debounces keep their real time.
 const SHORT_TIMER_MS = 80;
 const TIMER_FLOOR_MS = 350;
 const TIMER_CEILING_MS = 5000;
@@ -61,8 +60,7 @@ const GUEST_PATHS = [
   "/api/devices/link_leave",
 ];
 
-// No owner account and no password: the page is the owner, and may ask for
-// anything (its three.js? no: the owner needs no list).
+// No owner account and no password: the page is the owner, and needs no list of paths.
 const DEFAULTS = {
   "GET /api/portal/status": { enabled: true, mode: "release", on_ap: false, released: true,
                               guest_mode: false, auth_required: false, authenticated: false,

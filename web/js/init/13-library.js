@@ -280,9 +280,8 @@ function dedicationLine(item) {
   return p;
 }
 
-/* Up next reordered by hand: a long press picks a song up, so a finger that moves at once still
-   scrolls the page. The radio checks the move against its queue as it is then: a song change in
-   between answers queue_changed and the list is read again. */
+/* A long press picks a song up, so a quick swipe still scrolls; a song change before the drop
+   makes the radio answer queue_changed. */
 const UPNEXT_HOLD_MS = 450;
 const UPNEXT_SLOP_PX = 8;
 let upnextDrag = null;
@@ -721,9 +720,7 @@ async function showInLibrary(filter) {
   refreshLibrary(false);
 }
 
-/* What the catalogue does in the background - finding new files, reading their tags, their
-   endings, their loudness - shown in the side menu while it lasts: songs just sent can take a
-   while, and nothing else would say so. */
+/* The catalogue's background work, in the side menu: songs just sent take a while to show. */
 async function refreshLibraryWork() {
   if (!mayCall("/api/library/work")) return;
   const r = await apiGet("/api/library/work");

@@ -1,10 +1,4 @@
-"""Runs the Python suite with one process per test module, side by side: the same
-tests as `python -m unittest discover -s tests`, in a fraction of the time.
-
-    python tests/run.py                  every module
-    python tests/run.py test_web test_party
-    RUKEBOX_TEST_JOBS=4 python tests/run.py
-"""
+"""Runs the Python suite with one process per test module, side by side (modules may be named)."""
 import concurrent.futures
 import os
 import re

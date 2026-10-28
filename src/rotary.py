@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""A rotary encoder on GPIO pins: its turns go to the daemon, its push is a button.
-
-The kernel decodes the encoder (dtoverlay rotary-encoder, written by
-scripts/rotary.sh): this only reads the input events it makes."""
+"""A rotary encoder decoded by the kernel (scripts/rotary.sh): its turns and its push go to the daemon."""
 
 import glob
 import logging

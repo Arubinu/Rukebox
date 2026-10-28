@@ -1,9 +1,4 @@
-"""The lists live in rukebox.yaml: one block per list, comments kept.
-
-The stores (announcements, music_lists, schedules, cards, track_order) write
-through src/config_document.py, so a save touches its own lines and nothing
-else. A list an older version kept in its own file is taken in once.
-"""
+"""The lists live in rukebox.yaml: one block per list, comments kept, older files taken in once."""
 import json
 import os
 import shutil
@@ -313,7 +308,7 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(config_document.read("track_order", self.path), {"meme": ["b.mp3"]})
 
     def test_a_block_reads_as_its_own_document(self):
-        # What each store used to read from its JSON file, it reads from the block.
+        # Each store reads from its block.
         cards.save({"id": "abcd1234", "name": "Bleue", "action": "list", "target": "soir"},
                    self.path)
         self.assertEqual(json.dumps(config_document.read("cards", self.path), sort_keys=True),

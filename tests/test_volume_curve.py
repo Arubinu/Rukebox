@@ -1,9 +1,4 @@
-"""The daily volume curve: its maths, its block, and what the daemon does with it.
-
-A curve is points on the clock; between two of them the level is a straight
-line, two points at the same minute make a cut, and the line from the last
-point back to the first crosses midnight.
-"""
+"""The daily volume curve: its maths, its block, and what the daemon does with it."""
 import os
 import shutil
 import socket

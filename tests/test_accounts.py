@@ -1,9 +1,4 @@
-"""Accounts and roles: who may log in, and what each role reaches.
-
-The store is the `people` block of rukebox.yaml, the ladder is src/roles.py,
-and the gate that reads them is the web server's. src/web_auth.py holds the
-hashing, unchanged.
-"""
+"""Accounts and roles: who may log in, and what each role reaches."""
 import os
 import shutil
 import tempfile

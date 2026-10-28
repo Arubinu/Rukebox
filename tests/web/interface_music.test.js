@@ -1,7 +1,5 @@
 "use strict";
-// The interface's own rules, on the real page: the blind test, Up next,
-// the excluded tracks, the USB key, lights and remotes.
-// (Four files rather than one: node runs files side by side, and the tests of a file in turn.)
+// The interface's own rules on the real page: blind test, Up next, excluded tracks, USB key, lights.
 
 const assert = require("node:assert/strict");
 const { test } = require("node:test");

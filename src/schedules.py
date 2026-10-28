@@ -223,8 +223,8 @@ def _list_ids(raw):
 
 
 def selection(item):
-    """(lists played, lists excluded) a schedule asks for; None leaves that side as it is.
-    An entry written before several lists could be played holds one `list`."""
+    """(lists played, lists excluded) a schedule asks for; None leaves that side as it is."""
+    # An older entry holds one `list`.
     play = item.get("lists")
     if play is None and item.get("list") is not None:
         play = [str(item["list"]).strip()] if str(item["list"]).strip() else []

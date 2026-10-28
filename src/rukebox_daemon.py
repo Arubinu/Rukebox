@@ -1062,11 +1062,8 @@ class RadioDaemon:
             return []
 
     def _playable_tracks(self):
-        """What the radio plays by itself: the lists played, together (none: the
-        whole library minus the excluded tracks), then minus what every excluded
-        list holds. A list played is an explicit choice, so it keeps the tracks
-        excluded one by one (the page marks them); an excluded list is one too,
-        and wins. The files are still there either way."""
+        """The lists played (none: the library minus hidden tracks), minus every excluded list."""
+        # A list played keeps its hidden tracks (an explicit choice); an excluded list still wins.
         tracks = self._get_music_list()
         play, exclude = self._selection_entries()
         if play:
@@ -1126,9 +1123,7 @@ class RadioDaemon:
     LIST_QUEUE_MAX = 100
 
     def _queue_list(self, list_id, person, source):
-        """Puts a list's songs next, as songs asked for: once they have played, the radio
-        goes back to what it played, where it was. Asked for, so an excluded list does not
-        hold them back."""
+        """Puts a list's songs next as requests, which an excluded list does not hold back."""
         entry = next((item for item in self._lists() if item["id"] == list_id), None)
         if entry is None:
             return {"ok": False, "error": "list_not_found"}
@@ -1155,9 +1150,8 @@ class RadioDaemon:
         return self._set_selection([list_id] if list_id else [], None, source, start)
 
     def _set_selection(self, play, exclude, source, start=False, strict=True):
-        """Changes the lists played and/or excluded (None leaves that side alone), from
-        the next track on, or right now with `start`. Not strict: an unknown list is left out
-        (a schedule or a card naming one deleted since)."""
+        """Changes the lists played and/or excluded (None: unchanged), now with `start`."""
+        # Not strict (a schedule or a card naming a deleted list): an unknown list is left out.
         known = {item["id"] for item in self._lists()}
         play = None if play is None else [str(i).strip() for i in play if str(i).strip()]
         exclude = None if exclude is None else [str(i).strip() for i in exclude if str(i).strip()]
@@ -1441,9 +1435,7 @@ class RadioDaemon:
         return self._track_count
 
     def _erase_run(self, session=None):
-        """Puts the radio back where it was when this run started: what it
-        played and said by itself, the journal of that run, and its scores. What
-        is playing now keeps playing, and is counted from here."""
+        """Puts the radio back where it was when this run started; what plays now counts from here."""
         if self.mode == "game":
             return {"ok": False, "error": "game_running"}
         try:
@@ -1491,9 +1483,7 @@ class RadioDaemon:
         return json_file.read(self._run_memory_file) or None
 
     def _keep_run_memory(self):
-        """Keeps this run's memory where the run after it will look for it: one
-        small file per start, never written to as the music plays. A start that
-        found the same memory as the one before leaves the file alone."""
+        """Keeps this run's memory where the next run looks for it, one small file per start."""
         if self._run_memory == self._run_memory_before:
             return
         try:
@@ -2188,8 +2178,7 @@ class RadioDaemon:
         return {"ok": True}
 
     def _move_queue(self, path, after):
-        """Up next reordered by hand. Checked against the queue as it is NOW: a song change
-        may have started the song moved, or the one it was dropped after, meanwhile."""
+        """Up next reordered by hand, checked against the queue as it is now (a song change may come first)."""
         if self._loop_mode in ("track", "album"):
             return {"ok": False, "error": "queue_not_movable"}
         queue = self.state.data.get("play_queue") or []

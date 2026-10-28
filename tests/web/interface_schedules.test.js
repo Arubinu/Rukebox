@@ -1,7 +1,5 @@
 "use strict";
-// The interface's own rules, on the real page: schedules, the portal,
-// the menus' edges, locked commands and the speaker.
-// (Four files rather than one: node runs files side by side, and the tests of a file in turn.)
+// The interface's own rules on the real page: schedules, the portal, menus, locked commands, speaker.
 
 const assert = require("node:assert/strict");
 const { test } = require("node:test");

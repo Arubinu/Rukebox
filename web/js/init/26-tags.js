@@ -1,6 +1,4 @@
-/* Tags and covers: one song's own tags written into its file, and the pictures
-   the player may show for it - inside the file, beside it, the album's, the
-   artist's. The server does the writing (src/tag_editor.py). */
+/* Tags and covers: a song's tags written into its file, and the pictures shown for it (src/tag_editor.py). */
 const TAG_FIELDS = ["title", "artist", "album", "album_artist", "year", "genre", "track"];
 const TAG_INPUT = {
   title: "tagsTitleInput", artist: "tagsArtistInput", album: "tagsAlbumInput",

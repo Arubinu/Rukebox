@@ -10,9 +10,7 @@ async function refreshSecurityCard() {
 
 refreshSecurityCard();
 
-/* Who may log in: the accounts, with what each of them may do. Only the owner
-   sees this card (the server refuses the rest), and the role is what decides:
-   see src/roles.py for the four of them. */
+/* Who may log in, and what each account may do (src/roles.py); the owner's card alone. */
 const ROLE_LABEL_KEYS = {
   owner: "people.role_owner",
   operator: "people.role_operator",

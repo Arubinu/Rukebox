@@ -333,13 +333,7 @@ class SuggestionBox:
             return dst
 
     def follow_account(self, device_id, account):
-        """A device that logged in goes by the account; one that is not logged
-        in any more goes back to its own name.
-
-        Nothing is moved, unlike linking two devices: the guest's credits,
-        votes and name wait for the device to come back to them. Answers
-        whether the device's person changed.
-        """
+        """A device follows the account it logged in as, or its own name once out; whether that changed."""
         with self._lock:
             state = self._state(device_id)
             was = state.get("linked_to")
@@ -358,8 +352,7 @@ class SuggestionBox:
             return True
 
     def _remember_account_person(self, person, name):
-        """Caller holds the lock and commits. The row that carries an account's
-        name: never seen (no address, no date), so it is not a device."""
+        """The row that carries an account's name, never seen, so not a device (caller locks and commits)."""
         row = self._db.execute("SELECT id FROM devices WHERE id = ?", (person,)).fetchone()
         if row is None:
             self._db.execute(

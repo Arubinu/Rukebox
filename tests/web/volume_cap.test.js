@@ -27,8 +27,7 @@ test("the cap's fields say what the volume shown plays at, and hide while it is 
   page.$("volumeCapPercent").value = "40";
   page.$("volumeCapPercent").dispatchEvent(new page.window.Event("input"));
   assert.match(page.$("volumeCapExample").textContent, /plays at 40%, 50% at 20%/);
-  // Choosing "nothing" from the card hides the cap's fields, whatever the
-  // switch a version before the curve used to read says.
+  // Choosing "nothing" hides the cap's fields, whatever the cap's own switch says.
   page.$("volumeShape").value = "off";
   page.$("volumeShape").dispatchEvent(new page.window.Event("change"));
   assert.equal(page.$("volumeCapOn").checked, false, "the old switch follows the choice");

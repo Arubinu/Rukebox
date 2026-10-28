@@ -287,8 +287,7 @@ class StatsRecorder:
             log.exception("Could not record the event '%s'", event_type)
 
     def _undo_payload(self, item, seconds, counters, daily, day):
-        """What erasing this event has to put back. Every total here is a sum
-        but the item's `last_at`, which is why the value it had is kept."""
+        """What erasing this event has to put back: the totals, and the item's `last_at` as it was."""
         payload = {}
         if counters:
             payload["counters"] = {key: float(amount) for key, amount in counters.items()}
@@ -305,9 +304,7 @@ class StatsRecorder:
             "last_at": row["last_at"] if row else None,
         }
         if kind == "music" and name and self._clock_ok:
-            # The song that opened the day is recorded too, and which one it is
-            # depends on what this very call is about to add. The month is kept
-            # rather than the whole line: the name and the seconds are the item's.
+            # Which song opened the day depends on what this call adds; only the month is kept here.
             played = self._conn.execute(
                 "SELECT value FROM daily WHERE day = ? AND key = 'tracks_played'",
                 (date.today().isoformat(),)).fetchone()
@@ -733,9 +730,7 @@ class StatsRecorder:
         return True
 
     def run_to_erase(self, session_id=None):
-        """The run erasing would take back: the one in progress, or the one
-        before it when this one holds nothing yet. A run is a session - what the
-        radio did between two starts of the daemon."""
+        """The run erasing would take back: this one, or the one before when this one holds nothing."""
         if not self.enabled:
             return None
         try:
@@ -796,9 +791,7 @@ class StatsRecorder:
         return rows
 
     def erase_run(self, run):
-        """Erases one run: its entries go, and every total they had already
-        moved goes back to what it was before the first of them. The session
-        stays - the radio is running, it just has nothing behind it."""
+        """Erases one run: its entries go and every total goes back; the session stays."""
         if not self.enabled or not run or not run.get("session"):
             return None
         session_id = int(run["session"])
@@ -824,10 +817,7 @@ class StatsRecorder:
         return dict(run, events=removed)
 
     def _put_back(self, rows):
-        """Puts back every total the run's entries had moved, each one once:
-        the notes are gathered first, since a long run moves the same counter
-        hundreds of times. Read newest first, so the value the oldest entry of
-        the run found is the one that stays."""
+        """Puts back every total the run's entries moved, each once: the oldest entry's value wins."""
         counters, daily, items, months = {}, {}, {}, {}
         for row in rows:
             if not row["undo"]:
@@ -885,9 +875,7 @@ class StatsRecorder:
              for (month, kind, name), entry in months.items()])
 
     def _drop_emptied(self):
-        """A list of things the erased run was alone in filling loses its row
-        rather than keeping a zero the interface would still show. A lifetime
-        counter stays, at zero: those are never pruned."""
+        """Drops the rows the erased run alone filled; a lifetime counter stays, at zero."""
         for table, where in (("daily", "value <= 0"), ("items", "count <= 0 AND seconds <= 0"),
                              ("monthly", "count <= 0")):
             self._conn.execute("DELETE FROM %s WHERE %s" % (table, where))

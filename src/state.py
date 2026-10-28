@@ -97,9 +97,7 @@ class RadioState:
                 self._save()
 
     def _drop_stale_requests(self):
-        """The songs asked for are the head of the queue, nothing else: one played, or met again
-        further on in a later pass, would be taken as already waiting (a list played next would
-        add nothing) and marked so."""
+        """Keeps as requests only the head of the queue: a stale one would look already waiting."""
         queue = self.data.get("play_queue") or []
         asked = set(self.data.get("requests") or [])
         kept = self.requested_paths()
@@ -248,9 +246,8 @@ class RadioState:
             return len(queue) - len(kept)
 
     def move_in_queue(self, path, after):
-        """Puts `path` just after `after` ("": first). Dropped among the songs asked for it
-        becomes one, after them it stops being one, and at their edge it keeps what it was.
-        Its new place, or None when either song has left the queue meanwhile."""
+        """Puts `path` after `after` ("": first); its new place, or None when either is gone."""
+        # Among the requests it becomes one, past them it stops being one, at their edge it stays.
         with self._lock:
             queue = list(self.data["play_queue"])
             if path not in queue or (after and (after == path or after not in queue)):
@@ -274,8 +271,7 @@ class RadioState:
             return at
 
     def enqueue_requests(self, paths, person=None):
-        """Several songs asked for at once, in this order, after the ones already asked
-        for; the pass goes on where it was once they have played. How many were added."""
+        """Several requests at once, after the ones waiting; how many were added."""
         with self._lock:
             asked = set(self.data["requests"])
             wanted = [p for p in dict.fromkeys(paths) if p not in asked]
@@ -436,9 +432,7 @@ class RadioState:
                 bags.pop(source_id, None)
             self._save()
 
-    # What the radio works out by itself, as opposed to what a person asked for:
-    # the pass it is in, what it played, the sounds it drew, and the song it left
-    # off. A run being erased puts these back where they were when it started.
+    # What the radio works out by itself, which erasing a run puts back as it was at its start.
     RUN_MEMORY = (("play_queue", list), ("requests", list), ("recent", list),
                   ("request_by", dict), ("click_bags", dict), ("chance_bags", dict),
                   ("last_track", None), ("last_request", None), ("resume_point", None))
@@ -465,9 +459,7 @@ class RadioState:
             return json.loads(json.dumps({"memory": memory, "days": self._day_markers()}))
 
     def restore_run(self, memory):
-        """Puts the memory of what the radio played by itself back to `memory`
-        (run_memory()), as if that run had not happened. False when there is
-        nothing to put back."""
+        """Puts the radio's own memory back to `memory` (run_memory()); False when there is nothing."""
         if not isinstance(memory, dict) or "memory" not in memory:
             return False
         with self._lock:
@@ -486,9 +478,7 @@ class RadioState:
         return True
 
     def forget_run(self):
-        """Puts the memory of what the radio played by itself back to nothing, as
-        if nothing had ever played; the caller starts a fresh pass. For a run
-        whose memory was never kept."""
+        """Puts the radio's own memory back to nothing, for a run whose memory was never kept."""
         with self._lock:
             for key, empty in self.RUN_MEMORY:
                 self.data[key] = empty() if empty is not None else None

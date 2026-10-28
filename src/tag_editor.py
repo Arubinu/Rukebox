@@ -1,16 +1,5 @@
-"""A music file's own tags and pictures, changed in place.
-
-Everything goes through ffmpeg with the audio copied as it is: a tag change
-never re-encodes a song. The new file is written beside the old one, checked,
-then put in its place, so a power cut leaves either file whole.
-
-Ogg and Opus keep their tags on the audio stream and cannot carry a picture as
-a stream of its own: their picture is the standard METADATA_BLOCK_PICTURE tag,
-a FLAC picture block in base64. Every other format gets an attached picture.
-
-A folder's picture is `cover.jpg`: the first name the cover lookup tries
-(track_media.FOLDER_IMAGE_NAMES), so it wins over any other picture there.
-"""
+"""A music file's own tags and pictures, changed in place through ffmpeg without re-encoding."""
+# Ogg/Opus pictures are a METADATA_BLOCK_PICTURE tag; a folder's picture is cover.jpg, looked up first.
 
 import base64
 import json
@@ -78,8 +67,7 @@ def _first(tagsets, *names):
 
 
 def read(path):
-    """The file's tags as the page edits them, its length, and whether a
-    picture is inside it. None when the file cannot be read."""
+    """The file's tags as the page edits them, its length, and whether it holds a picture; None if unreadable."""
     info = _probe(path)
     if info is None:
         return None
@@ -183,8 +171,7 @@ def _command(path, tmp, changes, picture, picture_file):
 
 
 def write(path, changes, picture=KEEP):
-    """Writes these tag changes, and the picture: KEEP leaves it, None removes
-    it, bytes (a JPEG) replace it. Answers read() of the file as written."""
+    """Writes these tag changes and the picture (KEEP, None to remove, or JPEG bytes); read() of the result."""
     if not writable(path):
         raise TagError("format_not_writable")
     if not os.access(os.path.dirname(path) or ".", os.W_OK) or not os.access(path, os.W_OK):
@@ -266,10 +253,8 @@ def remove_folder_picture(folder):
 
 
 def levels(path, music_dir):
-    """{"album": folder, "artist": folder or None}: where an album's and an
-    artist's pictures go for this track. A song straight in an artist's folder
-    has no album folder of its own: that folder is then the album's, and the
-    artist has none."""
+    """{"album": folder, "artist": folder or None}: where this track's album and artist pictures go."""
+    # A song straight in an artist's folder: that folder is the album's, and the artist has none.
     root = os.path.abspath(str(music_dir or ""))
     album = os.path.abspath(os.path.dirname(path))
     artist = os.path.dirname(album)

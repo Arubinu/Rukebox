@@ -227,11 +227,7 @@ def _is_authenticated():
 
 
 def _session_account():
-    """The account this browser logged in as, or None.
-
-    Read again from the file at every request: a role changed in the interface
-    applies to the browsers already open, and deleting an account logs it out.
-    """
+    """The account this browser logged in as, or None, read again at every request."""
     if "account_cache" in g:
         return g.account_cache
     account = None
@@ -249,10 +245,7 @@ def _session_account():
 
 
 def _legacy_owner():
-    """The session an older version opened with the single password.
-
-    Nothing named it: it is the owner, as long as that password is still the
-    one the configuration holds."""
+    """A session opened with the old single password: the owner's, while that password still matches."""
     if not session.get("legacy_owner") or not cfg().get("WEB_PASSWORD_HASH"):
         return None
     if accounts.owner() is not None:
@@ -309,12 +302,7 @@ def _guest_allowed(path, method):
 
 
 def _role():
-    """The role this request is answered as: who logged in, or the guest.
-
-    With no owner account holding a password - which is how this project
-    started, and how it stays for whoever wants no account - there is no door
-    to stand behind, and everyone on the access point is the owner.
-    """
+    """The role this request is answered as: who logged in, or the guest (everyone, with no owner password)."""
     if "role_cache" in g:
         return g.role_cache
     account = _session_account()
@@ -823,10 +811,7 @@ def _too_many_attempts(wait):
 
 
 def _account_for_login(name, password):
-    """The account a name and a password open, or None.
-
-    No name means the owner: that is the single password this interface had
-    before accounts, and the page it serves still sends only that."""
+    """The account a name and a password open, or None; no name means the owner."""
     if name:
         found = accounts.by_name(name)
         return found if accounts.verify(found, password) else None
@@ -2538,9 +2523,7 @@ def api_tags_picture():
 
 @app.route("/api/tags/picture", methods=["POST"])
 def api_tags_picture_set():
-    """Puts a picture in the file (`file`), or as the album's or the artist's
-    cover.jpg. The picture is a file sent, or `release_group`: the album's
-    front from the Cover Art Archive."""
+    """Puts a picture (a file sent, or the album's front by `release_group`) in the file or as a cover.jpg."""
     path, root = _tag_target(request.form.get("key"))
     level = _picture_level()
     if path is None or level not in ("file", "album", "artist"):
@@ -3406,9 +3389,7 @@ def _list_ids(raw):
 
 @app.route("/api/lists/active", methods=["POST"])
 def api_active_list():
-    """What the radio plays from the next track on, or right now with `start`:
-    {play: [ids]} the lists played together ([]: the whole library), {exclude: [ids]}
-    the lists whose songs it leaves out; {id} alone is one list, as before."""
+    """{play: [ids], exclude: [ids]} or one {id}: what plays from the next track, or now with `start`."""
     body = request.get_json(silent=True) or {}
     try:
         play = _list_ids(body.get("play"))
@@ -4036,10 +4017,7 @@ def api_status_wait():
 
 @app.route("/api/volume_curve", methods=["GET", "POST"])
 def api_volume_curve():
-    """The daily volume curve: its dots, and what they do in words.
-
-    The line under the strip is written here, from the same rule the daemon
-    applies - src/volume_curve.py - so the words and the sound agree."""
+    """The daily volume curve: its dots, and in words what they do (src/volume_curve.py's rule)."""
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
         if "points" in body:
@@ -4217,8 +4195,8 @@ def _game_speech_dir():
 
 
 def _speech_groups(parts, c):
-    """The parts in the order they are said: ("text", sentence, named) and ("voice", path, False).
-    Consecutive words make one sentence; a recorded name or a sound ends it."""
+    """The parts in the order they are said, ("text", sentence, named) or ("voice", path, False)."""
+    # Consecutive words make one sentence; a recorded name or a sound ends it.
     groups, words = [], []
     named = [False]
 
@@ -4286,8 +4264,7 @@ def _warm_speech(parts, names_known=False):
 
 
 def _warm_game_speech(game):
-    """Makes what the game will say: each player's own sentence first, then the fixed words.
-    Who wins is unknown, who plays is not, and nothing is playing yet."""
+    """Makes what the game will say ahead: each player's own sentence first, then the fixed words."""
     c = cfg()
     lang = c.get("SPEECH_LANGUAGE")
     # A game played on the phones keeps quiet unless one of its two voices is asked for.
@@ -5405,8 +5382,7 @@ def api_sync_connection_delete(connection_id):
 
 @app.route("/api/sync/connections/<connection_id>/host_key", methods=["POST"])
 def api_sync_host_key(connection_id):
-    """Without a fingerprint: what the server shows. With the one the owner read: pinned,
-    only if the server still shows that very key."""
+    """The key the server shows, or with the fingerprint the owner read, that key pinned if it still matches."""
     try:
         conn = syncs.connection(connection_id)
     except KeyError as e:
@@ -5593,9 +5569,8 @@ def api_clear_track_order(source_id):
 _SETTINGS_HIDDEN_KEYS = {"security.password_hash", "security.session_secret"}
 # Written from the page, never read back: a set one shows as this mask, which a save leaves alone.
 _SETTINGS_WRITE_ONLY = {"home_assistant.password"}
-# The machine and its door: where it listens, what it updates from, where it
-# keeps its files, the reset button and the USB port. An operator keeps every
-# other setting (src/roles.py).
+# The machine itself (network, updates, paths, reset pin, USB port) stays the owner's;
+# an operator keeps every other setting (src/roles.py).
 _OWNER_SETTINGS = frozenset(
     {s.path for s in config_schema.SETTINGS if s.section in ("network", "updates", "paths", "sync")}
     | {"security.gpio_reset_enabled", "security.gpio_reset_pin", "hardware.usb_port_mode"})
@@ -8941,9 +8916,7 @@ def _run_wins(run):
 
 @app.route("/api/journal/erase_run", methods=["POST"])
 def api_journal_erase_run():
-    """Puts the radio back where it was when it started: what it played by
-    itself comes back into the rotation, and the journal and scores of that run
-    go. What a person chose - likes, lists, cards, settings - stays."""
+    """Puts the radio back where it was when it started; what a person chose stays."""
     body = request.get_json(silent=True) or {}
     run = stats.run_to_erase(body.get("session"))
     if not run:

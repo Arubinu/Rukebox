@@ -1,10 +1,4 @@
-"""The accounts of this radio: the `people` block of rukebox.yaml.
-
-An account is a name, a role (`roles.py`) and a password hash. No account at
-all, or an owner account with no password, is the project's original model:
-the interface is open to whoever reaches the access point. The first owner
-account with a password closes it, and only then does anything here matter.
-"""
+"""The accounts of this radio (the `people` block of rukebox.yaml); no owner password leaves it open."""
 
 import logging
 import re
@@ -230,12 +224,7 @@ def verify(account, password):
 
 
 def migrate_legacy(legacy_hash, path=None, name="Owner"):
-    """Gives the password this radio already had to its first owner account.
-
-    Called at every boot until it has run: an installation that updates keeps
-    logging in with the password it had, and the key it was kept in is left
-    alone (the account becomes the one that is read).
-    """
+    """Gives the password this radio already had to its first owner account, at every boot until done."""
     if not legacy_hash or owner(path):
         return False
     add({"name": name, "role": "owner", "hash": legacy_hash}, path)

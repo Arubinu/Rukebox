@@ -1,6 +1,4 @@
-"""The sleep timer that lets the song end (src/rukebox_daemon.py): it waits for the song's
-own last seconds, fades there, keeps the next song from starting early, and gives up waiting
-for a song far too long to wait for."""
+"""The sleep timer that lets the song end: it fades on the last seconds, and gives up on a very long song."""
 import os
 from unittest import mock
 

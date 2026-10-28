@@ -1,16 +1,5 @@
-"""The daily volume curve: a share of the chosen volume, hour by hour.
-
-The curve is the `volume_curve` block of rukebox.yaml: points on a 24-hour
-clock, and the level between two of them is the straight line from one to the
-other. Two points at the same minute make a cut - a rise or a fall with no
-fade at all - and the line from the last point of the day back to the first
-one crosses midnight, so a curve may start at 21:00 and end at 07:00 the next
-morning without anything special.
-
-The maths lives here, away from the daemon, so the interface and the tests can
-ask the same questions: what the level is at a time, where the changes are,
-and when the next point comes.
-"""
+"""The daily volume curve: a share of the chosen volume, as straight lines between points of the day."""
+# Two points at the same minute make a cut; the last point joins the first across midnight.
 
 import logging
 
@@ -46,10 +35,7 @@ MODES = ("off", "cap", "curve")
 
 
 def shape_of(config):
-    """Which shape the volume takes by itself: nothing, the cap, the curve.
-
-    A radio that never named one keeps the cap's own switch, which is how it
-    worked before the curve existed."""
+    """Which shape the volume takes by itself: nothing, the cap, the curve (unset: the cap's switch)."""
     config = config or {}
     mode = str(config.get("VOLUME_SHAPE") or "").strip().lower()
     if mode in MODES:
@@ -58,12 +44,8 @@ def shape_of(config):
 
 
 def clean_points(raw):
-    """The `points` of the block as [(minute, level)], in clock order.
-
-    The order of two points at the same minute is kept as the file holds them:
-    the second one is where the cut lands. An entry that makes no sense is
-    dropped rather than refused, like every other list the interface writes.
-    """
+    """The `points` of the block as [(minute, level)] in clock order; a nonsense entry is dropped."""
+    # Two points at the same minute keep the file's order: the second is where the cut lands.
     if not isinstance(raw, list):
         return []
     points = []
@@ -128,11 +110,7 @@ def next_point(points, minute):
 
 
 def changes(points):
-    """[(at, level, from_at, seconds)] for every segment where the level moves.
-
-    A segment of 0 seconds is a cut; the ones that hold the level still are not
-    worth a line in a summary, and neither is a day with no point at all.
-    """
+    """[(at, level, from_at, seconds)] for every segment where the level moves (0 seconds: a cut)."""
     out = []
     for index, (at, level) in enumerate(points):
         previous_at, previous_level = points[index - 1]
@@ -145,11 +123,7 @@ def changes(points):
 
 
 def describe(points):
-    """The curve in words, for the interface: each change as a line.
-
-    `rise` when the level goes up, `fall` when it goes down, `cut` when the
-    seconds are 0 - a change of level in the blink of an eye.
-    """
+    """The curve in words for the interface: each change as `rise`, `fall` or `cut`."""
     lines = []
     for change in changes(points):
         if change["seconds"] == 0:

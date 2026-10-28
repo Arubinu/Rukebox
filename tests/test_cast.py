@@ -1,6 +1,4 @@
-"""Music sent to the radio (the daemon's cast mode, src/dlna_renderer.py): only
-web addresses, the radio's own music waits and comes back, Next and the
-nightly cutoff end it, and the renderer offers it only while receiving."""
+"""Music sent to the radio (cast mode): web addresses only, what ends it, and when it is offered."""
 import os
 import shutil
 import socket

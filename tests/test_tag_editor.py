@@ -1,6 +1,4 @@
-"""Tags and covers written into the music folder (src/tag_editor.py, src/covers_move.py,
-src/acoustid.py): what is accepted, where each picture goes, the old covers folder
-emptied once, and AcoustID's answer read."""
+"""Tags and covers written into the music folder, the old covers folder emptied, AcoustID read."""
 import base64
 import io
 import json

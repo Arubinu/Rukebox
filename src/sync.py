@@ -1,10 +1,5 @@
-"""One sync run: rclone fetching a folder of another machine into one of the radio.
-
-A copy adds and updates files, never deletes. A mirror also removes what the other
-machine no longer has, after a dry run says how much, and into a trash folder. The rclone configuration
-is written for the run alone (mode 600) and the password reaches rclone through
-its environment, obscured, never on a command line another account could read.
-"""
+"""One sync run: rclone fetching a folder of another machine into one of the radio."""
+# The password reaches rclone obscured through its environment, never argv; the config is mode 600.
 
 import json
 import logging
@@ -390,9 +385,7 @@ def ssh_key(state_dir):
 
 
 def scan_host_key(host, port):
-    """(every key line the server offers, their SHA256 fingerprints), or (None, []).
-
-    All of them are pinned: rclone's SSH client may settle on any type the server has."""
+    """(every key line the server offers, their SHA256 fingerprints), or (None, []); all are pinned."""
     try:
         done = subprocess.run(["ssh-keyscan", "-T", "5", "-p", str(int(port)), "--", host],
                               capture_output=True, text=True, timeout=15)

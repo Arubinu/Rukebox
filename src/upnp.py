@@ -72,9 +72,7 @@ def base_url(address, port):
 
 
 class Device:
-    """One root device this radio announces: what it is, its services, where it
-    is described. The media server is one; the renderer (src/dlna_renderer.py)
-    is another, announced on the same port by a responder of its own."""
+    """One root device this radio announces (the media server, or the renderer on the same port)."""
 
     def __init__(self, device_type, services, path, seed):
         self.device_type = device_type
@@ -83,10 +81,7 @@ class Device:
         self.seed = seed
 
     def udn(self):
-        """A name that survives a restart, so a player that has seen this radio
-        once does not end up listing it twice - and that follows the identity,
-        not the name, so renaming relabels the device instead of making a
-        second one."""
+        """A name that survives a restart and follows the identity, so a player never lists the radio twice."""
         return "uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL,
                                         self.seed + (_device["uid"] or socket.gethostname())))
 

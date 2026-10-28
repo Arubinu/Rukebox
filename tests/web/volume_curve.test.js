@@ -1,8 +1,6 @@
 "use strict";
-// The daily curve (web/app.js): the strip draws the points the daemon reads,
-// a dot is dragged, added and removed, and the line under it says what happens.
-// The level the strip shows at a time follows src/volume_curve.py, whose own
-// tests pin the same numbers (tests/test_volume_curve.py).
+// The daily curve: the strip draws the points the daemon reads, a dot is dragged, added, removed,
+// and the levels follow src/volume_curve.py (pinned by tests/test_volume_curve.py too).
 const test = require("node:test");
 const assert = require("node:assert/strict");
 

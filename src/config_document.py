@@ -1,11 +1,5 @@
-"""The lists a page writes, kept in rukebox.yaml beside the settings.
-
-A store (announcements, music_lists, schedules, cards, track_order) is one
-block of the configuration document: a top-level key whose value is the JSON
-document that store used to keep in its own file. Writing a block replaces
-those lines only, so the comments, the order and the settings of the rest of
-the file are untouched.
-"""
+"""The stores a page writes (announcements, lists, schedules, cards, track order), as blocks of rukebox.yaml."""
+# Writing a block replaces its lines only: the comments and the rest of the file stay.
 
 import copy
 import logging
@@ -115,11 +109,7 @@ def _key(path):
 
 
 def document_path(path=None):
-    """The configuration document a store was pointed at.
-
-    A store may still be handed the file it used to keep - a test does, and a
-    caller of one's own: the document is the rukebox.yaml beside it.
-    """
+    """The configuration document a store was pointed at (an old file path means the rukebox.yaml beside it)."""
     if not path:
         return config_file.find_yaml_file()
     text = str(path)
@@ -294,13 +284,8 @@ def _readme(folder):
 
 
 def _keep_the_folder(document):
-    """Copies every file of the configuration folder into BACKUP_DIR, once.
-
-    Taken before a list is moved in, so that a version that read the files can
-    be put back by copying the folder over: it is the whole configuration as it
-    was, the document and its generated environment file included. A folder
-    that is already there is left as it is - the first copy is the good one.
-    """
+    """Copies the whole configuration folder into BACKUP_DIR once, before any list moves in."""
+    # A copy already there is kept: the first one is the configuration as it was.
     source = os.path.dirname(document) or "."
     target = os.path.join(source, BACKUP_DIR)
     if os.path.isdir(target):
@@ -325,13 +310,8 @@ def _keep_the_folder(document):
 
 
 def import_legacy(path=None):
-    """Moves the lists kept in their own files into the document, once.
-
-    The whole configuration folder is copied first, then each file is written
-    into its block, read back to be sure, and only then removed: an unreadable
-    file is left alone, and so is one with nothing to take. Answers the blocks
-    that moved.
-    """
+    """Moves the lists kept in their own files into the document, once; the blocks that moved."""
+    # Each file is written, read back, and only then removed; an unreadable one is left alone.
     if config_file._yaml_module() is None:
         log.warning("PyYAML is not installed: the lists stay in their own files")
         return []

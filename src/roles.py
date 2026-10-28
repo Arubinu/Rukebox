@@ -1,21 +1,6 @@
-"""Who may reach what: four roles, from a visitor to the owner.
-
-The ladder is deliberately small and each step is a *place*, not a privilege:
-
-    guest     someone on the access point who did not log in: the player, the
-              queue, the suggestions - what `guest_mode` allows, and no more.
-    member    someone who lives here: their music, their likes, their lists,
-              the household messages - never a setting, never the machine.
-    operator  someone who keeps the radio: every setting and everything it
-              stores (announcements, lists, schedules, cards, the devices on
-              the network) - but not the machine itself.
-    owner     the machine and its door: power, updates, network, backups,
-              the accounts, the names the interface answers under.
-
-A path that is listed nowhere needs the owner: a route added tomorrow is
-closed until someone writes down who may call it. The order inside a list is
-the file order of `src/web_server.py`, so it reads like the pages it serves.
-"""
+"""Who may reach what: four roles, each a place rather than a privilege."""
+# guest: the player, the queue; member: their music, likes, lists; operator: every setting;
+# owner: the machine (power, updates, network, accounts). A path listed nowhere is the owner's.
 
 # The four levels, weakest first: a role may call what its own level and every
 # level below it lists.
@@ -235,11 +220,7 @@ GUEST_PAGE_PATHS = {
 
 
 def allowed_paths(role, guest_access=True, pages_off=()):
-    """Every path a role may call, for the interface to know before it asks.
-
-    The page holds no list of its own: it is told this one at boot, so a path
-    added here is one the page may use without being told twice.
-    """
+    """Every path a role may call, told to the page at boot so it keeps no list of its own."""
     rank = RANK.get(role, -1)
     hidden = set()
     for page in pages_off or ():

@@ -621,9 +621,7 @@ window.LANG_CHANGE_LISTENERS.push(paintMqttStatus);
    curve. One choice drives both sets of fields, so nothing is shown twice. */
 let volumeShapeNamed = false;
 
-/* A radio that updated has no shape in its file: the cap's own switch is what
-   it does, so the card shows that, and says so. The moment the choice is made,
-   the choice is what counts - including "nothing". */
+/* No shape in the file (an updated radio): the cap's own switch decides, until a choice is made. */
 function noteVolumeShapeNamed(data) {
   volumeShapeNamed = Object.prototype.hasOwnProperty.call(data || {}, "playback.volume_shape");
   if (volumeShapeNamed) return;

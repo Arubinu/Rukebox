@@ -265,9 +265,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 let guestMode = false;
 // The pages the owner keeps from guests, read in every status.
 let guestPagesOff = [];
-// What the server answers this browser as, and every path that role may call:
-// the one table of who may do what lives in src/roles.py, so the page keeps
-// none of its own to fall out of step with it.
+// What the server answers this browser as, and every path that role may call (src/roles.py).
 let myRole = "guest";
 let mayCallPaths = null;
 

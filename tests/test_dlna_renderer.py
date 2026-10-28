@@ -1,6 +1,4 @@
-"""The DLNA renderer (src/dlna_renderer.py): what a controller such as Home
-Assistant reads of the radio, what its buttons ask the daemon, and the events
-that keep it up to date without polling."""
+"""The DLNA renderer: what a controller reads of the radio, what it asks, and its events."""
 import time
 import unittest
 import xml.etree.ElementTree as ElementTree

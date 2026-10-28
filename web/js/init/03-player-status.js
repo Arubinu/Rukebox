@@ -401,8 +401,7 @@ function usbRow(state, entry) {
   const actions = document.createElement("span");
   actions.className = "device-actions";
   if (entry.active) {
-    // The song playing comes from the folder that was in use before: the
-    // switch left it alone, and this is how it is changed now instead.
+    // The song playing comes from the folder in use before the switch, which left it alone.
     if (state.playing_from_other) {
       const now = document.createElement("button");
       now.type = "button";

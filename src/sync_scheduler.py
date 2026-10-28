@@ -1,8 +1,5 @@
-"""When the syncs run: what is due, what the moment allows, one run at a time.
-
-The web server owns the runs (it rescans the library after them); the daemon only
-reads RUNNING_FILE to hold the nightly switch-off while one is under way.
-"""
+"""When the syncs run: what is due, what the moment allows, one run at a time."""
+# The web server owns the runs; the daemon only reads RUNNING_FILE to hold the switch-off.
 
 import json
 import logging
@@ -65,10 +62,7 @@ def due(job, now, last_end, boot_at, boot_delay_min):
 
 
 def hold_reason(job, net, play, secret_lost):
-    """Why a sync waits now, as a code, or None when the moment allows it.
-
-    net: {"internet": bool, "home": bool, "ssid": str}; play: {"playing": bool}.
-    """
+    """Why a sync waits now, as a code, or None (net: {internet, home, ssid}; play: {playing})."""
     if secret_lost:
         return "secret_lost"
     internet = job.get("internet", "any")
@@ -230,12 +224,7 @@ def purge_trash(state_dir, days, now=None):
 
 
 class Manager:
-    """The web server's side: a thread that starts due syncs, and the run of the moment.
-
-    cfg: the settings; play: {"playing", "builtin_bt"} of the moment; after(job, record):
-    what follows a run (rescan, list, journal); refuse(target): why a sync may not write there;
-    while_busy(): called every few seconds while a run is under way.
-    """
+    """The web server's side: a thread that starts due syncs, and the run of the moment."""
 
     def __init__(self, cfg, play, after, state_dir, boot_at=None, store=None, refuse=None, while_busy=None):
         self.cfg = cfg

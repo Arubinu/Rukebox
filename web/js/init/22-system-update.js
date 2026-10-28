@@ -166,9 +166,7 @@ function runChoiceBody(at) {
   return box;
 }
 
-/* The legend of the timer and of the switch-off dialog, saying what the run
-   leaves behind: nothing to undo either way, the music simply goes on from there.
-   Standby carries the moon, the one the timer gives it. */
+/* What the timer and the switch-off dialog say a run leaves behind; standby carries the moon. */
 function runChoiceLegend() {
   return legendLines([["moon", t("run.legend_standby")],
                       ["play", t("run.legend_music")],
