@@ -15,3 +15,11 @@ test("the player says the Flic button waits for a press, and stops saying it onc
   await until(() => !/press it once/.test(p.$("npNotices").textContent), 12000);
   await p.close();
 });
+
+test("a Flic battery going flat is one of the player's notices", async () => {
+  const p = load({ hash: "#home/player", routes: {
+    "GET /api/status": Object.assign({}, STATUS, { flic_battery_low: 9 }),
+  } });
+  await until(() => /battery is low \(9 %\)/.test(p.$("npNotices").textContent), 8000);
+  await p.close();
+});

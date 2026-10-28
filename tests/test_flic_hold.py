@@ -238,6 +238,16 @@ class FlicHoldTest(unittest.TestCase):
         audio_diag.set_flic_linked(self.dir, True)
         self.assertFalse(daemon._build_status()["flic_waiting"], "connected")
 
+    def test_the_status_warns_of_a_flic_battery_going_flat(self):
+        daemon = self.build()
+        self.held(None)
+        mock.patch.object(audio_diag, "flic_buttons", return_value=["80:E4:DA:00:00:01"]).start()
+        daemon._watch_flic()
+        audio_diag.set_flic_battery(self.dir, "80:e4:da:00:00:01", 40)
+        self.assertIsNone(daemon._build_status()["flic_battery_low"])
+        audio_diag.set_flic_battery(self.dir, "80:e4:da:00:00:01", 9)
+        self.assertEqual(daemon._build_status()["flic_battery_low"], 9)
+
     def test_a_pairing_wins_over_a_transfer(self):
         daemon = self.build()
         self.held(None)

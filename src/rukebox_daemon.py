@@ -346,6 +346,7 @@ class RadioDaemon:
         self._last_dropped = None
         # flicd runs for a paired button: whether it waits for a press is the bridge's marker.
         self._flic_listening = False
+        self._flic_buttons = []
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
         self._ap_iw_needs_sudo = None
@@ -4451,6 +4452,7 @@ class RadioDaemon:
         usable, reason = audio_diag.flic_availability(not self._wired_output())
         enabled = self._flic_flag("is-enabled") == "enabled"
         self._flic_listening = False
+        self._flic_buttons = []
         if not enabled:
             return
         state_dir = self.cfg.get("STATE_DIR") or ""
@@ -4466,6 +4468,7 @@ class RadioDaemon:
             if self.state.flag(self.FLIC_FLAG) and self._flic_flag("is-active") != "active":
                 self._set_flic_services("start")
             self._flic_listening = bool(buttons)
+            self._flic_buttons = list(buttons or [])
             return
         if self._flic_flag("is-active") != "active":
             return
@@ -5153,6 +5156,15 @@ class RadioDaemon:
         queue = self.state.data.get("play_queue") or []
         return queue[1] if len(queue) > 1 and queue[0] == shown else None
 
+    FLIC_BATTERY_LOW = 15
+
+    def _flic_battery_low(self):
+        """The weakest battery of the Flic buttons in use, when it is low; else None."""
+        levels = audio_diag.flic_battery(self.cfg.get("STATE_DIR") or "")
+        known = [levels[b.upper()] for b in self._flic_buttons if b.upper() in levels]
+        weakest = min(known) if known else None
+        return weakest if weakest is not None and weakest <= self.FLIC_BATTERY_LOW else None
+
     def _build_status(self):
         music_track = self._last_music_track
         sound, sound_label = self._interrupting_sound()
@@ -5213,6 +5225,7 @@ class RadioDaemon:
             # A paired Flic button waiting for a press: flicd listens non-stop meanwhile.
             "flic_waiting": self._flic_listening
             and not audio_diag.flic_linked(self.cfg.get("STATE_DIR") or ""),
+            "flic_battery_low": self._flic_battery_low(),
             "music_start_time": "%02d:%02d" % (
                 self.cfg["MUSIC_START_HOUR"], self.cfg["MUSIC_START_MINUTE"]),
             "clock_ready": self._clock_ready.is_set(),

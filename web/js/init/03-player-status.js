@@ -673,6 +673,9 @@ function applyNotices(d) {
   }
   // Only someone of the house can go and press it: a guest is told nothing.
   if (d.flic_waiting && document.body.dataset.access !== "guest") add("warn", "bluetooth", "now.flic_waiting");
+  if (typeof d.flic_battery_low === "number" && document.body.dataset.access !== "guest") {
+    add("warn", "battery", "notice.flic_battery_low", { n: d.flic_battery_low });
+  }
   if (d.speaker_connected && typeof d.speaker_battery === "number" && d.speaker_battery_low > 0
       && d.speaker_battery <= d.speaker_battery_low) {
     add("warn", "battery", "notice.speaker_battery_low", { n: d.speaker_battery });
