@@ -132,8 +132,8 @@ function paintSignature(item) {
   document.getElementById("systemSignatureRow").hidden = false;
   document.getElementById("systemSignatureOn").checked = !item.off;
   document.getElementById("systemSignatureSound").hidden = false;
-  document.getElementById("systemSignatureState").textContent = item.off ? t("syssounds.off")
-    : item.custom ? t("syssounds.custom", { name: item.name }) : t("syssounds.default");
+  document.getElementById("systemSignatureState").textContent = item.off ? t("syssounds.signature_none")
+    : item.custom ? t("syssounds.signature_custom", { name: item.name }) : t("syssounds.signature_original");
   const actions = document.getElementById("systemSignatureActions");
   actions.replaceChildren();
   const button = (icon, key, onClick) => {
