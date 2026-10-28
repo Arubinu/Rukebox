@@ -126,8 +126,8 @@ document.getElementById("systemSignatureOn").addEventListener("change", async (e
   refreshSystemSounds();
 });
 
-/* Its own line under the switch: the sound it plays, then square buttons to listen to it,
-   replace it with a file, or go back to the original. */
+/* Its own line under the switch: the sound it plays, then square buttons to listen to it and
+   to replace it with a file - or, once replaced, to go back to the original. */
 function paintSignature(item) {
   document.getElementById("systemSignatureRow").hidden = false;
   document.getElementById("systemSignatureOn").checked = !item.off;
@@ -153,22 +153,21 @@ function paintSignature(item) {
   listen.disabled = item.off || !item.exists;
   const buttons = [listen];
   // Both write into the music folder, read-only in some containers.
-  if (canDo("media_upload")) {
+  if (canDo("media_upload") && item.custom) {
+    buttons.push(button("restart", "syssounds.reset", async () => {
+      const r = await apiDelete("/api/system_sounds/SIGNATURE_SOUND");
+      if (!r.ok) {
+        showError(r.error);
+        return;
+      }
+      showToast(t("syssounds.restored", { name: t("syssounds.SIGNATURE_SOUND") }));
+      refreshSystemSounds();
+    }));
+  } else if (canDo("media_upload")) {
     buttons.push(button("upload", "syssounds.replace", () => {
       systemSoundTarget = "SIGNATURE_SOUND";
       systemSoundInput.click();
     }));
-    if (item.custom) {
-      buttons.push(button("restart", "syssounds.restore", async () => {
-        const r = await apiDelete("/api/system_sounds/SIGNATURE_SOUND");
-        if (!r.ok) {
-          showError(r.error);
-          return;
-        }
-        showToast(t("syssounds.restored", { name: t("syssounds.SIGNATURE_SOUND") }));
-        refreshSystemSounds();
-      }));
-    }
   }
   actions.append(...buttons);
 }
