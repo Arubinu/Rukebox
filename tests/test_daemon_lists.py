@@ -592,6 +592,16 @@ class DaemonListsTest(unittest.TestCase):
         self.daemon._loop_mode = "track"
         self.assertEqual(self.daemon._upcoming_after(a), a, "a song on repeat is its own next")
 
+    def test_up_next_hides_the_song_playing_and_shows_it_again_on_standby(self):
+        a, b = self.paths["rock1.mp3"], self.paths["jazz1.mp3"]
+        self.daemon.state.data["play_queue"] = [b]
+        self.daemon._last_music_track = a
+        self.daemon._play_kind = "music"
+        self.assertEqual(self.daemon._next_tracks(10), [b], "the song playing is not up next")
+        self.daemon.state.push_front(a)
+        self.daemon._play_kind = None
+        self.assertEqual(self.daemon._next_tracks(10), [a, b], "on standby it waits at the head again")
+
     def test_a_hardware_clock_behind_the_last_time_seen_is_not_believed(self):
         now = time.time()
         self.daemon._time_seen_before = now - 3600
