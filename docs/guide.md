@@ -914,7 +914,10 @@ for none). By default that press also does its action; with **Ignore the press
 that connects the Flic button** (Settings > Button actions, detailed view,
 `buttons.flic_ignore_waking_press`) it only wakes the button. Only the first
 gesture within 3 seconds of the connection counts as that press, and one the
-button delivers late, from its own memory, counts too.
+button delivers late, from its own memory, counts too. While the button waits
+for a press, *Now playing* says so to the house. Its battery shows on the Flic
+line of the Bluetooth page (`battery 80 %`, a warning at 15 % or less), as
+flicd reports it: at once, then every few hours.
 
 **During a transfer, it pauses.** While songs are sent from a computer (Add
 music, an announcement's files), a folder sync runs or an update is downloaded or pushed, a Flic button on the
@@ -1973,6 +1976,11 @@ import, before it swaps anything in. A hand `scp` does not — if you copy
 files onto the Pi yourself, stop the music first, or check the file sizes
 afterwards.
 
+A wired output chosen (jack, USB sound card, HDMI) that is not there yet when
+the radio starts - PipeWire can come up minutes after the service - holds the
+morning music back up to three minutes, checked every two seconds; past that it
+plays on the default output.
+
 ### If the sound stops for no reason: the audio diagnostic
 
 A Bluetooth link can carry nothing at all while every layer above it says it
@@ -2507,7 +2515,10 @@ itself and keeps them in `game-sounds/` in the state folder.
   dropped: if a song change got there first, the page says so
   (`queue_changed`) and shows the list again. The same people can **take a
   song out** (the minus button): it is gone for this pass only, and comes back
-  with the next one like every other song.
+  with the next one like every other song; the toast's **Undo** puts it back
+  where it was within two minutes. A song asked for says by whom (`Asked for by
+  Marie`, under its title, cut when too long) - to the house only, a guest reads
+  `Asked for`.
   The next pass is drawn as the last song of the current one starts, so
   *Up next* shows what follows even then, and never opens with the song that
   just played.
@@ -3354,6 +3365,12 @@ It packs the project, sends it over, and runs the updater on the Pi. A Flic
 button waiting for a press makes `flicd` listen without a pause, which starves
 the Wi-Fi of the built-in chip: the script asks the radio to rest it for the
 transfer (not when the button is connected) and lets it go once done.
+
+A restart of the service while the radio sleeps - an update, pushed or from the
+page - leaves it asleep: the stop notes it with the boot's identity, and a start
+of the same boot within 30 minutes waits for someone to start the music. A
+reboot, or the next morning, starts as usual. After an update the page is not
+reloaded by itself: its badge reads *New version*, and a tap reloads it.
 The automatic retry against `rukebox.local` only happens when no
 `--host` was given: naming a host explicitly means you already know
 where the Pi is, and quietly trying somewhere else would be surprising
