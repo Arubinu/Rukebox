@@ -93,6 +93,8 @@ class StateTest(unittest.TestCase):
                          "the pass starts again with the songs the run played")
         self.assertEqual(self.s.recent_paths(), ["a"])
         self.assertEqual(self.s.data["request_by"], {"b": "Al"})
+        self.assertEqual(self.s.requested_paths(), ["a", "b"],
+                         "the song cut short in front of the one asked for heads it, and both stay")
         self.assertEqual(self.s.resume_point(), ("a", 12.0),
                          "and the song it found cut short is taken up again")
         self.assertEqual(self.s.data["click_bags"], {"x": ["s1"]})
@@ -177,12 +179,20 @@ class StateTest(unittest.TestCase):
         self.s.pop_next_track_or_none()
         self.s.push_front("a")
         self.assertEqual(self.s.requested_paths(), [], "a pass song put back stays one")
+        self.s.data["play_queue"] = ["d", "e"]
+        self.s.enqueue_requests(["d"])
+        self.s.data["last_request"] = None  # "c", a pass song, was playing
+        self.s.push_front("c")
+        self.assertEqual(self.s.requested_paths(), ["c", "d"],
+                         "in front of songs asked for, it counts as one: they still head the queue")
 
     def test_stale_requests_are_dropped_when_read(self):
         with open(self.path, "w", encoding="utf-8") as f:
-            json.dump({"play_queue": ["a", "b"], "requests": ["x", "a"], "request_by": {"x": "p", "a": "q"}}, f)
+            json.dump({"play_queue": ["a", "b", "c"], "requests": ["x", "a", "c"],
+                       "request_by": {"x": "p", "a": "q", "c": "r"}}, f)
         loaded = state.RadioState(self.path)
-        self.assertEqual((loaded.data["requests"], loaded.data["request_by"]), (["a"], {"a": "q"}))
+        self.assertEqual((loaded.data["requests"], loaded.data["request_by"]), (["a"], {"a": "q"}),
+                         "played, or met again further on in a later pass: no longer asked for")
 
     def test_a_new_pass_does_not_open_with_the_song_playing(self):
         for _ in range(20):

@@ -97,12 +97,23 @@ class RadioState:
                 self._save()
 
     def _drop_stale_requests(self):
-        """A song asked for and played is no longer asked for: kept, it would be taken as
-        already waiting (a list played next would add nothing) and marked so in a later pass."""
-        queue = set(self.data.get("play_queue") or [])
-        self.data["requests"] = [p for p in self.data.get("requests") or [] if p in queue]
+        """The songs asked for are the head of the queue, nothing else: one played, or met again
+        further on in a later pass, would be taken as already waiting (a list played next would
+        add nothing) and marked so."""
+        queue = self.data.get("play_queue") or []
+        asked = set(self.data.get("requests") or [])
+        kept = self.requested_paths()
+        # A song cut short put back in front of them, as earlier versions left it: it heads them.
+        if not kept and len(queue) > 1 and queue[1] in asked:
+            kept = [queue[0]]
+            for p in queue[1:]:
+                if p not in asked:
+                    break
+                kept.append(p)
+        self.data["requests"] = kept
+        kept = set(kept)
         by = self.data.get("request_by") or {}
-        self.data["request_by"] = {p: who for p, who in by.items() if p in queue}
+        self.data["request_by"] = {p: who for p, who in by.items() if p in kept}
 
     def pop_next_track_or_none(self):
         """Pops and returns the next track, or None if the queue is currently
@@ -204,11 +215,14 @@ class RadioState:
         """Puts `path` back at the head of the play queue, and out of the rest of it:
         a pass drawn while it played holds it too."""
         with self._lock:
+            waiting = [p for p in self.requested_paths() if p != path]
             self.data["play_queue"] = [path] + [p for p in self.data["play_queue"] if p != path]
             last = self.data.get("last_request") or {}
-            if last.get("path") == path:
+            # Asked for, it is asked for again; a pass song in front of songs asked for counts as
+            # one too, or they would no longer head the queue.
+            if last.get("path") == path or waiting:
                 self.data["requests"] = [path] + [p for p in self.data["requests"] if p != path]
-                if last.get("by"):
+                if last.get("path") == path and last.get("by"):
                     self.data.setdefault("request_by", {})[path] = last["by"]
             self._save()
 
