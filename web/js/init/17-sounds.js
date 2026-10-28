@@ -1,3 +1,8 @@
+/* What an original sound sounds like, and that it is the original. */
+function originalSoundText(key) {
+  return t("syssounds.original_of", { desc: t("syssounds.desc." + key) });
+}
+
 async function refreshSystemSounds() {
   const result = await apiGet("/api/system_sounds");
   const list = document.getElementById("systemSoundsList");
@@ -32,7 +37,7 @@ async function refreshSystemSounds() {
     state.className = "ann-meta sound-state";
     state.textContent = item.off ? t("syssounds.off")
       : item.custom ? t("syssounds.custom", { name: item.name })
-      : t("syssounds.default");
+      : originalSoundText(item.key);
     text.append(title, state);
     const chevron = document.createElement("span");
     chevron.className = "ann-chevron";
@@ -133,7 +138,7 @@ function paintSignature(item) {
   document.getElementById("systemSignatureOn").checked = !item.off;
   document.getElementById("systemSignatureSound").hidden = false;
   document.getElementById("systemSignatureState").textContent = item.off ? t("syssounds.signature_none")
-    : item.custom ? t("syssounds.signature_custom", { name: item.name }) : t("syssounds.signature_original");
+    : item.custom ? t("syssounds.signature_custom", { name: item.name }) : originalSoundText(item.key);
   const actions = document.getElementById("systemSignatureActions");
   actions.replaceChildren();
   const button = (icon, key, onClick) => {
