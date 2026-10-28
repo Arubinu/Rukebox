@@ -1,9 +1,12 @@
 async function refreshSystemSounds() {
   const result = await apiGet("/api/system_sounds");
   const list = document.getElementById("systemSoundsList");
+  // The signature is not one of the sounds but comes before each of them: it stands apart.
+  const signatureList = document.getElementById("systemSignatureList");
   if (!result.ok || !Array.isArray(result.data)) return;
   await refreshAnnouncementVolumes();
   list.innerHTML = "";
+  signatureList.innerHTML = "";
   result.data.forEach((item) => {
     const li = document.createElement("li");
     li.className = "ann-item sys-item";
@@ -109,7 +112,7 @@ async function refreshSystemSounds() {
     }
     body.appendChild(actions);
     li.append(head, body);
-    list.appendChild(li);
+    (item.key === "SIGNATURE_SOUND" ? signatureList : list).appendChild(li);
   });
 }
 
