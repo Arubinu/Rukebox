@@ -126,19 +126,23 @@ document.getElementById("systemSignatureOn").addEventListener("change", async (e
   refreshSystemSounds();
 });
 
-/* Its own line of buttons under the switch: listen, replace with a file, back to the original. */
+/* Its own line under the switch: the sound it plays, then square buttons to listen to it,
+   replace it with a file, or go back to the original. */
 function paintSignature(item) {
   document.getElementById("systemSignatureRow").hidden = false;
   document.getElementById("systemSignatureOn").checked = !item.off;
+  document.getElementById("systemSignatureSound").hidden = false;
+  document.getElementById("systemSignatureState").textContent = item.off ? t("syssounds.off")
+    : item.custom ? t("syssounds.custom", { name: item.name }) : t("syssounds.default");
   const actions = document.getElementById("systemSignatureActions");
-  actions.hidden = false;
   actions.replaceChildren();
-  const button = (icon, key, onClick, extra) => {
+  const button = (icon, key, onClick) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "btn" + (extra ? " " + extra : "");
+    b.className = "btn btn-icon";
     b.dataset.icon = icon;
-    b.textContent = t(key);
+    b.setAttribute("aria-label", t(key));
+    b.title = t(key);
     b.addEventListener("click", onClick);
     return b;
   };
@@ -147,16 +151,15 @@ function paintSignature(item) {
     if (!r.ok) showError(r.error);
   });
   listen.disabled = item.off || !item.exists;
-  const left = [listen];
-  const right = [];
+  const buttons = [listen];
   // Both write into the music folder, read-only in some containers.
   if (canDo("media_upload")) {
-    left.push(button("upload", "syssounds.replace", () => {
+    buttons.push(button("upload", "syssounds.replace", () => {
       systemSoundTarget = "SIGNATURE_SOUND";
       systemSoundInput.click();
     }));
     if (item.custom) {
-      right.push(button("restart", "syssounds.restore", async () => {
+      buttons.push(button("restart", "syssounds.restore", async () => {
         const r = await apiDelete("/api/system_sounds/SIGNATURE_SOUND");
         if (!r.ok) {
           showError(r.error);
@@ -164,10 +167,10 @@ function paintSignature(item) {
         }
         showToast(t("syssounds.restored", { name: t("syssounds.SIGNATURE_SOUND") }));
         refreshSystemSounds();
-      }, "btn-warning-outline"));
+      }));
     }
   }
-  splitActions(actions, left, right);
+  actions.append(...buttons);
 }
 
 systemSoundInput.addEventListener("change", async (event) => {
