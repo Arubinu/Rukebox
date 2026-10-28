@@ -2500,6 +2500,9 @@ itself and keeps them in `game-sounds/` in the state folder.
   (`queue_changed`) and shows the list again. The same people can **take a
   song out** (the minus button): it is gone for this pass only, and comes back
   with the next one like every other song.
+  The next pass is drawn as the last song of the current one starts, so
+  *Up next* shows what follows even then, and never opens with the song that
+  just played.
 - **Recently played** (Home): the last tracks played, newest first, with
   their title and artist (guests see it too). How many: `recent_tracks`
   (20 by default, 0 hides it), in the Playback card's detailed view.
@@ -3330,7 +3333,10 @@ From the computer holding this project:
 bootstrap\push_update.cmd             # Windows (double-click, or from cmd)
 ```
 
-It packs the project, sends it over, and runs the updater on the Pi.
+It packs the project, sends it over, and runs the updater on the Pi. A Flic
+button waiting for a press makes `flicd` listen without a pause, which starves
+the Wi-Fi of the built-in chip: the script asks the radio to rest it for the
+transfer (not when the button is connected) and lets it go once done.
 The automatic retry against `rukebox.local` only happens when no
 `--host` was given: naming a host explicitly means you already know
 where the Pi is, and quietly trying somewhere else would be surprising
@@ -3885,8 +3891,11 @@ list replaces that with a smaller set:
   otherwise, the first 100 at most (the toast says how many of how many).
   They are songs asked for: once they have played, the radio goes back to what
   it played, where it was in its pass. A song of an excluded list plays too,
-  as any song asked for; one already waiting is not added twice. On a silent
-  radio, the first one starts at once. Whoever may put a list on may do it.
+  as any song asked for; one already waiting is not added twice, and the toast
+  says so (`already in Up next: nothing added`, or how many were there). A song
+  asked for is one no longer once it has played, so the same list can be
+  played next again later. On a silent radio, the first one starts at once.
+  Whoever may put a list on may do it.
 - **Leave out** (the radio's keepers only: operators and the owner) takes the
   songs of a list out of everything the radio picks by itself - the library
   or the lists played. A genre list left out is the way to keep a genre off

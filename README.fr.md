@@ -23,6 +23,8 @@ télécommande.
   il y a Internet, ou ce qu'un téléphone lui envoie. Annonces et jingles
   chacun à son heure, et même « une fois sur deux ». Ses dossiers peuvent se
   remplir seuls depuis un NAS ou un ordinateur, à heure fixe.
+  Plusieurs listes jouent ensemble, d'autres sont écartées, une liste passe
+  juste après, et « À suivre » se réordonne d'un appui long.
 - 🎉 **La soirée** - un appui sur la minuterie : le volume, les lumières et
   l'accès invités de la soirée pour 3 h, 6 h ou jusqu'à ce que tu l'arrêtes,
   avec un mot avant la fin. Les invités scannent un QR code, ajoutent des

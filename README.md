@@ -22,6 +22,8 @@ app: any phone on its Wi-Fi is the remote.
   Internet, or what a phone sends it. Announcements and jingles each on
   their own schedule, even "one time out of two". Its folders can fill
   themselves from a NAS or a computer, on their own schedule.
+  Several lists play together, others are left out, a list slips in next,
+  and *Up next* is reordered with a long press.
 - 🎉 **The party** - one tap on the timer: the party's volume, lights and
   guest access for 3 h, 6 h or until you stop it, with a word before it ends.
   Guests scan a QR code, queue songs, vote to skip, play a blind test.

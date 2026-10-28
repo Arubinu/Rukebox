@@ -22,6 +22,8 @@ account, geen app: elke telefoon op zijn wifi is de afstandsbediening.
   internet is, of wat een telefoon hem stuurt. Mededelingen en jingles elk
   op hun eigen moment, zelfs "één keer op twee". Zijn mappen kunnen zich
   vanzelf vullen vanaf een NAS of computer, op vaste tijden.
+  Meerdere lijsten spelen samen, andere blijven buiten, een lijst komt hierna
+  aan de beurt, en ‘Hierna’ herschik je met lang drukken.
 - 🎉 **Het feest** - één tik op de timer: het volume, de lichten en de
   gasttoegang van het feest voor 3 u, 6 u of tot je het stopt, met een woord
   voor het einde. Gasten scannen een QR-code, zetten nummers in de rij,

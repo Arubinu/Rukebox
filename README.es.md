@@ -22,6 +22,8 @@ móvil en su Wi-Fi es el mando.
   Internet, o lo que un móvil le envía. Anuncios y sintonías cada uno a su
   hora, e incluso «una vez de cada dos». Sus carpetas pueden llenarse solas
   desde un NAS o un ordenador, a la hora que elijas.
+  Varias listas suenan juntas, otras se dejan fuera, una lista entra a
+  continuación, y «A continuación» se reordena con una pulsación larga.
 - 🎉 **La fiesta** - un toque en el temporizador: el volumen, las luces y el
   acceso de invitados de la fiesta durante 3 h, 6 h o hasta que la pares, con
   un aviso antes del final. Los invitados escanean un código QR, añaden

@@ -23,6 +23,8 @@ Fernbedienung.
   es Internet gibt, oder was ein Handy ihm schickt. Ansagen und Jingles
   jeweils zu ihrer Zeit, sogar „jedes zweite Mal". Seine Ordner füllen sich
   auf Wunsch selbst von einem NAS oder Computer, nach Zeitplan.
+  Mehrere Listen laufen zusammen, andere bleiben außen vor, eine Liste kommt
+  als Nächstes dran, und „Als Nächstes“ ordnest du mit langem Druck um.
 - 🎉 **Die Party** - ein Tipp auf den Timer: Lautstärke, Licht und
   Gastzugang der Party für 3 h, 6 h oder bis du sie beendest, mit einem Wort
   vor dem Ende. Gäste scannen einen QR-Code, wünschen Lieder, stimmen fürs
