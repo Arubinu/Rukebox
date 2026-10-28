@@ -2514,6 +2514,12 @@ class RadioDaemon:
         """Nothing is playing, so there is no song to wait for."""
         return self.mode in ("idle", "stopped") or self._paused
 
+    def _restart_if_nothing_plays(self):
+        """A restart planned for the end of a song that will not come (standby, a pause) goes now."""
+        if self._restart_pending and self._restart_is_direct():
+            log.info("Nothing plays any more: the planned restart goes now")
+            self._do_planned_restart()
+
     def _schedule_restart(self, on, target="service"):
         """"Restart the service (or the whole device) at the end of the song" -
         or at once when nothing is being played."""
@@ -4273,6 +4279,7 @@ class RadioDaemon:
         self.stats.record("standby", label=source, detail={"source": source})
         self._start_keepalive(target_mode="idle", quiet=True)
         self._bump_state()
+        self._restart_if_nothing_plays()
         return True
 
     def _set_mute(self, muted, source):
@@ -4972,6 +4979,7 @@ class RadioDaemon:
         now = datetime.now()
         with self._command_lock:
             self._schedule_tick(now)
+            self._restart_if_nothing_plays()
 
         if (
             self.cfg["MUSIC_START_MODE"] == "scheduled"

@@ -567,6 +567,17 @@ class DaemonListsTest(unittest.TestCase):
             self.daemon._start_when_output_ready()
         start.assert_called_once()
 
+    def test_a_restart_planned_for_a_song_goes_at_once_on_standby(self):
+        self.daemon.mode = "music"
+        self.daemon._paused = False
+        with mock.patch.object(self.daemon, "_do_planned_restart") as restart:
+            self.daemon._schedule_restart(True)
+            restart.assert_not_called()
+            self.assertTrue(self.daemon._restart_pending, "waits for the end of the song")
+            self.daemon.mode = "idle"
+            self.daemon._restart_if_nothing_plays()
+            restart.assert_called_once()
+
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:
             self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")
