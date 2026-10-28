@@ -337,6 +337,8 @@ class RadioDaemon:
         self._bt_start_done = False
         # Restarted while asleep (an update): no start of its own until someone starts the music.
         self._asleep_since_restart = False
+        # flicd runs for a paired button: whether it waits for a press is the bridge's marker.
+        self._flic_listening = False
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
         self._ap_iw_needs_sudo = None
@@ -4385,6 +4387,7 @@ class RadioDaemon:
         undoes."""
         usable, reason = audio_diag.flic_availability(not self._wired_output())
         enabled = self._flic_flag("is-enabled") == "enabled"
+        self._flic_listening = False
         if not enabled:
             return
         state_dir = self.cfg.get("STATE_DIR") or ""
@@ -4399,6 +4402,7 @@ class RadioDaemon:
         if usable and not idle and not paused:
             if self.state.flag(self.FLIC_FLAG) and self._flic_flag("is-active") != "active":
                 self._set_flic_services("start")
+            self._flic_listening = bool(buttons)
             return
         if self._flic_flag("is-active") != "active":
             return
@@ -5133,6 +5137,9 @@ class RadioDaemon:
             # The start mode waits for a speaker while the sound goes to a wire: the
             # interface strikes it through.
             "music_start_mode_inert": self._start_mode() != self.cfg["MUSIC_START_MODE"],
+            # A paired Flic button waiting for a press: flicd listens non-stop meanwhile.
+            "flic_waiting": self._flic_listening
+            and not audio_diag.flic_linked(self.cfg.get("STATE_DIR") or ""),
             "music_start_time": "%02d:%02d" % (
                 self.cfg["MUSIC_START_HOUR"], self.cfg["MUSIC_START_MINUTE"]),
             "clock_ready": self._clock_ready.is_set(),
@@ -5173,6 +5180,7 @@ class RadioDaemon:
                 return {"ok": True, "data": {"ignored": "waking"}}
             if cmd == "flic_connected":
                 self._play_cue_sound(self.cfg.get("FLIC_CONNECT_SOUND"), "FLIC_CONNECT_SOUND")
+                self._bump_state()
                 return {"ok": True}
             if self.mode == "game" and cmd == "single_click":
                 self._game_taps += 1

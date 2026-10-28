@@ -1488,6 +1488,7 @@ body[data-access="guest"] .view-bar { display: none; }
 .np-sound.is-empty { opacity: 0; }
 
 .hint.np-sound:empty { display: block; }
+.np-flic { margin: 8px 0 0; text-align: center; }
 
 .track-progress { transition: opacity 0.3s ease, filter 0.3s ease; }
 .track-progress.is-idle { opacity: 0.45; filter: grayscale(1); }

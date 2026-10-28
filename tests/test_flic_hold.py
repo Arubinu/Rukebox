@@ -229,6 +229,15 @@ class FlicHoldTest(unittest.TestCase):
         daemon._set_flic_services("stop")
         self.assertFalse(audio_diag.flic_linked(self.dir), "flicd gone, no button is connected")
 
+    def test_the_status_says_when_a_paired_button_waits_for_a_press(self):
+        daemon = self.build()
+        self.held(None)
+        mock.patch.object(audio_diag, "flic_buttons", return_value=["80:E4:DA:00:00:01"]).start()
+        daemon._watch_flic()
+        self.assertTrue(daemon._build_status()["flic_waiting"], "flicd listens for it non-stop")
+        audio_diag.set_flic_linked(self.dir, True)
+        self.assertFalse(daemon._build_status()["flic_waiting"], "connected")
+
     def test_a_pairing_wins_over_a_transfer(self):
         daemon = self.build()
         self.held(None)

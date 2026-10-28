@@ -48,6 +48,12 @@ function soundText(file, announcement, meme) {
   if (announcement) return t("now.sound_announcement", { name: announcement, file });
   return t(meme ? "now.sound_meme" : "now.sound_other", { file });
 }
+function applyFlicWaiting(d) {
+  // Only someone of the house can go and press it: a guest is told nothing.
+  document.getElementById("npFlicWaiting").hidden =
+    !d.flic_waiting || document.body.dataset.access === "guest";
+}
+
 function applySoundLine(d) {
   const line = document.getElementById("npSound");
   const last = d.last_sound;
@@ -112,6 +118,7 @@ async function refreshStatus() {
   const fileTitle = (d.current_track || "").replace(/\.[a-z0-9]{2,5}$/i, "");
   setNowPlayingText(d.track_title || fileTitle || "\u2014", d.track_artist || "");
   applySoundLine(d);
+  applyFlicWaiting(d);
   applyTrackProgress(d);
   applyTrackMedia(d);
   paintNavNow(d, d.track_title || fileTitle);
