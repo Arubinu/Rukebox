@@ -140,3 +140,22 @@ test("a list played next goes into Up next and says how much of it", async (t) =
   await until(() => page.document.body.textContent.includes("The first 100 of 140."));
   assert.ok(page.document.body.textContent.includes("play next, then the music goes on"));
 });
+
+test("a list already in Up next says so instead of counting nothing", async (t) => {
+  let answer = { added: 0, of: 4, already: 4, started: false };
+  const page = open(t, { hash: "#home/lists", routes: {
+    "GET /api/lists": listsWith({ play: [], exclude: [] }),
+    "GET /api/library/facets": { genres: [] },
+    "GET /api/lists/party/tracks": TRACKS,
+    "POST /api/lists/party/queue": () => answer,
+  } });
+  await until(() => page.$("listsList").children.length === 3);
+  page.$("listsList").children[1].querySelector(".ann-head").click();
+  await until(() => buttons(page).includes("list"));
+  page.$("listsDetailActions").querySelector('[data-icon="list"]').click();
+  await until(() => page.document.body.textContent.includes("is already in Up next: nothing added"));
+  assert.ok(!page.document.body.textContent.includes("0 songs"));
+  answer = { added: 1, of: 4, already: 3, started: false };
+  page.$("listsDetailActions").querySelector('[data-icon="list"]').click();
+  await until(() => page.document.body.textContent.includes("3 were already in Up next."));
+});

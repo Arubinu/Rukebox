@@ -34,6 +34,7 @@ class RadioState:
         self.data.setdefault("play_queue", [])
         # A song is in the queue once: a copy further on would play it twice in the pass.
         self.data["play_queue"] = list(dict.fromkeys(self.data["play_queue"] or []))
+        self._drop_stale_requests()
         self.data.setdefault("last_track", None)
         self.data.setdefault("pending_cutoff", False)
         self.data.setdefault("click_bags", {})
@@ -95,6 +96,14 @@ class RadioState:
                 self.data["resume_point"] = None
                 self._save()
 
+    def _drop_stale_requests(self):
+        """A song asked for and played is no longer asked for: kept, it would be taken as
+        already waiting (a list played next would add nothing) and marked so in a later pass."""
+        queue = set(self.data.get("play_queue") or [])
+        self.data["requests"] = [p for p in self.data.get("requests") or [] if p in queue]
+        by = self.data.get("request_by") or {}
+        self.data["request_by"] = {p: who for p, who in by.items() if p in queue}
+
     def pop_next_track_or_none(self):
         """Pops and returns the next track, or None if the queue is currently
         empty."""
@@ -103,15 +112,22 @@ class RadioState:
                 return None
             track = self.data["play_queue"].pop(0)
             self.data["last_track"] = track
+            # Kept for push_front(): a song asked for and cut short is asked for again.
+            asked = track in (self.data.get("requests") or [])
+            self.data["last_request"] = {"path": track, "by": (self.data.get("request_by") or {}).get(track)} \
+                if asked else None
+            self._drop_stale_requests()
             self._save()
             return track
 
-    def rebuild_queue(self, all_tracks, order_mode, music_dir, custom_order=None):
+    def rebuild_queue(self, all_tracks, order_mode, music_dir, custom_order=None, avoid=None):
         """Starts a fresh pass - called when the queue has just run out and
-        MUSIC_LOOP is true."""
+        MUSIC_LOOP is true. `avoid`: the song playing, kept from opening the new pass."""
         with self._lock:
-            self.data["play_queue"] = playlist.order_files(
-                all_tracks, music_dir, order_mode, custom_order)
+            queue = playlist.order_files(all_tracks, music_dir, order_mode, custom_order)
+            if avoid and len(queue) > 1 and queue[0] == avoid:
+                queue = queue[1:] + queue[:1]
+            self.data["play_queue"] = queue
             self._save()
 
     def rise_head(self, count, level):
@@ -189,6 +205,11 @@ class RadioState:
         a pass drawn while it played holds it too."""
         with self._lock:
             self.data["play_queue"] = [path] + [p for p in self.data["play_queue"] if p != path]
+            last = self.data.get("last_request") or {}
+            if last.get("path") == path:
+                self.data["requests"] = [path] + [p for p in self.data["requests"] if p != path]
+                if last.get("by"):
+                    self.data.setdefault("request_by", {})[path] = last["by"]
             self._save()
 
     def take_from_queue(self, path):
@@ -406,7 +427,7 @@ class RadioState:
     # off. A run being erased puts these back where they were when it started.
     RUN_MEMORY = (("play_queue", list), ("requests", list), ("recent", list),
                   ("request_by", dict), ("click_bags", dict), ("chance_bags", dict),
-                  ("last_track", None), ("resume_point", None))
+                  ("last_track", None), ("last_request", None), ("resume_point", None))
     # The day's cutoff is neither put back nor taken away: erasing must not arm it
     # again, nor drop one already waiting for the end of a track.
     RUN_KEEP = ("last_cutoff_trigger",)
@@ -443,6 +464,7 @@ class RadioState:
                     value = empty()
                 self.data[key] = value
             self.data["play_queue"] = list(dict.fromkeys(self.data["play_queue"]))
+            self._drop_stale_requests()
             for key in self._day_markers():
                 self.data.pop(key, None)
             self.data.update(doc.get("days") or {})

@@ -305,8 +305,18 @@ async function queueList(item) {
     return;
   }
   const d = r.data || {};
-  showToast(t("lists.queued", { name: item.name, n: d.added || 0 }),
-            d.of > d.added ? t("lists.queued_part", { n: d.added || 0, of: d.of }) : "");
+  const added = d.added || 0;
+  const already = d.already || 0;
+  // Only the first LIST_QUEUE_MAX songs of a long list are taken.
+  const taken = added + already;
+  if (!added) {
+    showToast(t("lists.queued_none", { name: item.name }));
+  } else {
+    const details = [];
+    if (already) details.push(t("lists.queued_already", { n: already }));
+    if (d.of > taken) details.push(t("lists.queued_part", { n: taken, of: d.of }));
+    showToast(t("lists.queued", { name: item.name, n: added }), details.join(" "));
+  }
   refreshStatus();
   refreshUpnext();
 }

@@ -157,6 +157,41 @@ class StateTest(unittest.TestCase):
             json.dump({"play_queue": ["a", "b", "a", "c", "b"]}, f)
         self.assertEqual(state.RadioState(self.path).data["play_queue"], ["a", "b", "c"])
 
+    def test_a_song_asked_for_and_played_is_no_longer_asked_for(self):
+        self.s.data["play_queue"] = ["a", "b", "c"]
+        self.s.enqueue_requests(["b", "c"], person="p1")
+        self.assertEqual(self.s.pop_next_track_or_none(), "b")
+        self.assertEqual(self.s.data["requests"], ["c"])
+        self.assertNotIn("b", self.s.data["request_by"])
+        self.s.data["play_queue"].append("b")
+        self.assertEqual(self.s.enqueue_requests(["b"]), 1, "played, it can be asked for again")
+        self.assertEqual(self.s.requested_paths(), ["c", "b"])
+
+    def test_a_song_asked_for_and_cut_short_is_asked_for_again(self):
+        self.s.data["play_queue"] = ["a", "b"]
+        self.s.enqueue_requests(["b"], person="p1")
+        self.s.pop_next_track_or_none()
+        self.s.push_front("b")
+        self.assertEqual((self.s.requested_paths(), self.s.data["request_by"]), (["b"], {"b": "p1"}))
+        self.s.pop_next_track_or_none()
+        self.s.pop_next_track_or_none()
+        self.s.push_front("a")
+        self.assertEqual(self.s.requested_paths(), [], "a pass song put back stays one")
+
+    def test_stale_requests_are_dropped_when_read(self):
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump({"play_queue": ["a", "b"], "requests": ["x", "a"], "request_by": {"x": "p", "a": "q"}}, f)
+        loaded = state.RadioState(self.path)
+        self.assertEqual((loaded.data["requests"], loaded.data["request_by"]), (["a"], {"a": "q"}))
+
+    def test_a_new_pass_does_not_open_with_the_song_playing(self):
+        for _ in range(20):
+            self.s.rebuild_queue(["a", "b", "c"], "random", self.dir, avoid="a")
+            self.assertNotEqual(self.s.data["play_queue"][0], "a")
+            self.assertEqual(sorted(self.s.data["play_queue"]), ["a", "b", "c"])
+        self.s.rebuild_queue(["a"], "random", self.dir, avoid="a")
+        self.assertEqual(self.s.data["play_queue"], ["a"], "a pass of one song is that song")
+
     def test_take_from_queue(self):
         self.s.data["play_queue"] = ["a", "b"]
         self.s.enqueue_request("b")

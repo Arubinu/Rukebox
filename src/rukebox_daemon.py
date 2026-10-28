@@ -1110,12 +1110,12 @@ class RadioDaemon:
         return {"play": [brief(e) for e in play], "exclude": [brief(e) for e in exclude],
                 "tracks": len(self._playable_tracks()) if play or exclude else None}
 
-    def _rebuild_queue(self, tracks=None):
+    def _rebuild_queue(self, tracks=None, avoid=None):
         """Restarts the playing pass from whatever is active now."""
         entry = self._active_list_entry()
         tracks = self._playable_tracks() if tracks is None else tracks
         self.state.rebuild_queue(tracks, self.cfg["MUSIC_ORDER_MODE"], self._music_dir(),
-                                 music_lists.custom_order(entry))
+                                 music_lists.custom_order(entry), avoid=avoid)
         return tracks
 
     def _asker(self, msg):
@@ -1146,7 +1146,8 @@ class RadioDaemon:
             self._start_or_restart_playback(log_label="request")
             started = True
         self._bump_state()
-        return {"ok": True, "data": {"added": added, "of": len(tracks), "started": started}}
+        return {"ok": True, "data": {"added": added, "of": len(tracks), "already": len(chosen) - added,
+                                     "started": started}}
 
     def _set_active_list(self, list_id, source, start=False):
         """Makes one list (None: everything) what the radio plays; the exclusions stay."""
@@ -1263,6 +1264,10 @@ class RadioDaemon:
             track = self.state.pop_next_track_or_none()
             if track is None:
                 return
+        if self.cfg["MUSIC_LOOP"] and not self.state.data.get("play_queue"):
+            # The next pass is drawn as its last song starts, not as it ends: Up next is never
+            # empty while more music is coming, and that song does not open the new pass.
+            self._rebuild_queue(tracks, avoid=track)
 
         self._play_with_intro(track, introduce, natural)
 
