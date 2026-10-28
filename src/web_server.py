@@ -2377,7 +2377,7 @@ def api_library():
         offset = 0
     found = lib.search(request.args.get("q", ""), request.args.get("artist") or None,
                        request.args.get("album") or None, request.args.get("genre") or None,
-                       offset=offset, limit=30)
+                       offset=offset, limit=30, newest=request.args.get("order") == "new")
     found["status"] = lib.status()
     excluded = _excluded_keys()
     for item in found["items"]:

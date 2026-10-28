@@ -99,6 +99,23 @@ class LibraryTest(unittest.TestCase):
         self.lib.store_tail(self.files[2], 0.0)
         self.assertEqual(self.lib.work_left()["endings"], 0)
 
+    def test_newest_arrivals_come_first_and_keep_their_date(self):
+        with self.lib._lock:
+            self.lib._db.execute("UPDATE tracks SET added_at = NULL")
+        newer = os.path.join(self.music, "New", "fresh.mp3")
+        os.makedirs(os.path.dirname(newer))
+        with open(newer, "wb") as f:
+            f.write(b"y" * 10)
+        self.lib.sync(self.files + [newer], self.music)
+        found = self.lib.search("", newest=True)["items"]
+        self.assertEqual(found[0]["title"], "fresh", "the song just catalogued first")
+        first = self.lib._db.execute("SELECT added_at FROM tracks WHERE path = ?", (newer,)).fetchone()[0]
+        with open(newer, "wb") as f:
+            f.write(b"z" * 12)
+        self.lib.sync(self.files + [newer], self.music)
+        again = self.lib._db.execute("SELECT added_at FROM tracks WHERE path = ?", (newer,)).fetchone()[0]
+        self.assertEqual(again, first, "a file changed keeps its arrival")
+
     def test_search_and_facets(self):
         self.assertEqual(self.lib.search("discovery")["total"], 2)
         self.assertEqual(self.lib.search("", artist="Daft Punk")["total"], 2)

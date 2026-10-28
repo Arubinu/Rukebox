@@ -5,6 +5,7 @@ import re
 import sqlite3
 import subprocess
 import threading
+import time
 import unicodedata
 
 SCHEMA = """
@@ -32,6 +33,8 @@ LOUDNESS_TIMEOUT_SEC = 300
 # A stable order, so pages of a search never overlap.
 SEARCH_ORDER = (" ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track,"
                 " title COLLATE NOCASE")
+# Newest arrivals first; songs catalogued before the date was kept come last.
+NEWEST_ORDER = " ORDER BY added_at IS NULL, added_at DESC," + SEARCH_ORDER[len(" ORDER BY"):]
 _LOUDNESS_RE = re.compile(r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", re.MULTILINE)
 _SILENCE_RE = re.compile(r"silence_(start|end):\s*(-?\d+(?:\.\d+)?)")
 TAIL_WINDOW_SEC = 30
@@ -193,6 +196,8 @@ class Library:
             self._db.execute("ALTER TABLE tracks ADD COLUMN tail REAL")
         if "tail_read" not in known:
             self._db.execute("ALTER TABLE tracks ADD COLUMN tail_read INTEGER NOT NULL DEFAULT 0")
+        if "added_at" not in known:
+            self._db.execute("ALTER TABLE tracks ADD COLUMN added_at REAL")
         self._db.commit()
         self._lock = threading.Lock()
         self._key_fn = key_fn
@@ -208,8 +213,11 @@ class Library:
                 continue
             wanted[path] = (st.st_size, st.st_mtime)
         with self._lock:
-            rows = {r["path"]: (r["size"], r["mtime"]) for r in
-                    self._db.execute("SELECT path, size, mtime FROM tracks")}
+            known = {r["path"]: r for r in
+                     self._db.execute("SELECT path, size, mtime, added_at FROM tracks")}
+            rows = {path: (r["size"], r["mtime"]) for path, r in known.items()}
+            # A file's mtime is its source's (a sync keeps it): arrival is when the catalogue saw it.
+            now = time.time()
             removed = [p for p in rows if p not in wanted]
             for path in removed:
                 self._db.execute("DELETE FROM tracks WHERE path = ?", (path,))
@@ -218,12 +226,13 @@ class Library:
                 if rows.get(path) == (size, mtime):
                     continue
                 title, artist, album = _from_path(path, music_dir)
+                arrived = known[path]["added_at"] if path in known else now
                 self._db.execute(
                     "INSERT OR REPLACE INTO tracks (path, size, mtime, key, title, artist, album,"
-                    " genre, year, track, duration, search, probed)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, 0)",
+                    " genre, year, track, duration, search, probed, added_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, 0, ?)",
                     (path, size, mtime, self._key_fn(path), title, artist, album,
-                     fold(" ".join([title, artist, album, os.path.basename(path)]))))
+                     fold(" ".join([title, artist, album, os.path.basename(path)])), arrived))
                 added += 1
             self._db.commit()
         self._genre_cache = None
@@ -357,14 +366,15 @@ class Library:
             items.append(item)
         return items
 
-    def search(self, words="", artist=None, album=None, genre=None, offset=0, limit=30):
+    def search(self, words="", artist=None, album=None, genre=None, offset=0, limit=30, newest=False):
         where, args = self._where(words, artist, album, genre)
         if where is None:
             return {"items": [], "total": 0}
+        order = NEWEST_ORDER if newest else SEARCH_ORDER
         with self._lock:
             total = self._db.execute("SELECT COUNT(*) FROM tracks" + where, args).fetchone()[0]
             rows = self._db.execute(
-                "SELECT * FROM tracks" + where + SEARCH_ORDER + " LIMIT ? OFFSET ?",
+                "SELECT * FROM tracks" + where + order + " LIMIT ? OFFSET ?",
                 args + [int(limit), int(offset)]).fetchall()
         return {"items": [self._item(r) for r in rows], "total": total}
 

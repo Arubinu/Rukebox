@@ -635,8 +635,12 @@ async function refreshLibraryFacets() {
   paintGenrePlay();
 }
 
+// The newest arrivals are a list of their own: asked for even with nothing searched.
+const libraryOrder = document.getElementById("libraryOrder");
+
 function libraryAsked() {
-  return librarySearch.value.trim() || libraryArtist.value || libraryAlbum.value || libraryGenre.value;
+  return librarySearch.value.trim() || libraryArtist.value || libraryAlbum.value || libraryGenre.value
+    || libraryOrder.value === "new";
 }
 
 async function refreshLibrary(more) {
@@ -648,6 +652,7 @@ async function refreshLibrary(more) {
   if (libraryArtist.value) params.set("artist", libraryArtist.value);
   if (libraryAlbum.value) params.set("album", libraryAlbum.value);
   if (libraryGenre.value) params.set("genre", libraryGenre.value);
+  if (libraryOrder.value) params.set("order", libraryOrder.value);
   libraryOffset = more ? libraryOffset : 0;
   params.set("offset", String(libraryOffset));
   const r = await apiGet("/api/library?" + params.toString());
@@ -708,6 +713,7 @@ libraryGenre.addEventListener("change", () => {
   refreshLibrary(false);
   paintGenrePlay();
 });
+libraryOrder.addEventListener("change", () => refreshLibrary(false));
 document.getElementById("libraryMore").addEventListener("click", () => refreshLibrary(true));
 refreshLibrary(false);
 
