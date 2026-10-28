@@ -1,13 +1,17 @@
 async function refreshSystemSounds() {
   const result = await apiGet("/api/system_sounds");
   const list = document.getElementById("systemSoundsList");
-  // The signature is not one of the sounds but comes before each of them: it stands apart.
-  const signatureList = document.getElementById("systemSignatureList");
   if (!result.ok || !Array.isArray(result.data)) return;
   await refreshAnnouncementVolumes();
   list.innerHTML = "";
-  signatureList.innerHTML = "";
   result.data.forEach((item) => {
+    // Not one of the sounds but what comes before each: a switch of the card, not an entry.
+    if (item.key === "SIGNATURE_SOUND") {
+      document.getElementById("systemSignatureRow").hidden = false;
+      document.getElementById("systemSignatureOn").checked = !item.off;
+      document.getElementById("systemSignatureListen").disabled = item.off || !item.exists;
+      return;
+    }
     const li = document.createElement("li");
     li.className = "ann-item sys-item";
     li.dataset.key = item.key;
@@ -112,9 +116,22 @@ async function refreshSystemSounds() {
     }
     body.appendChild(actions);
     li.append(head, body);
-    (item.key === "SIGNATURE_SOUND" ? signatureList : list).appendChild(li);
+    list.appendChild(li);
   });
 }
+
+document.getElementById("systemSignatureOn").addEventListener("change", async (event) => {
+  // On is the original sound back; off leaves the sounds without it.
+  const r = event.target.checked ? await apiDelete("/api/system_sounds/SIGNATURE_SOUND")
+    : await apiPost("/api/system_sounds/SIGNATURE_SOUND/off");
+  if (!r.ok) showError(r.error);
+  refreshSystemSounds();
+});
+
+document.getElementById("systemSignatureListen").addEventListener("click", async () => {
+  const r = await apiPost("/api/system_sounds/SIGNATURE_SOUND/test");
+  if (!r.ok) showError(r.error);
+});
 
 systemSoundInput.addEventListener("change", async (event) => {
   const file = (event.target.files || [])[0];

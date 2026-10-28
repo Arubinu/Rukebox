@@ -2604,7 +2604,8 @@ select {
 .subsection[open] > summary { border-bottom: 1px solid var(--border); }
 .subsection > summary > span:first-child { min-width: 0; }
 
-.sys-signature-note { margin: 6px 0 14px; }
+.sys-signature-row { margin-bottom: 12px; }
+.sys-signature-controls { flex: none; display: flex; align-items: center; gap: 10px; }
 .title-voice-list { list-style: none; margin: 4px 0 8px; padding: 0; }
 .title-voice-list li {
   position: relative;
