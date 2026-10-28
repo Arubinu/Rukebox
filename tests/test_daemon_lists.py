@@ -592,6 +592,16 @@ class DaemonListsTest(unittest.TestCase):
         self.daemon._loop_mode = "track"
         self.assertEqual(self.daemon._upcoming_after(a), a, "a song on repeat is its own next")
 
+    def test_a_hardware_clock_behind_the_last_time_seen_is_not_believed(self):
+        now = time.time()
+        self.daemon._time_seen_before = now - 3600
+        self.assertTrue(self.daemon._rtc_plausible(), "ahead of the last time seen: fine")
+        self.daemon._time_seen_before = now + 86400
+        self.assertFalse(self.daemon._rtc_plausible(), "a day behind it: the module lost the time")
+        self.daemon._time_seen_before = 0.0
+        with mock.patch.object(rukebox_daemon.time, "time", return_value=946684800.0):
+            self.assertFalse(self.daemon._rtc_plausible(), "the year 2000: a module reset")
+
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:
             self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")

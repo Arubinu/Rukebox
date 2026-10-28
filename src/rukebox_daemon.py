@@ -241,7 +241,13 @@ class RadioDaemon:
         self._speaker_watch_lock = threading.Lock()
         self._waiting_for_tracks = False
         self.cfg = cfg
-        self.state = RadioState(os.path.join(cfg["STATE_DIR"], "state.json"))
+        state_path = os.path.join(cfg["STATE_DIR"], "state.json")
+        # Read before anything writes it again: the hardware clock is checked against it.
+        try:
+            self._time_seen_before = os.path.getmtime(state_path)
+        except OSError:
+            self._time_seen_before = 0.0
+        self.state = RadioState(state_path)
         # What this run started with, and what the run before it started with:
         # erasing either of the two puts its memory back (see _erase_run).
         self._run_memory = None
@@ -628,12 +634,17 @@ class RadioDaemon:
             return
 
         if os.path.exists("/dev/rtc0") or os.path.exists("/dev/rtc"):
-            log.info("Hardware RTC module detected, clock considered reliable")
-            self._declare_clock("rtc", offset_sec=0.0)
-            self._clock_ready.set()
-            return
-
-        log.warning("No hardware RTC detected, the clock is not guaranteed to be reliable")
+            if self._rtc_plausible():
+                log.info("Hardware RTC module detected, clock considered reliable")
+                self._declare_clock("rtc", offset_sec=0.0)
+                self._clock_ready.set()
+                return
+            log.warning("Hardware RTC module detected, but its time %s is before the last one this "
+                        "radio saw (%s): its battery or the module failed, so it is not trusted",
+                        datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        datetime.fromtimestamp(self._time_seen_before).strftime("%Y-%m-%d %H:%M"))
+        else:
+            log.warning("No hardware RTC detected, the clock is not guaranteed to be reliable")
 
         if self._bt_clock_wanted() or self._wled_clock_targets():
             threading.Thread(target=self._recover_clock, daemon=True).start()
@@ -656,6 +667,18 @@ class RadioDaemon:
                 self._clock_ready.set()
 
         threading.Thread(target=grace_timeout, daemon=True).start()
+
+    # Time never goes back: a clock behind the last time written down lost it, give or take this.
+    RTC_BACKWARDS_SEC = 60
+    RTC_FIRST_YEAR = 2024
+
+    def _rtc_plausible(self):
+        """Whether the hardware clock's time can be believed: not before the last time this radio
+        wrote down, nor in a year before this software existed."""
+        now = time.time()
+        if datetime.fromtimestamp(now).year < self.RTC_FIRST_YEAR:
+            return False
+        return now >= self._time_seen_before - self.RTC_BACKWARDS_SEC
 
     def _declare_clock(self, source, offset_sec=0.0, trusted=True):
         self._time_source = source if trusted else None
