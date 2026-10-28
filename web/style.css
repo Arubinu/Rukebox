@@ -2610,13 +2610,15 @@ select {
   gap: 10px;
   min-height: 44px;
 }
-/* The line stops before the button, which is as tall as the row. */
+/* The rows stand 1px apart, the buttons as tall as them never touch; the line sits in that gap
+   and stops before the button. */
+.title-voice-list li:not(:last-child) { margin-bottom: 1px; }
 .title-voice-list li:not(:last-child)::after {
   content: "";
   position: absolute;
   left: 0;
   right: calc(var(--tap) + 10px);
-  bottom: 0;
+  bottom: -1px;
   border-bottom: 1px solid var(--border);
 }
 .title-voice-name { font-weight: 600; min-width: 0; }
