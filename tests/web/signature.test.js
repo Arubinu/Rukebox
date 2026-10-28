@@ -19,6 +19,8 @@ test("the signature is a switch above the sounds, turned off and back on", async
   } });
   await until(() => !p.$("systemSignatureRow").hidden, 8000);
   assert.equal(p.$("systemSignatureOn").checked, true);
+  const buttons = [...p.$("systemSignatureActions").querySelectorAll("button")].map((b) => b.dataset.icon);
+  assert.deepEqual(buttons, ["play", "upload"], "listen and replace, on their own line");
   assert.deepEqual([...p.$("systemSoundsList").children].map((li) => li.dataset.key), ["CLOCK_OK_SOUND"],
                    "not one of the entries");
   const off = p.$("systemSignatureOn");

@@ -2573,14 +2573,10 @@
               <label for="systemSignatureOn" data-i18n="syssounds.SIGNATURE_SOUND">Signature before each sound</label>
               <p class="field-desc" id="systemSignatureDesc" data-i18n="syssounds.signature_note">Played just before each of the sounds below.</p>
             </div>
-            <span class="sys-signature-controls">
-              <button type="button" class="btn btn-icon" id="systemSignatureListen" data-icon="play"
-                      data-i18n-aria-label="syssounds.listen" data-i18n-title="syssounds.listen"
-                      aria-label="Listen" title="Listen"></button>
-              <input type="checkbox" id="systemSignatureOn" class="switch-input" role="switch"
-                     aria-describedby="systemSignatureDesc">
-            </span>
+            <input type="checkbox" id="systemSignatureOn" class="switch-input" role="switch"
+                   aria-describedby="systemSignatureDesc">
           </div>
+          <span class="device-actions sys-signature-actions" id="systemSignatureActions" hidden></span>
           <ul class="device-list" id="systemSoundsList"></ul>
           <p class="hint picker-note" hidden></p>
           <input type="file" id="systemSoundInput" hidden

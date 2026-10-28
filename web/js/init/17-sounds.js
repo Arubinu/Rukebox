@@ -7,9 +7,7 @@ async function refreshSystemSounds() {
   result.data.forEach((item) => {
     // Not one of the sounds but what comes before each: a switch of the card, not an entry.
     if (item.key === "SIGNATURE_SOUND") {
-      document.getElementById("systemSignatureRow").hidden = false;
-      document.getElementById("systemSignatureOn").checked = !item.off;
-      document.getElementById("systemSignatureListen").disabled = item.off || !item.exists;
+      paintSignature(item);
       return;
     }
     const li = document.createElement("li");
@@ -128,10 +126,49 @@ document.getElementById("systemSignatureOn").addEventListener("change", async (e
   refreshSystemSounds();
 });
 
-document.getElementById("systemSignatureListen").addEventListener("click", async () => {
-  const r = await apiPost("/api/system_sounds/SIGNATURE_SOUND/test");
-  if (!r.ok) showError(r.error);
-});
+/* Its own line of buttons under the switch: listen, replace with a file, back to the original. */
+function paintSignature(item) {
+  document.getElementById("systemSignatureRow").hidden = false;
+  document.getElementById("systemSignatureOn").checked = !item.off;
+  const actions = document.getElementById("systemSignatureActions");
+  actions.hidden = false;
+  actions.replaceChildren();
+  const button = (icon, key, onClick, extra) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn" + (extra ? " " + extra : "");
+    b.dataset.icon = icon;
+    b.textContent = t(key);
+    b.addEventListener("click", onClick);
+    return b;
+  };
+  const listen = button("play", "syssounds.listen", async () => {
+    const r = await apiPost("/api/system_sounds/SIGNATURE_SOUND/test");
+    if (!r.ok) showError(r.error);
+  });
+  listen.disabled = item.off || !item.exists;
+  const left = [listen];
+  const right = [];
+  // Both write into the music folder, read-only in some containers.
+  if (canDo("media_upload")) {
+    left.push(button("upload", "syssounds.replace", () => {
+      systemSoundTarget = "SIGNATURE_SOUND";
+      systemSoundInput.click();
+    }));
+    if (item.custom) {
+      right.push(button("restart", "syssounds.restore", async () => {
+        const r = await apiDelete("/api/system_sounds/SIGNATURE_SOUND");
+        if (!r.ok) {
+          showError(r.error);
+          return;
+        }
+        showToast(t("syssounds.restored", { name: t("syssounds.SIGNATURE_SOUND") }));
+        refreshSystemSounds();
+      }, "btn-warning-outline"));
+    }
+  }
+  splitActions(actions, left, right);
+}
 
 systemSoundInput.addEventListener("change", async (event) => {
   const file = (event.target.files || [])[0];

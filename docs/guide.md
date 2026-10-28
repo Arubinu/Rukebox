@@ -4159,7 +4159,8 @@ button in its own row is a test and always plays.
   wavering unresolved when it is uncertain, a doorbell when a device joins the Wi-Fi, a quick rising
   glide and click when the Flic button connects, three falling notes for a
   low battery, a rising whoosh before a restart. The **Signature before each
-  sound**, a switch at the top of the card with its own Listen button, is a
+  sound**, a switch at the top of the card with a line of its own to listen to it,
+  replace it with a file or go back to the original, is a
   short glass "ting" played just before every other one (the keep-alive aside),
   so a sound is known as the radio's at once. They stand a little above
   the music at the same volume, and an update brings a new original in;
