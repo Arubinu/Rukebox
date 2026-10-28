@@ -33,3 +33,19 @@ test("music sent to the radio is named so on the player", async (t) => {
   await until(() => page.$("npMode").textContent === "Music sent");
   assert.deepEqual(page.errors, []);
 });
+
+test("a song often passed over can be excluded from its line", async (t) => {
+  let excluded = null;
+  const page = open(t, { hash: "#stats/tops", view: "detailed", routes: {
+    "GET /api/journal/summary": Object.assign(summary({ music: [] }), { often_skipped: [
+      { name: "ymca.mp3", key: "k1", title: "Y.M.C.A.", artist: "Village People", skipped: 9, played: 10 }] }),
+    "POST /api/excluded": (request) => { excluded = request.body.keys; return { count: 1, total: 1 }; },
+  } });
+  await until(() => /Often skipped/.test(page.$("topsBox").textContent));
+  assert.match(page.$("topsBox").textContent, /9 of 10/);
+  const line = [...page.$("topsBox").querySelectorAll("li")].find((li) => /Y\.M\.C\.A\./.test(li.textContent));
+  line.querySelector("button[data-icon='circle-minus']").click();
+  await until(() => excluded !== null);
+  assert.deepEqual(excluded, ["k1"]);
+  await until(() => !/Y\.M\.C\.A\./.test(page.$("topsBox").textContent));
+});

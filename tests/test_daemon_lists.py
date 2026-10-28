@@ -602,6 +602,16 @@ class DaemonListsTest(unittest.TestCase):
         self.daemon._play_kind = None
         self.assertEqual(self.daemon._next_tracks(10), [a, b], "on standby it waits at the head again")
 
+    def test_a_song_left_by_a_button_counts_as_passed_over(self):
+        a = self.paths["rock1.mp3"]
+        self.daemon.mode = "music"
+        self.daemon._play_kind, self.daemon._play_path = "music", a
+        with mock.patch.object(self.daemon.stats, "record") as record,                 mock.patch.object(self.daemon, "_play_next_track"):
+            self.daemon._perform_click_action("single", "flic", "next", "")
+        self.assertEqual(record.call_args.kwargs["item"], ("skipped", "rock1.mp3"))
+        self.daemon._play_kind = "meme"
+        self.assertIsNone(self.daemon._skipped_item(), "a sound cut short is no song passed over")
+
     def test_a_hardware_clock_behind_the_last_time_seen_is_not_believed(self):
         now = time.time()
         self.daemon._time_seen_before = now - 3600

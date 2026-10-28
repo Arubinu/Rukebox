@@ -963,6 +963,24 @@ class StatsRecorder:
             log.exception("Could not build the statistics summary")
             return {"enabled": False, "error": "query_failed"}
 
+    def often_skipped(self, min_skips=3, min_share=0.5):
+        """The songs passed over at least `min_skips` times and on at least `min_share` of their
+        plays, the most often passed first: [{name, skipped, played}]."""
+        if not self.enabled:
+            return []
+        try:
+            rows = self._rows(
+                "SELECT s.name, s.count AS skipped, COALESCE(m.count, 0) AS played FROM items s"
+                " LEFT JOIN items m ON m.kind = 'music' AND m.name = s.name"
+                " WHERE s.kind = 'skipped' AND s.count >= ?", (min_skips,))
+        except Exception:  # noqa: BLE001
+            log.exception("Could not read the songs passed over")
+            return []
+        # A skip also ends a play, so played >= skipped; max() covers plays erased since.
+        out = [r for r in rows if r["skipped"] >= min_share * max(r["played"], r["skipped"])]
+        out.sort(key=lambda r: (-r["skipped"] / max(r["played"], r["skipped"]), -r["skipped"], r["name"]))
+        return out
+
     def events(self, limit=100, event_type=None, since=None, before_id=None, query=None, labels=None):
         if not self.enabled:
             return []

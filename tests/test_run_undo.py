@@ -47,6 +47,25 @@ class StatsEraseTest(unittest.TestCase):
         self.assertEqual([e["label"] for e in self.recorder.run_events(run["session"])],
                          ["b.mp3", "a.mp3", "rtc"], "newest first, the session's start last")
 
+    def skip(self, name):
+        self.play(name, 5)
+        self.recorder.record("track_skipped", label="web", item=("skipped", name))
+
+    def test_the_songs_passed_over_on_most_plays_are_found_and_an_erased_run_takes_them_back(self):
+        for _ in range(3):
+            self.skip("a.mp3")
+        self.play("b.mp3", 60)
+        for _ in range(3):
+            self.skip("b.mp3")
+        for _ in range(5):
+            self.play("b.mp3", 60)
+        self.skip("c.mp3")
+        found = self.recorder.often_skipped()
+        self.assertEqual([(r["name"], r["skipped"], r["played"]) for r in found], [("a.mp3", 3, 3)],
+                         "b was passed over on 3 of 9 plays, c only once")
+        self.recorder.erase_run(self.recorder.run_to_erase())
+        self.assertEqual(self.recorder.often_skipped(), [])
+
     def test_erasing_gives_every_total_back(self):
         today = date.today()
         self.play("a.mp3", 60)

@@ -3558,7 +3558,13 @@ class RadioDaemon:
         self._start_keepalive(target_mode="idle", quiet=True)
         self._bump_state()
 
-    def _record_click(self, kind, source, action, target=None):
+    def _skipped_item(self):
+        """The statistics item of the song being left before its end, or None when none plays."""
+        if self._play_kind == "music" and self._play_path:
+            return ("skipped", os.path.basename(self._play_path))
+        return None
+
+    def _record_click(self, kind, source, action, target=None, item=None):
         """One row per button press, with what it actually did."""
         counters = {"clicks_speaker" if kind.startswith("speaker_") else "clicks_%s" % kind: 1}
         if source in ("flic", "gpio", "web", "remote"):
@@ -3568,7 +3574,7 @@ class RadioDaemon:
         self.stats.record(
             "click", label=kind,
             detail={"source": source, "action": action, "target": target},
-            counters=counters, daily={"clicks_%s" % kind: 1},
+            counters=counters, daily={"clicks_%s" % kind: 1}, item=item,
         )
         if action != "ignored":
             self._lights.flash("button")
@@ -3632,6 +3638,7 @@ class RadioDaemon:
             self._record_click(kind, source, "ignored", target="no_sound")
             return
         resume = (self._last_music_track, self._position) if action == "sound" else None
+        skipped = self._skipped_item() if action == "next" else None
         if action == "previous":
             self._step_back()
         self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
@@ -3640,7 +3647,7 @@ class RadioDaemon:
             log.info("%s click -> %s track", kind, action)
             self._record_click(kind, source,
                                "next_track_no_sound" if action == "next" else "previous_track",
-                               target=sound_source if sound_source not in ("", "none") else None)
+                               target=sound_source if sound_source not in ("", "none") else None, item=skipped)
             self._play_next_track(user=True)
             return
         log.info("%s click -> sound %s, then %s", kind, chosen,
@@ -3648,7 +3655,7 @@ class RadioDaemon:
         self._record_click(kind, source,
                            {"next": "sound_then_next", "previous": "sound_then_previous",
                             "sound": "sound_then_resume"}[action],
-                           target=os.path.basename(chosen))
+                           target=os.path.basename(chosen), item=skipped)
         self._resume_mode = "music"
         self._resume_track = resume
         self._next_is_user = action == "next"
@@ -5303,7 +5310,7 @@ class RadioDaemon:
                     return {"ok": True}
                 self.stats.record(
                     "track_skipped", label=source,
-                    detail={"source": source, "mode": self.mode},
+                    detail={"source": source, "mode": self.mode}, item=self._skipped_item(),
                 )
                 self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
                 self._restore_base_volume()

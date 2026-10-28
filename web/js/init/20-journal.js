@@ -397,7 +397,7 @@ function listInUse(id) {
 function renderTops(summary, force) {
   const top = summary.top || {};
   const box = document.getElementById("topsBox");
-  if (force || !listInUse("topsBox")) renderTopsInto(box, top);
+  if (force || !listInUse("topsBox")) renderTopsInto(box, top, summary.often_skipped);
   const errorsBox = document.getElementById("errorsBox");
   if (force || !listInUse("errorsBox")) {
     errorsBox.innerHTML = "";
@@ -405,9 +405,46 @@ function renderTops(summary, force) {
   }
 }
 
-function renderTopsInto(box, top) {
+/* The songs most often passed over, each with a button that stops the radio picking it. */
+function renderSkippedList(container, items) {
+  if (!items || !items.length) return;
+  const block = document.createElement("div");
+  block.className = "top-block";
+  const h = document.createElement("div");
+  h.className = "top-title";
+  h.textContent = t("top.skipped");
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = t("top.skipped_hint");
+  const list = document.createElement("ul");
+  list.className = "top-list";
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    const label = item.title ? item.title + (item.artist ? " \u2014 " + item.artist : "") : item.name;
+    const name = libraryLink(label, { q: item.title || item.name }, "top-name");
+    const value = document.createElement("span");
+    value.className = "top-value";
+    value.textContent = t("top.skipped_count", { n: item.skipped, of: item.played });
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn btn-icon btn-small";
+    b.dataset.icon = "circle-minus";
+    b.title = t("excluded.add_one_aria", { title: label });
+    b.setAttribute("aria-label", b.title);
+    b.addEventListener("click", async () => {
+      if (await excludeTracks([item.key], label)) li.remove();
+    });
+    li.append(name, value, b);
+    list.appendChild(li);
+  });
+  block.append(h, hint, list);
+  container.appendChild(block);
+}
+
+function renderTopsInto(box, top, skipped) {
   box.innerHTML = "";
   renderTopList(box, t("top.music"), top.music, { showSeconds: true, kind: "music" });
+  renderSkippedList(box, skipped);
   renderTopList(box, t("top.cutoff"), top.cutoff_announce, { kind: "cutoff_announce" });
   renderTopList(box, t("top.meme"), top.meme, { kind: "meme" });
 

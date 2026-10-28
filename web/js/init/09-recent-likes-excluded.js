@@ -343,11 +343,12 @@ async function excludeTracks(keys, name) {
   const r = await apiPost("/api/excluded", { keys: keys });
   if (!r.ok) {
     showToolError(t("excluded.failed"), r);
-    return;
+    return false;
   }
   showToast(t("excluded.added", { title: name }));
   refreshExcluded();
   refreshExcludedResults();
+  return true;
 }
 
 async function refreshExcludedResults(more) {

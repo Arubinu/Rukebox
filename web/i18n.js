@@ -2719,6 +2719,9 @@ const I18N = {
     "stats.since_prefix": "Since {date} · {count} events kept ({days} days, {size})",
 
     "top.music": "Most played tracks",
+    "top.skipped": "Often skipped",
+    "top.skipped_hint": "Songs passed over on most of their plays: exclude one and the radio no longer picks it by itself.",
+    "top.skipped_count": "{n} of {of}",
     "top.cutoff": "Cutoff announcements",
     "top.meme": "Button sounds",
     "top.errors": "Files that failed to play",
@@ -5742,6 +5745,9 @@ const I18N = {
     "stats.since_prefix": "Depuis le {date} · {count} évènements conservés ({days} jours, {size})",
 
     "top.music": "Morceaux les plus joués",
+    "top.skipped": "Souvent passés",
+    "top.skipped_hint": "Morceaux passés à la plupart de leurs écoutes : exclus-en un et la radio ne le choisit plus d'elle-même.",
+    "top.skipped_count": "{n} sur {of}",
     "top.cutoff": "Annonces de coupure",
     "top.meme": "Sons du bouton",
     "top.errors": "Fichiers en échec de lecture",
@@ -8765,6 +8771,9 @@ const I18N = {
     "stats.since_prefix": "Seit {date} · {count} Ereignisse gespeichert ({days} Tage, {size})",
 
     "top.music": "Meistgespielte Titel",
+    "top.skipped": "Oft übersprungen",
+    "top.skipped_hint": "Titel, die bei den meisten Wiedergaben übersprungen wurden: Schließ einen aus, und das Radio wählt ihn nicht mehr von selbst.",
+    "top.skipped_count": "{n} von {of}",
     "top.cutoff": "Abschaltansagen",
     "top.meme": "Button-Sounds",
     "top.errors": "Dateien mit Wiedergabefehler",
@@ -11788,6 +11797,9 @@ const I18N = {
     "stats.since_prefix": "Desde {date} · {count} eventos conservados ({days} días, {size})",
 
     "top.music": "Pistas más reproducidas",
+    "top.skipped": "A menudo saltadas",
+    "top.skipped_hint": "Canciones saltadas en la mayoría de sus escuchas: excluye una y la radio ya no la elegirá por sí sola.",
+    "top.skipped_count": "{n} de {of}",
     "top.cutoff": "Anuncios de corte",
     "top.meme": "Sonidos del botón",
     "top.errors": "Archivos que fallaron al reproducirse",
@@ -14811,6 +14823,9 @@ const I18N = {
     "stats.since_prefix": "Dal {date} · {count} eventi conservati ({days} giorni, {size})",
 
     "top.music": "Brani più riprodotti",
+    "top.skipped": "Spesso saltati",
+    "top.skipped_hint": "Brani saltati nella maggior parte dei loro ascolti: escludine uno e la radio non lo sceglierà più da sola.",
+    "top.skipped_count": "{n} su {of}",
     "top.cutoff": "Annunci di interruzione",
     "top.meme": "Suoni del pulsante",
     "top.errors": "File con errore di riproduzione",
@@ -17834,6 +17849,9 @@ const I18N = {
     "stats.since_prefix": "Sinds {date} · {count} gebeurtenissen bewaard ({days} dagen, {size})",
 
     "top.music": "Meest gespeelde nummers",
+    "top.skipped": "Vaak overgeslagen",
+    "top.skipped_hint": "Nummers die bij de meeste keren overgeslagen werden: sluit er een uit en de radio kiest het niet meer zelf.",
+    "top.skipped_count": "{n} van {of}",
     "top.cutoff": "Afsluitaankondigingen",
     "top.meme": "Knopgeluiden",
     "top.errors": "Bestanden die niet konden worden afgespeeld",

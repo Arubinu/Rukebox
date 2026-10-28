@@ -8367,7 +8367,28 @@ def api_stats_summary():
     for kind in ("music", "error"):
         for row in (data.get("top") or {}).get(kind) or []:
             row["in_library"] = bool(row.get("name")) and lib.item_for_basename(row["name"]) is not None
+    if data.get("enabled"):
+        data["often_skipped"] = _often_skipped(lib)
     return jsonify({"ok": True, "data": data})
+
+
+OFTEN_SKIPPED_SHOWN = 10
+
+
+def _often_skipped(lib):
+    """The songs most often passed over that the radio still picks by itself, as the library has them."""
+    excluded = _excluded_keys()
+    out = []
+    for row in stats.often_skipped():
+        item = lib.item_for_basename(row["name"])
+        if not item or item.get("key") in excluded:
+            continue
+        out.append({"name": row["name"], "key": item["key"], "title": item.get("title") or "",
+                    "artist": item.get("artist") or "",
+                    "skipped": int(row["skipped"]), "played": int(max(row["played"], row["skipped"]))})
+        if len(out) >= OFTEN_SKIPPED_SHOWN:
+            break
+    return out
 
 
 @app.route("/api/journal/daily")

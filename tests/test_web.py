@@ -1582,6 +1582,15 @@ class StreamRouteTest(unittest.TestCase):
         self.assertEqual(health["storage"], {"problem": "failing", "music": True, "free": 99},
                          "a storage with errors outweighs one only full")
 
+    def test_the_songs_often_passed_over_leave_out_those_already_excluded(self):
+        rows = [{"name": "a.mp3", "skipped": 4, "played": 5}, {"name": "b.mp3", "skipped": 3, "played": 3},
+                {"name": "gone.mp3", "skipped": 9, "played": 9}]
+        lib = unittest.mock.Mock()
+        lib.item_for_basename.side_effect = lambda name: None if name == "gone.mp3" else             {"key": "k-" + name, "title": name.upper(), "artist": ""}
+        with unittest.mock.patch.object(ws.stats, "often_skipped", return_value=rows),                 unittest.mock.patch.object(ws, "_excluded_keys", return_value={"k-b.mp3"}):
+            found = ws._often_skipped(lib)
+        self.assertEqual([(r["key"], r["skipped"], r["played"]) for r in found], [("k-a.mp3", 4, 5)])
+
     def virtual_sink(self):
         return {"name": "rukebox_output", "description": "Rukebox output",
                 "kind": "docker", "codec": None, "address": None}
