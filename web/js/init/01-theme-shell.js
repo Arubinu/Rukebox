@@ -79,13 +79,19 @@ function fitTopbar() {
   const controls = document.getElementById("topbarControls");
   if (!bar || !pill || !controls) return;
   const was = bar.classList.contains("compact");
-  bar.classList.remove("compact");
+  bar.classList.remove("compact", "brand-short");
   const gap = parseFloat(getComputedStyle(bar).columnGap) || 0;
   const brand = bar.querySelector(".brand");
   const tight = controls.getBoundingClientRect().left < pill.getBoundingClientRect().right + gap - 0.5
     || bar.scrollWidth > bar.clientWidth
     || (brand && brand.scrollWidth > brand.clientWidth + 0.5);
   bar.classList.toggle("compact", tight);
+  // On a narrow phone a long badge takes the title's room: the logo stays.
+  const title = bar.querySelector(".brand-text");
+  if (title && (title.scrollWidth > title.clientWidth + 0.5
+      || pill.getBoundingClientRect().left < title.getBoundingClientRect().right + gap - 0.5)) {
+    bar.classList.add("brand-short");
+  }
   if (was && !tight) setTopbarMenu(false);
 }
 if (typeof ResizeObserver === "function") {
@@ -544,6 +550,9 @@ async function apiFetch(path, options) {
   }
   if (bootWaits(path)) await bootGate;
   noteRequestStarted();
+  const startedAt = Date.now();
+  // A read that lingers says so on the badge; a write (an upload) is no sign of stale data.
+  const slow = !options || !options.method || options.method === "GET" ? connSlowWatch() : null;
   let res;
   try {
     res = await fetch(path, withDeviceHeader(options));
@@ -554,13 +563,14 @@ async function apiFetch(path, options) {
     return { ok: false, error: "unreachable" };
   } finally {
     noteRequestFinished();
+    if (slow) slow();
   }
   if (handleUnauthorized(res)) return { ok: false, error: "auth_required" };
   try {
     const data = await res.json();
     if (res.status === 403 && data && data.error === "banned") showBanned();
 
-    setConnectionState(!!data && typeof data === "object" && typeof data.ok === "boolean");
+    setConnectionState(!!data && typeof data === "object" && typeof data.ok === "boolean", startedAt);
     return data;
   } catch (e) {
     setConnectionState(false);
@@ -609,20 +619,85 @@ function apiDelete(path, body) {
   return apiFetch(path, options);
 }
 
-function setConnDot(ok) {
-  const dot = document.getElementById("connDot");
-  dot.classList.toggle("ok", ok);
-  dot.classList.toggle("error", !ok);
+/* The badge says how fresh the page is, not only whether the radio answers: back from a locked
+   phone it shows "Refreshing" before the first answer, and an old answer turns it orange. */
+const CONN_SLOW_MS = 500;
+const CONN_STALE_MS = 15000;
+const conn = { ok: null, freshAt: 0, resumeAt: 0, slow: 0 };
 
-  const label = document.getElementById("connLabel");
-  if (label) {
-    const key = ok ? "conn.online" : (piGoingDown === "poweroff" ? "conn.powered_off" : "conn.offline");
-    if (label.dataset.i18n !== key) {
-      label.dataset.i18n = key;
-      label.textContent = t(key);
-    }
-  }
+function connSlowWatch() {
+  let counted = false;
+  const timer = setTimeout(() => {
+    counted = true;
+    conn.slow += 1;
+    paintConnPill();
+  }, CONN_SLOW_MS);
+  return () => {
+    clearTimeout(timer);
+    if (!counted) return;
+    conn.slow -= 1;
+    paintConnPill();
+  };
 }
+
+function paintConnPill() {
+  const dot = document.getElementById("connDot");
+  const label = document.getElementById("connLabel");
+  if (!dot || !label) return;
+  let state = "";
+  let key = "conn.connecting";
+  let vars;
+  const now = Date.now();
+  const age = conn.freshAt ? now - conn.freshAt : 0;
+  // A refresh that never ends gives way to the age of what is shown.
+  const resuming = conn.resumeAt && now - conn.resumeAt < CONN_STALE_MS;
+  if (conn.ok === false) {
+    state = "error";
+    key = piGoingDown === "poweroff" ? "conn.powered_off" : "conn.offline";
+  } else if (resuming || (conn.slow > 0 && age <= CONN_STALE_MS)) {
+    state = "busy";
+    key = "conn.refreshing";
+  } else if (conn.freshAt && age > CONN_STALE_MS) {
+    state = "stale";
+    key = age < 60000 ? "conn.stale_sec" : "conn.stale_min";
+    vars = { n: age < 60000 ? Math.floor(age / 1000) : Math.floor(age / 60000) };
+  } else if (conn.ok) {
+    state = "ok";
+    key = "conn.fresh";
+  }
+  ["ok", "error", "busy", "stale"].forEach((name) => dot.classList.toggle(name, name === state));
+  const text = t(key, vars);
+  label.dataset.i18n = key;
+  if (label.textContent !== text) label.textContent = text;
+}
+
+function setConnDot(ok) {
+  conn.ok = ok;
+  paintConnPill();
+}
+
+function connRefreshNow() {
+  conn.resumeAt = Date.now();
+  paintConnPill();
+  ON_SHOW_REFRESHES.forEach(({ callback, pages }) => { if (pageOnScreen(pages)) callback(); });
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  // What is on screen may be minutes old: say so before the first answer comes back.
+  conn.resumeAt = Date.now();
+  paintConnPill();
+});
+setInterval(() => { if (!document.hidden) paintConnPill(); }, 1000);
+(() => {
+  const pill = document.getElementById("connPill");
+  pill.addEventListener("click", connRefreshNow);
+  pill.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    connRefreshNow();
+  });
+})();
 
 const CONNECTION_LOST_AFTER = 2;
 let connectionFailures = 0;
@@ -677,7 +752,12 @@ function noteServerAnswer(reachable) {
   showBootOverlay("boot.lost", "boot.lost_retrying");
 }
 
-function setConnectionState(reachable) {
+function setConnectionState(reachable, startedAt) {
+  if (reachable) {
+    conn.freshAt = Date.now();
+    // Only an answer to a request sent after the return proves the page is fresh again.
+    if (conn.resumeAt && (startedAt || 0) >= conn.resumeAt) conn.resumeAt = 0;
+  }
   setConnDot(reachable);
   noteServerAnswer(reachable);
 }

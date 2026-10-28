@@ -2698,6 +2698,13 @@ album's front from the Cover Art Archive as the album's `cover.jpg`.
 
 ### Theme, language and interface
 
+**The badge at the top right says how fresh the page is**: green *Up to date*;
+blue *Refreshing…* when the page comes back on screen (a phone unlocked, a tab
+shown again) until the radio answers, or when a read lingers; orange with the
+age of what is shown (`2 min ago`) when no answer came for 15 seconds; red
+*Disconnected* when the radio no longer answers. A tap on it reads the page
+again. On a narrow phone a long badge hides the title, never the logo.
+
 Light theme, dark theme, or automatically following system preferences
 (one button, top right, toggling light/dark — it follows the system
 until you tap it once, then remembers your explicit choice from then

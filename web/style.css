@@ -503,6 +503,7 @@ code {
   line-height: 1.15;
 }
 .brand-name { white-space: nowrap; }
+.topbar.brand-short .brand-text { display: none; }
 .brand-title { display: block; width: auto; height: 23px; }
 .brand-clock {
   display: grid;
@@ -551,7 +552,7 @@ code {
 
 .status-pill {
   grid-area: status;
-  justify-self: start;
+  justify-self: end;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -590,6 +591,26 @@ code {
 }
 .status-pill:has(.dot.ok) { color: var(--success-text); }
 .status-pill:has(.dot.error) { color: var(--danger); border-color: var(--danger-soft); }
+.status-pill { cursor: pointer; }
+.dot.busy { background: var(--accent); }
+.dot.busy::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  border-top-color: transparent;
+  animation: dot-spin 0.9s linear infinite;
+}
+@keyframes dot-spin {
+  to { transform: rotate(360deg); }
+}
+.dot.stale { background: var(--warning); }
+.status-pill:has(.dot.busy) { color: var(--accent); border-color: var(--accent-soft); }
+.status-pill:has(.dot.stale) { color: var(--warning-text); border-color: var(--warning-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .dot.busy::after { animation: none; }
+}
 
 .topbar-controls {
   grid-area: controls;
@@ -4539,7 +4560,6 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
     grid-template-columns: auto 1fr auto auto;
     grid-template-areas: "brand . status controls";
   }
-  .status-pill { justify-self: end; }
 
   .tabbar {
     width: var(--sidebar-w);
@@ -4665,14 +4685,6 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
   .pin-right { flex-direction: row; }
 }
 @media (max-width: 460px) {
-  #connLabel {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
   .status-pill { padding: 4px 10px; min-height: 30px; }
 }
 
