@@ -446,6 +446,19 @@ function upnextRemoveButton(item) {
   return drop;
 }
 
+/* How long what is shown lasts, and how much of it was asked for: songs not read yet count nothing. */
+function paintUpnextSummary(items) {
+  const line = document.getElementById("upnextSummary");
+  const minutes = (list) => Math.max(1, Math.round(list.reduce((sum, item) => sum + (Number(item.duration) || 0), 0) / 60));
+  const timed = items.filter((item) => Number(item.duration) > 0);
+  line.hidden = !timed.length;
+  if (line.hidden) return;
+  let text = t("upnext.summary", { n: items.length, min: minutes(items) });
+  const asked = items.filter((item) => item.requested);
+  if (asked.length) text += " \u00b7 " + t("upnext.summary_asked", { n: asked.length, min: minutes(asked) });
+  line.textContent = text;
+}
+
 async function refreshUpnext() {
   // A song being carried is not swept away by a refresh: the list is read again once it is dropped.
   if (upnextDrag) {
@@ -466,6 +479,7 @@ async function refreshUpnext() {
     return;
   }
   const items = result.data.items;
+  paintUpnextSummary(items);
   const mayMove = !!result.data.may_move;
   const fixed = Number(result.data.fixed) || 0;
   document.getElementById("upnextMoveHint").hidden = !mayMove || items.length - fixed < 2;

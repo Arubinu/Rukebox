@@ -115,3 +115,15 @@ test("a song asked for says by whom, under its title", async () => {
   assert.equal(second.textContent, "Asked for");
   await p.close();
 });
+
+test("Up next says how long it lasts, and how much of it was asked for", async () => {
+  const p = load({ hash: "#home/upnext", routes: {
+    "GET /api/queue": { enabled: true, may_move: false, fixed: 0, items: [
+      { key: "k1", title: "One", duration: 200, requested: true },
+      { key: "k2", title: "Two", duration: 250 },
+      { key: "k3", title: "Three", duration: 230 }] },
+  } });
+  await until(() => !p.$("upnextSummary").hidden, 8000);
+  assert.match(p.$("upnextSummary").textContent, /^3 songs . about 11 min . 1 asked for . 3 min$/);
+  await p.close();
+});
