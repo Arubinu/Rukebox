@@ -528,6 +528,26 @@ class RadioState:
             self.data[key] = bool(value)
             self._save()
 
+    ASLEEP_KEY = "asleep_at_stop"
+
+    def note_asleep(self, boot_id):
+        """The service stops while the radio sleeps: the next start of the same boot sleeps on."""
+        self.set_value(self.ASLEEP_KEY, {"boot": boot_id, "at": time.time()})
+
+    def take_asleep(self, boot_id, within):
+        """Whether this start follows a stop while asleep, in this boot and within `within`
+        seconds; the note is used once either way."""
+        note = self.data.get(self.ASLEEP_KEY)
+        if note is None:
+            return False
+        self.set_value(self.ASLEEP_KEY, None)
+        if not isinstance(note, dict) or note.get("boot") != boot_id:
+            return False
+        try:
+            return 0 <= time.time() - float(note.get("at") or 0) <= within
+        except (TypeError, ValueError):
+            return False
+
     def value(self, key, default=None):
         """A plain fact of any kind the daemon remembers across restarts."""
         return self.data.get(key, default)

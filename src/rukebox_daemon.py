@@ -211,6 +211,15 @@ class TailPlayer:
                 pass
 
 
+
+def _boot_id():
+    """This boot's identity: a service restart keeps it, a reboot or a power cut does not."""
+    try:
+        with open("/proc/sys/kernel/random/boot_id", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
 class RadioDaemon:
     # Two watch turns, so a track change or a PipeWire hiccup is not a dead link.
     SINK_MISSING_CHECKS = 2
@@ -326,6 +335,8 @@ class RadioDaemon:
         self._light_audio_retry = 0.0
         self._wled_clock_next = time.monotonic() + 20
         self._bt_start_done = False
+        # Restarted while asleep (an update): no start of its own until someone starts the music.
+        self._asleep_since_restart = False
         self._started_monotonic = time.monotonic()
         self._ap_known_clients = set()
         self._ap_iw_needs_sudo = None
@@ -891,18 +902,27 @@ class RadioDaemon:
         self._run_memory_before = self._read_run_memory()
         self._keep_run_memory()
 
-        if self._start_mode() == "boot":
+        self._begin_run()
+        self._scheduler_loop()
+
+    def _begin_run(self):
+        """The first move of a run: the music, waiting, or sleeping on after a restart."""
+        if self.state.take_asleep(_boot_id(), self.ASLEEP_RESTART_SEC):
+            log.info("Back from a restart while asleep: the radio sleeps on")
+            self._asleep_since_restart = True
+            self._start_keepalive("idle", quiet=True)
+        elif self._start_mode() == "boot":
             self._music_started_mono = time.monotonic()
             self._start_music_faded(self._play_next_track)
         else:
             self._start_keepalive()
 
-        self._scheduler_loop()
-
     def _install_signal_handlers(self):
         """A `systemctl stop/restart` sends SIGTERM."""
         def _on_term(signum, _frame):
             log.info("Signal %s received, shutting down cleanly", signum)
+            if self.mode in ("idle", "stopped"):
+                self.state.note_asleep(_boot_id())
             self._stop_event.set()
             self._snapcast.stop()
             self._end_play("service_stop")
@@ -2491,6 +2511,7 @@ class RadioDaemon:
 
     def _prepare_music_start(self, log_label):
         log.info("Starting music (%s)", log_label)
+        self._asleep_since_restart = False
         self.stats.record("music_started", label=log_label)
         self._music_started_mono = time.monotonic()
         self._bt_start_done = True
@@ -4775,6 +4796,9 @@ class RadioDaemon:
             self._fade_out_and_pause(self.cfg["LONGPRESS_FADE_DURATION_SEC"])
         self._do_shutdown_sequence(force=True, reason=reason)
 
+    # A start this long after a stop while asleep is a new day, not the same restart.
+    ASLEEP_RESTART_SEC = 1800
+
     def _start_mode(self):
         """The start mode in force, which is not always the chosen one."""
         # Waiting for a speaker means nothing with a wired output: it then means boot.
@@ -4785,7 +4809,7 @@ class RadioDaemon:
 
     def _start_music_on_speaker_connect(self, mac):
         """MUSIC_START_MODE=bluetooth."""
-        if self._start_mode() != "bluetooth":
+        if self._start_mode() != "bluetooth" or self._asleep_since_restart:
             return
         if self.mode not in ("idle", "stopped"):
             return

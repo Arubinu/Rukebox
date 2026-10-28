@@ -513,6 +513,28 @@ class DaemonListsTest(unittest.TestCase):
             timer.call_args[0][2]()
             begin.assert_called_once_with("restart_cue", sound)
 
+    def test_a_restart_while_asleep_sleeps_on_until_someone_starts_the_music(self):
+        self.daemon.cfg["MUSIC_START_MODE"] = "boot"
+        self.daemon.mode = "idle"
+        with mock.patch.object(rukebox_daemon, "_boot_id", return_value="b1"):
+            self.daemon.state.note_asleep("b1")
+            with mock.patch.object(self.daemon, "_start_music_faded") as start,                     mock.patch.object(self.daemon, "_start_keepalive") as wait:
+                self.daemon._begin_run()
+            start.assert_not_called()
+            wait.assert_called_once()
+            self.assertTrue(self.daemon._asleep_since_restart)
+            self.daemon.cfg.update({"MUSIC_START_MODE": "bluetooth", "AUDIO_OUTPUT": "bluetooth"})
+            with mock.patch.object(self.daemon, "_start_or_restart_playback") as play:
+                self.daemon._start_music_on_speaker_connect("AA")
+            play.assert_not_called()
+            with mock.patch.object(self.daemon, "_start_music_faded"):
+                self.daemon._prepare_music_start("click")
+            self.assertFalse(self.daemon._asleep_since_restart, "a start by someone ends it")
+            self.daemon.cfg["MUSIC_START_MODE"] = "boot"
+            with mock.patch.object(self.daemon, "_start_music_faded") as start:
+                self.daemon._begin_run()
+            start.assert_called_once()
+
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:
             self.daemon._play_cue_sound("", "AP_CONNECT_SOUND")

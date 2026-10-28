@@ -202,6 +202,17 @@ class StateTest(unittest.TestCase):
         self.s.rebuild_queue(["a"], "random", self.dir, avoid="a")
         self.assertEqual(self.s.data["play_queue"], ["a"], "a pass of one song is that song")
 
+    def test_a_stop_while_asleep_holds_for_the_same_boot_only(self):
+        self.s.note_asleep("boot-a")
+        self.assertTrue(state.RadioState(self.path).take_asleep("boot-a", 1800), "kept across the restart")
+        self.s = state.RadioState(self.path)
+        self.assertFalse(self.s.take_asleep("boot-a", 1800), "used once")
+        self.s.note_asleep("boot-a")
+        self.assertFalse(self.s.take_asleep("boot-b", 1800), "a reboot or the next morning starts as usual")
+        self.s.note_asleep("boot-a")
+        self.s.data[self.s.ASLEEP_KEY]["at"] -= 3600
+        self.assertFalse(self.s.take_asleep("boot-a", 1800), "too long ago")
+
     def test_take_from_queue(self):
         self.s.data["play_queue"] = ["a", "b"]
         self.s.enqueue_request("b")
