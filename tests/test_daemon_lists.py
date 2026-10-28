@@ -9,6 +9,7 @@ import shutil
 import socket
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 
@@ -534,6 +535,31 @@ class DaemonListsTest(unittest.TestCase):
             with mock.patch.object(self.daemon, "_start_music_faded") as start:
                 self.daemon._begin_run()
             start.assert_called_once()
+
+    def test_the_boot_start_waits_for_a_wired_output_still_coming(self):
+        self.daemon.cfg.update({"MUSIC_START_MODE": "boot", "AUDIO_OUTPUT": "usb"})
+        self.daemon.mode = "idle"
+        self.daemon.OUTPUT_WAIT_SEC = 5
+        self.daemon._audio_output_missing = "usb"
+        found = threading.Event()
+
+        def check(force=False):
+            if found.is_set():
+                self.daemon._audio_output_missing = None
+        with mock.patch.object(self.daemon, "_apply_audio_output", side_effect=check),                 mock.patch.object(self.daemon, "_start_music_faded") as start:
+            self.daemon._start_when_output_ready(poll=0.05)
+            time.sleep(0.2)
+            start.assert_not_called()
+            found.set()
+            for _ in range(50):
+                if start.called:
+                    break
+                time.sleep(0.05)
+            start.assert_called_once()
+        self.daemon._audio_output_missing = None
+        with mock.patch.object(self.daemon, "_start_music_faded") as start:
+            self.daemon._start_when_output_ready()
+        start.assert_called_once()
 
     def test_a_sound_left_empty_is_silent_and_says_nothing(self):
         with mock.patch.object(rukebox_daemon.log, "warning") as warning:

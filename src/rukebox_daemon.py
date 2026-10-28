@@ -912,10 +912,41 @@ class RadioDaemon:
             self._asleep_since_restart = True
             self._start_keepalive("idle", quiet=True)
         elif self._start_mode() == "boot":
-            self._music_started_mono = time.monotonic()
-            self._start_music_faded(self._play_next_track)
+            self._start_when_output_ready()
         else:
             self._start_keepalive()
+
+    # A USB card can show up minutes after the service: PipeWire starts late at boot.
+    OUTPUT_WAIT_SEC = 180
+
+    def _start_when_output_ready(self, poll=2.0):
+        """The boot start, once the wired output chosen is there (or given up waiting)."""
+        def start():
+            if self.mode in ("idle", "stopped") and not self._asleep_since_restart:
+                self._music_started_mono = time.monotonic()
+                self._start_music_faded(self._play_next_track)
+
+        kind = self._output_kind()
+        if kind not in ("usb", "jack", "hdmi") or self._audio_output_missing != kind:
+            start()
+            return
+        log.info("Audio output '%s' not there yet: the music waits for it (%d s at most)",
+                 kind, self.OUTPUT_WAIT_SEC)
+
+        def wait():
+            deadline = time.monotonic() + self.OUTPUT_WAIT_SEC
+            while not self._stop_event.is_set() and time.monotonic() < deadline:
+                with self._command_lock:
+                    self._apply_audio_output(force=True)
+                    if self._audio_output_missing != kind:
+                        break
+                self._stop_event.wait(poll)
+            with self._command_lock:
+                if self._audio_output_missing == kind:
+                    log.warning("Audio output '%s' still missing: the music starts on the default output", kind)
+                start()
+
+        threading.Thread(target=lambda: self._guarded("Output wait", wait), daemon=True).start()
 
     def _install_signal_handlers(self):
         """A `systemctl stop/restart` sends SIGTERM."""
