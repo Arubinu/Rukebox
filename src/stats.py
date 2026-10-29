@@ -963,6 +963,16 @@ class StatsRecorder:
             log.exception("Could not build the statistics summary")
             return {"enabled": False, "error": "query_failed"}
 
+    def played_names(self):
+        """The file names of every song played at least once, or None when nothing is kept."""
+        if not self.enabled:
+            return None
+        try:
+            return {r["name"] for r in self._rows("SELECT name FROM items WHERE kind = 'music' AND count > 0")}
+        except Exception:  # noqa: BLE001
+            log.exception("Could not read the songs played")
+            return None
+
     def often_skipped(self, min_skips=3, min_share=0.5):
         """The songs passed over at least `min_skips` times and on at least `min_share` of their
         plays, the most often passed first: [{name, skipped, played}]."""

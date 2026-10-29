@@ -8388,6 +8388,22 @@ def api_stats_summary():
 
 
 OFTEN_SKIPPED_SHOWN = 10
+NEVER_PLAYED_SHOWN = 10
+
+
+@app.route("/api/journal/never_played")
+def api_never_played():
+    """A random handful of the library's songs never played since the statistics began, and how many."""
+    played = stats.played_names()
+    if played is None:
+        return jsonify({"ok": True, "data": {"enabled": False}})
+    excluded = _excluded_keys()
+    never = [item for item in _get_library().every_item()
+             if os.path.basename(item["path"]) not in played and item.get("key") not in excluded]
+    shown = random.sample(never, min(NEVER_PLAYED_SHOWN, len(never)))
+    return jsonify({"ok": True, "data": {"enabled": True, "total": len(never), "items": [
+        {"key": item["key"], "title": item.get("title") or "", "artist": item.get("artist") or "",
+         "name": os.path.splitext(os.path.basename(item["path"]))[0]} for item in shown]}})
 
 
 def _often_skipped(lib):

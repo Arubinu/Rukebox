@@ -351,6 +351,12 @@ class Library:
             args.extend(raw)
         return (" WHERE " + " AND ".join(clauses)) if clauses else "", args
 
+    def every_item(self):
+        """Every track of the catalogue, with its path, in the search order."""
+        with self._lock:
+            rows = self._db.execute("SELECT * FROM tracks" + SEARCH_ORDER).fetchall()
+        return [dict(self._item(row), path=row["path"]) for row in rows]
+
     def all_items(self, words="", artist=None, album=None, genre=None):
         """Every row a search finds, the page limit aside: what excluding a
         whole filter acts on. A filter that names nothing answers no row."""

@@ -452,6 +452,32 @@ function renderTopsInto(box, top, skipped) {
   if (top.person) renderTopList(box, t("top.person"), top.person, { kind: "person" });
 }
 
+/* A random handful of songs never played: drawn on arrival and on demand, never by the timer. */
+async function refreshNeverPlayed() {
+  const box = document.getElementById("neverPlayedBox");
+  const result = await apiGet("/api/journal/never_played");
+  if (!result.ok || !result.data || !result.data.enabled) {
+    box.hidden = true;
+    return;
+  }
+  const data = result.data;
+  box.hidden = false;
+  document.getElementById("neverPlayedCount").textContent = data.total
+    ? t("top.never_played_count", { n: data.total.toLocaleString(currentLang) }) : t("top.never_played_none");
+  document.getElementById("neverPlayedMore").hidden = data.total <= data.items.length;
+  document.getElementById("neverPlayedList").replaceChildren(...data.items.map((item) => {
+    const li = document.createElement("li");
+    const label = item.title ? item.title + (item.artist ? " \u2014 " + item.artist : "") : item.name;
+    li.append(libraryLink(label, { q: item.title || item.name }, "top-name"), libraryButton(item, true));
+    return li;
+  }));
+}
+
+document.getElementById("neverPlayedMore").addEventListener("click", refreshNeverPlayed);
+document.addEventListener("page-shown", (event) => {
+  if (event.detail && event.detail.tab === "stats" && event.detail.page === "tops") refreshNeverPlayed();
+});
+
 const SESSIONS_PAGE = 50;
 let sessionsOldestId = null;
 

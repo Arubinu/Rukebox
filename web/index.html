@@ -3656,6 +3656,14 @@
         <section class="card card-wide" data-level="detail" id="statsTopsCard" data-page="tops" data-tab="stats" aria-labelledby="statsTopsTitle">
           <h2 data-icon="music" id="statsTopsTitle"><span data-i18n="stats.most_played_section">Most played &amp; announcements</span></h2>
           <div class="tops" id="topsBox"></div>
+          <div class="top-block never-played" id="neverPlayedBox" hidden>
+            <div class="top-title" data-i18n="top.never_played">Never played</div>
+            <p class="hint" id="neverPlayedCount"></p>
+            <ul class="top-list" id="neverPlayedList"></ul>
+            <div class="form-actions">
+              <button type="button" class="btn" id="neverPlayedMore" data-icon="refresh" data-i18n="top.never_played_more">Others</button>
+            </div>
+          </div>
           <form id="statsPersonForm" class="settings-form">
             <div class="field-row">
               <div class="field-text">

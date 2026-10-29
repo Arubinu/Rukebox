@@ -49,3 +49,19 @@ test("a song often passed over can be excluded from its line", async (t) => {
   assert.deepEqual(excluded, ["k1"]);
   await until(() => !/Y\.M\.C\.A\./.test(page.$("topsBox").textContent));
 });
+
+test("a few songs never played are offered, each one a tap from Up next", async (t) => {
+  let queued = null;
+  const page = open(t, { hash: "#stats/tops", view: "detailed", routes: {
+    "GET /api/journal/summary": summary({ music: [] }),
+    "GET /api/journal/never_played": { enabled: true, total: 1234, items: [
+      { key: "k1", title: "Forgotten", artist: "Someone", name: "forgotten" }] },
+    "POST /api/library/queue": (request) => { queued = request.body.key; return {}; },
+  } });
+  await until(() => !page.$("neverPlayedBox").hidden && page.$("neverPlayedList").children.length === 1, 8000);
+  assert.match(page.$("neverPlayedCount").textContent, /1,234 songs/);
+  assert.equal(page.$("neverPlayedMore").hidden, false);
+  page.$("neverPlayedList").querySelector(".library-next").click();
+  await until(() => queued !== null);
+  assert.equal(queued, "k1");
+});

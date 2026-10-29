@@ -1591,6 +1591,17 @@ class StreamRouteTest(unittest.TestCase):
             found = ws._often_skipped(lib)
         self.assertEqual([(r["key"], r["skipped"], r["played"]) for r in found], [("k-a.mp3", 4, 5)])
 
+    def test_the_songs_never_played_leave_out_the_played_and_the_excluded(self):
+        lib = unittest.mock.Mock()
+        lib.every_item.return_value = [{"key": k, "path": "/m/%s.mp3" % k, "title": k.upper(), "artist": ""}
+                                       for k in ("a", "b", "c")]
+        with unittest.mock.patch.object(ws.stats, "played_names", return_value={"a.mp3"}),                 unittest.mock.patch.object(ws, "_get_library", return_value=lib),                 unittest.mock.patch.object(ws, "_excluded_keys", return_value={"c"}):
+            data = ws.app.test_client().get("/api/journal/never_played").get_json()["data"]
+        self.assertEqual((data["total"], [item["key"] for item in data["items"]]), (1, ["b"]))
+        with unittest.mock.patch.object(ws.stats, "played_names", return_value=None):
+            data = ws.app.test_client().get("/api/journal/never_played").get_json()["data"]
+        self.assertFalse(data["enabled"], "no statistics, nothing to say")
+
     def virtual_sink(self):
         return {"name": "rukebox_output", "description": "Rukebox output",
                 "kind": "docker", "codec": None, "address": None}
