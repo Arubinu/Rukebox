@@ -20,11 +20,10 @@ function formatAgo(seconds) {
 
 function formatBytes(n) {
   const v = Number(n) || 0;
-  if (v < 1024) return v + " B";
-  if (v < 1024 * 1024) return (v / 1024).toFixed(1) + " KB";
-
-  if (v < 1024 * 1024 * 1024) return (v / (1024 * 1024)).toFixed(1) + " MB";
-  return (v / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+  if (v < 1024) return v.toLocaleString(currentLang) + " " + t("unit.b");
+  const [size, unit] = v < 1024 ** 2 ? [v / 1024, "unit.kb"] : v < 1024 ** 3 ? [v / 1024 ** 2, "unit.mb"]
+    : [v / 1024 ** 3, "unit.gb"];
+  return size.toLocaleString(currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " " + t(unit);
 }
 
 const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shutdown",

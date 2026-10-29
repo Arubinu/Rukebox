@@ -36,3 +36,13 @@ test("a weak power supply, a full storage and a clock that lost the time are the
   assert.doesNotMatch(text, /time is not established/, "one clock notice, the precise one");
   await p.close();
 });
+
+test("a size is written in the reader's own units and decimals", async () => {
+  const status = Object.assign({}, STATUS, { health: { storage: { problem: "full", music: false, free: 734003200 } } });
+  const en = load({ hash: "#home/player", routes: { "GET /api/status": status } });
+  await until(() => /\(700\.0 MB left\)/.test(en.$("npNotices").textContent), 8000);
+  await en.close();
+  const fr = load({ hash: "#home/player", storage: { rukebox_lang: "fr" }, routes: { "GET /api/status": status } });
+  await until(() => /il reste 700,0\s?Mo/.test(fr.$("npNotices").textContent), 8000);
+  await fr.close();
+});
