@@ -65,3 +65,22 @@ test("a few songs never played are offered, each one a tap from Up next", async 
   await until(() => queued !== null);
   assert.equal(queued, "k1");
 });
+
+test("the liked songs play at once or next, for whoever may put a list on", async (t) => {
+  const sent = [];
+  const likes = (mayPlay) => ({ tracks: [{ key: "k1", title: "Liked", artist: "A", liked_at: 1 }], keys: ["k1"], may_play: mayPlay });
+  const page = open(t, { hash: "#home/likes", routes: {
+    "GET /api/likes": likes(true),
+    "POST /api/likes/play": (request) => { sent.push(request.body.now); return { added: 1, of: 1, already: 0 }; },
+  } });
+  await until(() => !page.$("likesPlayActions").hidden, 8000);
+  page.$("likesQueue").click();
+  await until(() => sent.length === 1);
+  page.$("likesPlay").click();
+  await until(() => sent.length === 2);
+  assert.deepEqual(sent, [false, true]);
+
+  const barred = open(t, { hash: "#home/likes", routes: { "GET /api/likes": likes(false) } });
+  await until(() => barred.$("likesList").children.length === 1, 8000);
+  assert.equal(barred.$("likesPlayActions").hidden, true);
+});

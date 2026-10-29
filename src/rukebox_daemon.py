@@ -31,6 +31,7 @@ from config_schema import RESTART_REQUIRED, SYSTEM_SOUNDS  # noqa: E402
 import hidden_tracks  # noqa: E402
 import json_file  # noqa: E402
 import library  # noqa: E402
+import likes  # noqa: E402
 from mpv_controller import LEAN as MPV_LEAN, MPVController, audio_chain, audio_env, compression_filter  # noqa: E402
 import music_lists  # noqa: E402
 import playlist  # noqa: E402
@@ -1268,17 +1269,38 @@ class RadioDaemon:
         if entry is None:
             return {"ok": False, "error": "list_not_found"}
         tracks = music_lists.resolved(entry, self._get_music_list(), self._genre_paths)
+        return self._queue_tracks(tracks, person, source, "list_queued", entry["name"])
+
+    def _queue_likes(self, person, source, now=False):
+        """The liked songs next as requests; `now` leaves the song playing for them."""
+        known = set(self._get_music_list())
+        try:
+            found = [self._library().path_for_key(item["key"])
+                     for item in likes.load(self.cfg.get("LIKES_FILE") or "")]
+        except Exception:  # noqa: BLE001 - the catalogue unreadable: nothing to queue
+            log.exception("Could not find the liked songs in the library")
+            found = []
+        tracks = [path for path in found if path in known]
+        return self._queue_tracks(tracks, person, source, "likes_queued", None, now)
+
+    def _queue_tracks(self, tracks, person, source, event, label, now=False):
+        """Puts songs next as requests, shuffled unless the radio plays in order."""
         if self.cfg.get("MUSIC_ORDER_MODE") != "ordered":
             tracks = random.sample(tracks, len(tracks))
         chosen = tracks[:self.LIST_QUEUE_MAX]
         if not chosen:
             return {"ok": False, "error": "list_empty"}
         added = self.state.enqueue_requests(chosen, person)
-        self.stats.record("list_queued", label=entry["name"],
-                          detail={"source": source, "tracks": added, "of": len(tracks)})
+        self.stats.record(event, label=label,
+                          detail={"source": source, "tracks": added, "of": len(tracks), "now": now})
         started = False
         if added and self.mode in ("idle", "stopped"):
             self._start_or_restart_playback(log_label="request")
+            started = True
+        elif added and now and self.mode == "music":
+            self._fade_out_and_pause(self.cfg["INTERACTIVE_FADE_DURATION_SEC"])
+            self._restore_base_volume()
+            self._play_next_track(user=True)
             started = True
         self._bump_state()
         return {"ok": True, "data": {"added": added, "of": len(tracks), "already": len(chosen) - added,
@@ -5483,6 +5505,8 @@ class RadioDaemon:
                 return {"ok": True, "data": {"started": False, "position": position + 1}}
             if cmd == "queue_list":
                 return self._queue_list(str(msg.get("id") or ""), msg.get("person") or None, source)
+            if cmd == "queue_likes":
+                return self._queue_likes(msg.get("person") or None, source, bool(msg.get("now")))
             if cmd == "get_queue":
                 try:
                     count = max(0, min(50, int(msg.get("n", 10))))

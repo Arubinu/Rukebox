@@ -58,6 +58,7 @@ GUEST_PATHS = frozenset({
 MEMBER_PATHS = frozenset({
     "/api/likes",
     "/api/likes/toggle",
+    "/api/likes/play",
     "/api/excluded",
     "/api/excluded/filter",
     "/api/excluded/restore",

@@ -7868,7 +7868,23 @@ def api_likes():
                     "artist": item.get("artist") or "", "liked_at": item.get("liked_at")}
                    for item in items],
         "keys": [item["key"] for item in items],
+        "may_play": _may_play_lists(),
     }})
+
+
+@app.route("/api/likes/play", methods=["POST"])
+def api_likes_play():
+    """{now}: the liked songs next, or at once: for whoever may put a list on."""
+    if not _may_play_lists():
+        return jsonify({"ok": False, "error": "lists_play_not_allowed"}), 403
+    body = request.get_json(silent=True) or {}
+    person = None
+    try:
+        person = _this_device(_suggestion_box()).get("person")
+    except Exception:  # noqa: BLE001 - no device base: the songs are nobody's
+        pass
+    result = control("queue_likes", person=person, now=bool(body.get("now")))
+    return jsonify(result), (200 if result.get("ok") else 400)
 
 
 @app.route("/api/cards")

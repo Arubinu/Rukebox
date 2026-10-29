@@ -126,10 +126,29 @@ async function refreshLikes() {
   }
   likedTracks = result.data.tracks || [];
   likedKeys = new Set(result.data.keys || []);
+  document.getElementById("likesPlayActions").hidden = !result.data.may_play || !likedTracks.length;
   card.hidden = false;
   renderLikes();
   paintLikeButton();
 }
+
+/* Every liked song next, as a list played next is; "now" leaves the song playing for them. */
+async function playLikes(now) {
+  const r = await apiPost("/api/likes/play", { now: now });
+  if (!r.ok) {
+    showError(r.error);
+    return;
+  }
+  const d = r.data || {};
+  if (!d.added) showToast(t("likes.queued_none"));
+  else showToast(t(now ? "likes.playing" : "likes.queued", { n: d.added }),
+                 d.of > (d.added || 0) + (d.already || 0) ? t("lists.queued_part", { n: d.added + (d.already || 0), of: d.of }) : "");
+  refreshStatus();
+  refreshUpnext();
+}
+
+document.getElementById("likesPlay").addEventListener("click", () => playLikes(true));
+document.getElementById("likesQueue").addEventListener("click", () => playLikes(false));
 
 document.getElementById("btnLike").addEventListener("click", async () => {
   const key = currentTrackKey();

@@ -386,6 +386,26 @@ class DaemonListsTest(unittest.TestCase):
         later = self.daemon._queue_list(evening["id"], None, "test")
         self.assertEqual(later["data"]["added"], 2, "once played, the list can be asked for again")
 
+    def test_the_liked_songs_play_next_or_at_once(self):
+        import likes
+        self.daemon.cfg["LIKES_FILE"] = os.path.join(self.dir, "likes.json")
+        self.assertEqual(self.daemon._queue_likes(None, "test")["error"], "list_empty")
+        for name in ("rock1.mp3", "jazz1.mp3"):
+            likes.toggle(self.daemon.cfg["LIKES_FILE"], self.daemon._library().item_for_path(self.paths[name])["key"])
+        likes.toggle(self.daemon.cfg["LIKES_FILE"], "a-song-gone-from-the-library")
+        self.daemon.mode = "music"
+        self.daemon.state.data["play_queue"] = [self.paths["metal.mp3"]]
+        with mock.patch.object(self.daemon, "_play_next_track") as nxt,                 mock.patch.object(self.daemon, "_fade_out_and_pause"):
+            answer = self.daemon._queue_likes("p1", "test")
+            nxt.assert_not_called()
+            self.assertEqual((answer["data"]["added"], answer["data"]["of"]), (2, 2))
+            self.assertEqual(sorted(self.daemon.state.requested_paths()),
+                             sorted([self.paths["rock1.mp3"], self.paths["jazz1.mp3"]]))
+            self.daemon.state.data["play_queue"] = [self.paths["metal.mp3"]]
+            self.daemon.state.data["requests"] = []
+            self.assertTrue(self.daemon._queue_likes(None, "test", now=True)["data"]["started"])
+            nxt.assert_called_once()
+
     def test_a_list_played_next_is_capped_and_starts_a_silent_radio(self):
         entry = self.manual("Soir", "rock1.mp3", "jazz1.mp3", "metal.mp3")
         self.daemon.LIST_QUEUE_MAX = 2

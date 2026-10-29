@@ -453,6 +453,10 @@
             The heart on the cover adds the song playing. Each line keeps the day it was liked,
             and puts the song back in the queue.
           </p>
+          <div class="form-actions form-actions-split" id="likesPlayActions" hidden>
+            <button type="button" class="btn btn-primary" id="likesPlay" data-icon="play" data-i18n="likes.play">Play them</button>
+            <button type="button" class="btn" id="likesQueue" data-icon="list" data-i18n="likes.queue">Play next</button>
+          </div>
           <ol class="device-list recent-list" id="likesList"></ol>
           <p class="hint" id="likesEmpty" data-i18n="likes.empty" hidden>No liked track yet.</p>
         </section>
