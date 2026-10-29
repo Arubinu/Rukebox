@@ -3747,6 +3747,8 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.top-list .btn.btn-icon { width: 32px; min-height: 32px; flex: none; }
+.top-list .btn.btn-icon::before { width: 18px; height: 18px; }
 .top-value {
   flex: none;
   color: var(--text-muted);
