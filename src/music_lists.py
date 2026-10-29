@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import time
+from datetime import date, timedelta
 
 import config_document
 
@@ -14,6 +15,9 @@ BLOCK = "music_lists"
 KINDS = ("manual", "genre")
 NAME_MAX = 40
 GENRES_MAX = 12
+SEASONS_MAX = 12
+# Any leap year: February 29th is a day a season may name.
+_LEAP_YEAR = 2024
 
 
 def _slugify(name):
@@ -56,6 +60,67 @@ def _genres(raw):
     return out[:GENRES_MAX]
 
 
+def _month_day(raw):
+    """"MM-DD" as a valid (month, day), or ValueError."""
+    match = re.match(r"^(\d{2})-(\d{2})$", str(raw or "").strip())
+    if not match:
+        raise ValueError("list_bad_season")
+    month, day = int(match.group(1)), int(match.group(2))
+    try:
+        date(_LEAP_YEAR, month, day)
+    except ValueError:
+        raise ValueError("list_bad_season")
+    return "%02d-%02d" % (month, day)
+
+
+def _seasons(raw):
+    """The periods of the year a list plays in: [{"from": "MM-DD", "to": "MM-DD"}], [] for all year."""
+    if not raw:
+        return []
+    if not isinstance(raw, (list, tuple)) or len(raw) > SEASONS_MAX:
+        raise ValueError("list_bad_season")
+    out = []
+    for period in raw:
+        if not isinstance(period, dict):
+            raise ValueError("list_bad_season")
+        start = _month_day(period.get("from"))
+        end = _month_day(period.get("to") or start)
+        if {"from": start, "to": end} not in out:
+            out.append({"from": start, "to": end})
+    return out
+
+
+def _in_period(period, day):
+    key = "%02d-%02d" % (day.month, day.day)
+    start, end = period["from"], period["to"]
+    # A period that crosses the new year runs from its start to December, then from January.
+    return start <= key <= end if start <= end else key >= start or key <= end
+
+
+def seasonal(entry):
+    """Whether the list keeps to its seasons: switched on, with at least one period."""
+    return bool((entry or {}).get("seasonal") and (entry or {}).get("seasons"))
+
+
+def in_season(entry, day):
+    """Whether `day` falls in one of the list's seasons; a list that is not seasonal plays all year."""
+    return not seasonal(entry) or any(_in_period(period, day) for period in entry["seasons"])
+
+
+def season_state(entry, day):
+    """None for a list of all year; else {"on": bool, "change": "MM-DD"}: the last day of the
+    season under way, or the first day of the next one."""
+    if not seasonal(entry):
+        return None
+    on = in_season(entry, day)
+    for ahead in range(1, 367):
+        later = day + timedelta(days=ahead)
+        if in_season(entry, later) != on:
+            last = later - timedelta(days=1) if on else later
+            return {"on": on, "change": "%02d-%02d" % (last.month, last.day)}
+    return {"on": on, "change": None}
+
+
 def validate(data):
     """Raises ValueError carrying an error CODE (list_name_required, ...),
     translated by the web interface like every other API error."""
@@ -82,6 +147,9 @@ def validate(data):
         "kind": kind,
         "genres": genres if kind == "genre" else [],
         "tracks": [str(t) for t in tracks if str(t).strip()] if kind == "manual" else [],
+        # The dates are kept while the switch is off, ready for the next time.
+        "seasonal": bool(data.get("seasonal")),
+        "seasons": _seasons(data.get("seasons")),
     }
 
 

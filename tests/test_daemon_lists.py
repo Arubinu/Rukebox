@@ -612,6 +612,30 @@ class DaemonListsTest(unittest.TestCase):
         self.daemon._play_kind = "meme"
         self.assertIsNone(self.daemon._skipped_item(), "a sound cut short is no song passed over")
 
+    def test_a_list_out_of_season_leaves_the_library_and_comes_back_in_its_season(self):
+        a, b, c = self.paths["rock1.mp3"], self.paths["jazz1.mp3"], self.paths["metal.mp3"]
+        today = datetime.date.today()
+        away = (today + datetime.timedelta(days=100)).strftime("%m-%d")
+        entry = music_lists.add({"name": "Noel", "kind": "manual", "seasonal": True,
+                                 "seasons": [{"from": away}]}, self.lists_file)
+        music_lists.add_track(entry["id"], a, self.lists_file)
+        music_lists.add_track(entry["id"], b, self.lists_file)
+        self.assertNotIn(a, self.daemon._playable_tracks())
+        self.daemon.state.data["play_queue"] = [b, c, a]
+        self.daemon.state.data["requests"] = [b]
+        self.daemon._follow_seasons(lists_changed=True)
+        self.assertEqual(self.daemon.state.data["play_queue"], [b, c],
+                         "out of the pass under way, but a song asked for stays")
+        self.daemon._set_active_list(entry["id"], "test")
+        self.assertIn(a, self.daemon._playable_tracks(), "a list played on purpose always plays")
+        self.daemon.state.set_selection([], [])
+        music_lists.update(entry["id"], {"seasons": [{"from": today.strftime("%m-%d")}]}, self.lists_file)
+        self.daemon._lists_stamp = None
+        self.daemon.state.data["play_queue"] = [c]
+        self.daemon.state.data["requests"] = []
+        self.daemon._follow_seasons()
+        self.assertEqual(sorted(self.daemon.state.data["play_queue"]), sorted([a, b, c]), "its season: mixed in")
+
     def test_a_hardware_clock_behind_the_last_time_seen_is_not_believed(self):
         now = time.time()
         self.daemon._time_seen_before = now - 3600

@@ -1164,19 +1164,57 @@ class RadioDaemon:
             return []
 
     def _playable_tracks(self):
-        """The lists played (none: the library minus hidden tracks), minus every excluded list."""
+        """The lists played (none: the library minus hidden tracks and lists out of season),
+        minus every excluded list."""
         # A list played keeps its hidden tracks (an explicit choice); an excluded list still wins.
         tracks = self._get_music_list()
         play, exclude = self._selection_entries()
         if play:
             chosen = self._list_paths(play, tracks)
         else:
-            hidden = self._hidden_paths()
+            hidden = self._hidden_paths() | self._off_season_paths(tracks)
             chosen = [path for path in tracks if path not in hidden] if hidden else tracks
         if exclude:
             gone = set(self._list_paths(exclude, tracks))
             chosen = [path for path in chosen if path not in gone]
         return chosen
+
+    def _off_season_lists(self):
+        """The seasonal lists whose season it is not today."""
+        today = datetime.now().date()
+        return [entry for entry in self._lists() if not music_lists.in_season(entry, today)]
+
+    def _off_season_paths(self, tracks):
+        off = self._off_season_lists()
+        return set(self._list_paths(off, tracks)) if off else set()
+
+    SEASONS_KEY = "seasons_out"
+
+    def _follow_seasons(self, lists_changed=False):
+        """A season that ends takes its songs out of the pass under way, one that starts mixes
+        them in; the songs asked for stay where they are."""
+        out = sorted(entry["id"] for entry in self._off_season_lists())
+        before = self.state.value(self.SEASONS_KEY) or []
+        if out == before and not lists_changed:
+            return
+        self.state.set_value(self.SEASONS_KEY, out)
+        play, _exclude = self._selection_entries()
+        if play:
+            return  # the lists played on purpose make the pass: seasons wait for the library
+        tracks = self._get_music_list()
+        by_id = {entry["id"]: entry for entry in self._lists()}
+        asked = set(self.state.data.get("requests") or [])
+        gone = set(self._list_paths([by_id[i] for i in out if i in by_id], tracks)) - asked
+        removed = self.state.take_from_queue_many(gone) if gone else 0
+        back = [by_id[i] for i in before if i not in out and i in by_id]
+        added = 0
+        # An ordered pass keeps its order: what comes back waits for the next one.
+        if back and self.cfg.get("MUSIC_ORDER_MODE") != "ordered":
+            playable = set(self._playable_tracks())
+            added = self.state.mix_into_queue([p for p in self._list_paths(back, tracks) if p in playable])
+        if removed or added:
+            log.info("Seasons: %d songs out of the pass, %d mixed in", removed, added)
+            self._bump_state()
 
     def _hidden_paths(self):
         """The paths the radio must not pick by itself, or nothing at all."""
@@ -5019,6 +5057,7 @@ class RadioDaemon:
         with self._command_lock:
             self._schedule_tick(now)
             self._restart_if_nothing_plays()
+            self._follow_seasons()
 
         if (
             self.cfg["MUSIC_START_MODE"] == "scheduled"
@@ -5523,6 +5562,7 @@ class RadioDaemon:
                 return {"ok": True, "count": len(self._schedule_items)}
             if cmd == "reload_lists":
                 self._lists_stamp = None
+                self._follow_seasons(lists_changed=True)
                 return {"ok": True, "count": len(self._lists())}
             if cmd == "speaker_check":
                 # The web server saw the speaker come or go before our own next turn.

@@ -280,6 +280,9 @@ class GateTest(unittest.TestCase):
         self.assertEqual((refused.status_code, refused.get_json()["error"]), (403, "lists_exclude_not_allowed"),
                          "leaving songs out is for everyone listening: the keepers decide it")
         self.assertFalse(self.client.get("/api/lists").get_json()["data"]["may_exclude"])
+        refused = self.client.post("/api/lists/" + listed["Luc"]["id"], json={"seasonal": True})
+        self.assertEqual((refused.status_code, refused.get_json()["error"]), (403, "list_season_not_allowed"),
+                         "a season leaves songs out for everyone too")
 
         self.client.post("/api/auth/logout")
         self.assertEqual(self.login("Paul", "mot-de-passe-paul").status_code, 200)
@@ -290,6 +293,12 @@ class GateTest(unittest.TestCase):
                          "and may put a member's list on")
         edited = self.client.post("/api/lists/" + mine["id"], json={"name": "Marie bis"}).get_json()["data"]
         self.assertEqual(music_lists.get(edited["id"], self.path)["owner"], "marie", "an edit keeps the owner")
+        seasons = [{"from": "12-01", "to": "12-26"}]
+        self.assertEqual(self.client.post("/api/lists/" + mine["id"], json={
+            "seasonal": True, "seasons": seasons}).status_code, 200)
+        listed = {one["id"]: one for one in self.client.get("/api/lists").get_json()["data"]["lists"]}
+        self.assertEqual(listed[mine["id"]]["seasons"], seasons)
+        self.assertIn("change", listed[mine["id"]]["season"])
 
     def test_what_reads_below_the_operator_is_not_written_from_there(self):
         self.people()

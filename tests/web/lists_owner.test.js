@@ -73,3 +73,32 @@ test("the owner lets a member play lists from the People page", async (t) => {
   await until(() => page.sent("POST", "/api/auth/accounts").length);
   assert.deepEqual(page.sent("POST", "/api/auth/accounts")[0].body, { id: "marie", play_lists: true });
 });
+
+test("a list made seasonal sends its switch and its periods, and says when it comes back", async (t) => {
+  let sent = null;
+  const state = { active: null, may_play: true, may_exclude: true, lists: [
+    { id: "noel", name: "Noel", kind: "manual", count: 1, editable: true, owner_name: "",
+      seasonal: true, seasons: [{ from: "12-01", to: "12-26" }], season: { on: false, change: "12-01" } }] };
+  const page = open(t, { hash: "#home/lists", storage: { rukebox_lang: "en" }, routes: {
+    "GET /api/lists": () => state,
+    "GET /api/library/facets": { genres: [] },
+    "GET /api/lists/noel/tracks": TRACKS,
+    "POST /api/lists/noel": (request) => { sent = request.body; return Object.assign({}, state.lists[0], { count: 1 }); },
+  } });
+  await until(() => page.$("listsList").children.length === 1);
+  assert.match(page.$("listsList").textContent, /out of season, back on December 1/);
+  page.$("listsList").children[0].querySelector(".ann-head").click();
+  await until(() => labels(page).includes("pencil"));
+  page.$("listsDetailManage").querySelector('[data-icon="pencil"]').click();
+  await until(() => page.$("listsDetailBody").querySelector(".list-season"));
+  const box = page.$("listsDetailBody").querySelector(".list-season");
+  assert.equal(box.querySelectorAll(".season-period").length, 1);
+  [...box.querySelectorAll("button")].find((b) => b.dataset.icon === "plus").click();
+  const added = box.querySelectorAll(".season-period")[1];
+  added.querySelectorAll(".season-day").forEach((s) => { s.value = "14"; });
+  added.querySelectorAll(".season-month").forEach((s) => { s.value = "3"; });
+  page.$("listsDetailManage").querySelector('[data-icon="check"]').click();
+  await until(() => sent !== null);
+  assert.deepEqual(sent.seasons, [{ from: "12-01", to: "12-26" }, { from: "03-14", to: "03-14" }]);
+  assert.equal(sent.seasonal, true);
+});

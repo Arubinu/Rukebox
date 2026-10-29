@@ -4773,3 +4773,11 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
 .tour-count { font-size: 12px; color: var(--text-muted); margin-right: auto; }
 .tour-target { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 10px;
                position: relative; z-index: 899; }
+
+.list-season { display: flex; flex-direction: column; gap: 10px; }
+.season-more { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.season-periods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.season-period { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.season-date { display: inline-flex; gap: 6px; }
+.season-word { color: var(--text-muted); font-size: 14px; }
+.season-period .btn.btn-icon { width: 36px; min-height: 36px; flex: none; margin-left: auto; }

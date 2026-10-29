@@ -3213,9 +3213,11 @@ def api_lists():
     me, members = _list_viewer()
     shown = [entry for entry in music_lists.load() if _list_shown(entry, me, members)]
     lists = _with_counts(shown)
+    today = datetime.now().date()
     for entry in lists:
         entry["editable"] = _list_editable(entry, me)
         entry["owner_name"] = members.get(entry.get("owner"), "")
+        entry["season"] = music_lists.season_state(entry, today)
     chosen = _selection()
     shown_ids = {entry["id"] for entry in lists}
     return jsonify({"ok": True, "data": {
@@ -3229,9 +3231,19 @@ def api_lists():
     }})
 
 
+def _season_refused(body):
+    """A season keeps songs from everyone's radio, as excluding a list does: the same people decide."""
+    if ("seasons" in body or "seasonal" in body) and not roles.allows(_role(), "operator"):
+        return jsonify({"ok": False, "error": "list_season_not_allowed"}), 403
+    return None
+
+
 @app.route("/api/lists", methods=["POST"])
 def api_create_list():
     body = request.get_json(silent=True) or {}
+    refused = _season_refused(body)
+    if refused:
+        return refused
     me, _members = _list_viewer()
     try:
         entry = music_lists.add(body, owner=me or None)
@@ -3247,6 +3259,9 @@ def api_create_list():
 def api_update_list(list_id):
     body = request.get_json(silent=True) or {}
     _entry, refused = _list_for(list_id, edit=True)
+    if refused:
+        return refused
+    refused = _season_refused(body)
     if refused:
         return refused
     try:

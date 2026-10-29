@@ -245,6 +245,21 @@ class RadioState:
             self._save()
             return len(queue) - len(kept)
 
+    def mix_into_queue(self, paths):
+        """Scatters songs through the pass under way, after the requests; how many went in."""
+        with self._lock:
+            queue = list(self.data["play_queue"])
+            present = set(queue)
+            wanted = [p for p in dict.fromkeys(paths or []) if p and p not in present]
+            if not wanted:
+                return 0
+            asked = len(self.data["requests"])
+            for path in wanted:
+                queue.insert(random.randint(asked, len(queue)), path)
+            self.data["play_queue"] = queue
+            self._save()
+            return len(wanted)
+
     def move_in_queue(self, path, after):
         """Puts `path` after `after` ("": first); its new place, or None when either is gone."""
         # Among the requests it becomes one, past them it stops being one, at their edge it stays.

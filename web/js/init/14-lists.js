@@ -61,10 +61,25 @@ function listExcluded(item) {
   return listSelection().exclude.includes(item.id);
 }
 
+// A leap year, so that February 29th can be named.
+const SEASON_YEAR = 2024;
+
+function seasonDateLabel(monthDay) {
+  const [month, day] = monthDay.split("-").map(Number);
+  return new Date(SEASON_YEAR, month - 1, day).toLocaleDateString(currentLang, { day: "numeric", month: "long" });
+}
+
+function seasonText(item) {
+  const season = item.season;
+  if (!season || !season.change) return "";
+  return t(season.on ? "lists.season_until" : "lists.season_back", { date: seasonDateLabel(season.change) });
+}
+
 function listMeta(item) {
   return [listKindLabel(item), tracksLabel(item.count),
           item.owner_name ? t("lists.of", { name: item.owner_name }) : "",
-          listPlayed(item) ? t("lists.playing") : "", listExcluded(item) ? t("lists.excluded") : ""]
+          listPlayed(item) ? t("lists.playing") : "", listExcluded(item) ? t("lists.excluded") : "",
+          seasonText(item)]
     .filter(Boolean).join(" \u00b7 ");
 }
 
@@ -366,6 +381,8 @@ async function saveList(item) {
   if (item.kind === "genre") {
     body.genres = pickedGenres(listsDetailBody.querySelector(".genre-picker"));
   }
+  const season = listsDetailBody.querySelector(".list-season");
+  if (season) Object.assign(body, readSeasons(season));
   writingList = true;
   const r = await apiPost("/api/lists/" + encodeURIComponent(item.id), body);
   writingList = false;
@@ -480,9 +497,106 @@ function renderDetailHeader(item) {
   listsDetailMeta.textContent = listMeta(item);
 }
 
+/* One end of a period: a day and a month, as "MM-DD". */
+function seasonDatePicker(value, which) {
+  const box = document.createElement("span");
+  box.className = "season-date";
+  const [month, day] = (value || "01-01").split("-").map(Number);
+  const days = document.createElement("select");
+  days.className = "season-day";
+  days.setAttribute("aria-label", t("lists.season_" + which) + " \u2014 " + t("lists.season_day"));
+  for (let n = 1; n <= 31; n++) days.append(new Option(String(n), String(n), false, n === day));
+  const months = document.createElement("select");
+  months.className = "season-month";
+  months.setAttribute("aria-label", t("lists.season_" + which) + " \u2014 " + t("lists.season_month"));
+  for (let n = 1; n <= 12; n++) {
+    const label = new Date(SEASON_YEAR, n - 1, 1).toLocaleDateString(currentLang, { month: "long" });
+    months.append(new Option(label, String(n), false, n === month));
+  }
+  box.append(days, months);
+  return box;
+}
+
+function seasonPeriodRow(period) {
+  const li = document.createElement("li");
+  li.className = "season-period";
+  const from = document.createElement("span");
+  from.className = "season-word";
+  from.textContent = t("lists.season_from");
+  const to = document.createElement("span");
+  to.className = "season-word";
+  to.textContent = t("lists.season_to");
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "btn btn-icon btn-small";
+  remove.dataset.icon = "x";
+  remove.title = t("lists.season_remove");
+  remove.setAttribute("aria-label", remove.title);
+  remove.addEventListener("click", () => li.remove());
+  li.append(from, seasonDatePicker(period.from, "from"), to, seasonDatePicker(period.to || period.from, "to"), remove);
+  return li;
+}
+
+/* The list's seasons: a switch, then the periods of the year it keeps to while the switch is on. */
+function seasonEditor(item) {
+  const box = document.createElement("div");
+  box.className = "list-season";
+  const row = document.createElement("label");
+  row.className = "field-row";
+  const text = document.createElement("span");
+  text.className = "field-text";
+  const title = document.createElement("span");
+  title.textContent = t("lists.seasonal");
+  const desc = document.createElement("span");
+  desc.className = "field-desc";
+  desc.textContent = t("lists.seasonal_desc");
+  text.append(title, desc);
+  const toggle = document.createElement("input");
+  toggle.type = "checkbox";
+  toggle.className = "switch-input season-switch";
+  toggle.setAttribute("role", "switch");
+  toggle.checked = !!item.seasonal;
+  row.append(text, toggle);
+
+  const periods = document.createElement("ul");
+  periods.className = "season-periods";
+  (item.seasons || []).forEach((period) => periods.append(seasonPeriodRow(period)));
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "btn btn-small";
+  add.dataset.icon = "plus";
+  add.textContent = t("lists.season_add");
+  add.addEventListener("click", () => {
+    const now = new Date();
+    const today = String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+    periods.append(seasonPeriodRow({ from: today, to: today }));
+  });
+  const more = document.createElement("div");
+  more.className = "season-more";
+  more.append(periods, add);
+  const paint = () => {
+    more.hidden = !toggle.checked;
+    if (toggle.checked && !periods.children.length) add.click();
+  };
+  toggle.addEventListener("change", paint);
+  paint();
+  box.append(row, more);
+  return box;
+}
+
+function readSeasons(box) {
+  const end = (picker) => String(picker.querySelector(".season-month").value).padStart(2, "0") + "-"
+    + String(picker.querySelector(".season-day").value).padStart(2, "0");
+  const seasons = [...box.querySelectorAll(".season-period")].map((li) => {
+    const [from, to] = li.querySelectorAll(".season-date");
+    return { from: end(from), to: end(to) };
+  });
+  return { seasonal: box.querySelector(".season-switch").checked && seasons.length > 0, seasons: seasons };
+}
+
 function renderDetail(item) {
   // Rebuilt only on a change: every rebuild refetches the tracks, and the 20s refresh must not.
-  const signature = [item.id, item.name, item.count, item.kind,
+  const signature = [item.id, item.name, item.count, item.kind, JSON.stringify([item.seasonal, item.seasons, item.season]),
                      (item.genres || []).join(","), listPlayed(item), listExcluded(item),
                      listSelection().play.length, editingListId === item.id, item.editable,
                      listsData.may_play, listsData.may_exclude].join("|");
@@ -546,6 +660,8 @@ function renderDetail(item) {
       genrePicker(box, item.genres);
       fields.append(box);
     }
+    // A season keeps songs from everyone's radio: those who may exclude a list decide it.
+    if (listsData.may_exclude) fields.append(seasonEditor(item));
     parts.push(fields);
   }
 

@@ -18,6 +18,25 @@ class MusicListsTest(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.dir)
 
+    def test_a_seasonal_list_plays_only_in_its_periods_and_its_switch_keeps_the_dates(self):
+        from datetime import date
+        entry = music_lists.add({"name": "Noel", "seasonal": True, "seasons": [
+            {"from": "12-20", "to": "01-02"}, {"from": "07-14"}]}, self.path)
+        self.assertEqual(entry["seasons"], [{"from": "12-20", "to": "01-02"}, {"from": "07-14", "to": "07-14"}])
+        self.assertTrue(music_lists.in_season(entry, date(2026, 12, 31)), "across the new year")
+        self.assertTrue(music_lists.in_season(entry, date(2027, 1, 2)))
+        self.assertTrue(music_lists.in_season(entry, date(2026, 7, 14)), "a day alone")
+        self.assertFalse(music_lists.in_season(entry, date(2026, 3, 1)))
+        self.assertEqual(music_lists.season_state(entry, date(2026, 12, 24)), {"on": True, "change": "01-02"})
+        self.assertEqual(music_lists.season_state(entry, date(2026, 3, 1)), {"on": False, "change": "07-14"})
+        off = music_lists.update(entry["id"], {"seasonal": False}, self.path)
+        self.assertEqual(off["seasons"], entry["seasons"], "switched off, the dates wait")
+        self.assertTrue(music_lists.in_season(off, date(2026, 3, 1)), "and the list plays all year")
+        self.assertIsNone(music_lists.season_state(off, date(2026, 3, 1)))
+        for bad in ([{"from": "02-30"}], [{"from": "12"}], "12-01", [{"from": "01-01"}] * 13 + [{"from": "x"}]):
+            with self.assertRaises(ValueError):
+                music_lists.add({"name": "Bad", "seasonal": True, "seasons": bad}, self.path)
+
     def test_create_and_read(self):
         entry = music_lists.add({"name": "  Le soir ", "kind": "manual"}, self.path)
         self.assertEqual(entry["id"], "le-soir")
