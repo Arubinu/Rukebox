@@ -537,8 +537,12 @@ function seasonPeriodRow(period) {
   remove.title = t("lists.season_remove");
   remove.setAttribute("aria-label", remove.title);
   remove.addEventListener("click", () => li.remove());
+  // The rule under the empty space alone, between the last date and the button.
+  const rule = document.createElement("span");
+  rule.className = "season-rule";
+  rule.setAttribute("aria-hidden", "true");
   li.append(end("lists.season_from", period.from, "from"), end("lists.season_to", period.to || period.from, "to"),
-            remove);
+            rule, remove);
   return li;
 }
 
