@@ -975,7 +975,7 @@ body[data-page=""] #main > .page-grid { margin-block: auto; }
 /* The empty and summary lines read as captions, centred like "Add music" - and
    a pair takes it together, since one replaces the other in the same place. */
 #excludedEmpty, #excludedSummary, #excludedResultsEmpty,
-#reminderEmpty, #likesEmpty, #upnextEmpty,
+#reminderEmpty, #birthdayEmpty, #likesEmpty, #upnextEmpty,
 #duplicatesSummary, #duplicatesEmpty { text-align: center; }
 
 .person-permission {
