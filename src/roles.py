@@ -83,6 +83,8 @@ MEMBER_PATHS = frozenset({
     "/api/memories",
     "/api/reminders",
     "/api/reminders/<rid>",
+    "/api/birthdays",
+    "/api/birthdays/<birthday_id>",
 })
 
 

@@ -84,6 +84,7 @@ import music_lists  # noqa: E402
 import prepared_media  # noqa: E402
 import schedules  # noqa: E402
 import stations  # noqa: E402
+import birthdays  # noqa: E402
 import sync as sync_mod  # noqa: E402
 import sync_scheduler  # noqa: E402
 import syncs  # noqa: E402
@@ -7870,6 +7871,42 @@ def api_likes():
         "keys": [item["key"] for item in items],
         "may_play": _may_play_lists(),
     }})
+
+
+@app.route("/api/birthdays")
+def api_birthdays():
+    """The birthdays of the house, and when they are wished."""
+    today = datetime.now().date()
+    return jsonify({"ok": True, "data": {"people": birthdays.load(), "wish": birthdays.wish(),
+                                         "today": birthdays.names_on(today)}})
+
+
+@app.route("/api/birthdays", methods=["POST"])
+def api_birthdays_change():
+    """{name, date}: one more birthday; or {wish}: when they are wished."""
+    body = request.get_json(silent=True) or {}
+    try:
+        if "wish" in body:
+            birthdays.set_wish(str(body.get("wish") or ""))
+            stats.record("birthday_wish_set", label=str(body.get("wish")))
+            return jsonify({"ok": True, "data": {"wish": birthdays.wish()}})
+        entry = birthdays.add(body)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    stats.record("birthday_added", label=entry["name"], detail={"date": entry["date"]})
+    return jsonify({"ok": True, "data": entry})
+
+
+@app.route("/api/birthdays/<birthday_id>", methods=["DELETE"])
+def api_birthdays_delete(birthday_id):
+    try:
+        birthdays.delete(birthday_id)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    stats.record("birthday_removed", label=birthday_id)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/likes/play", methods=["POST"])

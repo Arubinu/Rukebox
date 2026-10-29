@@ -60,7 +60,7 @@ def _genres(raw):
     return out[:GENRES_MAX]
 
 
-def _month_day(raw):
+def month_day(raw):
     """"MM-DD" as a valid (month, day), or ValueError."""
     match = re.match(r"^(\d{2})-(\d{2})$", str(raw or "").strip())
     if not match:
@@ -83,8 +83,8 @@ def _seasons(raw):
     for period in raw:
         if not isinstance(period, dict):
             raise ValueError("list_bad_season")
-        start = _month_day(period.get("from"))
-        end = _month_day(period.get("to") or start)
+        start = month_day(period.get("from"))
+        end = month_day(period.get("to") or start)
         if {"from": start, "to": end} not in out:
             out.append({"from": start, "to": end})
     return out

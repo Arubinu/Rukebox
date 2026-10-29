@@ -57,7 +57,8 @@ const EVENT_TYPE_KEYS = ["session_start", "session_end", "session_unclean", "shu
   "standby", "mute", "backup_exported", "backup_restored", "system_reboot",
   "flic_sdk_installed", "flic_enabled", "flic_disabled", "flic_button_removed", "home_wifi_autoconnect",
   "track_liked", "track_unliked", "track_hidden", "track_shown",
-  "list_selected", "list_added", "list_changed", "list_removed", "list_queued",
+  "list_selected", "list_added", "list_changed", "list_removed", "list_queued", "likes_queued",
+  "birthday_added", "birthday_removed", "birthday_wish_set",
   "announcement_volume_set", "prepared_file_added", "usb_music_used", "usb_music_released",
   "tags_changed", "cover_changed", "cover_removed", "covers_moved", "cast_started",
   "party_started", "party_ended", "station_added", "station_removed", "sync_run", "sync_saved",
@@ -81,7 +82,7 @@ const CLICK_ACTION_KEYS = ["sound_then_next", "next_track_no_sound", "start_from
   "announcement", "shutdown", "ignored", "previous_track", "sound_then_previous",
   "sound_then_resume", "paused", "resumed", "loop_track", "loop_album", "loop_off",
   "volume_up", "volume_down", "sleep_on", "sleep_off", "standby", "muted", "unmuted",
-  "time_then_resume"];
+  "time_then_resume", "birthday_wished"];
 function clickActionLabel(action) {
   return CLICK_ACTION_KEYS.includes(action) ? t("clickaction." + action) : action;
 }

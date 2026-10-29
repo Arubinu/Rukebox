@@ -511,6 +511,38 @@
           </details>
         </section>
 
+        <section class="card" id="birthdaysCard" data-page="birthdays" data-tab="home" aria-labelledby="birthdaysTitle">
+          <h2 data-icon="calendar" id="birthdaysTitle"><span data-i18n="birthdays.title">Birthdays</span></h2>
+          <p class="hint help-text" data-i18n="birthdays.help" hidden>
+            On the day, the radio wishes a happy birthday out loud, over the music turned down.
+          </p>
+          <div class="field-row">
+            <div class="field-text">
+              <label for="birthdayWish" data-i18n="birthdays.wish">When to wish them</label>
+              <p class="field-desc" id="birthdayWishDesc" data-i18n="birthdays.wish_desc">A button can always wish them too, with its action "Wish today's birthdays".</p>
+            </div>
+            <select id="birthdayWish" aria-describedby="birthdayWishDesc">
+              <option value="start" data-i18n="birthdays.wish_start">As soon as music plays that day</option>
+              <option value="button" data-i18n="birthdays.wish_button">Only with a button</option>
+            </select>
+          </div>
+          <form id="birthdayForm" class="settings-form">
+            <div class="field-row">
+              <label for="birthdayName" data-i18n="birthdays.name">First name</label>
+              <input type="text" id="birthdayName" class="text-input" maxlength="40" required autocomplete="off">
+            </div>
+            <div class="field-row">
+              <span class="field-label" data-i18n="birthdays.date">Birthday</span>
+              <span id="birthdayDate"></span>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-icon="plus" data-i18n="birthdays.add">Add the birthday</button>
+            </div>
+          </form>
+          <ol class="device-list recent-list" id="birthdayList"></ol>
+          <p class="hint" id="birthdayEmpty" data-i18n="birthdays.empty" hidden>No birthday yet.</p>
+        </section>
+
         <section class="card" id="remindersCard" data-page="reminders" data-tab="home" data-owner aria-labelledby="remindersTitle">
           <h2 data-icon="bell" id="remindersTitle"><span data-i18n="reminders.title">Reminders</span></h2>
           <p class="hint help-text" data-i18n="reminders.help" hidden>
@@ -1965,6 +1997,7 @@
                   <option value="previous" data-i18n="click.previous">Previous track</option>
                   <option value="sound" data-i18n="click.sound">Play the sound</option>
                   <option value="time" data-i18n="click.time">Say the time</option>
+                  <option value="birthday" data-i18n="click.birthday">Wish today's birthdays</option>
                   <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                   <option value="pause" data-i18n="click.pause">Pause</option>
                   <option value="play" data-i18n="click.play">Play</option>
@@ -1999,6 +2032,7 @@
                   <option value="previous" data-i18n="click.previous">Previous track</option>
                   <option value="sound" data-i18n="click.sound">Play the sound</option>
                   <option value="time" data-i18n="click.time">Say the time</option>
+                  <option value="birthday" data-i18n="click.birthday">Wish today's birthdays</option>
                   <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                   <option value="pause" data-i18n="click.pause">Pause</option>
                   <option value="play" data-i18n="click.play">Play</option>
@@ -2058,6 +2092,7 @@
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
                     <option value="time" data-i18n="click.time">Say the time</option>
+                    <option value="birthday" data-i18n="click.birthday">Wish today's birthdays</option>
                     <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                     <option value="pause" data-i18n="click.pause">Pause</option>
                     <option value="play" data-i18n="click.play">Play</option>
@@ -2092,6 +2127,7 @@
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
                     <option value="time" data-i18n="click.time">Say the time</option>
+                    <option value="birthday" data-i18n="click.birthday">Wish today's birthdays</option>
                     <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                     <option value="pause" data-i18n="click.pause">Pause</option>
                     <option value="play" data-i18n="click.play">Play</option>
@@ -2126,6 +2162,7 @@
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
                     <option value="time" data-i18n="click.time">Say the time</option>
+                    <option value="birthday" data-i18n="click.birthday">Wish today's birthdays</option>
                     <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                     <option value="pause" data-i18n="click.pause">Pause</option>
                     <option value="play" data-i18n="click.play">Play</option>
@@ -2160,6 +2197,7 @@
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
                     <option value="time" data-i18n="click.time">Say the time</option>
+                    <option value="birthday" data-i18n="click.birthday">Wish today's birthdays</option>
                     <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                     <option value="pause" data-i18n="click.pause">Pause</option>
                     <option value="play" data-i18n="click.play">Play</option>
@@ -2194,6 +2232,7 @@
                     <option value="previous" data-i18n="click.previous">Previous track</option>
                     <option value="sound" data-i18n="click.sound">Play the sound</option>
                     <option value="time" data-i18n="click.time">Say the time</option>
+                    <option value="birthday" data-i18n="click.birthday">Wish today's birthdays</option>
                     <option value="playpause" data-i18n="click.playpause">Play/Pause</option>
                     <option value="pause" data-i18n="click.pause">Pause</option>
                     <option value="play" data-i18n="click.play">Play</option>

@@ -656,6 +656,28 @@ class DaemonListsTest(unittest.TestCase):
         self.daemon._follow_seasons()
         self.assertEqual(sorted(self.daemon.state.data["play_queue"]), sorted([a, b, c]), "its season: mixed in")
 
+    def test_birthdays_are_wished_once_at_the_first_song_or_on_a_button(self):
+        import birthdays
+        today = datetime.date.today().strftime("%m-%d")
+        self.daemon.mode, self.daemon._paused = "music", False
+        self.daemon._current_track = self.paths["rock1.mp3"]
+        with mock.patch.object(self.daemon, "_say_path", return_value=None) as say, \
+                mock.patch.object(self.daemon, "_speech_text_file", return_value="/tmp/wish.wav") as render:
+            self.assertEqual(self.daemon._wish_birthdays("test"), "no_birthday")
+            birthdays.add({"name": "Marie", "date": today}, self.lists_file)
+            self.daemon._check_birthdays()
+            self.daemon._check_birthdays()
+            say.assert_called_once()
+            self.assertIn("Marie", render.call_args.args[0])
+            self.daemon.state.data.pop("last_birthday_wish")
+            birthdays.set_wish("button", self.lists_file)
+            self.daemon._check_birthdays()
+            self.assertEqual(say.call_count, 1, "only a button wishes them now")
+            with mock.patch.object(self.daemon, "_record_click") as click:
+                self.daemon._perform_click_action("single", "flic", "birthday", "")
+            self.assertEqual(say.call_count, 2)
+            self.assertEqual(click.call_args.args[2], "birthday_wished")
+
     def test_a_hardware_clock_behind_the_last_time_seen_is_not_believed(self):
         now = time.time()
         self.daemon._time_seen_before = now - 3600

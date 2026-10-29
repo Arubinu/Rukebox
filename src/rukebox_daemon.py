@@ -22,6 +22,7 @@ import announce_level  # noqa: E402
 import announcements  # noqa: E402
 import audio_diag  # noqa: E402
 import audio_output  # noqa: E402
+import birthdays  # noqa: E402
 import bt_link  # noqa: E402
 import cards  # noqa: E402
 import dj_intro  # noqa: E402
@@ -3647,7 +3648,7 @@ class RadioDaemon:
         "playpause", "pause", "play",
         "loop_track", "loop_album", "loop_off",
         "volume_up", "volume_down", "sleep",
-        "mute", "standby", "poweroff", "time",
+        "mute", "standby", "poweroff", "time", "birthday",
         "off",
     )
     LONG_PRESS_ACTIONS = ("poweroff", "standby")
@@ -3683,6 +3684,10 @@ class RadioDaemon:
         if action == "off":
             log.info("%s click: action is set to \"off\", ignoring", kind)
             self._record_click(kind, source, "ignored", target="off")
+            return
+        if action == "birthday":
+            error = self._wish_birthdays(source)
+            self._record_click(kind, source, "ignored" if error else "birthday_wished", target=error)
             return
         if action not in self.SOUND_ACTIONS:
             self._record_click(kind, source, self._perform_direct_action(action, source))
@@ -3830,6 +3835,30 @@ class RadioDaemon:
         return None
 
     REMINDER_UNDER = 25
+
+    def _wish_birthdays(self, source):
+        """Wishes today's birthdays over the music, or alone in silence; an error code, or None."""
+        if self.mode not in ("music", "idle", "stopped"):
+            return "busy"
+        names = birthdays.names_on(datetime.now().date())
+        if not names:
+            return "no_birthday"
+        path = self._speech_text_file(speech.birthday_sentence(names, self.cfg.get("SPEECH_LANGUAGE")))
+        if not path:
+            return "speech_unavailable"
+        self.stats.record("speech_played", label="birthday", detail={"source": source, "names": names})
+        return self._say_path(path, under=self._music_under() or self.REMINDER_UNDER)
+
+    def _check_birthdays(self):
+        """Wished once a day, as soon as music plays that day, when the house chose so."""
+        if self.mode != "music" or self._paused or self._duck_proc is not None or not self._current_track:
+            return
+        if birthdays.wish() != "start" or self.state.already_triggered_today("last_birthday_wish"):
+            return
+        if not birthdays.names_on(datetime.now().date()):
+            return
+        self.state.mark_triggered_today("last_birthday_wish")
+        self._wish_birthdays("start")
 
     def _say_path(self, path, under=None):
         log.info("Saying: %s", os.path.splitext(os.path.basename(path))[0])
@@ -3984,6 +4013,8 @@ class RadioDaemon:
                 return None
             if target == "time":
                 return self._speak("time", source)
+            if target == "birthday":
+                return self._wish_birthdays(source)
             if target == "poweroff":
                 self._power_off_now(reason="button")
                 return None
@@ -5097,6 +5128,7 @@ class RadioDaemon:
         with self._command_lock:
             self._check_cutoff_warning(now)
             self._check_reminders()
+            self._check_birthdays()
 
         if self._cutoff_due(now) and not self.state.already_triggered_today("last_cutoff_trigger"):
             if self.mode == "game":

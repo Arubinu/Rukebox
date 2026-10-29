@@ -605,6 +605,7 @@ SETTINGS = [
         "  volume_up | volume_down -> by volume_step\n"
         "  sleep       -> pauses the music in the shortest of\n"
         "                 sleep_durations (again: cancel)\n"
+        "  birthday    -> wishes today's birthdays, if any\n"
         "  off         -> nothing\n"
         "The sound below only goes with next, previous and sound. From idle\n"
         "(music not started yet), a single click always starts the music.",

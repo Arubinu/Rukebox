@@ -497,18 +497,18 @@ function renderDetailHeader(item) {
   listsDetailMeta.textContent = listMeta(item);
 }
 
-/* One end of a period: a day and a month, as "MM-DD". */
-function seasonDatePicker(value, which) {
+/* A day of the year: a day and a month, as "MM-DD" (readDayMonth gives it back). */
+function dayMonthPicker(value, label) {
   const box = document.createElement("span");
   box.className = "season-date";
   const [month, day] = (value || "01-01").split("-").map(Number);
   const days = document.createElement("select");
   days.className = "season-day";
-  days.setAttribute("aria-label", t("lists.season_" + which) + " \u2014 " + t("lists.season_day"));
+  days.setAttribute("aria-label", label + " \u2014 " + t("date.day"));
   for (let n = 1; n <= 31; n++) days.append(new Option(String(n), String(n), false, n === day));
   const months = document.createElement("select");
   months.className = "season-month";
-  months.setAttribute("aria-label", t("lists.season_" + which) + " \u2014 " + t("lists.season_month"));
+  months.setAttribute("aria-label", label + " \u2014 " + t("date.month"));
   for (let n = 1; n <= 12; n++) {
     const label = new Date(SEASON_YEAR, n - 1, 1).toLocaleDateString(currentLang, { month: "long" });
     months.append(new Option(label, String(n), false, n === month));
@@ -527,7 +527,7 @@ function seasonPeriodRow(period) {
     const text = document.createElement("span");
     text.className = "season-word";
     text.textContent = t(word);
-    group.append(text, seasonDatePicker(value, which));
+    group.append(text, dayMonthPicker(value, t("lists.season_" + which)));
     return group;
   };
   const remove = document.createElement("button");
@@ -598,12 +598,15 @@ function seasonEditor(item) {
   return box;
 }
 
-function readSeasons(box) {
-  const end = (picker) => String(picker.querySelector(".season-month").value).padStart(2, "0") + "-"
+function readDayMonth(picker) {
+  return String(picker.querySelector(".season-month").value).padStart(2, "0") + "-"
     + String(picker.querySelector(".season-day").value).padStart(2, "0");
+}
+
+function readSeasons(box) {
   const seasons = [...box.querySelectorAll(".season-period")].map((li) => {
     const [from, to] = li.querySelectorAll(".season-date");
-    return { from: end(from), to: end(to) };
+    return { from: readDayMonth(from), to: readDayMonth(to) };
   });
   return { seasonal: box.querySelector(".season-switch").checked && seasons.length > 0, seasons: seasons };
 }

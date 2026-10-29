@@ -1602,6 +1602,28 @@ class StreamRouteTest(unittest.TestCase):
             data = ws.app.test_client().get("/api/journal/never_played").get_json()["data"]
         self.assertFalse(data["enabled"], "no statistics, nothing to say")
 
+    def test_birthdays_are_added_their_moment_chosen_and_removed(self):
+        # Kept in memory: a write to the shared document would make the next tests re-read it.
+        import contextlib
+        store = {"birthdays": {"people": [], "wish": "start"}}
+        document = ws.birthdays.config_document
+        for name, value in (("read", lambda block, path=None: store.get(block)),
+                            ("write", lambda block, data, path=None: store.__setitem__(block, data)),
+                            ("lock", lambda path=None: contextlib.nullcontext())):
+            patcher = unittest.mock.patch.object(document, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        client = ws.app.test_client()
+        added = client.post("/api/birthdays", json={"name": "Marie", "date": "03-14"}).get_json()
+        self.assertTrue(added["ok"])
+        self.assertEqual(client.post("/api/birthdays", json={"name": "X", "date": "13-01"}).get_json()["error"],
+                         "birthday_bad_date")
+        self.assertTrue(client.post("/api/birthdays", json={"wish": "button"}).get_json()["ok"])
+        data = client.get("/api/birthdays").get_json()["data"]
+        self.assertEqual(([p["name"] for p in data["people"]], data["wish"]), (["Marie"], "button"))
+        self.assertEqual(client.delete("/api/birthdays/" + added["data"]["id"]).status_code, 200)
+        self.assertEqual(client.delete("/api/birthdays/" + added["data"]["id"]).status_code, 404)
+
     def virtual_sink(self):
         return {"name": "rukebox_output", "description": "Rukebox output",
                 "kind": "docker", "codec": None, "address": None}

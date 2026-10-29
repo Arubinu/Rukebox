@@ -310,6 +310,18 @@ def dedication_sentence(title, sender, message, lang):
     return _stop(head + message) + tail
 
 
+def birthday_sentence(names, lang):
+    """Happy birthday to everyone born on this day."""
+    lang = language(lang)
+    names = [clean_text(name, 40) for name in names if clean_text(name, 40)]
+    if not names:
+        return ""
+    joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " " + {
+        "en": "and", "fr": "et", "de": "und", "es": "y", "it": "e", "nl": "en"}[lang] + " " + names[-1]
+    return {"en": "Happy birthday, %s!", "fr": "Joyeux anniversaire, %s !", "de": "Alles Gute zum Geburtstag, %s!",
+            "es": "¡Feliz cumpleaños, %s!", "it": "Buon compleanno, %s!", "nl": "Gefeliciteerd met je verjaardag, %s!"}[lang] % joined
+
+
 def voice_dedication_sentence(sender, lang):
     """What is said before a recorded dedication."""
     lang = language(lang)

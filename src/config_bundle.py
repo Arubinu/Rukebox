@@ -18,6 +18,7 @@ import likes
 import music_lists
 import schedules
 import stations
+import birthdays
 import track_order
 
 log = logging.getLogger("config_bundle")
@@ -90,6 +91,7 @@ def export_bundle(cfg, version=None, flic_buttons=None):
         "schedules": schedules.load(),
         "music_lists": music_lists.load(),
         "stations": stations.load(),
+        "birthdays": {"people": birthdays.load(), "wish": birthdays.wish()},
         "likes": likes.load(cfg.get("LIKES_FILE", "")),
         "hidden": hidden_tracks.load(cfg.get("HIDDEN_FILE", "")),
         "cards": list(cards.load().values()),
@@ -266,6 +268,17 @@ def import_bundle(data, cfg):
         items = _clean_records(data["stations"], stations.validate, stations._slugify)
         stations.save_all(items)
         summary["stations"] = len(items)
+    if isinstance(data.get("birthdays"), dict):
+        people = []
+        for item in data["birthdays"].get("people") or []:
+            try:
+                clean = birthdays.validate(item if isinstance(item, dict) else {})
+            except ValueError:
+                continue
+            clean["id"] = str(item.get("id", "")).strip() or birthdays._slugify(clean["name"])
+            people.append(clean)
+        birthdays.save_all(_dedupe_ids(people), data["birthdays"].get("wish"))
+        summary["birthdays"] = len(people)
     if isinstance(data.get("music_lists"), list):
         items = _clean_records(data["music_lists"], music_lists.validate, music_lists._slugify)
         music_lists.save_all(items)
