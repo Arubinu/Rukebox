@@ -520,12 +520,16 @@ function seasonDatePicker(value, which) {
 function seasonPeriodRow(period) {
   const li = document.createElement("li");
   li.className = "season-period";
-  const from = document.createElement("span");
-  from.className = "season-word";
-  from.textContent = t("lists.season_from");
-  const to = document.createElement("span");
-  to.className = "season-word";
-  to.textContent = t("lists.season_to");
+  // Each end with its word, so that a narrow screen breaks the line between the two dates.
+  const end = (word, value, which) => {
+    const group = document.createElement("span");
+    group.className = "season-end";
+    const text = document.createElement("span");
+    text.className = "season-word";
+    text.textContent = t(word);
+    group.append(text, seasonDatePicker(value, which));
+    return group;
+  };
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "btn btn-icon btn-small";
@@ -533,7 +537,8 @@ function seasonPeriodRow(period) {
   remove.title = t("lists.season_remove");
   remove.setAttribute("aria-label", remove.title);
   remove.addEventListener("click", () => li.remove());
-  li.append(from, seasonDatePicker(period.from, "from"), to, seasonDatePicker(period.to || period.from, "to"), remove);
+  li.append(end("lists.season_from", period.from, "from"), end("lists.season_to", period.to || period.from, "to"),
+            remove);
   return li;
 }
 
@@ -541,18 +546,20 @@ function seasonPeriodRow(period) {
 function seasonEditor(item) {
   const box = document.createElement("div");
   box.className = "list-season";
-  const row = document.createElement("label");
+  const row = document.createElement("div");
   row.className = "field-row";
-  const text = document.createElement("span");
+  const text = document.createElement("div");
   text.className = "field-text";
-  const title = document.createElement("span");
+  const title = document.createElement("label");
+  title.htmlFor = "listSeasonal";
   title.textContent = t("lists.seasonal");
-  const desc = document.createElement("span");
+  const desc = document.createElement("p");
   desc.className = "field-desc";
   desc.textContent = t("lists.seasonal_desc");
   text.append(title, desc);
   const toggle = document.createElement("input");
   toggle.type = "checkbox";
+  toggle.id = "listSeasonal";
   toggle.className = "switch-input season-switch";
   toggle.setAttribute("role", "switch");
   toggle.checked = !!item.seasonal;
