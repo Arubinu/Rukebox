@@ -516,17 +516,17 @@
           <p class="hint help-text" data-i18n="birthdays.help" hidden>
             On the day, the radio wishes a happy birthday out loud, over the music turned down.
           </p>
-          <div class="field-row">
-            <div class="field-text">
-              <label for="birthdayWish" data-i18n="birthdays.wish">When to wish them</label>
-              <p class="field-desc" id="birthdayWishDesc" data-i18n="birthdays.wish_desc">A button can always wish them too, with its action "Wish today's birthdays".</p>
-            </div>
-            <select id="birthdayWish" aria-describedby="birthdayWishDesc">
-              <option value="start" data-i18n="birthdays.wish_start">As soon as music plays that day</option>
-              <option value="button" data-i18n="birthdays.wish_button">Only with a button</option>
-            </select>
-          </div>
           <form id="birthdayForm" class="settings-form">
+            <div class="field-row">
+              <div class="field-text">
+                <label for="birthdayWish" data-i18n="birthdays.wish">When to wish them</label>
+                <p class="field-desc" id="birthdayWishDesc" data-i18n="birthdays.wish_desc">A button can always wish them too, with its action "Wish today's birthdays".</p>
+              </div>
+              <select id="birthdayWish" aria-describedby="birthdayWishDesc">
+                <option value="start" data-i18n="birthdays.wish_start">As soon as music plays that day</option>
+                <option value="button" data-i18n="birthdays.wish_button">Only with a button</option>
+              </select>
+            </div>
             <div class="field-row">
               <label for="birthdayName" data-i18n="birthdays.name">First name</label>
               <input type="text" id="birthdayName" class="text-input" maxlength="40" required autocomplete="off">

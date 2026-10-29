@@ -17,7 +17,7 @@ function birthdayRow(item) {
   name.className = "recent-title";
   name.textContent = item.name;
   const when = document.createElement("span");
-  when.className = "recent-sub";
+  when.className = "recent-artist";
   when.textContent = seasonDateLabel(item.date);
   main.append(name, when);
   const remove = document.createElement("button");
