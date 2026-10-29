@@ -829,7 +829,7 @@ SETTINGS = [
             "'hard cut' mode needed).",
             "Action fade (sec)"),
     Setting(
-        "FLIC_IGNORE_WAKING_PRESS", "buttons", "flic_ignore_waking_press", "bool", "false",
+        "FLIC_IGNORE_WAKING_PRESS", "buttons", "flic_ignore_waking_press", "bool", "true",
         "A Flic button that was not connected connects on its first press: true\n"
         "ignores that press, so it only wakes the button (its sound says so).",
         "Ignore the press that connects the Flic button",

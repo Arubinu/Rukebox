@@ -910,9 +910,9 @@ the Flic button gives the Wi-Fi its air back in every case.
 
 **The press that connects it.** When the button connects again, the radio plays
 the *Flic button connected* system sound (`folders.flic_connect_sound`, empty
-for none). By default that press also does its action; with **Ignore the press
-that connects the Flic button** (Settings > Button actions, detailed view,
-`buttons.flic_ignore_waking_press`) it only wakes the button. Only the first
+for none). By default that press only wakes the button; turn off **Ignore the
+press that connects the Flic button** (Settings > Button actions, detailed view,
+`buttons.flic_ignore_waking_press`) and it also does its action. Only the first
 gesture within 3 seconds of the connection counts as that press, and one the
 button delivers late, from its own memory, counts too. While the button waits
 for a press, *Now playing* says so to the house. Its battery shows on the Flic

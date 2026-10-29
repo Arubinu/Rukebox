@@ -694,7 +694,7 @@ buttons:
 
   # A Flic button that was not connected connects on its first press: true
   # ignores that press, so it only wakes the button (its sound says so).
-  flic_ignore_waking_press: false
+  flic_ignore_waking_press: true
 
   # What a long press does: poweroff (fade out, then the Pi switches
   # off) or standby (fade out, the Pi stays on, waiting like at
