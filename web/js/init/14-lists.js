@@ -570,7 +570,7 @@ function seasonEditor(item) {
   (item.seasons || []).forEach((period) => periods.append(seasonPeriodRow(period)));
   const add = document.createElement("button");
   add.type = "button";
-  add.className = "btn btn-small";
+  add.className = "btn";
   add.dataset.icon = "plus";
   add.textContent = t("lists.season_add");
   add.addEventListener("click", () => {
@@ -578,9 +578,12 @@ function seasonEditor(item) {
     const today = String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
     periods.append(seasonPeriodRow({ from: today, to: today }));
   });
+  const actions = document.createElement("div");
+  actions.className = "form-actions";
+  actions.append(add);
   const more = document.createElement("div");
   more.className = "season-more";
-  more.append(periods, add);
+  more.append(periods, actions);
   const paint = () => {
     more.hidden = !toggle.checked;
     if (toggle.checked && !periods.children.length) add.click();

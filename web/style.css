@@ -4775,10 +4775,20 @@ body:not([data-access="guest"]) #btnStart { display: none !important; }
                position: relative; z-index: 899; }
 
 .list-season { display: flex; flex-direction: column; gap: 10px; }
-.season-more { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.season-periods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; }
-.season-period { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.season-more .form-actions { margin-top: 8px; }
+.season-periods { list-style: none; margin: 0; padding: 0; }
+.season-period { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 0; }
+/* As the title voices: the periods stand 1px apart, the line sits in that gap and stops before the button. */
+.season-period:not(:last-child) { margin-bottom: 1px; }
+.season-period:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: calc(var(--tap) + 8px);
+  bottom: -1px;
+  border-bottom: 1px solid var(--border);
+}
 .season-end { display: inline-flex; align-items: center; gap: 6px; }
 .season-date { display: inline-flex; gap: 6px; }
 .season-word { min-width: 1.6em; color: var(--text-muted); font-size: 14px; }
-.season-period .btn.btn-icon { width: 36px; min-height: 36px; flex: none; margin-left: auto; }
+.season-period .btn.btn-icon { flex: none; margin-left: auto; }
