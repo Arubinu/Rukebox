@@ -29,6 +29,7 @@ STATE_DIR = os.environ.get("PATHS_STATE_DIR") or os.environ.get("STATE_DIR") or 
 # The press that connects a button arrives within these seconds of the connection.
 WAKING_PRESS_SEC = 3.0
 _link = {"connected": None, "waking_until": 0.0}
+_buttons = set()
 
 
 def send_command(cmd: str, **extra):
@@ -80,6 +81,9 @@ def note_battery(bd_addr, percent):
 
 
 def got_button(bd_addr):
+    if bd_addr in _buttons:
+        return
+    _buttons.add(bd_addr)
     log.info("Flic button detected: %s", bd_addr)
     # flicd sends the level at once, then every few hours while the button connects.
     if hasattr(fliclib, "BatteryStatusListener"):
@@ -100,11 +104,27 @@ except OSError:
     log.warning("Could not clear the button's link", exc_info=True)
 
 
+def got_info(items):
+    log.info("flicd lists these buttons: %s", items["bd_addr_of_verified_buttons"])
+    for addr in items["bd_addr_of_verified_buttons"]:
+        got_button(addr)
+
+
+def list_buttons():
+    client.get_info(got_info)
+
+
+def controller_changed(state):
+    log.info("Bluetooth controller: %s", state)
+    # A start may hear of no button at all: the list is asked again once the controller is up.
+    if state == fliclib.BluetoothControllerState.Attached:
+        list_buttons()
+
+
 client = fliclib.FlicClient(FLICD_HOST)
-client.get_info(
-    lambda items: [got_button(addr) for addr in items["bd_addr_of_verified_buttons"]]
-)
+client.on_bluetooth_controller_state_change = controller_changed
 client.on_new_verified_button = got_button
+list_buttons()
 
 log.info("Flic bridge started, listening for clicks...")
 client.handle_events()

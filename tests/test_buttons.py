@@ -371,6 +371,8 @@ class SpeakerKeyTest(unittest.TestCase):
 
 
 class FakeFlicClient:
+    verified = ["80:e4:da:00:00:01", "80:e4:da:00:00:02"]
+
     def __init__(self, host):
         self.host = host
         self.channels = []
@@ -381,7 +383,7 @@ class FakeFlicClient:
         self.listeners.append(listener)
 
     def get_info(self, callback):
-        callback({"bd_addr_of_verified_buttons": ["80:e4:da:00:00:01", "80:e4:da:00:00:02"]})
+        callback({"bd_addr_of_verified_buttons": list(self.verified)})
 
     def add_connection_channel(self, channel):
         self.channels.append(channel)
@@ -399,6 +401,8 @@ def load_flic_bridge():
                                                   Ready="ready")
     fake.ButtonConnectionChannel = lambda address: types.SimpleNamespace(bd_addr=address)
     fake.BatteryStatusListener = lambda address: types.SimpleNamespace(bd_addr=address)
+    fake.BluetoothControllerState = types.SimpleNamespace(Detached="detached", Resetting="resetting",
+                                                          Attached="attached")
     fake.FlicClient = FakeFlicClient
     with mock.patch.dict(sys.modules, {"fliclib": fake}):
         sys.modules.pop("flic_click", None)
@@ -420,6 +424,19 @@ class FlicBridgeTest(unittest.TestCase):
         self.assertIs(client.on_new_verified_button, self.bridge.got_button,
                       "a button paired later is picked up without a restart")
         self.assertTrue(client.handled)
+
+    def test_a_button_flicd_did_not_list_yet_is_taken_once_its_controller_is_up(self):
+        with mock.patch.object(FakeFlicClient, "verified", []):
+            bridge = load_flic_bridge()
+        client = bridge.client
+        self.assertEqual(client.channels, [], "an early answer lists no button")
+        client.on_bluetooth_controller_state_change("resetting")
+        self.assertEqual(client.channels, [])
+        client.on_bluetooth_controller_state_change("attached")
+        self.assertEqual(len(client.channels), 2)
+        client.on_bluetooth_controller_state_change("attached")
+        client.on_new_verified_button("80:e4:da:00:00:01")
+        self.assertEqual(len(client.channels), 2, "a button is listened to once")
 
     def test_each_gesture_is_its_command_and_says_it_comes_from_the_flic(self):
         with mock.patch.object(self.bridge, "send_control_command", return_value={"ok": True}) as sent:
