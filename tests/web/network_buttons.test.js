@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 
 const { until, open } = require("./harness");
 
-test("a button waiting is approved and named from its row, and removed", async (t) => {
+test("a button waiting is approved from its row, renamed in a dialog, and removed once confirmed", async (t) => {
   const sent = [];
   const removed = [];
   let buttons = [{ id: "ab12", name: "GL-SFT1200", ip: "10.42.0.60", approved: false, seen: 1700000000 }];
@@ -25,23 +25,31 @@ test("a button waiting is approved and named from its row, and removed", async (
   const list = page.$("networkButtonList");
   await until(() => list.children.length === 1, 8000);
   assert.equal(page.$("networkButtonEmpty").hidden, true);
+  assert.equal(list.querySelector(".device-name").textContent, "GL-SFT1200");
   assert.match(list.textContent, /10\.42\.0\.60.*Waiting for approval.*Last press/);
+  assert.equal(list.querySelector("input"), null, "the name is no field of the row");
 
-  const approve = [...list.querySelectorAll("button")].find((b) => b.textContent === "Approve");
-  approve.click();
+  [...list.querySelectorAll("button")].find((b) => b.textContent === "Approve").click();
   await until(() => /Approved/.test(list.textContent));
   assert.deepEqual(sent[0], { approved: true });
   assert.ok(![...list.querySelectorAll("button")].some((b) => b.textContent === "Approve"), "approved once");
 
-  const name = list.querySelector("input");
+  const icons = [...list.querySelectorAll("button")].map((b) => b.dataset.icon);
+  assert.deepEqual(icons, ["pencil", "x"], "rename sits to the left of remove");
+
+  list.querySelector('button[data-icon="pencil"]').click();
+  await until(() => !page.$("modalOverlay").hidden && page.$("modalBody").querySelector("input"));
+  const name = page.$("modalBody").querySelector("input");
   assert.equal(name.value, "GL-SFT1200");
   name.value = "Rayon frais";
-  name.dispatchEvent(new page.window.Event("change"));
-  await until(() => sent.length === 2);
+  page.$("modalOk").click();
+  await until(() => list.querySelector(".device-name").textContent === "Rayon frais");
   assert.deepEqual(sent[1], { name: "Rayon frais" });
 
-  await until(() => list.querySelector("input").value === "Rayon frais");
   list.querySelector('button[data-icon="x"]').click();
+  await until(() => !page.$("modalOverlay").hidden);
+  assert.deepEqual(removed, [], "nothing goes before it is confirmed");
+  page.$("modalOk").click();
   await until(() => list.children.length === 0);
   assert.deepEqual(removed, ["ab12"]);
   assert.equal(page.$("networkButtonEmpty").hidden, false);

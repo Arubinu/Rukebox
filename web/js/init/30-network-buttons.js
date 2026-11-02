@@ -1,37 +1,62 @@
 const networkButtonList = document.getElementById("networkButtonList");
 
+async function renameNetworkButton(button) {
+  const box = document.createElement("div");
+  box.className = "prepared-dialog";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "text-input";
+  input.maxLength = 40;
+  input.value = button.name || "";
+  input.setAttribute("aria-label", t("netbutton.name"));
+  box.appendChild(input);
+  const answer = openModal({ title: t("netbutton.rename"), bodyNode: box, confirm: true });
+  input.focus();
+  if (!(await answer)) return;
+  const r = await apiPost("/api/network_buttons/" + encodeURIComponent(button.id), { name: input.value });
+  if (!r.ok) showError(r.error);
+  refreshNetworkButtons();
+}
+
+function networkButtonIcon(icon, label, onClick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn btn-icon";
+  b.dataset.icon = icon;
+  b.title = label;
+  b.setAttribute("aria-label", label);
+  b.addEventListener("click", onClick);
+  return b;
+}
+
 function networkButtonRow(button) {
   const li = document.createElement("li");
   const label = document.createElement("span");
-  const name = document.createElement("input");
-  name.type = "text";
-  name.className = "text-input";
-  name.maxLength = 40;
-  name.value = button.name || "";
-  name.setAttribute("aria-label", t("netbutton.name"));
-  name.addEventListener("change", async () => {
-    const r = await apiPost("/api/network_buttons/" + encodeURIComponent(button.id), { name: name.value });
-    if (!r.ok) showError(r.error);
-    refreshNetworkButtons();
-  });
+  const name = document.createElement("span");
+  name.className = "device-name";
+  name.textContent = button.name || "";
   const sub = document.createElement("span");
   sub.className = "device-sub";
   const address = document.createElement("span");
   address.className = "device-mac";
   address.textContent = button.ip || "";
+  const states = document.createElement("span");
+  states.className = "device-state";
   const state = document.createElement("span");
   state.className = button.approved ? "badge connected" : "badge";
   state.textContent = t(button.approved ? "netbutton.approved" : "netbutton.waiting");
-  sub.append(address, state);
+  states.appendChild(state);
+  sub.append(address, states);
+  label.append(name, sub);
   if (button.seen) {
     const seen = document.createElement("span");
-    seen.className = "device-mac";
+    seen.className = "device-sub";
     seen.textContent = t("netbutton.seen", { time: new Date(button.seen * 1000).toLocaleTimeString(currentLang) });
-    sub.appendChild(seen);
+    label.appendChild(seen);
   }
-  label.append(name, sub);
   const actions = document.createElement("span");
   actions.className = "device-actions";
+  const left = [];
   if (!button.approved) {
     const approve = document.createElement("button");
     approve.type = "button";
@@ -42,27 +67,21 @@ function networkButtonRow(button) {
       if (!r.ok) showError(r.error);
       refreshNetworkButtons();
     });
-    actions.appendChild(approve);
+    left.push(approve);
   }
-  const remove = document.createElement("button");
-  remove.type = "button";
-  remove.className = "btn btn-icon btn-small";
-  remove.dataset.icon = "x";
-  remove.title = t("netbutton.remove", { name: button.name || "" });
-  remove.setAttribute("aria-label", remove.title);
-  remove.addEventListener("click", async () => {
+  const rename = networkButtonIcon("pencil", t("netbutton.rename"), () => renameNetworkButton(button));
+  const remove = networkButtonIcon("x", t("netbutton.remove", { name: button.name || "" }), async () => {
+    if (!await showConfirm(t("netbutton.remove_confirm", { name: button.name || "" }))) return;
     const r = await apiDelete("/api/network_buttons/" + encodeURIComponent(button.id));
     if (!r.ok) showError(r.error);
     refreshNetworkButtons();
   });
-  actions.appendChild(remove);
+  splitActions(actions, left, [rename, remove]);
   li.append(label, actions);
   return li;
 }
 
 async function refreshNetworkButtons() {
-  // A name being typed is not redrawn under the fingers.
-  if (networkButtonList.contains(document.activeElement)) return;
   const result = await apiGet("/api/network_buttons");
   if (!result.ok || !result.data) return;
   const buttons = result.data.buttons || [];
