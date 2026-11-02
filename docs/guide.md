@@ -1356,6 +1356,67 @@ like one.
   console. The exact setting is `bt_buttons` under `buttons:`, a list of
   addresses.
 
+## Network buttons
+
+A button can sit far from the radio: plugged into a router or Wi-Fi extender
+running OpenWrt, it sends its press over the network. It does the same actions
+as the Flic button (Settings > Button actions).
+
+**Nothing to type.** The first time a button is pressed, the router chooses an
+identity for itself and keeps it in `/etc/rukebox-button.id`. The button then
+shows up under **Network buttons** (Settings > Button actions), waiting for
+approval, with the router's address and its last press: press it again to see
+which one is which, give it a name, approve it. Until then its presses do
+nothing. The radio only ever answers the first secret an identity came with.
+Removing a button forgets it; its next press shows it as waiting again.
+
+**Installing on a router**, from a computer with `ssh` (needs the router's
+Internet connection for `--serial`):
+
+```
+sh extender/install.sh root@192.168.8.1 --serial
+```
+
+The settings are in `/etc/rukebox-button.conf`. `RADIO_URL` left empty is the
+router's way out, which is the radio when the router hangs off its access point;
+set it otherwise. `rukebox-button press` sends a press by hand and says whether
+it arrived.
+
+### A board on the USB port (recommended)
+
+Any board with a serial port over USB and the Arduino tools: load
+`extender/arduino/rukebox_button/rukebox_button.ino`, wire a push-button between
+pin 2 and GND. The board tells single click, double click and long press apart,
+with no latency to speak of. `--serial` installs the drivers of the usual chips
+(native USB, CH340, CP210x, FTDI); it says which ones the router's feed lacks.
+`SERIAL_DEVICE=auto` takes the first board found and follows it when it is
+unplugged.
+
+### A button on an Ethernet port (experimental, a single press only)
+
+Ethernet has no wire that says "something is plugged in": a port sees a link
+only when it hears pulses, so a switch across a pair does nothing. A plug that
+loops the port onto itself (pin 1 to 3, pin 2 to 6) can make it hear its own,
+**on some hardware only**, and the link takes up to seconds to come up, which
+is why only a single press is possible, and only one every few seconds.
+
+- **Wiring:** the button is normally closed, in one of those two wires. The press
+  opens the loop and the link falls (`LINK_PRESS=down`), which should show faster
+  than a link coming up. It must be held long enough to be seen, about a second.
+- **The port must be out of the network bridge**, or everything it sends comes
+  back and floods the network. The script refuses a port it can see in a bridge;
+  it cannot see that for a port of a switch (`swconfig:`), so check by hand.
+- **Try it first:** with the plug in, `rukebox-button ports` lists the ports and
+  their link, `rukebox-button watch` prints each change with its time. No change:
+  this port cannot do it, use a board on USB. Then set `LINK_PORT`.
+
+### On the GL-SFT1200
+
+Its firmware is a vendor build of OpenWrt 18.06 and kernel 4.14. Its Wi-Fi driver
+does not do real mesh (802.11s), so its modes are repeater and extender. Its
+package feed is limited: check what `--serial` reports before buying boards with
+a chip it lacks. Nothing here has been tried on that router yet.
+
 ## GPIO button
 
 Instead of, or in addition to, the Flic button, you can wire a plain

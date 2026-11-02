@@ -809,6 +809,41 @@ class WebTest(unittest.TestCase):
         with open(os.path.join(self.dir, "guest_credits.json"), encoding="utf-8") as f:
             self.assertIn(person, json.load(f)["people"])
 
+    def test_a_network_button_waits_for_approval_and_keeps_its_secret(self):
+        anyone = ws.app.test_client()
+        owner = self.owner()
+        calls = []
+        path = os.path.join(self.dir, "network_buttons.json")
+        press = {"id": "ab" * 8, "secret": "cd" * 16, "name": "Rayon"}
+
+        def fake(cmd, **kwargs):
+            calls.append((cmd, kwargs.get("source")))
+            return {"ok": True}
+
+        with unittest.mock.patch.object(ws, "control", side_effect=fake), \
+                unittest.mock.patch.object(ws.time, "sleep"), \
+                unittest.mock.patch.object(ws, "_network_buttons_file", return_value=path):
+            self.assertEqual(anyone.post("/api/button/single", data=press).get_json()["error"], "button_waiting")
+            self.assertEqual(calls, [])
+            self.assertEqual(anyone.get("/api/network_buttons").status_code, 401, "a guest sees none")
+            listed = owner.get("/api/network_buttons").get_json()["data"]["buttons"]
+            self.assertEqual([(b["name"], b["approved"]) for b in listed], [("Rayon", False)])
+            self.assertNotIn("secret_hash", listed[0])
+            self.assertEqual(anyone.post("/api/network_buttons/" + press["id"], json={"approved": True}).status_code, 401)
+            self.assertEqual(owner.post("/api/network_buttons/" + press["id"], json={"approved": True}).status_code, 200)
+            for gesture, command in (("single", "single_click"), ("double", "double_click"), ("long", "long_press")):
+                self.assertEqual(anyone.post("/api/button/" + gesture, data=press).status_code, 200)
+                self.assertEqual(calls[-1], (command, "network"))
+            count = len(calls)
+            stolen = dict(press, secret="ee" * 16)
+            self.assertEqual(anyone.post("/api/button/single", data=stolen).get_json()["error"], "bad_button")
+            self.assertEqual(anyone.post("/api/button/nope", data=press).status_code, 404)
+            self.assertEqual(len(calls), count)
+            self.assertEqual(owner.delete("/api/network_buttons/" + press["id"]).status_code, 200)
+            self.assertEqual(owner.delete("/api/network_buttons/" + press["id"]).status_code, 404)
+        with ws.app.test_request_context():
+            ws._login_succeeded()
+
     def test_the_same_action_within_a_second_runs_once_and_costs_once(self):
         ws.ACTION_REPEAT_SEC = 1.0
         first, second = ws.app.test_client(), ws.app.test_client()

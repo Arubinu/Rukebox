@@ -1,0 +1,234 @@
+#!/bin/sh
+# Sends the presses of a button plugged into this router to the radio.
+# Commands: run (default), press [single|double|long], ports, watch.
+
+CONF=${RUKEBOX_BUTTON_CONF:-/etc/rukebox-button.conf}
+RADIO_URL=
+ID_FILE=/etc/rukebox-button.id
+LINK_PORT=
+LINK_PRESS=down
+LINK_REARM_SEC=3
+SERIAL_DEVICE=
+POLL_SEC=0.2
+[ -r "$CONF" ] && . "$CONF"
+
+say() {
+	echo "$*"
+	logger -t rukebox-button "$*" 2>/dev/null
+}
+
+nap() {
+	# A BusyBox built without fractional sleep refuses 0.2.
+	sleep "$1" 2>/dev/null || sleep 1
+}
+
+post() {
+	if command -v curl >/dev/null 2>&1; then
+		curl -s -f -m 5 -o /dev/null -d "$2" "$1"
+	elif command -v uclient-fetch >/dev/null 2>&1; then
+		uclient-fetch -q -T 5 -O /dev/null --post-data="$2" "$1"
+	else
+		wget -q -T 5 -O /dev/null --post-data="$2" "$1"
+	fi
+}
+
+random_hex() {
+	head -c "$1" /dev/urandom | hexdump -ve '1/1 "%02x"' 2>/dev/null ||
+		head -c "$1" /dev/urandom | od -An -tx1 | tr -d ' \n'
+}
+
+# Chosen once on this router's flash: it is how the radio knows the button it approved.
+load_identity() {
+	[ -r "$ID_FILE" ] && . "$ID_FILE"
+	if [ -z "$BUTTON_ID" ] || [ -z "$BUTTON_SECRET" ]; then
+		BUTTON_ID=$(random_hex 8)
+		BUTTON_SECRET=$(random_hex 16)
+		(umask 077 && printf 'BUTTON_ID=%s\nBUTTON_SECRET=%s\n' "$BUTTON_ID" "$BUTTON_SECRET" >"$ID_FILE")
+	fi
+	BUTTON_NAME=$(tr -cd 'A-Za-z0-9._-' </proc/sys/kernel/hostname 2>/dev/null)
+}
+
+send() {
+	if post "$RADIO_URL/api/button/$1" "id=$BUTTON_ID&secret=$BUTTON_SECRET&name=$BUTTON_NAME"; then
+		say "$1 sent to the radio"
+	else
+		say "$1 not delivered to $RADIO_URL: unreachable, or waiting for approval on its page"
+		return 1
+	fi
+}
+
+check_settings() {
+	# Behind the radio's own access point, the way out is the radio.
+	if [ -z "$RADIO_URL" ]; then
+		gateway=$(ip route show default 2>/dev/null | sed -n 's/^default via \([^ ]*\).*/\1/p' | head -n 1)
+		[ -n "$gateway" ] && RADIO_URL="http://$gateway"
+	fi
+	if [ -z "$RADIO_URL" ]; then
+		say "No way to the radio yet: set RADIO_URL in $CONF"
+		exit 2
+	fi
+	load_identity
+}
+
+read_port() {
+	case "$1" in
+		sys:*) cat "/sys/class/net/${1#sys:}/carrier" 2>/dev/null || echo 0 ;;
+		swconfig:*)
+			rest=${1#swconfig:}
+			if swconfig dev "${rest%%:*}" port "${rest##*:}" show 2>/dev/null | grep -q "link:up"; then
+				echo 1
+			else
+				echo 0
+			fi
+			;;
+		file:*) cat "${1#file:}" 2>/dev/null || echo 0 ;;
+	esac
+}
+
+# A plug that loops the port onto itself sends every frame back: in a bridge that is a storm.
+port_is_safe() {
+	case "$1" in
+		sys:*)
+			if [ -e "/sys/class/net/${1#sys:}/brport" ]; then
+				say "${1#sys:} is in a bridge: take it out first, a looped port would flood the network"
+				return 1
+			fi
+			;;
+	esac
+	return 0
+}
+
+watch_link() {
+	port_is_safe "$LINK_PORT" || return 1
+	case "$LINK_PRESS" in
+		up) pressed=1 ;;
+		*) pressed=0 ;;
+	esac
+	last=$(read_port "$LINK_PORT")
+	armed_at=0
+	say "watching $LINK_PORT: a press is the link going $LINK_PRESS"
+	while :; do
+		nap "$POLL_SEC"
+		now=$(read_port "$LINK_PORT")
+		[ "$now" = "$last" ] && continue
+		last=$now
+		[ "$now" = "$pressed" ] || continue
+		# A link settling after a press drops once or twice more.
+		seconds=$(date +%s)
+		[ "$seconds" -ge "$armed_at" ] || continue
+		armed_at=$((seconds + LINK_REARM_SEC))
+		send single &
+	done
+}
+
+serial_device() {
+	if [ "$SERIAL_DEVICE" != "auto" ]; then
+		[ -e "$SERIAL_DEVICE" ] && echo "$SERIAL_DEVICE"
+		return
+	fi
+	for device in /dev/ttyACM* /dev/ttyUSB*; do
+		[ -e "$device" ] && echo "$device" && return
+	done
+}
+
+watch_serial() {
+	say "watching the serial port: $SERIAL_DEVICE"
+	while :; do
+		device=$(serial_device)
+		if [ -z "$device" ]; then
+			sleep 3
+			continue
+		fi
+		# A terminal left at its default 9600 baud reads the sketch's lines, stty or not.
+		command -v stty >/dev/null 2>&1 && stty -F "$device" 9600 -echo 2>/dev/null
+		while read -r line; do
+			line=$(printf '%s' "$line" | tr -d '\r')
+			case "$line" in
+				single | double | long) send "$line" & ;;
+			esac
+		done <"$device"
+		# The board was unplugged, or is restarting.
+		sleep 3
+	done
+}
+
+candidate_ports() {
+	for path in /sys/class/net/*; do
+		name=${path##*/}
+		[ "$name" = "lo" ] || echo "sys:$name"
+	done
+	command -v swconfig >/dev/null 2>&1 || return 0
+	for switch in $(swconfig list 2>/dev/null | sed -n 's/^Found: \([^ ]*\).*/\1/p'); do
+		for port in 0 1 2 3 4 5 6; do
+			swconfig dev "$switch" port "$port" show 2>/dev/null | grep -q "link:" &&
+				echo "swconfig:$switch:$port"
+		done
+	done
+}
+
+show_ports() {
+	for port in $(candidate_ports); do
+		echo "$port link=$(read_port "$port")"
+	done
+}
+
+# Prints each change with its time, to see which port moves and how fast a press shows.
+watch_ports() {
+	echo "Press the button; Ctrl-C to stop. Times are in seconds."
+	ports=$(candidate_ports)
+	states=$(for port in $ports; do echo "$port=$(read_port "$port")"; done)
+	while :; do
+		nap "$POLL_SEC"
+		for port in $ports; do
+			now=$(read_port "$port")
+			case "
+$states
+" in
+				*"
+$port=$now
+"*) ;;
+				*)
+					echo "$(cut -d' ' -f1 /proc/uptime) $port link=$now"
+					states=$(echo "$states" | sed "s|^$port=.*|$port=$now|")
+					;;
+			esac
+		done
+	done
+}
+
+case "${1:-run}" in
+	run)
+		check_settings
+		if [ -z "$LINK_PORT" ] && [ -z "$SERIAL_DEVICE" ]; then
+			say "Neither LINK_PORT nor SERIAL_DEVICE is set in $CONF"
+			exit 2
+		fi
+		watchers=
+		if [ -n "$SERIAL_DEVICE" ]; then
+			watch_serial &
+			watchers="$watchers $!"
+		fi
+		if [ -n "$LINK_PORT" ]; then
+			watch_link &
+			watchers="$watchers $!"
+		fi
+		trap 'kill $watchers 2>/dev/null; exit 0' INT TERM
+		wait
+		;;
+	press)
+		check_settings
+		case "${2:-single}" in
+			single | double | long) send "${2:-single}" ;;
+			*)
+				echo "A press is single, double or long"
+				exit 2
+				;;
+		esac
+		;;
+	ports) show_ports ;;
+	watch) watch_ports ;;
+	*)
+		echo "Usage: rukebox-button [run|press [single|double|long]|ports|watch]"
+		exit 2
+		;;
+esac

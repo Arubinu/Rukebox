@@ -560,6 +560,7 @@ function describeEvent(event) {
       const source = d.source === "flic" ? t("evt.source_flic")
         : d.source === "gpio" ? t("evt.source_gpio")
         : d.source === "remote" ? t("evt.source_remote")
+        : d.source === "network" ? t("evt.source_network")
         : d.source === "web" ? t("evt.source_web")
         : d.source === "speaker" ? t("evt.source_speaker")
         : d.source === "usb" ? t("evt.source_usb") : t("evt.source_unknown");

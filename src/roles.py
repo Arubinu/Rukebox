@@ -114,6 +114,8 @@ OPERATOR_PATHS = frozenset({
     "/api/browse",
     "/api/cards",
     "/api/cards/<card_id>",
+    "/api/network_buttons",
+    "/api/network_buttons/<button_id>",
     "/api/cards/<card_id>/play",
     "/api/clock/test_bt",
     "/api/config/export",

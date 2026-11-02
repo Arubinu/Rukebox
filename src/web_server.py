@@ -43,6 +43,7 @@ import dlna_renderer  # noqa: E402
 import covers_move  # noqa: E402
 import duplicates  # noqa: E402
 import hidden_tracks  # noqa: E402
+import network_buttons  # noqa: E402
 import json_file  # noqa: E402
 from mpv_controller import LEAN as MPV_LEAN  # noqa: E402
 import game_sounds  # noqa: E402
@@ -720,6 +721,9 @@ def _require_auth():
     if request.path in _PRE_LOGIN_PATHS and request.method == "GET":
         return None
     if request.path == "/api/portal/release" and request.method == "POST":
+        return None
+    # A router has no session: its id and secret are checked by the route, approval by the owner's side.
+    if request.path.startswith("/api/button/") and request.method == "POST":
         return None
     needed = _needed_role()
     if roles.allows(_role(), needed):
@@ -4222,6 +4226,60 @@ def api_action(name):
     result = control(name)
     status_code = 200 if result.get("ok") else 400
     return jsonify(result), status_code
+
+
+NETWORK_BUTTON_GESTURES = {"single": "single_click", "double": "double_click", "long": "long_press"}
+_network_button_seen = {}
+
+
+def _network_buttons_file():
+    return os.path.join(cfg()["STATE_DIR"], "network_buttons.json")
+
+
+@app.route("/api/button/<gesture>", methods=["POST"])
+def api_network_button(gesture):
+    """A press from a button on another device of the network, once it has been approved."""
+    if gesture not in NETWORK_BUTTON_GESTURES:
+        return jsonify({"ok": False, "error": "unknown_gesture"}), 404
+    wait = _login_wait()
+    if wait:
+        return _too_many_attempts(wait)
+    button_id = request.form.get("id")
+    answer = network_buttons.press(_network_buttons_file(), button_id, request.form.get("secret"),
+                                   request.form.get("name"), request.remote_addr)
+    if answer == "refused":
+        _login_failed()
+        return jsonify({"ok": False, "error": "bad_button"}), 403
+    if answer == "full":
+        return jsonify({"ok": False, "error": "too_many_buttons"}), 429
+    _network_button_seen[button_id] = int(time.time())
+    if answer == "waiting":
+        return jsonify({"ok": False, "error": "button_waiting"}), 403
+    result = control(NETWORK_BUTTON_GESTURES[gesture], source="network")
+    return jsonify(result), 200 if result.get("ok") else 400
+
+
+@app.route("/api/network_buttons")
+def api_network_buttons():
+    """The buttons known, those waiting for approval first."""
+    buttons = network_buttons.load(_network_buttons_file())
+    for button in buttons:
+        button["seen"] = _network_button_seen.get(button["id"])
+    return jsonify({"ok": True, "data": {"buttons": buttons}})
+
+
+@app.route("/api/network_buttons/<button_id>", methods=["POST", "DELETE"])
+def api_network_button_item(button_id):
+    """Approves or names one button, or forgets it."""
+    path = _network_buttons_file()
+    if request.method == "DELETE":
+        done = network_buttons.delete(path, button_id)
+    else:
+        body = request.get_json(silent=True) or {}
+        done = network_buttons.update(path, button_id, approved=body.get("approved"), name=body.get("name"))
+    if not done:
+        return jsonify({"ok": False, "error": "button_not_found"}), 404
+    return jsonify({"ok": True})
 
 
 GAME_KEPT_SEC = 600

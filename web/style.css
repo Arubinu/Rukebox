@@ -2330,6 +2330,9 @@ select option.option-inert { text-decoration: line-through; opacity: 0.55; }
 
   .card .device-list .device-actions.btn-split:not(:has(.btn:not(.btn-icon))) { flex: 1 1 100%; }
 
+  #networkButtonList .device-actions:has(.btn:not(.btn-icon)) { display: flex; gap: 8px; flex: 1 1 100%; }
+  #networkButtonList .device-actions > .btn:not(.btn-icon) { flex: 1 1 auto; }
+
   .field-row > .label-wide-only {
     position: absolute;
     width: 1px;
@@ -3202,6 +3205,7 @@ select {
 }
 
 .device-list .device-name, .device-list .device-sub { display: block; }
+#networkButtonList .device-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 6px; }
 #deviceList .device-name, #deviceList .device-sub { text-align: center; }
 #wledDevices .device-sub, #remoteList .device-sub, #syncJobList .device-sub, #syncConnList .device-sub,
 #syncRunList .device-sub { margin-top: 2px; color: var(--text-muted); font-size: 13px; font-weight: 500; }

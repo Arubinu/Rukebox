@@ -3628,7 +3628,7 @@ class RadioDaemon:
     def _record_click(self, kind, source, action, target=None, item=None):
         """One row per button press, with what it actually did."""
         counters = {"clicks_speaker" if kind.startswith("speaker_") else "clicks_%s" % kind: 1}
-        if source in ("flic", "gpio", "web", "remote"):
+        if source in ("flic", "gpio", "web", "remote", "network"):
             counters["clicks_%s" % source] = 1
         if action == "ignored":
             counters["clicks_ignored"] = 1
@@ -5360,7 +5360,7 @@ class RadioDaemon:
         def handle_command(msg):
             cmd = msg.get("cmd")
             source = msg.get("source", "unknown")
-            if source not in ("flic", "gpio", "web", "remote", "speaker", "usb", "push", "vote", "card",
+            if source not in ("flic", "gpio", "web", "remote", "network", "speaker", "usb", "push", "vote", "card",
                               "unknown"):
                 source = "unknown"
             self._announcements()
