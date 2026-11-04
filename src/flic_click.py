@@ -4,7 +4,6 @@
 import logging
 import os
 import sys
-import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from control_client import send_control_command  # noqa: E402
@@ -26,9 +25,8 @@ FLICD_HOST = os.environ.get("FLICD_HOST", "localhost")
 STATE_DIR = os.environ.get("PATHS_STATE_DIR") or os.environ.get("STATE_DIR") or "/var/lib/rukebox"
 
 
-# The press that connects a button arrives within these seconds of the connection.
-WAKING_PRESS_SEC = 3.0
-_link = {"connected": None, "waking_until": 0.0}
+# A button that connected by itself looks asleep to whoever holds it: its first press wakes it, however late.
+_link = {"connected": None, "woken": False}
 _buttons = set()
 
 
@@ -38,10 +36,21 @@ def send_command(cmd: str, **extra):
         log.warning("Command '%s' rejected or failed: %s", cmd, response.get("error"))
 
 
+def mark_linked(linked):
+    try:
+        audio_diag.set_flic_linked(STATE_DIR, linked)
+    except OSError:
+        log.warning("Could not note the button's link", exc_info=True)
+
+
 def on_button_event(channel, click_type, was_queued, time_diff):
-    waking = time.monotonic() < _link["waking_until"]
-    # The first gesture after a connection is the waking one, even a queued one dropped below.
-    _link["waking_until"] = 0.0
+    waking = bool(_link["connected"]) and not _link["woken"]
+    if waking:
+        # The first gesture is the waking one, even a queued one dropped below.
+        _link["woken"] = True
+        mark_linked(True)
+        log.info("Flic button woken by a press")
+        send_control_command(CONTROL_SOCKET, "flic_connected", source="flic")
     if was_queued:
         return
     extra = {"waking": True} if waking else {}
@@ -62,15 +71,11 @@ def note_link(status, first=False):
         return
     was = _link["connected"]
     _link["connected"] = linked
-    try:
-        audio_diag.set_flic_linked(STATE_DIR, linked)
-    except OSError:
-        log.warning("Could not note the button's link", exc_info=True)
+    # A button found connected as the bridge starts was not woken by a press, nor waits for one.
+    _link["woken"] = linked and (first or was is not False)
     log.info("Flic button %s", "connected" if linked else "waiting for a press to connect")
-    # A button found connected as the bridge starts was not woken by a press.
-    if linked and not first and was is False:
-        _link["waking_until"] = time.monotonic() + WAKING_PRESS_SEC
-        send_control_command(CONTROL_SOCKET, "flic_connected", source="flic")
+    if not linked or _link["woken"]:
+        mark_linked(linked)
 
 
 def note_battery(bd_addr, percent):

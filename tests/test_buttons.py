@@ -446,26 +446,35 @@ class FlicBridgeTest(unittest.TestCase):
                          ["single_click", "double_click", "long_press"])
         self.assertTrue(all(call.kwargs == {"source": "flic"} for call in sent.call_args_list))
 
-    def test_the_press_that_connects_the_button_is_marked_waking(self):
+    def test_the_first_press_after_a_connection_wakes_the_button_however_late(self):
         bridge = self.bridge
-        with mock.patch.object(bridge, "send_control_command", return_value={"ok": True}) as sent,                 mock.patch.object(bridge.audio_diag, "set_flic_linked"):
+        with mock.patch.object(bridge, "send_control_command", return_value={"ok": True}) as sent, \
+                mock.patch.object(bridge.audio_diag, "set_flic_linked") as linked:
             bridge.note_link("ready", first=True)
             bridge.on_button_event(None, "single", False, 0)
-            self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"},
-                             "found connected as the bridge starts: no press woke it")
+            self.assertEqual([c.args[1] for c in sent.call_args_list], ["single_click"],
+                             "found connected as the bridge starts: no press woke it, no sound")
+            self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"})
             bridge.note_link("disconnected")
+            sent.reset_mock()
+            linked.reset_mock()
             bridge.note_link("ready")
-            self.assertEqual(sent.call_args_list[-1].args[1], "flic_connected", "its sound")
+            self.assertEqual(sent.call_args_list, [], "connected by itself: no sound yet")
+            self.assertEqual(linked.call_args_list, [], "and still said to wait for a press")
             bridge.on_button_event(None, "single", False, 0)
+            self.assertEqual([c.args[1] for c in sent.call_args_list], ["flic_connected", "single_click"])
             self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic", "waking": True})
+            self.assertEqual(linked.call_args_list[-1].args[1], True)
             bridge.on_button_event(None, "double", False, 0)
             self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"}, "only the first one")
             bridge.note_link("disconnected")
             bridge.note_link("ready")
+            sent.reset_mock()
             bridge.on_button_event(None, "single", True, 2)
+            self.assertEqual([c.args[1] for c in sent.call_args_list], ["flic_connected"],
+                             "a waking press that came queued still sounds, and does nothing else")
             bridge.on_button_event(None, "single", False, 0)
-            self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"},
-                             "a waking press that came queued was that first gesture")
+            self.assertEqual(sent.call_args_list[-1].kwargs, {"source": "flic"})
 
     def test_each_button_battery_is_noted(self):
         listeners = self.bridge.client.listeners

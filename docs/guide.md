@@ -908,14 +908,16 @@ that listening takes most of the Wi-Fi. Every restart of `flicd` or the bridge
 it is pressed once: the page then says `Flic button waiting`. A USB dongle for
 the Flic button gives the Wi-Fi its air back in every case.
 
-**The press that connects it.** When the button connects again, the radio plays
-the *Flic button connected* system sound (`folders.flic_connect_sound`, empty
-for none). By default that press only wakes the button; turn off **Ignore the
-press that connects the Flic button** (Settings > Button actions, detailed view,
-`buttons.flic_ignore_waking_press`) and it also does its action. Only the first
-gesture within 3 seconds of the connection counts as that press, and one the
-button delivers late, from its own memory, counts too. While the button waits
-for a press, *Now playing* says so to the house. Its battery shows on the Flic
+**The press that connects it.** The first press after the button connects again
+wakes it: the radio plays the *Flic button connected* system sound
+(`folders.flic_connect_sound`, empty for none). By default that press only wakes
+the button; turn off **Ignore the press that connects the Flic button** (Settings
+> Button actions, detailed view, `buttons.flic_ignore_waking_press`) and it also
+does its action. A button that connects by itself, with no press (it happens as
+the radio starts), is treated as still asleep: nothing shows it is connected, so
+its first press, however late, is that waking one. One the button delivers late,
+from its own memory, counts too. Until that press, *Now playing* says the button
+waits for one. Its battery shows on the Flic
 line of the Bluetooth page (`battery 80 %`, a warning at 15 % or less), as
 flicd reports it: at once, then every few hours.
 
