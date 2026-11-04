@@ -1223,6 +1223,33 @@ class WebTest(unittest.TestCase):
         self.assertTrue(on.get_json()["ok"], on.get_json())
         self.assertEqual(written, [{"HOME_WIFI_ENABLED": False}, {"HOME_WIFI_ENABLED": True}])
 
+    def test_the_personal_wifi_is_never_modified_while_it_connects(self):
+        # Two switches flipped together: the second nmcli call waits for the first to end.
+        running, overlaps = [], []
+
+        def slow_nmcli(args, **kw):
+            overlaps.append(len(running))
+            running.append(args)
+            time.sleep(0.2)
+            running.pop()
+            return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        original = (ws.subprocess.run, ws.update_config_file)
+        ws.subprocess.run = slow_nmcli
+        ws.update_config_file = lambda values: None
+        try:
+            owner = self.owner()
+            other = self.owner()
+            both = [threading.Thread(target=owner.post, args=("/api/wifi/toggle",), kwargs={"json": {"enabled": True}}),
+                    threading.Thread(target=other.post, args=("/api/wifi/autoconnect",), kwargs={"json": {"on": True}})]
+            for thread in both:
+                thread.start()
+            for thread in both:
+                thread.join()
+        finally:
+            ws.subprocess.run, ws.update_config_file = original
+        self.assertEqual(overlaps, [0, 0])
+
     def test_play_now_only_from_up_next(self):
         owner = self.owner()
         self.assertEqual(owner.post("/api/library/queue", json={"key": "unknown"}).status_code, 404)

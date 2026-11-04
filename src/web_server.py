@@ -7503,6 +7503,10 @@ def _read_home_wifi(conn_name):
             "autoconnect": auto == "yes"}
 
 
+# A profile modified while it connects drops its password ("no secrets"): one nmcli call at a time.
+_home_wifi_lock = threading.Lock()
+
+
 @app.route("/api/wifi/autoconnect", methods=["POST"])
 def api_wifi_autoconnect():
     """{on}: whether the personal Wi-Fi comes back by itself at every boot."""
@@ -7510,10 +7514,11 @@ def api_wifi_autoconnect():
     if not conn_name:
         return jsonify({"ok": False, "error": "no_home_wifi"}), 400
     on = bool((request.get_json(silent=True) or {}).get("on"))
-    result = subprocess.run(
-        ["sudo", "-n", "nmcli", "connection", "modify", conn_name, "connection.autoconnect", "yes" if on else "no"],
-        capture_output=True, text=True, timeout=20,
-    )
+    with _home_wifi_lock:
+        result = subprocess.run(
+            ["sudo", "-n", "nmcli", "connection", "modify", conn_name, "connection.autoconnect", "yes" if on else "no"],
+            capture_output=True, text=True, timeout=20,
+        )
     if result.returncode != 0:
         return jsonify({"ok": False, "error": "wifi_setting_failed",
                         "detail": (result.stderr or result.stdout).strip()[-300:]}), 500
@@ -7529,10 +7534,11 @@ def api_wifi_toggle():
 
     body = request.get_json(silent=True) or {}
     action = "up" if body.get("enabled") else "down"
-    result = subprocess.run(
-        ["sudo", "nmcli", "connection", action, conn_name],
-        capture_output=True, text=True, timeout=30,
-    )
+    with _home_wifi_lock:
+        result = subprocess.run(
+            ["sudo", "nmcli", "connection", action, conn_name],
+            capture_output=True, text=True, timeout=30,
+        )
     if result.returncode != 0:
         return jsonify({"ok": False, "error": "wifi_toggle_failed",
                         "detail": (result.stderr or result.stdout).strip()[-300:]}), 500
