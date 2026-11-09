@@ -237,8 +237,11 @@ function volumeControl(key, options) {
     note.hidden = !text;
   };
 
+  const valueRow = volumeField("annvol.label", value);
   const paint = () => {
     value.disabled = !toggle.checked;
+    // Following the music, the number means nothing: it shows only with a volume of its own.
+    valueRow.hidden = !toggle.checked;
     holder.classList.toggle("is-on", toggle.checked);
     paintNote();
   };
@@ -252,8 +255,7 @@ function volumeControl(key, options) {
   value.addEventListener("change", store);
 
   paint();
-  holder.append(volumeField("annvol.own", toggle, hint), volumeField("annvol.label", value),
-                note);
+  holder.append(volumeField("annvol.own", toggle, hint), valueRow, note);
   return holder;
 }
 

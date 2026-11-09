@@ -592,7 +592,12 @@ class RadioDaemon:
         ] + MPV_LEAN
         if volume is not None:
             command.append("--volume=%.1f" % volume)
-        command += [signature, path] if signature else [path]
+        own = self._source_volume("SIGNATURE_SOUND") if signature else None
+        if own is not None:
+            # mpv's --{ --} block sets the level of the signature alone; the sound keeps its own.
+            command += ["--{", "--volume=%.1f" % self._capped(own), signature, "--}", path]
+        else:
+            command += [signature, path] if signature else [path]
         try:
             subprocess.Popen(
                 command,

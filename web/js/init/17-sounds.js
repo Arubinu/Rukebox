@@ -175,6 +175,9 @@ function paintSignature(item) {
     }));
   }
   actions.append(...buttons);
+  const volume = document.getElementById("systemSignatureVolume");
+  volume.replaceChildren(...(item.off ? [] : [volumeControl("SIGNATURE_SOUND", { inline: true })]));
+  volume.hidden = !!item.off;
 }
 
 systemSoundInput.addEventListener("change", async (event) => {

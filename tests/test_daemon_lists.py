@@ -503,6 +503,25 @@ class DaemonListsTest(unittest.TestCase):
             control_client.send_control_command(path, "single_click", source="flic", waking=True)
             click.assert_called_once()
 
+    def test_the_signature_plays_at_its_own_volume_when_it_has_one(self):
+        signature = os.path.join(self.dir, "signature.wav")
+        sound = os.path.join(self.dir, "wifi.wav")
+        for path in (signature, sound):
+            open(path, "wb").close()
+        self.daemon.cfg["SIGNATURE_SOUND"] = signature
+        volumes = {"SIGNATURE_SOUND": 30, "AP_CONNECT_SOUND": 70}
+        with mock.patch.object(rukebox_daemon.subprocess, "Popen") as popen, \
+                mock.patch.object(self.daemon, "_capped", side_effect=lambda v: v), \
+                mock.patch.object(self.daemon, "_source_volume", side_effect=volumes.get):
+            self.daemon._play_cue_sound(sound, "AP_CONNECT_SOUND")
+            command = popen.call_args[0][0]
+            self.assertIn("--volume=70.0", command)
+            self.assertEqual(command[-5:], ["--{", "--volume=30.0", signature, "--}", sound])
+            del volumes["SIGNATURE_SOUND"]
+            self.daemon._play_cue_sound(sound, "AP_CONNECT_SOUND")
+            self.assertEqual(popen.call_args[0][0][-2:], [signature, sound], "no volume of its own: the sound's")
+        self.daemon.cfg["SIGNATURE_SOUND"] = ""
+
     def test_the_signature_opens_every_system_sound_but_the_keep_alive(self):
         signature = os.path.join(self.dir, "signature.wav")
         sound = os.path.join(self.dir, "wifi.wav")
