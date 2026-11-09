@@ -61,6 +61,12 @@ class LibraryTest(unittest.TestCase):
                          sorted([self.files[0], self.files[1]]))
         self.assertEqual(self.lib.paths_for_genres(["Heavy Metal"]), [self.files[0]])
 
+    def test_a_genre_with_an_accent_a_dash_or_an_ampersand_finds_its_songs(self):
+        self.lib.store(self.files[0], {"genre": "Chanson Française;Synth-Pop"}, self.music)
+        self.lib.store(self.files[1], {"genre": "R&B"}, self.music)
+        for name, songs in (("Chanson Française", 1), ("Synth-Pop", 1), ("R&B", 1)):
+            self.assertEqual(self.lib.search("", genre=name)["total"], songs, name)
+
     def test_the_genre_list_follows_the_catalogue(self):
         self.assertEqual(self.lib.facets()["genres"], [])
         self.lib.store(self.files[0], {"genre": "Jazz"}, self.music)

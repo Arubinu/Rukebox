@@ -398,7 +398,8 @@ class Library:
                 " GROUP BY genre ORDER BY COUNT(*) DESC, genre").fetchall()
         for raw, count in rows:
             for name in split_genres(raw):
-                entry = index.setdefault(name.casefold(), {"name": name, "count": 0, "raw": []})
+                # Keyed as the filter looks it up: an accent, a dash or an "&" otherwise finds nothing.
+                entry = index.setdefault(fold(name), {"name": name, "count": 0, "raw": []})
                 entry["count"] += count
                 entry["raw"].append(raw)
         self._genre_cache = index
