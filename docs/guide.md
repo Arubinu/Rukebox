@@ -2824,6 +2824,9 @@ card. A password is a salted PBKDF2 hash and needs 8 characters at least;
 nobody but the owner may go without one, since an account with no password
 would open on its name alone. The first owner account takes the password this
 radio already had when it updates, so the same password keeps working.
+A login lasts **8 days** by default: Security → **Login** (owner only,
+`security.session_days`) sets it from 1 day to 1 year. Shortening it also ends
+the logins already older than the new duration.
 
 **Lists and who owns them.** A list a member makes is theirs: they alone, and
 the operators and the owner, may rename it, change its songs or delete it.

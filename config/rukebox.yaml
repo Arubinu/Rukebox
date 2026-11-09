@@ -1059,6 +1059,10 @@ security:
   # (default) = no password required, this project's original design.
   password_hash: ""
 
+  # Days a login lasts before the password is asked again (1 to 3650).
+  # Shortening it also ends the logins already older than that.
+  session_days: 8
+
   # Random key signing the browser's login session cookie, generated
   # automatically the first time a password is set. Never set this by
   # hand; changing it logs every browser out at once.

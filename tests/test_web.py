@@ -150,6 +150,16 @@ class WebTest(unittest.TestCase):
         client.post("/api/auth/login", json={"password": "secret"})
         return client
 
+    def test_a_login_lasts_the_days_the_owner_chose(self):
+        client = self.owner()
+        later = time.time() + 2 * 86400
+        with unittest.mock.patch.dict(self.extra, {"SESSION_DAYS": 8}), \
+                unittest.mock.patch.object(ws.time, "time", return_value=later):
+            self.assertEqual(client.get("/api/reminders").status_code, 200)
+        with unittest.mock.patch.dict(self.extra, {"SESSION_DAYS": 1}), \
+                unittest.mock.patch.object(ws.time, "time", return_value=later):
+            self.assertEqual(client.get("/api/reminders").status_code, 401, "shortened: an older login ends")
+
     def test_the_session_cookie_is_sent_at_login_not_with_every_answer(self):
         client = ws.app.test_client()
         login = client.post("/api/auth/login", json={"password": "secret"})

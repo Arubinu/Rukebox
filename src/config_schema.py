@@ -1151,6 +1151,12 @@ SETTINGS = [
         "Web interface password (hash)",
     ),
     Setting(
+        "SESSION_DAYS", "security", "session_days", "int", "8",
+        "Days a login lasts before the password is asked again (1 to 3650).\n"
+        "Shortening it also ends the logins already older than that.",
+        "Stay logged in (days)",
+    ),
+    Setting(
         "WEB_SESSION_SECRET", "security", "session_secret", "str", "",
         "Random key signing the browser's login session cookie, generated\n"
         "automatically the first time a password is set. Never set this by\n"

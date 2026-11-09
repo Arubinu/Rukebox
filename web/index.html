@@ -3125,6 +3125,28 @@
               <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
             </div>
           </form>
+          <details class="subsection" id="sessionSection">
+            <summary><span data-i18n="session.section">Login</span></summary>
+            <form id="sessionForm" class="settings-form">
+              <div class="field-row">
+                <div class="field-text">
+                  <label for="sessionDays" data-i18n="session.days">Stay logged in</label>
+                  <p class="field-desc" id="sessionDaysDesc" data-i18n="session.days_desc">How long a login lasts before the password is asked again. Shortening it also ends older logins.</p>
+                </div>
+                <select id="sessionDays" data-key="security.session_days" aria-describedby="sessionDaysDesc">
+                  <option value="1" data-i18n="session.d1">1 day</option>
+                  <option value="3" data-i18n="session.d3">3 days</option>
+                  <option value="8" data-i18n="session.d8">8 days</option>
+                  <option value="30" data-i18n="session.d30">30 days</option>
+                  <option value="90" data-i18n="session.d90">90 days</option>
+                  <option value="365" data-i18n="session.d365">1 year</option>
+                </select>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-icon="check" data-i18n="common.save">Save</button>
+              </div>
+            </form>
+          </details>
           <details class="subsection" id="domainSection">
             <summary><span data-i18n="domain.section">Access through a domain name</span></summary>
             <p class="hint help-text" data-i18n="domain.help" hidden>To reach the interface through a domain name, for instance behind a reverse proxy with an HTTPS certificate, list that name here: any other name pointing at the radio is refused, which is what stops another site from reading the interface.</p>

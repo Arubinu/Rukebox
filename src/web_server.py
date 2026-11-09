@@ -216,15 +216,24 @@ def _ensure_upnp_identity(values=None):
 
 app.secret_key = _ensure_session_secret(_startup_cfg)
 _ensure_upnp_identity(_startup_cfg)
-AUTH_MAX_AGE = timedelta(days=8)
-app.permanent_session_lifetime = AUTH_MAX_AGE
-# The login ends AUTH_MAX_AGE after auth_at whatever the cookie says: re-signing it on every
-# answer bought nothing but a Set-Cookie each time.
+SESSION_DAYS_MAX = 3650
+# The cookie outlives any choice: the login ends security.session_days after auth_at, read at each request.
+app.permanent_session_lifetime = timedelta(days=SESSION_DAYS_MAX)
+# Re-signing the cookie on every answer bought nothing but a Set-Cookie each time.
 app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 
 
+def _session_seconds():
+    """How long a login lasts, as the owner chose it."""
+    try:
+        days = int(cfg().get("SESSION_DAYS") or 8)
+    except (TypeError, ValueError):
+        days = 8
+    return max(1, min(SESSION_DAYS_MAX, days)) * 86400
+
+
 def _is_authenticated():
-    """Logged in as an account, less than AUTH_MAX_AGE ago."""
+    """Logged in as an account, within the chosen login duration."""
     return _session_account() is not None
 
 
@@ -238,7 +247,7 @@ def _session_account():
             logged_in_at = float(session.get("auth_at", 0))
         except (TypeError, ValueError):
             logged_in_at = 0
-        if time.time() - logged_in_at > AUTH_MAX_AGE.total_seconds():
+        if time.time() - logged_in_at > _session_seconds():
             _log_out()
         else:
             account = accounts.by_id(session.get("account_id")) or _legacy_owner()
@@ -5693,7 +5702,7 @@ _SETTINGS_WRITE_ONLY = {"home_assistant.password"}
 # an operator keeps every other setting (src/roles.py).
 _OWNER_SETTINGS = frozenset(
     {s.path for s in config_schema.SETTINGS if s.section in ("network", "updates", "paths", "sync")}
-    | {"security.gpio_reset_enabled", "security.gpio_reset_pin", "hardware.usb_port_mode"})
+    | {"security.gpio_reset_enabled", "security.gpio_reset_pin", "security.session_days", "hardware.usb_port_mode"})
 
 
 def _owner_settings_in(keys):
